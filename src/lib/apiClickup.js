@@ -1,12 +1,13 @@
-// src/lib/apiClickup.js
 const API =
   import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com";
-const API_BASE = `${API}/api/clickup`;
+
+const API_BASE = `${String(API).replace(/\/$/, "")}/api/clickup`;
 
 function getAuthHeaders() {
   let token = null;
 
   const raw = localStorage.getItem("auth");
+
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
@@ -20,12 +21,24 @@ function getAuthHeaders() {
     token = localStorage.getItem("auth.access");
   }
 
-  const headers = {};
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
-  return headers;
+async function leerRespuesta(res) {
+  const contentType = res.headers.get("content-type") || "";
+
+  if (res.status === 204) return null;
+
+  try {
+    if (contentType.includes("application/json")) {
+      return await res.json();
+    }
+
+    const text = await res.text();
+    return text || null;
+  } catch {
+    return null;
+  }
 }
 
 async function http(url, options = {}) {
@@ -40,20 +53,16 @@ async function http(url, options = {}) {
     },
   });
 
-  let data = null;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
+  const data = await leerRespuesta(res);
 
   if (!res.ok) {
     const message =
       data?.detail ||
       data?.error ||
       data?.mensaje ||
+      data?.message ||
       (typeof data === "string" ? data : null) ||
-      "Ocurrió un error en la petición.";
+      `Error HTTP ${res.status}`;
 
     const err = new Error(message);
     err.status = res.status;
@@ -64,11 +73,22 @@ async function http(url, options = {}) {
   return data;
 }
 
+function texto(valor) {
+  return String(valor ?? "").trim();
+}
+
+function numero(valor) {
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : null;
+}
+
 function normalizeTeam(team) {
   return {
     id: Number(team.id),
     name: team.nombre ?? "",
+    nombre: team.nombre ?? "",
     description: team.descripcion ?? "",
+    descripcion: team.descripcion ?? "",
     owner: team.propietario ?? null,
     created_at: team.creado_en ?? null,
   };
@@ -76,6 +96,7 @@ function normalizeTeam(team) {
 
 function normalizeMember(item) {
   const u = item.usuario || {};
+
   return {
     id: Number(item.id),
     team: Number(item.equipo),
@@ -83,18 +104,19 @@ function normalizeMember(item) {
     active: Boolean(item.activo),
     joined_at: item.unido_en,
     user: u,
+    user_id: Number(u.id_usuario),
     name:
       u.nombre_completo ||
       [u.nombre, u.apellidos].filter(Boolean).join(" ").trim() ||
       u.correo ||
       "Miembro",
     email: u.correo || "",
-    user_id: Number(u.id_usuario),
   };
 }
 
 function normalizeInvite(item) {
   const u = item.usuario_invitado || {};
+
   return {
     id: Number(item.id),
     team: Number(item.equipo),
@@ -110,7 +132,8 @@ function normalizeInvite(item) {
           name:
             u.nombre_completo ||
             [u.nombre, u.apellidos].filter(Boolean).join(" ").trim() ||
-            u.correo,
+            u.correo ||
+            "Usuario",
           email: u.correo || "",
           username: u.usuario || "",
         }
@@ -123,7 +146,9 @@ function normalizeProject(project) {
     id: Number(project.id),
     team: Number(project.equipo),
     name: project.nombre ?? "",
+    nombre: project.nombre ?? "",
     description: project.descripcion ?? "",
+    descripcion: project.descripcion ?? "",
     color: project.color ?? "#64748b",
     created_at: project.creado_en ?? null,
   };
@@ -134,6 +159,7 @@ function normalizeList(list) {
     id: Number(list.id),
     project: Number(list.proyecto),
     name: list.nombre ?? "",
+    nombre: list.nombre ?? "",
     order: Number(list.orden ?? 0),
   };
 }
@@ -142,8 +168,11 @@ function normalizeEvidence(item) {
   return {
     id: Number(item.id),
     type: item.tipo,
+    tipo: item.tipo,
     comment: item.comentario || "",
+    comentario: item.comentario || "",
     file_url: item.archivo_url || "",
+    archivo_url: item.archivo_url || "",
     created_at: item.creado_en,
     uploaded_by: item.subido_por
       ? {
@@ -169,33 +198,41 @@ function normalizeTask(task, listsMap = {}) {
     id: Number(task.id),
     list: listId,
     list_id: listId,
-    list_name: listsMap[listId]?.name || "",
+    list_name: listsMap[listId]?.name || task.lista_nombre || "",
     title: task.titulo ?? "",
     titulo: task.titulo ?? "",
     description: task.descripcion ?? "",
+    descripcion: task.descripcion ?? "",
     priority: task.prioridad ?? "MEDIUM",
+    prioridad: task.prioridad ?? "MEDIUM",
+    estado: task.estado ?? "",
     created_at: task.creada ?? null,
-    start_date: task.inicio ?? task.fecha_inicio ?? task.creada ?? null,
-    due_date: task.vence ?? task.fecha_vencimiento ?? null,
+    start_date: task.start_date ?? task.inicio ?? null,
+    due_date: task.due_date ?? task.vence ?? null,
+    inicio: task.inicio ?? null,
+    vence: task.vence ?? null,
     order: Number(task.orden ?? 0),
     created_by: task.creado_por ?? null,
     bug_evidencias_count: Number(task.bug_evidencias_count ?? 0),
     resolution_evidencias_count: Number(task.resolution_evidencias_count ?? 0),
 
-    // EXTRAER CAMPOS DEL PLAN DE ACCIÓN DESDE EL BACKEND:
     descripcion_problema: task.descripcion_problema ?? "",
     causa: task.causa ?? "",
     raiz: task.raiz ?? "",
     desarrollo_estrategia: task.desarrollo_estrategia ?? "",
     resultados: task.resultados ?? "",
 
-    // NORMALIZAR LISTA DE SUBTAREAS:
     subtareas: Array.isArray(task.subtareas)
-      ? task.subtareas.map((s) => ({
-          id: s.id,
-          titulo: s.titulo ?? "",
-          done: Boolean(s.done ?? s.completado ?? false), // Mapeo seguro por si cambia el booleano
-        }))
+      ? task.subtareas.map((s) => {
+          const titulo = s.title ?? s.titulo ?? "";
+          return {
+            id: s.id,
+            title: titulo,
+            titulo,
+            done: Boolean(s.done ?? s.completada ?? false),
+            completada: Boolean(s.done ?? s.completada ?? false),
+          };
+        })
       : [],
 
     report: task.reporte
@@ -210,6 +247,7 @@ function normalizeTask(task, listsMap = {}) {
           resolved_at: task.reporte.resuelto_en,
         }
       : null,
+
     assigned: Array.isArray(task.asignados)
       ? task.asignados.map((a) => ({
           id: Number(a.id),
@@ -270,8 +308,8 @@ export const apiClickup = {
 
   async createTeam(payload) {
     const body = {
-      nombre: String(payload?.name || "").trim(),
-      descripcion: String(payload?.description || "").trim(),
+      nombre: texto(payload?.name || payload?.nombre),
+      descripcion: texto(payload?.description || payload?.descripcion),
     };
 
     const data = await http(`${API_BASE}/equipos/`, {
@@ -282,36 +320,10 @@ export const apiClickup = {
     return normalizeTeam(data);
   },
 
-  async listProjects(teamId) {
-    const data = await http(`${API_BASE}/equipos/${Number(teamId)}/proyectos/`);
-    return Array.isArray(data) ? data.map(normalizeProject) : [];
-  },
-
-  async createProject(teamId, payload) {
-    const body = {
-      nombre: String(payload?.name || "").trim(),
-      descripcion: String(payload?.description || "").trim(),
-      color: payload?.color || null,
-    };
-
-    const data = await http(
-      `${API_BASE}/equipos/${Number(teamId)}/proyectos/`,
-      {
-        method: "POST",
-        body: JSON.stringify(body),
-      },
-    );
-
-    return normalizeProject(data);
-  },
-
-  async bootstrapProject(teamId, projectId) {
-    const data = await http(
-      `${API_BASE}/equipos/${Number(teamId)}/proyectos/${Number(projectId)}/bootstrap/`,
-      { method: "POST" },
-    );
-
-    return Array.isArray(data) ? data.map(normalizeList) : [];
+  async deleteTeam(teamId) {
+    return await http(`${API_BASE}/equipos/${Number(teamId)}/`, {
+      method: "DELETE",
+    });
   },
 
   async listMembers(teamId) {
@@ -326,19 +338,10 @@ export const apiClickup = {
     return Array.isArray(data) ? data.map(normalizeInvite) : [];
   },
 
-  async searchUsers(q, limit = 10) {
-    const data = await http(
-      `${API_BASE}/usuarios/buscar/?q=${encodeURIComponent(q || "")}&limit=${Number(limit)}`,
-    );
-    return Array.isArray(data) ? data.map(normalizeUser) : [];
-  },
-
   async invite(teamId, payload) {
     const body = {
       usuario_id: Number(payload?.usuario_id),
-      rol: String(payload?.rol || "MEMBER")
-        .trim()
-        .toUpperCase(),
+      rol: texto(payload?.rol || "MEMBER").toUpperCase(),
     };
 
     return await http(`${API_BASE}/equipos/${Number(teamId)}/invitar/`, {
@@ -361,6 +364,62 @@ export const apiClickup = {
     });
   },
 
+  async listProjects(teamId) {
+    const data = await http(`${API_BASE}/equipos/${Number(teamId)}/proyectos/`);
+    return Array.isArray(data) ? data.map(normalizeProject) : [];
+  },
+
+  async createProject(teamId, payload) {
+    const body = {
+      nombre: texto(payload?.name || payload?.nombre),
+      descripcion: texto(payload?.description || payload?.descripcion),
+      color: payload?.color || null,
+    };
+
+    const data = await http(
+      `${API_BASE}/equipos/${Number(teamId)}/proyectos/`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    );
+
+    return normalizeProject(data);
+  },
+
+  async updateProject(teamId, projectId, payload) {
+    const body = {
+      nombre: texto(payload?.name || payload?.nombre),
+      descripcion: texto(payload?.description || payload?.descripcion),
+    };
+
+    const data = await http(
+      `${API_BASE}/equipos/${Number(teamId)}/proyectos/${Number(projectId)}/`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      },
+    );
+
+    return normalizeProject(data);
+  },
+
+  async deleteProject(teamId, projectId) {
+    return await http(
+      `${API_BASE}/equipos/${Number(teamId)}/proyectos/${Number(projectId)}/`,
+      { method: "DELETE" },
+    );
+  },
+
+  async bootstrapProject(teamId, projectId) {
+    const data = await http(
+      `${API_BASE}/equipos/${Number(teamId)}/proyectos/${Number(projectId)}/bootstrap/`,
+      { method: "POST" },
+    );
+
+    return Array.isArray(data) ? data.map(normalizeList) : [];
+  },
+
   async getBoard(teamId, projectId) {
     const data = await http(
       `${API_BASE}/equipos/${Number(teamId)}/tablero/?proyecto_id=${Number(projectId)}`,
@@ -369,8 +428,8 @@ export const apiClickup = {
     const lists = Array.isArray(data?.listas)
       ? data.listas.map(normalizeList)
       : [];
-    const listsMap = Object.fromEntries(lists.map((l) => [l.id, l]));
 
+    const listsMap = Object.fromEntries(lists.map((l) => [l.id, l]));
     const rawTasksByList = data?.tareas_por_lista || {};
     const tasks_by_list = {};
 
@@ -406,28 +465,26 @@ export const apiClickup = {
   async createTask(teamId, payload) {
     const body = {
       lista: Number(payload.lista),
-      titulo: String(payload.titulo || "").trim(),
-      descripcion: String(payload.descripcion || "").trim(),
-      prioridad: String(payload.prioridad || "MEDIUM")
-        .trim()
-        .toUpperCase(),
+      titulo: texto(payload.titulo),
+      descripcion: texto(payload.descripcion),
+      prioridad: texto(payload.prioridad || "MEDIUM").toUpperCase(),
+      inicio: payload.inicio || null,
       vence: payload.vence || null,
       asignados_ids: Array.isArray(payload.asignados_ids)
-        ? payload.asignados_ids.map(Number)
+        ? payload.asignados_ids.map(Number).filter(Number.isFinite)
         : [],
-
-      // CAMPOS EXTENDIDOS DEL PLAN DE ACCIÓN REQUERIDOS POR TU BACKEND:
       descripcion_problema: payload.descripcion_problema || "",
       causa: payload.causa || "",
       raiz: payload.raiz || "",
       desarrollo_estrategia: payload.desarrollo_estrategia || "",
       resultados: payload.resultados || "",
-      subtareas: Array.isArray(payload.subtareas) ? payload.subtareas : [],
+      subtareas: Array.isArray(payload.subtareas)
+        ? payload.subtareas.map((s) => ({
+            titulo: texto(s.titulo || s.title),
+            done: Boolean(s.done ?? s.completada ?? false),
+          }))
+        : [],
     };
-
-    if ("inicio" in payload) {
-      body.inicio = payload.inicio || null;
-    }
 
     const data = await http(
       `${API_BASE}/equipos/${Number(teamId)}/tablero/crear-tarea/`,
@@ -443,33 +500,36 @@ export const apiClickup = {
   async updateTask(teamId, taskId, payload) {
     const body = {};
 
-    if ("titulo" in payload) body.titulo = String(payload.titulo || "").trim();
-    if ("descripcion" in payload)
-      body.descripcion = String(payload.descripcion || "").trim();
-    if ("prioridad" in payload)
-      body.prioridad = String(payload.prioridad || "MEDIUM")
-        .trim()
-        .toUpperCase();
-    if ("vence" in payload) body.vence = payload.vence || null;
-    if ("inicio" in payload) body.inicio = payload.inicio || null;
     if ("lista" in payload) body.lista = Number(payload.lista);
+    if ("titulo" in payload) body.titulo = texto(payload.titulo);
+    if ("descripcion" in payload) body.descripcion = texto(payload.descripcion);
+    if ("prioridad" in payload) {
+      body.prioridad = texto(payload.prioridad || "MEDIUM").toUpperCase();
+    }
+    if ("inicio" in payload) body.inicio = payload.inicio || null;
+    if ("vence" in payload) body.vence = payload.vence || null;
     if ("asignados_ids" in payload) {
       body.asignados_ids = Array.isArray(payload.asignados_ids)
-        ? payload.asignados_ids.map(Number)
+        ? payload.asignados_ids.map(Number).filter(Number.isFinite)
         : [];
     }
 
-    // CAMPOS EXTENDIDOS BLINDADOS PARA EL PATCH:
-    if ("descripcion_problema" in payload)
+    if ("descripcion_problema" in payload) {
       body.descripcion_problema = payload.descripcion_problema ?? "";
+    }
     if ("causa" in payload) body.causa = payload.causa ?? "";
     if ("raiz" in payload) body.raiz = payload.raiz ?? "";
-    if ("desarrollo_estrategia" in payload)
+    if ("desarrollo_estrategia" in payload) {
       body.desarrollo_estrategia = payload.desarrollo_estrategia ?? "";
+    }
     if ("resultados" in payload) body.resultados = payload.resultados ?? "";
+
     if ("subtareas" in payload) {
       body.subtareas = Array.isArray(payload.subtareas)
-        ? payload.subtareas
+        ? payload.subtareas.map((s) => ({
+            titulo: texto(s.titulo || s.title),
+            done: Boolean(s.done ?? s.completada ?? false),
+          }))
         : [];
     }
 
@@ -486,23 +546,29 @@ export const apiClickup = {
 
   async deleteTask(teamId, taskId) {
     return await http(
-      `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/eliminar_tarea/`,
+      `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/eliminar/`,
       { method: "DELETE" },
     );
   },
 
   async uploadTaskEvidence(teamId, taskId, payload) {
-    const formData = new FormData();
-    formData.append("tipo", payload?.tipo || "BUG");
-    formData.append("comentario", payload?.comentario || "");
+    let formData;
 
-    (payload?.archivos || []).forEach((file) => {
-      formData.append("archivos", file);
-    });
+    if (payload instanceof FormData) {
+      formData = payload;
+    } else {
+      formData = new FormData();
+      formData.append("tipo", payload?.tipo || "RESOLUTION");
+      formData.append("comentario", payload?.comentario || "");
 
-    // acción del backend: 'subir_evidencia'
+      const archivos = Array.isArray(payload?.archivos) ? payload.archivos : [];
+      archivos.forEach((file) => {
+        formData.append("archivos", file);
+      });
+    }
+
     const data = await http(
-      `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/subir_evidencia/`,
+      `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/evidencias/`,
       {
         method: "POST",
         body: formData,
@@ -512,18 +578,23 @@ export const apiClickup = {
     return Array.isArray(data) ? data.map(normalizeEvidence) : [];
   },
 
+  async searchUsers(q, limit = 10) {
+    const data = await http(
+      `${API_BASE}/usuarios/buscar/?q=${encodeURIComponent(q || "")}&limit=${Number(limit)}`,
+    );
+
+    return Array.isArray(data) ? data.map(normalizeUser) : [];
+  },
+
   async createReport(payload) {
     const formData = new FormData();
-    formData.append(
-      "tipo",
-      String(payload?.tipo || "BUG")
-        .trim()
-        .toUpperCase(),
-    );
-    formData.append("titulo", String(payload?.titulo || "").trim());
-    formData.append("descripcion", String(payload?.descripcion || "").trim());
 
-    (payload?.imagenes || []).forEach((file) => {
+    formData.append("tipo", texto(payload?.tipo || "BUG").toUpperCase());
+    formData.append("titulo", texto(payload?.titulo));
+    formData.append("descripcion", texto(payload?.descripcion));
+
+    const imagenes = Array.isArray(payload?.imagenes) ? payload.imagenes : [];
+    imagenes.forEach((file) => {
       formData.append("imagenes", file);
     });
 
@@ -541,46 +612,14 @@ export const apiClickup = {
   async dismissNotification(notificationId) {
     return await http(
       `${API_BASE}/notificaciones/${Number(notificationId)}/descartar/`,
-      {
-        method: "POST",
-      },
+      { method: "POST" },
     );
   },
 
   async readNotification(notificationId) {
     return await http(
       `${API_BASE}/notificaciones/${Number(notificationId)}/leer/`,
-      {
-        method: "POST",
-      },
-    );
-  },
-
-  async updateProject(teamId, projectId, payload) {
-    const body = {
-      nombre: String(payload?.name || "").trim(),
-      descripcion: String(payload?.description || "").trim(),
-    };
-    const data = await http(
-      `${API_BASE}/equipos/${Number(teamId)}/proyectos/${Number(projectId)}/`,
-      {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      },
-    );
-    return normalizeProject(data);
-  },
-
-  async deleteTeam(teamId) {
-    return await http(`${API_BASE}/equipos/${Number(teamId)}/`, {
-      method: "DELETE",
-    });
-  },
-
-  async deleteProject(teamId, projectId) {
-    return await http(
-      `${API_BASE}/equipos/${Number(teamId)}/proyectos/${Number(projectId)}/`,
-      { method: "DELETE" },
+      { method: "POST" },
     );
   },
 };

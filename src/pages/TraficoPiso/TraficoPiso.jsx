@@ -268,7 +268,7 @@ function validarFormulario(form) {
     return errores;
 }
 
-// ==================== COMPONENTES UI ====================
+// ==================== COMPONENTES UI BÁSICOS ====================
 function Skeleton({ className = "" }) { return <div className={["animate-pulse rounded-md bg-black/10", className].join(" ")} />; }
 function SkeletonRow() { return <tr className="animate-pulse">{Array.from({ length: 10 }).map((_, i) => <td key={i} className="px-4 py-3"><div className="h-4 w-full max-w-[160px] rounded bg-slate-200/70" /></td>)}</tr>; }
 function ModalSkeleton() { return <div className="grid gap-3 md:grid-cols-3">{Array.from({ length: 12 }).map((_, i) => <div key={i} className="rounded-lg border border-white/10 bg-neutral-200/50 p-4"><Skeleton className="h-4 w-36" /><Skeleton className="mt-3 h-10 w-full rounded-lg" /></div>)}<div className="rounded-lg border border-white/10 bg-neutral-200/50 p-4 md:col-span-3"><Skeleton className="h-4 w-40" /><Skeleton className="mt-3 h-24 w-full rounded-lg" /></div></div>; }
@@ -300,12 +300,11 @@ function AsesorAutocomplete({ value, onChange, invalid }) {
     return <div ref={wrapperRef} className="relative"><Input value={value} invalid={invalid} onChange={(e) => { onChange(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} placeholder="Escribe para buscar asesor..." />{open && <div className="absolute left-0 right-0 top-12 z-30 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"><div className="border-b border-black/10 px-3 py-2 text-xs font-bold text-[#131E5C]">Selecciona un asesor</div><div className="max-h-56 overflow-y-auto">{opciones.length === 0 && <button type="button" onClick={() => setOpen(false)} className="block w-full px-3 py-3 text-left text-sm font-semibold text-slate-500 hover:bg-slate-50">No encontré coincidencias. Puedes dejar el nombre escrito manualmente.</button>}{opciones.map((asesor) => <button key={asesor} type="button" onClick={() => { onChange(asesor); setOpen(false); }} className="block w-full px-3 py-3 text-left hover:bg-slate-50"><div className="text-sm font-extrabold text-[#131E5C]">{asesor}</div></button>)}</div></div>}</div>;
 }
 
-function StatCard({ label, value, helper, icon: Icon }) { return <div className="rounded-lg border border-black/10 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-extrabold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-2 text-2xl font-extrabold text-[#131E5C]">{value}</p>{helper ? <p className="mt-1 text-xs font-semibold text-slate-500">{helper}</p> : null}</div>{Icon && <div className="rounded-2xl bg-[#131E5C]/10 p-3 text-[#131E5C]"><Icon className="h-5 w-5" /></div>}</div></div>; }
-
 function SortButton({ label, sortKey, sort, onClick }) { const active = sort.key === sortKey; return <button type="button" onClick={() => onClick(sortKey)} className="inline-flex items-center gap-1 text-xs font-bold">{label}<span className="opacity-70">{active ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}</span></button>; }
 
 function ContextMenu({ ctxMenu, onDelete, onClose }) { if (!ctxMenu.open || !ctxMenu.row) return null; return createPortal(<div className="fixed z-[9999]" style={{ left: ctxMenu.x, top: ctxMenu.y }} onClick={(e) => e.stopPropagation()}><div className="w-48 overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl"><button type="button" className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50" onClick={() => onDelete(ctxMenu.row)}><Trash2 className="h-4 w-4" /> Eliminar</button><button type="button" className="w-full px-4 py-2 text-left text-xs text-slate-500 hover:bg-slate-50" onClick={onClose}>Cerrar</button></div></div>, document.body); }
 
+// ==================== COMPONENTES DE GRÁFICOS ====================
 function Bar({ label, value, max, color, total }) {
     const [hovered, setHovered] = useState(false);
     const pct = max > 0 ? Math.round((value / max) * 100) : 0;
@@ -352,23 +351,195 @@ function GraficosView({ rows }) {
     return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><div className="xl:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3"><KpiCard label="Total registros" value={stats.total} color="text-[#131E5C]" bg="bg-[#131E5C]/5" detail="Total de prospectos registrados" /><KpiCard label="Deja auto a cuenta" value={stats.conAutoCuenta} color="text-emerald-700" bg="bg-emerald-50" detail={`${stats.total > 0 ? Math.round((stats.conAutoCuenta / stats.total) * 100) : 0}% del total`} /><KpiCard label="No deja auto a cuenta" value={stats.sinAutoCuenta} color="text-red-600" bg="bg-red-50" detail={`${stats.total > 0 ? Math.round((stats.sinAutoCuenta / stats.total) * 100) : 0}% del total`} /><KpiCard label="Presupuesto promedio" value={money(stats.promedioPresupuesto)} color="text-blue-700" bg="bg-blue-50" detail={`Total: ${money(stats.totalPresupuesto)}`} /></div><div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm"><div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><Building2 className="h-4 w-4" /> Por dealer</div><div className="space-y-1">{topAgencias.map(([agencia, cnt], i) => <div key={agencia}><div className="flex items-center justify-between px-2 mb-0.5"><span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{agencia}</span></div><Bar label={agencia} value={cnt} max={maxAgencia} color={AGENCIA_COLORS[i % AGENCIA_COLORS.length]} total={stats.total} /></div>)}{topAgencias.length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}</div></div><div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-2"><div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><UserSearch className="h-4 w-4" /> Por asesor de ventas (top 8)</div><div className="space-y-1">{topAsesores.map(([asesor, cnt], i) => <div key={asesor}><div className="flex items-center justify-between px-2 mb-0.5"><span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{asesor}</span></div><Bar label={asesor} value={cnt} max={maxAsesor} color={ASESOR_COLORS[i % ASESOR_COLORS.length]} total={stats.total} /></div>)}{topAsesores.length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}</div></div><div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm"><div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><MessageSquareText className="h-4 w-4" /> Por motivo de ingreso</div><div className="space-y-1">{topMotivos.map(([motivo, cnt], i) => <div key={motivo}><div className="flex items-center justify-between px-2 mb-0.5"><span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{motivo}</span></div><Bar label={motivo} value={cnt} max={maxMotivo} color={MOTIVO_COLORS[i % MOTIVO_COLORS.length]} total={stats.total} /></div>)}{topMotivos.length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}</div></div><div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm"><div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Por tipo de persona</div><div className="space-y-1">{Object.entries(stats.porTipoPersona).map(([tipo, cnt]) => { const pct = stats.total > 0 ? Math.round((cnt / stats.total) * 100) : 0; const color = tipo === "Física" ? "bg-emerald-500" : "bg-violet-500"; return <div key={tipo} className="group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-slate-50 cursor-default"><span className={`h-2.5 w-2.5 rounded-full shrink-0 ${color}`} /><span className="text-xs font-semibold text-slate-600 flex-1 truncate group-hover:text-[#131E5C] transition-colors">{tipo}</span><span className="text-xs font-bold text-slate-400 group-hover:text-slate-600 transition-colors">{pct}%</span><div className="w-24 h-3 bg-slate-100 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 group-hover:opacity-100 opacity-75 ${color}`} style={{ width: `${pct}%` }} /></div><span className="text-xs font-bold text-[#131E5C] w-5 text-right">{cnt}</span></div>; })}{Object.keys(stats.porTipoPersona).length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}</div></div><div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm"><div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><Clock className="h-4 w-4" /> Por tiempo de compra</div><div className="space-y-1">{Object.entries(stats.porTiempoCompra).map(([tiempo, cnt]) => { const pct = stats.total > 0 ? Math.round((cnt / stats.total) * 100) : 0; return <div key={tiempo} className="group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-slate-50 cursor-default"><span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" /><span className="text-xs font-semibold text-slate-600 flex-1 truncate group-hover:text-[#131E5C] transition-colors">{tiempo}</span><span className="text-xs font-bold text-slate-400 group-hover:text-slate-600 transition-colors">{pct}%</span><div className="w-24 h-3 bg-slate-100 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-500 group-hover:opacity-100 opacity-75 bg-amber-500" style={{ width: `${pct}%` }} /></div><span className="text-xs font-bold text-[#131E5C] w-5 text-right">{cnt}</span></div>; })}{Object.keys(stats.porTiempoCompra).length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}</div></div><div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm"><div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Por día de la semana</div><div className="flex items-end gap-2 mt-2" style={{ height: "110px" }}>{Object.entries(stats.porDia).map(([dia, cnt]) => { const pct = maxDia > 0 ? (cnt / maxDia) * 100 : 0; return <ColBar key={dia} dia={dia} cnt={cnt} pct={pct} hovered={hoveredDia === dia} onEnter={() => setHoveredDia(dia)} onLeave={() => setHoveredDia(null)} />; })}</div></div><div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm"><div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><CircleDollarSign className="h-4 w-4" /> Por forma de capitalización</div><div className="space-y-1">{Object.entries(stats.porFormaCapitalizacion).map(([forma, cnt]) => { const pct = stats.total > 0 ? Math.round((cnt / stats.total) * 100) : 0; return <div key={forma} className="group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-slate-50 cursor-default"><span className="h-2.5 w-2.5 rounded-full bg-cyan-500 shrink-0" /><span className="text-xs font-semibold text-slate-600 flex-1 truncate group-hover:text-[#131E5C] transition-colors">{forma}</span><span className="text-xs font-bold text-slate-400 group-hover:text-slate-600 transition-colors">{pct}%</span><div className="w-24 h-3 bg-slate-100 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-500 group-hover:opacity-100 opacity-75 bg-cyan-500" style={{ width: `${pct}%` }} /></div><span className="text-xs font-bold text-[#131E5C] w-5 text-right">{cnt}</span></div>; })}{Object.keys(stats.porFormaCapitalizacion).length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}</div></div></div>;
 }
 
+// ==================== COMPONENTE AGENDA ====================
+// ==================== COMPONENTE AGENDA ====================
 function AgendaTraficoPiso({ rows, loading, onEdit, onNewAtSlot }) {
     const [weekRef, setWeekRef] = useState(new Date());
-    const weekDates = useMemo(() => { const d = new Date(weekRef); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); const monday = new Date(d.setDate(diff)); return Array.from({ length: 7 }, (_, i) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i)); }, [weekRef]);
+
+    const weekDates = useMemo(() => {
+        const d = new Date(weekRef);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d.setDate(diff));
+        return Array.from({ length: 7 }, (_, i) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i));
+    }, [weekRef]);
+
     const goNext = () => { const d = new Date(weekRef); d.setDate(d.getDate() + 7); setWeekRef(d); };
     const goPrev = () => { const d = new Date(weekRef); d.setDate(d.getDate() - 7); setWeekRef(d); };
     const goToday = () => setWeekRef(new Date());
-    const traficoByDayHour = useMemo(() => { const map = {}; for (const row of rows) { if (!row.creado_en) continue; const dt = new Date(row.creado_en); if (isNaN(dt.getTime())) continue; const dayKey = toYMDLocal(dt); const hour = dt.getHours(); if (!map[dayKey]) map[dayKey] = {}; if (!map[dayKey][hour]) map[dayKey][hour] = []; map[dayKey][hour].push(row); } return map; }, [rows]);
-    const weekLabel = useMemo(() => { const start = weekDates[0]; const end = weekDates[6]; const sm = start.getDate(); const em = end.getDate(); const smth = MONTHS_ES[start.getMonth()]; const emth = MONTHS_ES[end.getMonth()]; const yr = end.getFullYear(); if (start.getMonth() === end.getMonth()) return `${sm} – ${em} de ${smth} de ${yr}`; return `${sm} de ${smth} – ${em} de ${emth} de ${yr}`; }, [weekDates]);
-    function isSameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
-    return <div className="rounded-lg border border-black/10 bg-white overflow-hidden shadow-sm"><div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-black/10"><div><div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Semana de tráfico</div><div className="text-sm font-extrabold text-[#131E5C]">{weekLabel}</div></div><div className="flex gap-2"><span className="px-2 py-1 text-xs rounded-full bg-[#131E5C]/10 text-[#131E5C] font-semibold">Tráfico de piso</span></div><div className="flex items-center gap-2"><button onClick={goPrev} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]"><ChevronLeft className="h-4 w-4" /></button><button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-[#131E5C] text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition">Hoy</button><button onClick={goNext} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]"><ChevronRight className="h-4 w-4" /></button></div></div><div className="overflow-auto"><table className="min-w-full border-collapse" style={{ tableLayout: "fixed" }}><colgroup><col style={{ width: "64px" }} />{HOURS_AGENDA.map((_, i) => <col key={i} style={{ width: `calc((100% - 64px) / ${HOURS_AGENDA.length})` }} />)}</colgroup><thead><tr><th className="px-2 py-3 text-xs font-bold text-slate-400 bg-white border-b border-r border-black/10">Día</th>{HOURS_AGENDA.map((hour, i) => <th key={i} className="px-2 py-3 text-center border-b border-r border-black/10 bg-white"><div className="text-xs font-bold text-[#131E5C]">{String(hour).padStart(2, "0")}:00</div></th>)}</tr></thead><tbody>{loading ? <tr><td colSpan={HOURS_AGENDA.length + 1} className="px-4 py-16 text-center text-[#131E5C]"><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" /><span className="text-sm font-semibold">Cargando tráfico...</span></td></tr> : weekDates.filter(d => d.getDay() !== 0).map((d, di) => { const today = new Date(); const isToday = isSameDay(d, today); return <tr key={di} className="group"><td className="px-2 py-0 text-xs font-bold text-slate-400 border-r border-b border-black/10 align-top pt-2 bg-white"><div className={`inline-flex flex-col items-center justify-center px-2 py-[2px] rounded-full ${isToday ? "bg-[#131E5C] text-white" : ""}`}><div className={`text-[10px] font-semibold leading-none ${isToday ? "text-white/70" : "text-slate-400"}`}>{DAYS_ES[d.getDay()]}</div><div className={`text-xs font-bold leading-none ${isToday ? "text-white" : "text-[#131E5C]"}`}>{d.getDate()}/{String(d.getMonth() + 1).padStart(2, "0")}</div></div></td>{HOURS_AGENDA.map((hour, hi) => { const dayKey = toYMDLocal(d); const registrosHora = traficoByDayHour?.[dayKey]?.[hour] || []; return <td key={hi} className="border-r border-b border-black/10 align-top p-1 relative group/cell bg-white hover:bg-slate-50" style={{ minHeight: "72px", verticalAlign: "top" }}>{registrosHora.length === 0 && <button onClick={() => onNewAtSlot(d, hour)} className="absolute top-1 right-1 h-6 w-6 rounded-full bg-[#131E5C]/10 text-[#131E5C] opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center hover:bg-[#131E5C] hover:text-white" title={`Nuevo ingreso para ${String(hour).padStart(2, "0")}:00`}><Plus className="h-3.5 w-3.5" /></button>}<div className="flex flex-col gap-2">{registrosHora.map((registro) => { const dt = new Date(registro.creado_en); const mins = String(dt.getMinutes()).padStart(2, "0"); return <div key={registro.id_trafico} onClick={() => onEdit(registro)} className="rounded-md p-2 text-left cursor-pointer hover:opacity-90 transition-all bg-blue-50 border-l-4 border-blue-500 shadow-sm"><div className="flex items-center justify-between gap-2 mb-2"><span className="text-xs font-bold text-[#131E5C]">{String(hour).padStart(2, "0")}:{mins}</span></div><div className="text-sm font-extrabold text-[#131E5C] truncate">{registro.nombre_prospecto || "—"}</div><div className="text-xs font-semibold text-slate-600 truncate">🚗 {registro.auto_suenos || "—"}</div><div className="text-[10px] text-slate-500 truncate flex items-center gap-1 mt-1"><Phone className="h-3 w-3" /> {registro.telefono || "—"}</div><div className="text-[10px] text-slate-500 truncate"><span className="font-semibold">Asesor:</span> {registro.asesor_ventas || "—"}</div><div className="text-[10px] text-slate-500 truncate"><span className="font-semibold">Dealer:</span> {registro.agencia || "—"}</div>{registro.comentarios && registro.comentarios !== "" && <div className="text-[10px] text-slate-400 italic truncate mt-1">💬 {registro.comentarios.substring(0, 50)}</div>}</div>; })}</div></td>; })}</tr>; })}</tbody></table></div></div>;
+
+    const traficoByDayHour = useMemo(() => {
+        const map = {};
+        for (const row of rows) {
+            if (!row.creado_en) continue;
+            const dt = new Date(row.creado_en);
+            if (isNaN(dt.getTime())) continue;
+            const dayKey = toYMDLocal(dt);
+            const hour = dt.getHours();
+            if (!map[dayKey]) map[dayKey] = {};
+            if (!map[dayKey][hour]) map[dayKey][hour] = [];
+            map[dayKey][hour].push(row);
+        }
+        return map;
+    }, [rows]);
+
+    const weekLabel = useMemo(() => {
+        const start = weekDates[0];
+        const end = weekDates[6];
+        const sm = start.getDate();
+        const em = end.getDate();
+        const smth = MONTHS_ES[start.getMonth()];
+        const emth = MONTHS_ES[end.getMonth()];
+        const yr = end.getFullYear();
+        if (start.getMonth() === end.getMonth()) {
+            return `${sm} – ${em} de ${smth} de ${yr}`;
+        }
+        return `${sm} de ${smth} – ${em} de ${emth} de ${yr}`;
+    }, [weekDates]);
+
+    function isSameDay(a, b) {
+        return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    }
+
+    return (
+        <div className="rounded-lg border border-black/10 bg-white overflow-hidden shadow-sm">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-black/10">
+                <div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Semana de tráfico</div>
+                    <div className="text-sm font-extrabold text-[#131E5C]">{weekLabel}</div>
+                </div>
+                <div className="flex gap-2">
+                    <span className="px-2 py-1 text-xs rounded-full bg-[#131E5C]/10 text-[#131E5C] font-semibold">Tráfico de piso</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={goPrev} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-[#131E5C] text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition">
+                        Hoy
+                    </button>
+                    <button onClick={goNext} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
+                        <ChevronRight className="h-4 w-4" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Tabla */}
+            <div className="overflow-auto">
+                <table className="min-w-full border-collapse" style={{ tableLayout: "fixed" }}>
+                    <colgroup>
+                        <col style={{ width: "64px" }} />
+                        {HOURS_AGENDA.map((_, i) => (
+                            <col key={i} style={{ width: `calc((100% - 64px) / ${HOURS_AGENDA.length})` }} />
+                        ))}
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th className="px-2 py-3 text-xs font-bold text-slate-400 bg-white border-b border-r border-black/10">Día</th>
+                            {HOURS_AGENDA.map((hour, i) => (
+                                <th key={i} className="px-2 py-3 text-center border-b border-r border-black/10 bg-white">
+                                    <div className="text-xs font-bold text-[#131E5C]">{String(hour).padStart(2, "0")}:00</div>
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading ? (
+                            <tr>
+                                <td colSpan={HOURS_AGENDA.length + 1} className="px-4 py-16 text-center text-[#131E5C]">
+                                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                                    <span className="text-sm font-semibold">Cargando tráfico...</span>
+                                </td>
+                            </tr>
+                        ) : (
+                            weekDates.filter(d => d.getDay() !== 0).map((d, di) => {
+                                const today = new Date();
+                                const isToday = isSameDay(d, today);
+                                return (
+                                    <tr key={di} className="group">
+                                        <td className="px-2 py-0 text-xs font-bold text-slate-400 border-r border-b border-black/10 align-top pt-2 bg-white">
+                                            <div className={`inline-flex flex-col items-center justify-center px-2 py-[2px] rounded-full ${isToday ? "bg-[#131E5C] text-white" : ""}`}>
+                                                <div className={`text-[10px] font-semibold leading-none ${isToday ? "text-white/70" : "text-slate-400"}`}>
+                                                    {DAYS_ES[d.getDay()]}
+                                                </div>
+                                                <div className={`text-xs font-bold leading-none ${isToday ? "text-white" : "text-[#131E5C]"}`}>
+                                                    {d.getDate()}/{String(d.getMonth() + 1).padStart(2, "0")}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        {HOURS_AGENDA.map((hour, hi) => {
+                                            const dayKey = toYMDLocal(d);
+                                            const registrosHora = traficoByDayHour?.[dayKey]?.[hour] || [];
+                                            return (
+                                                <td key={hi} className="border-r border-b border-black/10 align-top p-1 relative group/cell bg-white hover:bg-slate-50" style={{ minHeight: "72px", verticalAlign: "top" }}>
+                                                    {registrosHora.length === 0 && (
+                                                        <button
+                                                            onClick={() => onNewAtSlot(d, hour)}
+                                                            className="absolute top-1 right-1 h-6 w-6 rounded-full bg-[#131E5C]/10 text-[#131E5C] opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center hover:bg-[#131E5C] hover:text-white"
+                                                            title={`Nuevo ingreso para ${String(hour).padStart(2, "0")}:00`}
+                                                        >
+                                                            <Plus className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
+                                                    <div className="flex flex-col gap-2">
+                                                        {registrosHora.map((registro) => {
+                                                            const dt = new Date(registro.creado_en);
+                                                            const mins = String(dt.getMinutes()).padStart(2, "0");
+                                                            return (
+                                                                <div
+                                                                    key={registro.id_trafico}
+                                                                    onClick={() => onEdit(registro)}
+                                                                    className="rounded-md p-2 text-left cursor-pointer hover:opacity-90 transition-all bg-blue-50 border-l-4 border-blue-500 shadow-sm"
+                                                                >
+                                                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                                                        <span className="text-xs font-bold text-[#131E5C]">{String(hour).padStart(2, "0")}:{mins}</span>
+                                                                    </div>
+                                                                    <div className="text-sm font-extrabold text-[#131E5C] truncate">{registro.nombre_prospecto || "—"}</div>
+                                                                    <div className="text-xs font-semibold text-slate-600 truncate">🚗 {registro.auto_suenos || "—"}</div>
+                                                                    <div className="text-[10px] text-slate-500 truncate flex items-center gap-1 mt-1">
+                                                                        <Phone className="h-3 w-3" /> {registro.telefono || "—"}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-slate-500 truncate">
+                                                                        <span className="font-semibold">Asesor:</span> {registro.asesor_ventas || "—"}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-slate-500 truncate">
+                                                                        <span className="font-semibold">Dealer:</span> {registro.agencia || "—"}
+                                                                    </div>
+                                                                    {registro.comentarios && registro.comentarios !== "" && (
+                                                                        <div className="text-[10px] text-slate-400 italic truncate mt-1">
+                                                                            💬 {registro.comentarios.substring(0, 50)}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                );
+                            })
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
 }
 
 // ==================== COMPONENTE PRINCIPAL ====================
 export default function TraficoPiso() {
     const { user, loading: authLoading } = useAuth();
-    
-    // Obtener la sucursal del usuario autenticado
+
+    // Detectar si es administrador
+    const isAdmin = useMemo(() => {
+        const permisos = user?.permisos || [];
+        const rol = String(user?.rol || "").trim().toLowerCase();
+        return rol === "administrador" || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
+    }, [user]);
+
     const userAgencia = useMemo(() => {
         const agencia = user?.agencia || "";
         return agencia.trim();
@@ -422,26 +593,25 @@ export default function TraficoPiso() {
     function updateField(name, value) { setDraft((prev) => ({ ...(prev || INITIAL_FORM), [name]: value })); }
     function toggleSort(key) { setSort((prev) => prev.key !== key ? { key, dir: "asc" } : { key, dir: prev.dir === "asc" ? "desc" : "asc" }); }
 
-    // ✅ CARGAR DATOS FILTRADOS POR LA SUCURSAL DEL USUARIO
+    // Cargar datos - ADMIN ve todo, USUARIO ve solo su sucursal
     async function cargarDatos(params = {}) {
         try {
             setLoadingList(true);
             setError("");
-            
-            // 🔥 IMPORTANTE: Filtrar por la sucursal del usuario
-            const paramsConFiltro = {
-                ...params,
-                agencia: userAgencia || undefined,  // Solo si tiene sucursal asignada
-            };
-            
+
+            const paramsConFiltro = { ...params };
+
+            // 🔥 SOLO filtrar si NO es administrador
+            if (!isAdmin && userAgencia) {
+                paramsConFiltro.agencia = userAgencia;
+            }
+
             const [lista, datosResumen] = await Promise.all([
                 apiTraficoPiso.list(paramsConFiltro),
                 apiTraficoPiso.resumen(paramsConFiltro).catch(() => null)
             ]);
-            
+
             const listaFinal = Array.isArray(lista) ? lista : lista?.results || [];
-            
-            // Ordenar por sucursal (aunque ya vienen filtradas, por si acaso)
             const listaOrdenada = [...listaFinal].sort((a, b) => {
                 const agenciaA = (a.agencia || "").toLowerCase();
                 const agenciaB = (b.agencia || "").toLowerCase();
@@ -449,10 +619,10 @@ export default function TraficoPiso() {
                 if (agenciaA > agenciaB) return 1;
                 return 0;
             });
-            
+
             setRegistros(listaOrdenada);
             setResumen(datosResumen || null);
-            
+
             const initialBeBack = {};
             for (const item of listaOrdenada) { initialBeBack[item.id_trafico] = !!item.be_back; }
             setBeBackMap(initialBeBack);
@@ -463,12 +633,11 @@ export default function TraficoPiso() {
         } finally { setLoadingList(false); }
     }
 
-    // Cargar datos cuando el usuario esté autenticado
     useEffect(() => {
-        if (!authLoading && userAgencia) {
+        if (!authLoading) {
             cargarDatos();
         }
-    }, [userAgencia, authLoading]);
+    }, [userAgencia, authLoading, isAdmin]);
 
     useEffect(() => {
         const onGlobal = () => setCtxMenu((p) => ({ ...p, open: false, row: null }));
@@ -487,16 +656,16 @@ export default function TraficoPiso() {
         try { await apiTraficoPiso.patch(id, { be_back: !prev }); } catch (err) { console.error(err); setBeBackMap((p) => ({ ...p, [id]: prev })); } finally { setUpdatingBeBack((p) => { const n = { ...p }; delete n[id]; return n; }); }
     }
 
-    function openCreate() { 
-        setError(""); 
-        setOk(""); 
-        setTouchedSave(false); 
-        setMode("create"); 
-        // ✅ Pre-cargar la sucursal del usuario automáticamente
-        setDraft({ ...INITIAL_FORM, agencia: userAgencia }); 
-        setOpenModal(true); 
+    function openCreate() {
+        setError("");
+        setOk("");
+        setTouchedSave(false);
+        setMode("create");
+        // Admin: puede elegir dealer, Usuario: dealer pre-cargado
+        setDraft({ ...INITIAL_FORM, agencia: isAdmin ? "" : userAgencia });
+        setOpenModal(true);
     }
-    
+
     async function openEdit(row) {
         if (!row?.id_trafico) return;
         try {
@@ -505,9 +674,9 @@ export default function TraficoPiso() {
             setDraft({ ...INITIAL_FORM, ...item, presupuesto_estimado: item.presupuesto_estimado === null || item.presupuesto_estimado === undefined ? "" : String(parseInt(item.presupuesto_estimado || 0, 10) || ""), enganche_presupuestado: item.enganche_presupuestado === null || item.enganche_presupuestado === undefined ? "" : String(parseInt(item.enganche_presupuestado || 0, 10) || ""), mensualidades_presupuestadas: item.mensualidades_presupuestadas ? String(item.mensualidades_presupuestadas) : "", edad: item.edad === null || item.edad === undefined ? "" : String(item.edad), cantidad_hijos: item.cantidad_hijos === null || item.cantidad_hijos === undefined ? "0" : String(item.cantidad_hijos), pasatiempos: Array.isArray(item.pasatiempos) ? item.pasatiempos : [], deja_auto_cuenta: !!item.deja_auto_cuenta, comprueba_ingresos: !!item.comprueba_ingresos });
         } catch (err) { console.error(err); setError(err.message || "No se pudo abrir el registro."); setOpenModal(false); } finally { setLoadingDetail(false); }
     }
-    
+
     function closeModal() { if (saving) return; setOpenModal(false); setDraft(null); setTouchedSave(false); }
-    
+
     async function save() {
         if (!draft || saving) return;
         setTouchedSave(true); setError(""); setOk("");
@@ -520,14 +689,14 @@ export default function TraficoPiso() {
             await cargarDatos(); closeModal();
         } catch (err) { console.error(err); setError(err.message || "No se pudo guardar el registro."); } finally { setSaving(false); }
     }
-    
+
     async function eliminar(row) {
         if (!row?.id_trafico) return;
         const confirmar = window.confirm(`¿Eliminar el registro de ${row.nombre_prospecto || "este prospecto"}?`);
         if (!confirmar) return;
         try { setError(""); setOk(""); await apiTraficoPiso.remove(row.id_trafico); await cargarDatos(); setOk("Registro eliminado correctamente."); } catch (err) { console.error(err); setError(err.message || "No se pudo eliminar el registro."); } finally { setCtxMenu({ open: false, x: 0, y: 0, row: null }); }
     }
-    
+
     function onRowContextMenu(e, row) { e.preventDefault(); e.stopPropagation(); setCtxMenu({ open: true, x: e.clientX, y: e.clientY, row }); }
     function resetFilters() { setFilters({ q: "", tipoPersona: "Todos", tiempoCompra: "Todos", rangoDesde: "", rangoHasta: "" }); }
     function setHoy() { const hoy = toYMDLocal(new Date()); setFilters((prev) => ({ ...prev, rangoDesde: hoy, rangoHasta: hoy })); }
@@ -580,25 +749,26 @@ export default function TraficoPiso() {
         </div>
     );
 
-    // Mostrar loading mientras carga la autenticación
     if (authLoading) {
         return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-[#131E5C]" /></div>;
     }
 
-    // Si no hay usuario o no tiene sucursal asignada
-    if (!userAgencia) {
+    if (!isAdmin && !userAgencia) {
         return <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center"><p className="text-amber-800 font-semibold">⚠️ No se ha asignado una sucursal a tu usuario. Contacta al administrador.</p></div>;
     }
 
     return (
         <div className="w-full">
-            {/* Encabezado con indicador de sucursal */}
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Tráfico de piso</h2>
                     <p className="text-sm text-slate-400">
                         Control de prospectos que ingresan físicamente a la agencia.
-                        {userAgencia && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[#131E5C]/10 px-2 py-0.5 text-xs font-bold text-[#131E5C]"><Building2 className="h-3 w-3" /> {userAgencia}</span>}
+                        {!isAdmin && userAgencia && (
+                            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[#131E5C]/10 px-2 py-0.5 text-xs font-bold text-[#131E5C]">
+                                <Building2 className="h-3 w-3" /> {userAgencia}
+                            </span>
+                        )}
                     </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -657,7 +827,7 @@ export default function TraficoPiso() {
             )}
 
             {vista === "agenda" && <AgendaTraficoPiso rows={sorted} loading={loadingList} onEdit={openEdit} onNewAtSlot={handleNewAtSlot} />}
-            
+
             {vista === "tabla" && (
                 <>
                     <div className="hidden overflow-hidden rounded-lg bg-white/[0.03] shadow-lg lg:block">
@@ -745,7 +915,10 @@ export default function TraficoPiso() {
                                 <Field label="Dealer" icon={Building2} required invalid={isInvalid("agencia")}>
                                     <Select value={draft.agencia} invalid={isInvalid("agencia")} onChange={(e) => updateField("agencia", e.target.value)}>
                                         <option value="">Seleccionar dealer...</option>
-                                        {DEALERS.map((dealer) => <option key={dealer} value={dealer}>{dealer}</option>)}
+                                        {/* Admin ve TODOS los dealers, usuario ve SOLO su dealer */}
+                                        {(isAdmin ? DEALERS : [userAgencia]).map((dealer) => (
+                                            <option key={dealer} value={dealer}>{dealer}</option>
+                                        ))}
                                     </Select>
                                 </Field>
                                 <Field label="Nombre del prospecto" icon={User} required hint="Mayúsculas" invalid={isInvalid("nombre_prospecto")}><Input value={draft.nombre_prospecto} invalid={isInvalid("nombre_prospecto")} onChange={(e) => updateField("nombre_prospecto", e.target.value.toUpperCase())} placeholder="NOMBRE COMPLETO" /></Field>

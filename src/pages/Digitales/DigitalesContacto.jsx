@@ -1,4 +1,3 @@
-//src/pages/Digitales/DigitalesContacto.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -15,6 +14,10 @@ import {
     ChevronDown,
     Paperclip,
     FileText,
+    MessageSquarePlus,
+    Zap,
+    Pencil,
+    Trash2,
     Plus,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
@@ -38,26 +41,6 @@ const CANALES = [
     "Facebook",
     "Llamada Entrante",
 ];
-
-
-const QM_STORAGE_KEY = "digitales_quick_messages_v1";
-
-function loadQuickMessages() {
-    try {
-        const raw = localStorage.getItem(QM_STORAGE_KEY);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
-    }
-}
-
-function saveQuickMessages(data) {
-    try {
-        localStorage.setItem(QM_STORAGE_KEY, JSON.stringify(data));
-    } catch {
-    
-    }
-}
 
 function cls(...items) {
     return items.filter(Boolean).join(" ");
@@ -647,30 +630,6 @@ function MessageBubble({
     return (
         <div className={cls("flex w-full", mine ? "justify-end" : "justify-start")}>
             <div className="relative max-w-[78%] group">
-                {mine && (onEdit || onDelete) && (
-                    <div className="absolute -left-12 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {onEdit && (
-                            <button
-                                onClick={onEdit}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-slate-500 hover:bg-neutral-100 hover:text-[#131E5C]"
-                                title="Editar"
-                                type="button"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3l4 4-7 7-4 1 1-4 7-7z" /><path d="M3 21l4-4" /></svg>
-                            </button>
-                        )}
-                        {onDelete && (
-                            <button
-                                onClick={onDelete}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                                title="Eliminar"
-                                type="button"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 4V3a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1" /></svg>
-                            </button>
-                        )}
-                    </div>
-                )}
                 <div
                     className={cls(
                         "rounded-2xl border px-4 py-2 shadow-sm",
@@ -852,107 +811,38 @@ function MessageBubble({
                         {mine ? <span className="text-white/80">{statusText}</span> : null}
                     </div>
                 </div>
-            </div>
-        </div>
-    );
-}
 
-
-function AddQuickMessageModal({ open, onClose, onSave }) {
-    const [formTitle, setFormTitle] = useState("");
-    const [formText, setFormText] = useState("");
-
-    function handleSave() {
-        if (!formText.trim()) return;
-        onSave({
-            title: formTitle.trim() || formText.trim().slice(0, 30),
-            text: formText.trim(),
-        });
-        setFormTitle("");
-        setFormText("");
-        onClose();
-    }
-
-    if (!open) return null;
-
-    return (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-            <div className="relative w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden">
-                <div className="bg-[#131E5C] px-4 py-3">
-                    <div className="text-white font-bold">Nuevo mensaje rápido</div>
-                </div>
-                <div className="p-4">
-                    <input
-                        type="text"
-                        value={formTitle}
-                        onChange={(e) => setFormTitle(e.target.value)}
-                        placeholder="Título (opcional)"
-                        className="mb-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#131E5C]/30"
-                        autoFocus
-                    />
-                    <textarea
-                        value={formText}
-                        onChange={(e) => setFormText(e.target.value)}
-                        placeholder="Escribe tu mensaje rápido..."
-                        rows={4}
-                        className="mb-4 w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#131E5C]/30"
-                    />
-                    <div className="flex gap-2">
-                        <button
-                            onClick={onClose}
-                            className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={!formText.trim()}
-                            className={cls(
-                                "flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white",
-                                !formText.trim() ? "opacity-50 cursor-not-allowed" : "hover:opacity-90"
-                            )}
-                            style={{ backgroundColor: BRAND_BLUE }}
-                        >
-                            Guardar
-                        </button>
+                {mine && (onEdit || onDelete) && (
+                    <div className="absolute -right-8 top-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {onEdit && (
+                            <button
+                                onClick={onEdit}
+                                className="h-7 w-7 rounded-full border border-black/10 bg-white text-slate-500 hover:bg-neutral-100 hover:text-[#131E5C] flex items-center justify-center"
+                                title="Editar"
+                                type="button"
+                            >
+                                <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                        {onDelete && (
+                            <button
+                                onClick={onDelete}
+                                className="h-7 w-7 rounded-full border border-black/10 bg-white text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 flex items-center justify-center"
+                                title="Eliminar"
+                                type="button"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                        )}
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );
 }
 
 
-function QuickMessagesBubbles({ messages, onSendMessage, onDeleteMessage }) {
-    if (!messages || !messages.length) return null;
-
-    return (
-        <div className="mb-3 flex flex-wrap gap-2 justify-start">
-            {messages.map((msg) => (
-                <div
-                    key={msg.id}
-                    className="group relative inline-flex items-center gap-1 rounded-full bg-[#131E5C] px-4 py-2 shadow-sm hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => onSendMessage(msg.text)}
-                >
-                    <span className="text-sm font-semibold text-white">
-                        {msg.title}
-                    </span>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteMessage(msg.id);
-                        }}
-                        className="ml-1 hidden h-5 w-5 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 group-hover:inline-flex"
-                        title="Eliminar"
-                    >
-                        <X className="h-3 w-3" />
-                    </button>
-                </div>
-            ))}
-        </div>
-    );
-}
+const QUICK_BUBBLES_KEY = "digitales_quick_bubbles_global";
 
 export default function DigitalesContacto() {
     const navigate = useNavigate();
@@ -989,96 +879,85 @@ export default function DigitalesContacto() {
     const [dragOver, setDragOver] = useState(false);
     const [editingMsgId, setEditingMsgId] = useState(null);
 
-    //MENSAJES RAPIDOS
-    const [openAddQuickMessage, setOpenAddQuickMessage] = useState(false);
-    const [quickMessages, setQuickMessages] = useState([]);
-    const quickMessagesRef = useRef([]); //
+
+    const [quickBubbles, setQuickBubbles] = useState(() => {
+        try {
+            const saved = localStorage.getItem(QUICK_BUBBLES_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    return parsed;
+                }
+            }
+            return [];
+        } catch (e) {
+            console.error("Error cargando burbujas iniciales:", e);
+            return [];
+        }
+    });
+    const [showAddBubble, setShowAddBubble] = useState(false);
+    const [newBubbleText, setNewBubbleText] = useState("");
+    const [newBubbleTitle, setNewBubbleTitle] = useState("");
 
 
     useEffect(() => {
-        if (!activeTel) {
-            setQuickMessages([]);
-            quickMessagesRef.current = [];
-            return;
+        try {
+            localStorage.setItem(QUICK_BUBBLES_KEY, JSON.stringify(quickBubbles));
+        } catch (e) {
+            console.error("Error guardando burbujas:", e);
         }
-        const allData = loadQuickMessages();
-        const userMessages = allData[activeTel] || [];
-        const validMessages = userMessages.filter(msg => msg && msg.id);
-        setQuickMessages(validMessages);
-        quickMessagesRef.current = validMessages;
-    }, [activeTel]);
+    }, [quickBubbles]);
 
+    function addQuickBubble() {
+        const text = newBubbleText.trim();
+        if (!text) return;
 
-    const saveQuickMessage = (newMsg) => {
-        if (!newMsg.text || !newMsg.text.trim() || !activeTel) return;
-
-        const allData = loadQuickMessages();
-        const prev = allData[activeTel] || [];
-
-        const completeMessage = {
+        const newBubble = {
             id: crypto.randomUUID(),
-            title: newMsg.title || newMsg.text.slice(0, 30),
-            text: newMsg.text.trim(),
+            title: newBubbleTitle.trim() || text.slice(0, 25),
+            text: text,
             createdAt: new Date().toISOString(),
         };
 
-        const updated = [...prev, completeMessage];
-        const newData = { ...allData, [activeTel]: updated };
+        setQuickBubbles(prev => [...prev, newBubble]);
+        setNewBubbleText("");
+        setNewBubbleTitle("");
+        setShowAddBubble(false);
+    }
 
-        saveQuickMessages(newData);
+    function deleteQuickBubble(id) {
+        setQuickBubbles(prev => prev.filter(bubble => bubble.id !== id));
+    }
 
-        if (JSON.stringify(quickMessagesRef.current) !== JSON.stringify(updated)) {
-            setQuickMessages(updated);
-            quickMessagesRef.current = updated;
-        }
-    };
+    async function sendQuickBubble(text) {
+        if (!activeTel || !text.trim()) return;
 
+        const optimisticId = crypto.randomUUID();
 
-    const deleteQuickMessage = (id) => {
-        if (!activeTel) return;
-
-        const allData = loadQuickMessages();
-        const updated = (allData[activeTel] || []).filter((m) => m.id !== id);
-        const newData = { ...allData, [activeTel]: updated };
-
-        saveQuickMessages(newData);
-        if (JSON.stringify(quickMessagesRef.current) !== JSON.stringify(updated)) {
-            setQuickMessages(updated);
-            quickMessagesRef.current = updated;
-        }
-    };
-
-    const enviarMensajeRapido = async (msg) => {
-        const texto = typeof msg === "string" ? msg : msg.text;
-
-        if (!texto || !activeTel) return;
-
-        const nuevoMensaje = {
-            id: Date.now(),
-            mine: true,
-            text: texto,
-            time: new Date().toLocaleTimeString(),
-            status: "sent",
-        };
-        console.log("ANTES:", mensajes);
-
-        setMensajes((prev) => [...prev, nuevoMensaje]);
-        console.log("DESPUÉS:", updated);
-        return updated;
+        setMensajes(prev => [
+            ...prev,
+            {
+                id: optimisticId,
+                mine: true,
+                text: text.trim(),
+                time: "Ahora",
+                status: "sent",
+                attachments: [],
+            },
+        ]);
 
         try {
-
             await api.digitalesEnviarMensaje({
                 to: activeTel,
-                text: texto.trim(),
+                text: text.trim(),
             });
 
-
-            //   await refreshActiveChat(activeTel);
+            await refreshActiveChat(activeTel);
         } catch (error) {
             alert(`Falló: ${error.message}`);
+            await refreshActiveChat(activeTel).catch(() => { });
         }
-    };
+    }
 
     const endRef = useRef(null);
     const activeTelRef = useRef("");
@@ -1277,6 +1156,7 @@ export default function DigitalesContacto() {
 
         setActiveTel(normalized);
         setMobileView("chat");
+        localStorage.setItem("last_active_chat", normalized);
 
         setChats((prev) =>
             prev.map((chat) =>
@@ -1565,9 +1445,10 @@ export default function DigitalesContacto() {
             });
 
             setOpenTpl(false);
-            //await refreshActiveChat(activeTel);
+            await refreshActiveChat(activeTel);
         } catch (error) {
             alert(`Falló plantilla: ${error.message}`);
+            await refreshActiveChat(activeTel).catch(() => { });
         }
     }
 
@@ -1621,7 +1502,6 @@ export default function DigitalesContacto() {
 
     useEffect(() => {
         return () => cleanupPreviews(attachments);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -1660,7 +1540,6 @@ export default function DigitalesContacto() {
         return () => {
             window.removeEventListener("whatsapp:nuevo-mensaje", onNuevoMensaje);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isDirectChatMode]);
 
     useEffect(() => {
@@ -1689,7 +1568,6 @@ export default function DigitalesContacto() {
         return () => {
             ignore = true;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isDirectChatMode]);
 
     useEffect(() => {
@@ -1697,11 +1575,20 @@ export default function DigitalesContacto() {
             didInitFromQuery.current = true;
             setActiveTel(tel);
             setMobileView("chat");
+            const lastChat = localStorage.getItem("last_active_chat");
+            if (lastChat && lastChat !== tel) {
+                localStorage.setItem("last_active_chat", tel);
+            }
             return;
         }
 
         if (!tel && !activeTel && chats.length) {
-            setActiveTel(chats[0].telefono);
+            const lastChat = localStorage.getItem("last_active_chat");
+            if (lastChat && chats.some(c => c.telefono === lastChat)) {
+                setActiveTel(lastChat);
+            } else {
+                setActiveTel(chats[0].telefono);
+            }
         }
     }, [tel, chats, activeTel]);
 
@@ -1748,7 +1635,6 @@ export default function DigitalesContacto() {
         return () => {
             ignore = true;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTel, isDirectChatMode]);
 
     useEffect(() => {
@@ -1802,7 +1688,7 @@ export default function DigitalesContacto() {
                     }
                 }
             } catch {
-
+                // polling silencioso
             }
 
             timer = setTimeout(tick, 3500);
@@ -1817,7 +1703,6 @@ export default function DigitalesContacto() {
                 clearTimeout(timer);
             }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isDirectChatMode]);
 
     const activeChat = useMemo(() => {
@@ -2057,19 +1942,6 @@ export default function DigitalesContacto() {
 
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setOpenAddQuickMessage(true)}
-                                    disabled={!activeTel}
-                                    className={cls(
-                                        "inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-white hover:bg-neutral-50",
-                                        !activeTel ? "cursor-not-allowed opacity-60" : "",
-                                    )}
-                                    type="button"
-                                    title="Agregar mensaje rápido"
-                                >
-                                    <Plus className="h-5 w-5 text-[#131E5C]" />
-                                </button>
-
-                                <button
                                     onClick={abrirPlantillas}
                                     disabled={!activeTel}
                                     className={cls(
@@ -2093,36 +1965,25 @@ export default function DigitalesContacto() {
                                     </div>
                                 ) : loadingChat ? (
                                     <MessagesSkeleton bubbles={10} />
+                                ) : mensajes.length === 0 ? (
+                                    <div className="py-10 text-center font-semibold text-slate-500">
+                                        Aún no hay mensajes con este número.
+                                    </div>
                                 ) : (
-                                    <>
-                                    
-                                        <QuickMessagesBubbles
-                                            messages={quickMessages}
-                                            onSendMessage={enviarMensajeRapido}
-                                            onDeleteMessage={deleteQuickMessage}
+                                    mensajes.map((message) => (
+                                        <MessageBubble
+                                            key={message.id}
+                                            mine={Boolean(message.mine)}
+                                            text={message.text}
+                                            time={message.time || ""}
+                                            status={message.status || "sent"}
+                                            attachments={message.attachments || []}
+                                            isAi={Boolean(message.is_ai)}
+                                            renderText={renderTextForBubble}
+                                            onEdit={() => startEditMessage(message)}
+                                            onDelete={() => deleteMessage(message)}
                                         />
-
-                                        {mensajes.length === 0 ? (
-                                            <div className="py-10 text-center font-semibold text-slate-500">
-                                                Aún no hay mensajes con este número.
-                                            </div>
-                                        ) : (
-                                            mensajes.map((message) => (
-                                                <MessageBubble
-                                                    key={message.id}
-                                                    mine={Boolean(message.mine)}
-                                                    text={message.text}
-                                                    time={message.time || ""}
-                                                    status={message.status || "sent"}
-                                                    attachments={message.attachments || []}
-                                                    isAi={Boolean(message.is_ai)}
-                                                    renderText={renderTextForBubble}
-                                                    onEdit={() => startEditMessage(message)}
-                                                    onDelete={() => deleteMessage(message)}
-                                                />
-                                            ))
-                                        )}
-                                    </>
+                                    ))
                                 )}
 
                                 <div ref={endRef} />
@@ -2157,6 +2018,96 @@ export default function DigitalesContacto() {
                                         </div>
                                     </div>
                                 ) : null}
+
+                                {/* ── ── */}
+                                {activeTel && (
+                                    <div className="mb-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-extrabold text-[#131E5C]/60 uppercase tracking-wide">
+                                                Mensajes rápidos
+                                            </span>
+                                            <button
+                                                onClick={() => setShowAddBubble(!showAddBubble)}
+                                                className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#131E5C]/10 text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition"
+                                                title="Agregar mensaje rápido"
+                                                type="button"
+                                            >
+                                                <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+
+                                        {showAddBubble && (
+                                            <div className="mb-3 rounded-xl border border-[#131E5C]/20 bg-neutral-50 p-3">
+                                                <input
+                                                    value={newBubbleTitle}
+                                                    onChange={(e) => setNewBubbleTitle(e.target.value)}
+                                                    placeholder="Título (opcional)"
+                                                    className="mb-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400"
+                                                />
+                                                <textarea
+                                                    value={newBubbleText}
+                                                    onChange={(e) => setNewBubbleText(e.target.value)}
+                                                    placeholder="Escribe el mensaje que quieres guardar..."
+                                                    rows={2}
+                                                    className="mb-2 w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400"
+                                                />
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowAddBubble(false);
+                                                            setNewBubbleText("");
+                                                            setNewBubbleTitle("");
+                                                        }}
+                                                        className="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-neutral-100"
+                                                        type="button"
+                                                    >
+                                                        Cancelar
+                                                    </button>
+                                                    <button
+                                                        onClick={addQuickBubble}
+                                                        disabled={!newBubbleText.trim()}
+                                                        className={cls(
+                                                            "rounded-lg px-3 py-1.5 text-xs font-bold text-white",
+                                                            !newBubbleText.trim() ? "opacity-50 cursor-not-allowed" : "hover:opacity-90"
+                                                        )}
+                                                        style={{ backgroundColor: BRAND_BLUE }}
+                                                        type="button"
+                                                    >
+                                                        Guardar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {quickBubbles.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto pb-1">
+                                                {quickBubbles.map((bubble) => (
+                                                    <div
+                                                        key={bubble.id}
+                                                        className="group relative inline-flex max-w-[200px] items-center gap-1 rounded-full border border-[#131E5C]/20 bg-white shadow-sm hover:shadow-md transition-all"
+                                                    >
+                                                        <button
+                                                            onClick={() => sendQuickBubble(bubble.text)}
+                                                            className="flex-1 px-3 py-1.5 text-left text-xs font-semibold text-[#131E5C] hover:text-[#131E5C]/80 truncate"
+                                                            title={bubble.text}
+                                                            type="button"
+                                                        >
+                                                            {bubble.title}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteQuickBubble(bubble.id)}
+                                                            className="invisible group-hover:visible absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white hover:bg-red-600 flex items-center justify-center"
+                                                            title="Eliminar"
+                                                            type="button"
+                                                        >
+                                                            <X className="h-2.5 w-2.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {attachments.length ? (
                                     <div className="mb-2 flex flex-wrap gap-2">
@@ -2484,12 +2435,6 @@ export default function DigitalesContacto() {
                     </div>
                 )}
             </Modal>
-
-            <AddQuickMessageModal
-                open={openAddQuickMessage}
-                onClose={() => setOpenAddQuickMessage(false)}
-                onSave={saveQuickMessage}
-            />
         </div>
     );
 }

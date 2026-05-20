@@ -1,3 +1,4 @@
+//src/pages/TimeForAction/TimeForAction.jsx
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
     Plus, X, ChevronDown, ChevronRight, Paperclip,
@@ -12,86 +13,86 @@ import { apiClickup } from "../../lib/apiClickup";
 const BRAND_BLUE = "#131E5C";
 
 const PRIORITIES = [
-    { value: "LOW",    label: "Baja",    color: "bg-emerald-100 text-emerald-700 border-emerald-300" },
-    { value: "MEDIUM", label: "Media",   color: "bg-sky-100 text-sky-700 border-sky-300" },
-    { value: "HIGH",   label: "Alta",    color: "bg-amber-100 text-amber-700 border-amber-300" },
+    { value: "LOW", label: "Baja", color: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+    { value: "MEDIUM", label: "Media", color: "bg-sky-100 text-sky-700 border-sky-300" },
+    { value: "HIGH", label: "Alta", color: "bg-amber-100 text-amber-700 border-amber-300" },
     { value: "URGENT", label: "Urgente", color: "bg-rose-100 text-rose-700 border-rose-300" },
 ];
 
 const STATUS_COLS = ["Por hacer", "En proceso", "Hecho"];
 
 const STATUS_COLORS = {
-    "Por hacer":  { bg: "bg-slate-100",   text: "text-slate-600",   border: "border-slate-300",   dot: "bg-slate-400",   bar: "#94a3b8" },
-    "En proceso": { bg: "bg-amber-100",   text: "text-amber-700",   border: "border-amber-300",   dot: "bg-amber-500",   bar: "#f59e0b" },
-    "Hecho":      { bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-300", dot: "bg-emerald-500", bar: "#10b981" },
+    "Por hacer": { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-300", dot: "bg-slate-400", bar: "#94a3b8" },
+    "En proceso": { bg: "bg-amber-100", text: "text-amber-700", border: "border-amber-300", dot: "bg-amber-500", bar: "#f59e0b" },
+    "Hecho": { bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-300", dot: "bg-emerald-500", bar: "#10b981" },
 };
 
 const PRIORITY_COLORS = {
-    "LOW":    "#10b981",
+    "LOW": "#10b981",
     "MEDIUM": "#0ea5e9",
-    "HIGH":   "#f59e0b",
+    "HIGH": "#f59e0b",
     "URGENT": "#ef4444",
 };
 
 const opcionesRaiz = {
     "Gestion de Clientes": [
-        "Respuestas lentas a las quejas","Falta de seguimiento postventa",
+        "Respuestas lentas a las quejas", "Falta de seguimiento postventa",
         "Encuestas de satisfacción poco frecuentes o inexistentes",
         "Mala gestión de la experiencia del cliente en el showroom",
         "Falta de personal dedicado a la atención al cliente",
         "Tiempos de espera prolongados para servicios de mantenimiento",
-        "Falta de comunicación proactiva con los clientes","Carencia de programas de fidelización",
+        "Falta de comunicación proactiva con los clientes", "Carencia de programas de fidelización",
         "Problemas en la gestión de citas y servicios programados",
         "Deficiencias en la personalización del servicio",
         "Falta de transparencia en la información proporcionada a los clientes",
         "Deficiencias en la gestión de la imagen y reputación",
-        "Falta de atención a los comentarios y reseñas","Problemas en la gestión de garantías",
-        "Falta de ofertas y promociones atractivas","Dificultad para contactar con el servicio al cliente",
-        "Horarios de atención limitados","Mal uso de CRM",
+        "Falta de atención a los comentarios y reseñas", "Problemas en la gestión de garantías",
+        "Falta de ofertas y promociones atractivas", "Dificultad para contactar con el servicio al cliente",
+        "Horarios de atención limitados", "Mal uso de CRM",
         "Problemas en la gestión de reclamaciones y devoluciones",
     ],
     Metodo: [
-        "Procesos complejos","Procesos poco explícitos","Incumplimiento en la ejecución","Procesos limitados",
-        "Falta de documentación y registro","Falta de integración entre departamentos",
-        "Inconsistencias en la aplicación","Procesos no optimizados",
+        "Procesos complejos", "Procesos poco explícitos", "Incumplimiento en la ejecución", "Procesos limitados",
+        "Falta de documentación y registro", "Falta de integración entre departamentos",
+        "Inconsistencias en la aplicación", "Procesos no optimizados",
         "Falta de estandarización en la atención al cliente",
         "Ausencia de procedimientos claros para la gestión de garantías",
         "Falta de protocolos para la entrega de vehículos nuevos",
-        "Falta de automatización en procesos administrativos","Retrasos en la tramitación de documentos",
-        "Ineficiencia en la programación de citas","Problemas en la gestión de la información del cliente",
-        "Falta de procedimientos de emergencia","Deficiencias en el control de calidad",
-        "Falta de auditorías internas periódicas","Problemas en la implementación de sistemas ERP",
-        "Deficiencias en la gestión de proyectos","Falta de revisiones periódicas",
-        "Procedimientos redundantes","Falta de actualización de manuales operativos",
-        "Uso ineficiente de recursos","Falta de un sistema de gestión de calidad total",
+        "Falta de automatización en procesos administrativos", "Retrasos en la tramitación de documentos",
+        "Ineficiencia en la programación de citas", "Problemas en la gestión de la información del cliente",
+        "Falta de procedimientos de emergencia", "Deficiencias en el control de calidad",
+        "Falta de auditorías internas periódicas", "Problemas en la implementación de sistemas ERP",
+        "Deficiencias en la gestión de proyectos", "Falta de revisiones periódicas",
+        "Procedimientos redundantes", "Falta de actualización de manuales operativos",
+        "Uso ineficiente de recursos", "Falta de un sistema de gestión de calidad total",
     ],
     Materiales: [
-        "Insuficiencia de materiales","Materiales en mal estado","Materiales descalibrados",
-        "Difícil disponibilidad","Costos elevados","Variabilidad en la calidad","Obsolescencia",
-        "Falta de stock de piezas de alta demanda","Problemas con proveedores no confiables",
-        "Almacenamiento inadecuado de piezas","Pérdidas por deterioro","Falta de control de inventarios",
-        "Gestión ineficaz de devoluciones","Uso de materiales no homologados",
-        "Falta de piezas específicas para ciertos modelos","Problemas en la logística de entrega",
-        "Retrasos en la recepción de materiales importados","Problemas en la aduana",
-        "Roturas durante el transporte","Embalajes inadecuados","Falta de previsión en pedidos",
+        "Insuficiencia de materiales", "Materiales en mal estado", "Materiales descalibrados",
+        "Difícil disponibilidad", "Costos elevados", "Variabilidad en la calidad", "Obsolescencia",
+        "Falta de stock de piezas de alta demanda", "Problemas con proveedores no confiables",
+        "Almacenamiento inadecuado de piezas", "Pérdidas por deterioro", "Falta de control de inventarios",
+        "Gestión ineficaz de devoluciones", "Uso de materiales no homologados",
+        "Falta de piezas específicas para ciertos modelos", "Problemas en la logística de entrega",
+        "Retrasos en la recepción de materiales importados", "Problemas en la aduana",
+        "Roturas durante el transporte", "Embalajes inadecuados", "Falta de previsión en pedidos",
         "Fallos en la trazabilidad de piezas",
     ],
     Infraestructura: [],
     "Talento Humano": [
-        "Falta de capacitación","Falta de adiestramiento","Problemas de comunicación","Desmotivación",
-        "Conflictos laborales","Alta rotación de personal","Falta de reconocimiento",
-        "Cargas de trabajo excesivas","Ausentismo","Falta de liderazgo efectivo",
+        "Falta de capacitación", "Falta de adiestramiento", "Problemas de comunicación", "Desmotivación",
+        "Conflictos laborales", "Alta rotación de personal", "Falta de reconocimiento",
+        "Cargas de trabajo excesivas", "Ausentismo", "Falta de liderazgo efectivo",
         "Insuficiente personal de ventas durante picos de demanda",
         "Falta de técnicos especializados en postventa",
         "Ausencia de programas de desarrollo profesional y mentoría",
-        "Evaluación de desempeño inadecuada","Falta de incentivos y bonificaciones",
+        "Evaluación de desempeño inadecuada", "Falta de incentivos y bonificaciones",
         "Falta de claridad en las expectativas laborales",
         "Escasa participación de los empleados en la toma de decisiones",
-        "Deficiencias en la gestión del talento","Falta de programas de bienestar laboral",
-        "Problemas con la gestión del tiempo","Personal de nuevo ingreso",
-        "Problemas de retención de talento clave","Baja moral del equipo",
-        "Falta de diversidad e inclusión","Problemas con la conciliación laboral y familiar",
-        "Ausencia de un plan de carrera claro","Falta de apoyo psicológico",
+        "Deficiencias en la gestión del talento", "Falta de programas de bienestar laboral",
+        "Problemas con la gestión del tiempo", "Personal de nuevo ingreso",
+        "Problemas de retención de talento clave", "Baja moral del equipo",
+        "Falta de diversidad e inclusión", "Problemas con la conciliación laboral y familiar",
+        "Ausencia de un plan de carrera claro", "Falta de apoyo psicológico",
         "Falta de programas de salud y seguridad laboral",
     ],
 };
@@ -108,7 +109,7 @@ function PriorityBadge({ value }) {
 }
 
 function StatusBadge({ name }) {
-    const c = STATUS_COLORS[name] || { bg:"bg-slate-100", text:"text-slate-600", border:"border-slate-200", dot:"bg-slate-400" };
+    const c = STATUS_COLORS[name] || { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-200", dot: "bg-slate-400" };
     return (
         <span className={cls("inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-bold", c.bg, c.text, c.border)}>
             <span className={cls("h-1.5 w-1.5 rounded-full", c.dot)} />
@@ -199,20 +200,20 @@ function ConfirmDialog({ open, title, message, onConfirm, onCancel, loading }) {
 
 // TeamsModal
 function TeamsModal({ open, onClose, onCreated }) {
-    const [teams, setTeams]             = useState([]);
-    const [loading, setLoading]         = useState(false);
-    const [creating, setCreating]       = useState(false);
-    const [name, setName]               = useState("");
+    const [teams, setTeams] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [name, setName] = useState("");
     const [descripcion, setDescripcion] = useState("");
     const [confirmDelete, setConfirmDelete] = useState(null); // team object
-    const [deleting, setDeleting]       = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchTeams = useCallback(async () => {
         setLoading(true);
         try {
             const data = await apiClickup.listTeams();
             setTeams(Array.isArray(data) ? data : []);
-        } catch(e) { console.error(e); }
+        } catch (e) { console.error(e); }
         finally { setLoading(false); }
     }, []);
 
@@ -226,7 +227,10 @@ function TeamsModal({ open, onClose, onCreated }) {
         if (!n) return;
         setCreating(true);
         try {
-            await apiClickup.createTeam({ name: n, descripcion: descripcion.trim() || null });
+            await apiClickup.createTeam({
+                name: n,
+                description: descripcion.trim(),
+            });
             setName("");
             setDescripcion("");
             await fetchTeams();
@@ -307,7 +311,7 @@ function TeamsModal({ open, onClose, onCreated }) {
                             <div className="text-xs font-extrabold uppercase tracking-widest text-black/35 mb-2">Equipos existentes</div>
                             {loading ? (
                                 <div className="space-y-2">
-                                    {[1,2,3].map(i => <div key={i} className="h-10 animate-pulse rounded-xl bg-slate-100" />)}
+                                    {[1, 2, 3].map(i => <div key={i} className="h-10 animate-pulse rounded-xl bg-slate-100" />)}
                                 </div>
                             ) : teams.length === 0 ? (
                                 <div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">
@@ -320,8 +324,8 @@ function TeamsModal({ open, onClose, onCreated }) {
                                             className="flex items-center justify-between rounded-xl border border-black/10 bg-slate-50 px-3 py-2">
                                             <div className="min-w-0 flex-1">
                                                 <div className="text-sm font-bold text-[#131E5C] truncate">{t.name}</div>
-                                                {t.descripcion && (
-                                                    <div className="text-xs text-black/40 truncate">{t.descripcion}</div>
+                                                {t.description && (
+                                                    <div className="text-xs text-black/40 truncate">{t.description}</div>
                                                 )}
                                             </div>
                                             <button type="button"
@@ -350,22 +354,22 @@ function TeamsModal({ open, onClose, onCreated }) {
     );
 }
 
-// TaskModal 
+// TaskModal - MODIFICADO con los nuevos cambios
 function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
-    const [title, setTitle]           = useState("");
-    const [listId, setListId]         = useState("");
-    const [priority, setPriority]     = useState("MEDIUM");
-    const [due, setDue]               = useState("");
-    const [start, setStart]           = useState("");
-    const [problema, setProblema]     = useState("");
-    const [causa, setCausa]           = useState("");
-    const [raiz, setRaiz]             = useState("");
-    const [subtasks, setSubtasks]     = useState([]);
-    const [newSub, setNewSub]         = useState("");
+    const [title, setTitle] = useState("");
+    const [listId, setListId] = useState("");
+    const [priority, setPriority] = useState("MEDIUM");
+    const [due, setDue] = useState("");
+    const [start, setStart] = useState("");
+    const [problema, setProblema] = useState("");
+    const [causa, setCausa] = useState("");
+    const [raiz, setRaiz] = useState("");
+    const [subtasks, setSubtasks] = useState([]);
+    const [newSub, setNewSub] = useState("");
     const [estrategia, setEstrategia] = useState("");
     const [resultados, setResultados] = useState("");
     const [evidencias, setEvidencias] = useState([]);
-    const [saving, setSaving]         = useState(false);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (!open) return;
@@ -396,64 +400,51 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     }
 
     async function handleSave() {
-    if (!title.trim() || !listId || !teamId) return;
-    setSaving(true);
-    try {
-        // payload principal para la tarea
-        const payload = {
-            lista: Number(listId),
-            titulo: title.trim(),
-            prioridad: priority,
-            inicio: start ? `${start}T00:00:00Z` : null, // Se agrega 'Z' para indicar UTC/ISO estándar
-            vence: due ? `${due}T00:00:00Z` : null,
-            descripcion_problema: problema.trim(),
-            causa: causa.trim(),
-            raiz: raiz.trim(),
-            desarrollo_estrategia: estrategia.trim(),
-            resultados: resultados.trim(),
-            // Enviamos las subtareas backend 
-            subtareas: subtasks.map(s => ({ titulo: s.title, done: s.done })), 
-        };
+        if (!title.trim() || !listId || !teamId) return;
+        setSaving(true);
+        try {
+            const payload = {
+                lista: Number(listId),
+                titulo: title.trim(),
+                prioridad: priority,
+                inicio: start ? `${start}T00:00:00Z` : null,
+                vence: due ? `${due}T00:00:00Z` : null,
+                descripcion_problema: problema.trim(),
+                causa: causa.trim(),
+                raiz: raiz.trim(),
+                desarrollo_estrategia: estrategia.trim(),
+                resultados: resultados.trim(),
+                subtareas: subtasks.map(s => ({ titulo: s.title, done: s.done })),
+            };
 
-        let currentTaskId = task?.id;
+            let currentTaskId = task?.id;
 
-        // Guardamos o actualizamos la tarea base
-        if (task?.id) {
-            await apiClickup.updateTask(Number(teamId), Number(task.id), payload);
-        } else {
-            const nuevaTarea = await apiClickup.createTask(Number(teamId), payload);
-            // Si es una tarea nueva, guardamos el ID retornado por el backend para poder subir archivos
-            if (nuevaTarea && nuevaTarea.id) {
-                currentTaskId = nuevaTarea.id;
+            if (task?.id) {
+                await apiClickup.updateTask(Number(teamId), Number(task.id), payload);
+            } else {
+                const nuevaTarea = await apiClickup.createTask(Number(teamId), payload);
+                if (nuevaTarea && nuevaTarea.id) {
+                    currentTaskId = nuevaTarea.id;
+                }
             }
+
+            if (evidencias.length && currentTaskId) {
+                await apiClickup.uploadTaskEvidence(Number(teamId), Number(currentTaskId), {
+                    tipo: "RESOLUTION",
+                    comentario: "Evidencias del plan de acción",
+                    archivos: evidencias,
+                });
+            }
+
+            onSaved?.();
+            onClose();
+        } catch (e) {
+            console.error("Error al guardar el plan de acción:", e);
+            alert(e.message || "Error al guardar el plan de acción");
+        } finally {
+            setSaving(false);
         }
-
-        // Envío de evidencias usando MULTIPART (FormData)
-        if (evidencias.length && currentTaskId) {
-            const formData = new FormData();
-            formData.append("tipo", "RESOLUTION"); // O "BUG" según corresponda en tu flujo
-            formData.append("comentario", "Evidencias del plan de acción");
-            
-            // Adjuntamos cada archivo individualmente bajo la misma clave 'archivos'
-            // que es lo que request.FILES.getlist('archivos') 
-            evidencias.forEach((archivo) => {
-                formData.append("archivos", archivo);
-            });
-
-            // Invocamos la API pasando el FormData. 
-            // Recuerda que en tu instancia de Axios/Fetch no debes forzar 'application/json' para esta petición
-            await apiClickup.uploadTaskEvidence(Number(teamId), Number(currentTaskId), formData);
-        }
-
-        onSaved?.();
-        onClose();
-    } catch (e) {
-        console.error("Error al guardar el plan de acción:", e);
-        alert(e.message || "Error al guardar el plan de acción");
-    } finally {
-        setSaving(false);
     }
-}
 
     if (!open) return null;
 
@@ -463,7 +454,7 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     return (
         <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-t-3xl border border-black/10 bg-white shadow-2xl sm:rounded-2xl flex flex-col max-h-[90vh]">
+            <div className="relative z-10 w-full max-w-4xl overflow-hidden rounded-t-3xl border border-black/10 bg-white shadow-2xl sm:rounded-2xl flex flex-col max-h-[90vh]">
 
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 shrink-0"
@@ -538,10 +529,25 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
                                 <CausaRaiz causa={causa} raiz={raiz} onChangeCausa={setCausa} onChangeRaiz={setRaiz} />
                             </div>
 
+                            {/* 1. DESARROLLO DE LA ESTRATEGIA - PRIMERO */}
+                            <div className="rounded-xl border border-black/10 bg-slate-50 p-4">
+                                <div className="mb-3 text-xs font-extrabold text-[#131E5C]">
+                                    Desarrollo de la Estrategia
+                                </div>
+                                <textarea
+                                    value={estrategia}
+                                    onChange={e => setEstrategia(e.target.value)}
+                                    rows={4}
+                                    className={cls(inputBase, "min-h-[100px]")}
+                                    placeholder="¿Qué estrategia se va a implementar?"
+                                />
+                            </div>
+
+                            {/* 2. SUBTAREAS - SEGUNDO */}
                             <div className="rounded-xl border border-black/10 bg-slate-50 p-4">
                                 <div className="mb-3 flex items-center justify-between">
                                     <div className="text-xs font-extrabold text-[#131E5C]">
-                                        Subtareas
+                                        ✓ Subtareas
                                         {subtasks.length > 0 && (
                                             <span className="ml-1.5 rounded-full bg-[#131E5C]/10 px-2 py-0.5 text-[10px]">
                                                 {doneCount}/{subtasks.length}
@@ -568,7 +574,7 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
                                     <div className="grid gap-1.5">
                                         {subtasks.map(s => (
                                             <SubtaskRow key={s.id} sub={s}
-                                                onToggle={id => setSubtasks(p => p.map(x => x.id === id ? {...x, done: !x.done} : x))}
+                                                onToggle={id => setSubtasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x))}
                                                 onDelete={id => setSubtasks(p => p.filter(x => x.id !== id))} />
                                         ))}
                                         <div className="mt-1 h-1.5 w-full rounded-full bg-black/5 overflow-hidden">
@@ -579,18 +585,18 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
                                 )}
                             </div>
 
-                            <div>
-                                <label className="text-xs font-extrabold text-black/60">Desarrollo de la Estrategia</label>
-                                <textarea value={estrategia} onChange={e => setEstrategia(e.target.value)}
-                                    className={cls(inputBase, "mt-1 min-h-[90px]")}
-                                    placeholder="¿Qué estrategia se va a implementar?" />
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-extrabold text-black/60">Resultados</label>
-                                <textarea value={resultados} onChange={e => setResultados(e.target.value)}
-                                    className={cls(inputBase, "mt-1 min-h-[90px]")}
-                                    placeholder="¿Qué resultados se esperan o se obtuvieron?" />
+                            {/* 3. RESULTADOS - TERCERO (después de Desarrollo y Subtareas) */}
+                            <div className="rounded-xl border border-black/10 bg-slate-50 p-4">
+                                <div className="mb-3 text-xs font-extrabold text-[#131E5C]">
+                                    Resultados Esperados
+                                </div>
+                                <textarea
+                                    value={resultados}
+                                    onChange={e => setResultados(e.target.value)}
+                                    rows={3}
+                                    className={cls(inputBase, "min-h-[80px]")}
+                                    placeholder="¿Qué resultados se esperan o se obtuvieron?"
+                                />
                             </div>
                         </div>
                     </section>
@@ -614,8 +620,8 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
                             <div className="mt-3 grid gap-2">
                                 <div className="text-xs font-extrabold text-black/50">{evidencias.length} archivo(s)</div>
                                 {evidencias.map((f, i) => {
-                                    const isImg   = f.type.startsWith("image/");
-                                    const isPdf   = f.type === "application/pdf";
+                                    const isImg = f.type.startsWith("image/");
+                                    const isPdf = f.type === "application/pdf";
                                     const isVideo = f.type.startsWith("video/");
                                     const isAudio = f.type.startsWith("audio/");
                                     return (
@@ -678,6 +684,12 @@ function KanbanCard({ task, onEdit, onDelete }) {
                                     {String(task.due_date).slice(0, 10)}
                                 </span>
                             )}
+                            {task.start_date && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-black/40">
+                                    <Calendar className="h-3 w-3" />
+                                    Inicio: {String(task.start_date).slice(0, 10)}
+                                </span>
+                            )}
                         </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -730,6 +742,12 @@ function KanbanCard({ task, onEdit, onDelete }) {
                         )}
                     </div>
                 )}
+
+                {task.desarrollo_estrategia && (
+                    <div className="mt-2 rounded-lg bg-blue-50 px-2.5 py-1.5 text-[11px] text-black/70">
+                        <span className="font-bold text-blue-700">Estrategia:</span> {task.desarrollo_estrategia.length > 80 ? task.desarrollo_estrategia.slice(0, 80) + "..." : task.desarrollo_estrategia}
+                    </div>
+                )}
             </div>
         </article>
     );
@@ -743,7 +761,7 @@ function KanbanView({ tasks, lists, onEdit, onDelete, onCreateInCol, loading }) 
                     <div key={col} className="rounded-2xl border border-black/10 bg-white p-4">
                         <div className="mb-3 h-5 w-24 animate-pulse rounded bg-black/5" />
                         <div className="grid gap-3">
-                            {[1,2,3].map(i => <div key={i} className="h-32 animate-pulse rounded-2xl bg-black/5" />)}
+                            {[1, 2, 3].map(i => <div key={i} className="h-32 animate-pulse rounded-2xl bg-black/5" />)}
                         </div>
                     </div>
                 ))}
@@ -822,7 +840,7 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
                 <table className="min-w-full text-left text-sm">
                     <thead className="border-b border-black/10 bg-[#131E5C] text-xs text-white">
                         <tr>
-                            {[["title","Título"],["list_name","Estado"],["priority","Prioridad"],["due_date","Fecha límite"],["causa","Causa"]].map(([k,l]) => (
+                            {[["title", "Título"], ["list_name", "Estado"], ["priority", "Prioridad"], ["start_date", "Fecha inicio"], ["due_date", "Fecha límite"], ["causa", "Causa"]].map(([k, l]) => (
                                 <th key={k} className="px-4 py-3">
                                     <button type="button" onClick={() => toggleSort(k)} className="inline-flex items-center font-bold text-xs">
                                         {l}<SortIcon k={k} />
@@ -837,14 +855,14 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <tr key={i} className="animate-pulse">
-                                    {Array.from({ length: 7 }).map((_, j) => (
+                                    {Array.from({ length: 8 }).map((_, j) => (
                                         <td key={j} className="px-4 py-3"><div className="h-4 w-24 rounded bg-slate-100" /></td>
                                     ))}
                                 </tr>
                             ))
                         ) : sorted.length === 0 ? (
                             <tr>
-                                <td colSpan={7} className="px-4 py-10 text-center text-sm text-black/40">Sin planes con estos filtros.</td>
+                                <td colSpan={8} className="px-4 py-10 text-center text-sm text-black/40">Sin planes con estos filtros.</td>
                             </tr>
                         ) : sorted.map(task => {
                             const subs = Array.isArray(task.subtareas) ? task.subtareas : [];
@@ -856,6 +874,7 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
                                     </td>
                                     <td className="px-4 py-3"><StatusBadge name={task.list_name} /></td>
                                     <td className="px-4 py-3"><PriorityBadge value={task.priority} /></td>
+                                    <td className="px-4 py-3 text-xs text-black/50">{task.start_date ? String(task.start_date).slice(0, 10) : "—"}</td>
                                     <td className="px-4 py-3 text-xs text-black/50">{task.due_date ? String(task.due_date).slice(0, 10) : "—"}</td>
                                     <td className="px-4 py-3 text-xs text-black/60 max-w-[160px]">
                                         <span className="line-clamp-1">{task.causa || "—"}</span>
@@ -864,7 +883,7 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
                                         {subs.length > 0 ? (
                                             <div className="flex items-center gap-2">
                                                 <div className="h-1.5 w-16 rounded-full bg-black/5 overflow-hidden">
-                                                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${(done/subs.length)*100}%` }} />
+                                                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${(done / subs.length) * 100}%` }} />
                                                 </div>
                                                 <span className="text-xs text-black/40">{done}/{subs.length}</span>
                                             </div>
@@ -950,9 +969,9 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
     }, [withDate]);
 
     const DAY_W = 32;
-    const ROW_H_BASE = 64;   // altura base de cada fila (con más info)
-    const SUB_H = 24;        // altura por cada subtarea expandida
-    const LABEL_W = 260;     // más ancho para mostrar más info
+    const ROW_H_BASE = 64;
+    const SUB_H = 24;
+    const LABEL_W = 280;
 
     const todayOffset = Math.round((today - minDate) / (1000 * 60 * 60 * 24));
 
@@ -962,7 +981,6 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
         }
     }, [todayOffset, withDate.length]);
 
-    // Calcula la altura real de cada fila según si está expandida
     function rowHeight(task) {
         const subs = Array.isArray(task.subtareas) ? task.subtareas : [];
         if (expandedRows[task.id] && subs.length > 0) {
@@ -1017,9 +1035,8 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                     </div>
 
                     <div className="flex overflow-hidden">
-                        {/* Columna de etiquetas — ahora con más info */}
+                        {/* Columna de etiquetas */}
                         <div className="shrink-0 border-r border-black/[0.06]" style={{ width: LABEL_W }}>
-                            {/* Header */}
                             <div className="border-b border-black/[0.06] bg-slate-50 flex items-end px-3 pb-2" style={{ height: 52 }}>
                                 <span className="text-[11px] font-extrabold text-black/30 uppercase tracking-widest">Plan</span>
                             </div>
@@ -1038,14 +1055,12 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                         className="border-b border-black/[0.04] hover:bg-slate-50/80 transition"
                                         style={{ height: rh }}
                                     >
-                                        {/* Fila principal */}
                                         <div
                                             className="flex items-start gap-2 px-3 pt-2 cursor-pointer group"
                                             onClick={() => onEdit(task)}
                                         >
                                             <span className={cls("h-2 w-2 rounded-full shrink-0 mt-1", c.dot)} />
                                             <div className="flex-1 min-w-0">
-                                                {/* Título */}
                                                 <div className="flex items-center justify-between gap-1">
                                                     <span className="text-xs font-black text-[#131E5C] truncate leading-tight flex-1" title={task.title}>
                                                         {task.title}
@@ -1064,27 +1079,32 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                                     </div>
                                                 </div>
 
-                                                {/* Badges: estado + prioridad */}
                                                 <div className="flex items-center gap-1 mt-1 flex-wrap">
                                                     <StatusBadge name={task.list_name} />
                                                     <PriorityBadge value={task.priority} />
+                                                    {task.start_date && (
+                                                        <span className="text-[10px] text-black/40">Inicio: {String(task.start_date).slice(0, 10)}</span>
+                                                    )}
                                                 </div>
 
-                                                {/* Descripción del problema */}
                                                 {task.descripcion_problema && (
                                                     <p className="mt-1 text-[10px] text-black/50 line-clamp-1 leading-tight">
                                                         {task.descripcion_problema}
                                                     </p>
                                                 )}
 
-                                                {/* Causa */}
                                                 {task.causa && (
                                                     <p className="mt-0.5 text-[10px] font-semibold text-[#131E5C]/60 truncate">
                                                         {task.causa}{task.raiz ? ` · ${task.raiz}` : ""}
                                                     </p>
                                                 )}
 
-                                                {/* Subtareas con toggle */}
+                                                {task.desarrollo_estrategia && (
+                                                    <p className="mt-0.5 text-[10px] text-blue-600 truncate">
+                                                        📋 {task.desarrollo_estrategia.length > 60 ? task.desarrollo_estrategia.slice(0, 60) + "..." : task.desarrollo_estrategia}
+                                                    </p>
+                                                )}
+
                                                 {subs.length > 0 && (
                                                     <div className="mt-1">
                                                         <button
@@ -1101,7 +1121,6 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                                             )}
                                                         </button>
 
-                                                        {/* Barra de progreso */}
                                                         <div className="mt-0.5 h-1 w-full rounded-full bg-black/5 overflow-hidden">
                                                             <div className="h-full rounded-full bg-emerald-500 transition-all"
                                                                 style={{ width: `${pct ?? 0}%` }} />
@@ -1111,7 +1130,6 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                             </div>
                                         </div>
 
-                                        {/* Subtareas expandidas */}
                                         {isExpanded && subs.length > 0 && (
                                             <div className="px-3 pb-1 mt-1 grid gap-0.5">
                                                 {subs.map((s, i) => (
@@ -1171,9 +1189,8 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                     </div>
                                 </div>
 
-                                {/* Filas Gantt — altura dinámica sincronizada con columna izquierda */}
+                                {/* Filas Gantt */}
                                 <div className="relative">
-                                    {/* Fondo: fines de semana + línea de hoy */}
                                     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
                                         {Array.from({ length: totalDays }).map((_, di) => {
                                             const d = new Date(minDate);
@@ -1284,6 +1301,9 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                     {task.descripcion_problema && (
                                         <p className="text-xs text-black/50 line-clamp-1">{task.descripcion_problema}</p>
                                     )}
+                                    {task.desarrollo_estrategia && (
+                                        <p className="text-xs text-blue-600 line-clamp-1 mt-0.5">📋 {task.desarrollo_estrategia.slice(0, 60)}</p>
+                                    )}
                                     <div className="mt-1.5"><StatusBadge name={task.list_name} /></div>
                                 </div>
                                 <div className="flex shrink-0 gap-1">
@@ -1309,35 +1329,33 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
 
 // Main Page
 export default function TimeForAction() {
-    const [teamId, setTeamId]       = useState(() => { const v = localStorage.getItem("clickup_team_id"); return v ? Number(v) : null; });
+    const [teamId, setTeamId] = useState(() => { const v = localStorage.getItem("clickup_team_id"); return v ? Number(v) : null; });
     const [projectId, setProjectId] = useState(() => { const v = localStorage.getItem("clickup_project_id"); return v ? Number(v) : null; });
 
-    const [teams, setTeams]         = useState([]);
-    const [projects, setProjects]   = useState([]);
-    const [lists, setLists]         = useState([]);
-    const [tasks, setTasks]         = useState([]);
-    const [loading, setLoading]     = useState(false);
+    const [teams, setTeams] = useState([]);
+    const [projects, setProjects] = useState([]);
+    const [lists, setLists] = useState([]);
+    const [tasks, setTasks] = useState([]);
+    const [loading, setLoading] = useState(false);
 
-    const [view, setView]           = useState("kanban");
-    const [q, setQ]                 = useState("");
+    const [view, setView] = useState("kanban");
+    const [q, setQ] = useState("");
     const [filterStatus, setFilterStatus] = useState("Todos");
 
-    const [modalOpen, setModalOpen]           = useState(false);
-    const [editingTask, setEditingTask]       = useState(null);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [editingTask, setEditingTask] = useState(null);
     const [teamsModalOpen, setTeamsModalOpen] = useState(false);
 
     const [editingProject, setEditingProject] = useState(false);
-    const [projectName, setProjectName]       = useState("");
+    const [projectName, setProjectName] = useState("");
     const [projectModalOpen, setProjectModalOpen] = useState(false);
     const [newProjectName, setNewProjectName] = useState("");
 
-    // Delete task confirm
     const [confirmDeleteTask, setConfirmDeleteTask] = useState(null);
-    const [deletingTask, setDeletingTask]           = useState(false);
+    const [deletingTask, setDeletingTask] = useState(false);
 
-    // Delete project confirm
     const [confirmDeleteProject, setConfirmDeleteProject] = useState(false);
-    const [deletingProject, setDeletingProject]           = useState(false);
+    const [deletingProject, setDeletingProject] = useState(false);
 
     const fetchTeams = useCallback(async () => {
         try {
@@ -1345,7 +1363,7 @@ export default function TimeForAction() {
             const arr = Array.isArray(data) ? data : [];
             setTeams(arr);
             if (!teamId && arr[0]) setTeamId(Number(arr[0].id));
-        } catch(e) { console.error(e); }
+        } catch (e) { console.error(e); }
     }, [teamId]);
 
     useEffect(() => { fetchTeams(); }, []);
@@ -1383,7 +1401,8 @@ export default function TimeForAction() {
             const matchQ = !qn
                 || (t.title || "").toLowerCase().includes(qn)
                 || (t.descripcion_problema || "").toLowerCase().includes(qn)
-                || (t.causa || "").toLowerCase().includes(qn);
+                || (t.causa || "").toLowerCase().includes(qn)
+                || (t.desarrollo_estrategia || "").toLowerCase().includes(qn);
             const matchS = filterStatus === "Todos" || t.list_name === filterStatus;
             return matchQ && matchS;
         });
@@ -1405,7 +1424,6 @@ export default function TimeForAction() {
         setModalOpen(true);
     }
 
-    // Task deletion via confirm dialog
     function handleDeleteTask(task) {
         setConfirmDeleteTask(task);
     }
@@ -1421,7 +1439,6 @@ export default function TimeForAction() {
         finally { setDeletingTask(false); }
     }
 
-    // Project deletion
     async function deleteCurrentProject() {
         if (!projectId || !teamId) return;
         setDeletingProject(true);
@@ -1440,8 +1457,8 @@ export default function TimeForAction() {
     }
 
     const viewTabs = [
-        { id: "kanban",   label: "Kanban",         Icon: LayoutGrid },
-        { id: "tabla",    label: "Tabla",           Icon: Table2 },
+        { id: "kanban", label: "Kanban", Icon: LayoutGrid },
+        { id: "tabla", label: "Tabla", Icon: Table2 },
         { id: "timeline", label: "Línea de tiempo", Icon: GitBranch },
     ];
 
@@ -1520,14 +1537,12 @@ export default function TimeForAction() {
                                 className="rounded-xl border border-black/10 bg-slate-50 px-3 py-1.5 text-sm font-bold outline-none focus:border-[#131E5C]">
                                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
-                            {/* Rename */}
                             <button type="button"
                                 onClick={() => { const cur = projects.find(p => p.id === projectId); setProjectName(cur?.name || ""); setEditingProject(true); }}
                                 className="rounded-xl border border-black/10 bg-white p-1.5 text-black/50 hover:bg-slate-100"
                                 title="Renombrar proyecto">
                                 <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            {/* Delete project */}
                             {projectId && (
                                 <button type="button"
                                     onClick={() => setConfirmDeleteProject(true)}
