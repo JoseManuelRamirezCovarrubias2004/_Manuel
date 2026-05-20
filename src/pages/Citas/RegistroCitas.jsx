@@ -1,0 +1,1227 @@
+// src/pages/Citas/RegistroCitas.jsx
+import { useMemo, useState, useEffect, useRef } from "react";
+import {
+    Plus,
+    Search,
+    X,
+    Save,
+    User,
+    CarFront,
+    CalendarDays,
+    ArrowUpDown,
+    ChevronDown,
+    ChevronUp,
+    ChevronLeft,
+    ChevronRight,
+    Trash2,
+    Loader2,
+    Phone,
+    LayoutList,
+    UserCheck,
+    UserSearch,
+    UserMinus,
+    UserStar,
+    MessageSquareText,
+    Building2,
+    CalendarClock,
+    Table2,
+    BarChart3,
+    Calendar,
+} from "lucide-react";
+import { apiCitas } from "../../lib/apiCitas";
+import { createPortal } from "react-dom";
+import { useAuth } from "../../auth/AuthContext";
+
+const BRAND_BLUE = "#131E5C";
+
+
+function normalizeStr(v) { return String(v ?? "").trim(); }
+
+function toDTLocal(isoOrNull) {
+    if (!isoOrNull) return "";
+    const s = String(isoOrNull);
+    if (s.endsWith("Z")) {
+        const d = new Date(s);
+        if (Number.isNaN(d.getTime())) return "";
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return s.slice(0, 16);
+    return "";
+}
+
+function fromDTLocalToISO(dtLocalOrEmpty) {
+    const v = String(dtLocalOrEmpty || "").trim();
+    return v ? v : null;
+}
+
+function toYMDLocal(dateLike) {
+    const d = new Date(dateLike);
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function ymdToInt(ymd) {
+    if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+    return Number(ymd.replaceAll("-", ""));
+}
+
+
+function Skeleton({ className = "" }) {
+    return <div className={["animate-pulse rounded-md bg-black/10", className].join(" ")} />;
+}
+
+function SkeletonRow() {
+    return (
+        <tr className="animate-pulse">
+            {[36, 28, 40, 28, 28, 64, 20].map((w, i) => (
+                <td key={i} className="px-4 py-3">
+                    <div className={`h-4 w-${w} rounded bg-slate-200/60`} />
+                </td>
+            ))}
+        </tr>
+    );
+}
+
+function ModalSkeleton() {
+    return (
+        <div className="grid gap-3 md:grid-cols-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="rounded-lg border border-white/10 bg-neutral-200/50 p-4">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="mt-3 h-10 w-full rounded-lg" />
+                </div>
+            ))}
+            <div className="md:col-span-2 rounded-lg border border-white/10 bg-neutral-200/50 p-4">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="mt-3 h-24 w-full rounded-lg" />
+            </div>
+        </div>
+    );
+}
+
+
+function Modal({ open, title, onClose, children, footer }) {
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-[60]">
+            <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" onClick={onClose} />
+            <div className="absolute inset-0 flex items-end justify-center p-3 sm:items-center">
+                <div className="w-full max-w-4xl overflow-hidden rounded-lg border border-[#131E5C] bg-neutral-100 shadow-2xl">
+                    <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ backgroundColor: BRAND_BLUE }}>
+                        <div className="min-w-0">
+                            <div className="truncate text-base font-extrabold text-white">{title}</div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white hover:bg-white/15"
+                            aria-label="Cerrar"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
+                    <div className="max-h-[72vh] overflow-auto p-5">{children}</div>
+                    {footer ? (
+                        <div className="flex flex-col gap-2 border-t border-white/10 bg-white/[0.03] px-5 py-4 sm:flex-row sm:items-center sm:justify-end">
+                            {footer}
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function Field({ label, icon: Icon, children }) {
+    return (
+        <div className="rounded-lg border border-white/10 bg-neutral-200/50 p-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-[#131E5C]">
+                {Icon ? <Icon className="h-4 w-4" /> : null}
+                <span>{label}</span>
+            </div>
+            {children}
+        </div>
+    );
+}
+
+function FilterBlock({ label, children }) {
+    return (
+        <div className="rounded-lg">
+            <div className="mb-2 text-xs font-extrabold tracking-wide text-[#131E5C]">{label}</div>
+            {children}
+        </div>
+    );
+}
+
+
+function ContextMenu({ ctxMenu, onDelete, onClose }) {
+    if (!ctxMenu.open || !ctxMenu.row) return null;
+    return createPortal(
+        <div className="fixed z-[9999]" style={{ left: ctxMenu.x, top: ctxMenu.y }} onClick={(e) => e.stopPropagation()}>
+            <div className="w-48 overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl">
+                <button
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+                    onClick={() => onDelete(ctxMenu.row)}
+                >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar
+                </button>
+                <button className="w-full px-4 py-2 text-left text-xs text-slate-500 hover:bg-slate-50" onClick={onClose}>
+                    Cerrar
+                </button>
+            </div>
+        </div>,
+        document.body
+    );
+}
+
+
+function MobileCardList({ rows, loading, onEdit, onContext, onToggleAsistencia, updatingInline }) {
+    return (
+        <div className="lg:hidden">
+            <div className="overflow-hidden rounded-lg bg-white/[0.03] shadow-lg">
+                {loading ? (
+                    <div className="grid gap-3 p-3 sm:grid-cols-2">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <div key={i} className="rounded-lg border border-black/10 bg-white p-4 shadow-sm">
+                                <Skeleton className="h-4 w-40" /><Skeleton className="mt-3 h-4 w-28" />
+                                <Skeleton className="mt-3 h-4 w-56" /><Skeleton className="mt-4 h-8 w-24 rounded-full" />
+                            </div>
+                        ))}
+                    </div>
+                ) : rows.length === 0 ? (
+                    <div className="px-4 py-10 text-center text-[#131E5C]">No hay resultados con esos filtros.</div>
+                ) : (
+                    <div className="grid gap-3 p-3 sm:grid-cols-2">
+                        {rows.map((row) => {
+                            const isUpdating = !!updatingInline[row.id];
+                            const nombreCliente = row?.cliente?.nombre || "—";
+                            const telCliente = row?.cliente?.telefono || "—";
+                            const fecha = row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—";
+                            return (
+                                <div key={row.id} onClick={() => onEdit(row)} onContextMenu={(e) => onContext(e, row)}
+                                    className="cursor-pointer rounded-lg border border-black/10 bg-white p-4 shadow-sm transition hover:shadow-md"
+                                    title="Toca para editar"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2 text-xs font-extrabold text-[#131E5C]">
+                                                <CalendarDays className="h-4 w-4" /><span className="truncate">{fecha}</span>
+                                            </div>
+                                            <div className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-500">
+                                                <Building2 className="h-4 w-4" /><span className="truncate">{row.agencia || "—"}</span>
+                                            </div>
+                                        </div>
+                                        <button disabled={isUpdating} onClick={(e) => { e.stopPropagation(); onToggleAsistencia(row); }}
+                                            className={["shrink-0 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold",
+                                                row.asistencia ? "bg-emerald-200 text-emerald-800 border-emerald-300" : "bg-red-200 text-red-800 border-red-300",
+                                                isUpdating ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"].join(" ")}
+                                        >
+                                            {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                                            {row.asistencia ? "Sí" : "No"}
+                                        </button>
+                                    </div>
+                                    <div className="mt-3 grid gap-2">
+                                        <div className="flex items-center gap-2 text-sm font-bold text-[#131E5C]">
+                                            <User className="h-4 w-4" /><span className="truncate">{nombreCliente}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                            <Phone className="h-4 w-4 text-[#131E5C]" /><span className="truncate">{telCliente}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                            <CarFront className="h-4 w-4 text-[#131E5C]" /><span className="truncate">{row.auto_interes || "—"}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                            <LayoutList className="h-4 w-4 text-[#131E5C]" /><span className="truncate">{row.tipo_cita || "—"}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                            <UserMinus className="h-4 w-4 text-[#131E5C]" /><span className="truncate">{row.asesor_digital || "—"}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                            <UserStar className="h-4 w-4 text-[#131E5C]" /><span className="truncate">{row.asesor_piso || "—"}</span>
+                                        </div>
+                                        <div className="mt-1 text-xs text-slate-600">
+                                            <div className="flex items-start gap-2">
+                                                <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-[#131E5C]" />
+                                                <span className="line-clamp-2">{row.comentarios || "—"}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 7); // 7:00 – 19:00
+const DAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+const TIPO_COLORS = {
+    "Prueba de Manejo": { bg: "bg-emerald-100", border: "border-emerald-400", text: "text-emerald-900", dot: "bg-emerald-500" },
+    "Tradicional": { bg: "bg-blue-100", border: "border-blue-400", text: "text-blue-900", dot: "bg-blue-500" },
+    "Digital": { bg: "bg-violet-100", border: "border-violet-400", text: "text-violet-900", dot: "bg-violet-500" },
+    default: { bg: "bg-slate-100", border: "border-slate-400", text: "text-slate-800", dot: "bg-slate-400" },
+};
+
+function getColor(tipo) {
+    return TIPO_COLORS[tipo] || TIPO_COLORS.default;
+}
+
+function getWeekDates(referenceDate) {
+    const d = new Date(referenceDate);
+    const day = d.getDay(); // 0=Dom
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((day + 6) % 7));
+    return Array.from({ length: 7 }, (_, i) => {
+        const nd = new Date(monday);
+        nd.setDate(monday.getDate() + i);
+        return nd;
+    });
+}
+
+function isSameDay(d1, d2) {
+    return d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate();
+}
+
+function AgendaView({ rows, loading, onEdit, onNewAtSlot }) {
+    const [weekRef, setWeekRef] = useState(new Date());
+    const weekDates = useMemo(() => getWeekDates(weekRef), [weekRef]);
+    const today = new Date();
+
+    const goNext = () => { const d = new Date(weekRef); d.setDate(d.getDate() + 7); setWeekRef(d); };
+    const goPrev = () => { const d = new Date(weekRef); d.setDate(d.getDate() - 7); setWeekRef(d); };
+    const goToday = () => setWeekRef(new Date());
+
+
+    const citasByDayHour = useMemo(() => {
+        const map = {};
+        for (const row of rows) {
+            if (!row.fecha_hora_cita) continue;
+            const dt = new Date(row.fecha_hora_cita);
+            if (Number.isNaN(dt.getTime())) continue;
+            const dayKey = toYMDLocal(dt);
+            const hour = dt.getHours();
+            if (!map[dayKey]) map[dayKey] = {};
+            if (!map[dayKey][hour]) map[dayKey][hour] = [];
+            map[dayKey][hour].push(row);
+        }
+        return map;
+    }, [rows]);
+
+    const weekLabel = useMemo(() => {
+        const start = weekDates[0];
+        const end = weekDates[6];
+        const sm = start.getDate();
+        const em = end.getDate();
+        const smth = MONTHS_ES[start.getMonth()];
+        const emth = MONTHS_ES[end.getMonth()];
+        const yr = end.getFullYear();
+        if (start.getMonth() === end.getMonth()) return `${sm} – ${em} de ${smth} de ${yr}`;
+        return `${sm} de ${smth} – ${em} de ${emth} de ${yr}`;
+    }, [weekDates]);
+
+    return (
+        <div className="rounded-lg border border-black/10 bg-white overflow-hidden shadow-sm">
+
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-black/10">
+                <div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Semana</div>
+                    <div className="text-sm font-extrabold text-[#131E5C]">{weekLabel}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={goPrev} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-[#131E5C] text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition">
+                        Hoy
+                    </button>
+                    <button onClick={goNext} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
+                        <ChevronRight className="h-4 w-4" />
+                    </button>
+                </div>
+            </div>
+
+
+            <div className="overflow-auto">
+                <table className="min-w-full border-collapse" style={{ tableLayout: "fixed" }}>
+                    <colgroup>
+                        <col style={{ width: "64px" }} />
+                        {weekDates.map((_, i) => <col key={i} style={{ width: `calc((100% - 64px) / 7)` }} />)}
+                    </colgroup>
+
+                    <thead>
+                        <tr>
+                            <th className="px-2 py-3 text-xs font-bold text-slate-400 bg-white border-b border-r border-black/10">Hora</th>
+                            {weekDates.map((d, i) => {
+                                const isToday = isSameDay(d, today);
+                                return (
+                                    <th key={i} className="px-2 py-3 text-center border-b border-r border-black/10 bg-white">
+                                        <div
+                                            className={`inline-flex flex-col items-center justify-center px-2 py-[2px] rounded-full ${isToday ? "bg-[#131E5C] text-white" : ""}`}
+                                        >
+                                            <div className={`text-[10px] font-semibold leading-none ${isToday ? "text-white/70" : "text-slate-400"}`}>
+                                                {DAYS_ES[d.getDay()]}
+                                            </div>
+                                            <div className={`text-xs font-bold leading-none ${isToday ? "text-white" : "text-[#131E5C]"}`}>
+                                                {d.getDate()}/{String(d.getMonth() + 1).padStart(2, "0")}
+                                            </div>
+                                        </div>
+                                    </th>
+                                );
+                            })}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading ? (
+                            <tr>
+                                <td colSpan={8} className="px-4 py-16 text-center text-[#131E5C]">
+                                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                                    <span className="text-sm font-semibold">Cargando citas...</span>
+                                </td>
+                            </tr>
+                        ) : (
+                            HOURS.map((hour) => (
+                                <tr key={hour} className="group">
+                                    <td className="px-2 py-0 text-xs font-bold text-slate-400 border-r border-b border-black/10 align-top pt-2 bg-white" style={{ height: "72px" }}>
+                                        {String(hour).padStart(2, "0")}:00
+                                    </td>
+                                    {weekDates.map((d, di) => {
+                                        const dayKey = toYMDLocal(d);
+                                        const citas = citasByDayHour?.[dayKey]?.[hour] || [];
+                                        const isToday = isSameDay(d, today);
+                                        return (
+                                            <td
+                                                key={di}
+                                                className="border-r border-b border-black/10 align-top p-1 relative group/cell bg-white hover:bg-slate-50"
+                                                style={{ height: "72px", verticalAlign: "top" }}
+                                            >
+                                             
+                                                {citas.length === 0 && (
+                                                    <button
+                                                        onClick={() => onNewAtSlot(d, hour)}
+                                                        className="absolute top-1 right-1 h-6 w-6 rounded-full bg-[#131E5C]/10 text-[#131E5C] opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center hover:bg-[#131E5C] hover:text-white"
+                                                        title={`Nueva cita ${String(hour).padStart(2, "0")}:00`}
+                                                    >
+                                                        <Plus className="h-3.5 w-3.5" />
+                                                    </button>
+                                                )}
+                                                <div className="flex flex-col gap-0.5">
+                                                    {citas.map((cita) => {
+                                                        const dt = new Date(cita.fecha_hora_cita);
+                                                        const mins = String(dt.getMinutes()).padStart(2, "0");
+                                                        const color = getColor(cita.tipo_cita);
+                                                        return (
+                                                            <button
+                                                                key={cita.id}
+                                                                onClick={() => onEdit(cita)}
+                                                                className={`w-full text-left rounded px-1.5 py-0.5 border-l-2 text-xs font-semibold truncate ${color.bg} ${color.border} ${color.text} hover:opacity-80 transition`}
+                                                                title={`${cita?.cliente?.nombre || "—"} – ${cita.tipo_cita || ""}`}
+                                                            >
+                                                                <span className="font-bold">{String(hour).padStart(2, "0")}:{mins}</span>
+                                                                {" "}{cita?.cliente?.nombre || "Sin nombre"}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+
+            <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-t border-black/10 bg-slate-50">
+                {Object.entries(TIPO_COLORS).filter(([k]) => k !== "default").map(([tipo, color]) => (
+                    <div key={tipo} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                        <span className={`h-2.5 w-2.5 rounded-full ${color.dot}`} />
+                        {tipo}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
+function Bar({ label, value, max, color, total }) {
+    const [hovered, setHovered] = useState(false);
+    const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+    const pctTotal = total > 0 ? Math.round((value / total) * 100) : 0;
+    return (
+        <div
+            className="relative flex items-center gap-2 rounded-lg px-2 py-1 transition-colors duration-150 cursor-default"
+            style={{ background: hovered ? "rgba(19,30,92,0.05)" : "transparent" }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+        >
+            {/* Tooltip */}
+            {hovered && (
+                <div className="absolute left-1/2 -top-9 -translate-x-1/2 z-50 whitespace-nowrap rounded-lg bg-[#131E5C] px-3 py-1.5 text-xs font-bold text-white shadow-xl pointer-events-none">
+                    {label ? <span className="mr-1">{label}:</span> : null}
+                    {value} citas {total > 0 ? `(${pctTotal}%)` : ""}
+                    <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 bg-[#131E5C] rotate-45" />
+                </div>
+            )}
+            <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                    className={`h-full rounded-full transition-all duration-500 ${color}`}
+                    style={{ width: `${pct}%`, opacity: hovered ? 1 : 0.85 }}
+                />
+            </div>
+            <span className={`text-xs font-bold w-6 text-right transition-colors ${hovered ? "text-[#131E5C]" : "text-slate-500"}`}>
+                {value}
+            </span>
+        </div>
+    );
+}
+
+
+function ColBar({ dia, cnt, pct, hovered, onEnter, onLeave }) {
+    return (
+        <div
+            className="flex-1 flex flex-col items-center gap-1 cursor-default"
+            onMouseEnter={onEnter}
+            onMouseLeave={onLeave}
+        >
+            <span className={`text-xs font-bold transition-colors ${hovered ? "text-[#131E5C]" : "text-transparent"}`}>
+                {cnt}
+            </span>
+            <div className="relative w-full rounded-t-md bg-[#131E5C]/10 flex items-end" style={{ height: "72px" }}>
+                <div
+                    className="w-full rounded-t-md transition-all duration-500"
+                    style={{
+                        height: `${pct}%`,
+                        minHeight: cnt > 0 ? "4px" : "0",
+                        background: hovered ? "#131E5C" : "rgba(19,30,92,0.6)",
+                    }}
+                />
+                {hovered && cnt > 0 && (
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#131E5C] px-2 py-1 text-xs font-bold text-white shadow-xl pointer-events-none z-50">
+                        {cnt} cita{cnt !== 1 ? "s" : ""}
+                        <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 bg-[#131E5C] rotate-45" />
+                    </div>
+                )}
+            </div>
+            <span className={`text-xs font-semibold transition-colors ${hovered ? "text-[#131E5C] font-extrabold" : "text-slate-500"}`}>
+                {dia}
+            </span>
+        </div>
+    );
+}
+
+
+function KpiCard({ label, value, color, bg, detail }) {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <div
+            className={`rounded-xl border border-black/10 ${bg} p-4 transition-all duration-200 cursor-default select-none`}
+            style={{ transform: hovered ? "translateY(-2px)" : "none", boxShadow: hovered ? "0 8px 24px rgba(19,30,92,0.12)" : "none" }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+        >
+            <div className="text-xs font-bold text-slate-500 mb-1">{label}</div>
+            <div className={`text-3xl font-extrabold ${color}`}>{value}</div>
+            {hovered && detail ? (
+                <div className="mt-2 text-xs font-semibold text-slate-400 animate-pulse">{detail}</div>
+            ) : null}
+        </div>
+    );
+}
+
+function GraficosView({ rows }) {
+    const [hoveredDia, setHoveredDia] = useState(null);
+
+    const stats = useMemo(() => {
+        const total = rows.length;
+        const asistieron = rows.filter((r) => r.asistencia).length;
+        const noAsistieron = total - asistieron;
+        const pctAsist = total > 0 ? Math.round((asistieron / total) * 100) : 0;
+
+        const porTipo = {};
+        for (const r of rows) { const t = r.tipo_cita || "Sin tipo"; porTipo[t] = (porTipo[t] || 0) + 1; }
+
+        const porAgencia = {};
+        for (const r of rows) { const a = r.agencia || "Sin agencia"; porAgencia[a] = (porAgencia[a] || 0) + 1; }
+
+        const porAsesor = {};
+        for (const r of rows) { const a = r.asesor_digital || "Sin asesor"; porAsesor[a] = (porAsesor[a] || 0) + 1; }
+
+        const porFuente = {};
+        for (const r of rows) { const f = r.fuente_prospeccion || "Sin fuente"; porFuente[f] = (porFuente[f] || 0) + 1; }
+
+        const porDia = { Lun: 0, Mar: 0, Mié: 0, Jue: 0, Vie: 0, Sáb: 0, Dom: 0 };
+        const daysMap = [6, 0, 1, 2, 3, 4, 5];
+        const daysKeys = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+        for (const r of rows) {
+            if (!r.fecha_hora_cita) continue;
+            const d = new Date(r.fecha_hora_cita);
+            if (Number.isNaN(d.getTime())) continue;
+            porDia[daysKeys[daysMap[d.getDay()]]] = (porDia[daysKeys[daysMap[d.getDay()]]] || 0) + 1;
+        }
+
+        return { total, asistieron, noAsistieron, pctAsist, porTipo, porAgencia, porAsesor, porFuente, porDia };
+    }, [rows]);
+
+    const topAgencias = Object.entries(stats.porAgencia).sort((a, b) => b[1] - a[1]);
+    const topAsesores = Object.entries(stats.porAsesor).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const topFuentes = Object.entries(stats.porFuente).sort((a, b) => b[1] - a[1]);
+    const maxAgencia = topAgencias[0]?.[1] || 1;
+    const maxAsesor = topAsesores[0]?.[1] || 1;
+    const maxFuente = topFuentes[0]?.[1] || 1;
+    const maxDia = Math.max(...Object.values(stats.porDia), 1);
+
+    const AGENCIA_COLORS = ["bg-[#131E5C]", "bg-blue-600", "bg-blue-400", "bg-blue-300", "bg-sky-300", "bg-cyan-300", "bg-teal-300"];
+    const FUENTE_COLORS = ["bg-violet-600", "bg-violet-500", "bg-violet-400", "bg-violet-300", "bg-purple-300", "bg-purple-200", "bg-indigo-300", "bg-indigo-200", "bg-blue-300", "bg-sky-300"];
+    const ASESOR_COLORS = ["bg-emerald-600", "bg-emerald-500", "bg-emerald-400", "bg-emerald-300", "bg-teal-400", "bg-teal-300", "bg-cyan-400", "bg-cyan-300"];
+
+    return (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+
+            {/* KPIs */}
+            <div className="xl:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+                <KpiCard label="Total citas" value={stats.total} color="text-[#131E5C]" bg="bg-[#131E5C]/5" detail="Total de citas registradas con los filtros activos" />
+                <KpiCard label="Asistieron" value={stats.asistieron} color="text-emerald-700" bg="bg-emerald-50" detail={`${stats.pctAsist}% de tasa de asistencia`} />
+                <KpiCard label="No asistieron" value={stats.noAsistieron} color="text-red-600" bg="bg-red-50" detail={`${100 - stats.pctAsist}% no se presentaron`} />
+                <KpiCard label="% Asistencia" value={`${stats.pctAsist}%`} color="text-blue-700" bg="bg-blue-50" detail={`${stats.asistieron} de ${stats.total} citas`} />
+            </div>
+
+            {/* Por tipo de cita */}
+            <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
+                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2">
+                    <LayoutList className="h-4 w-4" /> Por tipo de cita
+                </div>
+                <div className="space-y-1">
+                    {Object.entries(stats.porTipo).sort((a, b) => b[1] - a[1]).map(([tipo, cnt]) => {
+                        const color = getColor(tipo);
+                        const pct = stats.total > 0 ? Math.round((cnt / stats.total) * 100) : 0;
+                        return (
+                            <div key={tipo} className="group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-slate-50 cursor-default">
+                                <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${color.dot}`} />
+                                <span className="text-xs font-semibold text-slate-600 flex-1 truncate group-hover:text-[#131E5C] transition-colors">{tipo}</span>
+                                <span className="text-xs font-bold text-slate-400 group-hover:text-slate-600 transition-colors">{pct}%</span>
+                                <div className="w-24 h-3 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all duration-500 group-hover:opacity-100 opacity-75 ${color.dot}`} style={{ width: `${pct}%` }} />
+                                </div>
+                                <span className="text-xs font-bold text-[#131E5C] w-5 text-right">{cnt}</span>
+                            </div>
+                        );
+                    })}
+                    {Object.keys(stats.porTipo).length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}
+                </div>
+            </div>
+
+            {/* Por agencia */}
+            <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
+                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2">
+                    <Building2 className="h-4 w-4" /> Por dealer
+                </div>
+                <div className="space-y-1">
+                    {topAgencias.map(([agencia, cnt], i) => (
+                        <div key={agencia}>
+                            <div className="flex items-center justify-between px-2 mb-0.5">
+                                <span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{agencia}</span>
+                            </div>
+                            <Bar label={agencia} value={cnt} max={maxAgencia} color={AGENCIA_COLORS[i % AGENCIA_COLORS.length]} total={stats.total} />
+                        </div>
+                    ))}
+                    {topAgencias.length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}
+                </div>
+            </div>
+
+            {/* Por día de la semana */}
+            <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
+                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4" /> Por día de la semana
+                </div>
+                <div className="flex items-end gap-2 mt-2" style={{ height: "110px" }}>
+                    {Object.entries(stats.porDia).map(([dia, cnt]) => {
+                        const pct = maxDia > 0 ? (cnt / maxDia) * 100 : 0;
+                        return (
+                            <ColBar
+                                key={dia}
+                                dia={dia}
+                                cnt={cnt}
+                                pct={pct}
+                                hovered={hoveredDia === dia}
+                                onEnter={() => setHoveredDia(dia)}
+                                onLeave={() => setHoveredDia(null)}
+                            />
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Por asesor digital */}
+            <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-2">
+                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2">
+                    <UserMinus className="h-4 w-4" /> Por asesor digital (top 8)
+                </div>
+                <div className="space-y-1">
+                    {topAsesores.map(([asesor, cnt], i) => (
+                        <div key={asesor}>
+                            <div className="flex items-center justify-between px-2 mb-0.5">
+                                <span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{asesor}</span>
+                            </div>
+                            <Bar label={asesor} value={cnt} max={maxAsesor} color={ASESOR_COLORS[i % ASESOR_COLORS.length]} total={stats.total} />
+                        </div>
+                    ))}
+                    {topAsesores.length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}
+                </div>
+            </div>
+
+            {/* Por fuente */}
+            <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
+                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2">
+                    <UserSearch className="h-4 w-4" /> Por fuente de prospección
+                </div>
+                <div className="space-y-1">
+                    {topFuentes.map(([fuente, cnt], i) => (
+                        <div key={fuente}>
+                            <div className="flex items-center justify-between px-2 mb-0.5">
+                                <span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{fuente}</span>
+                            </div>
+                            <Bar label={fuente} value={cnt} max={maxFuente} color={FUENTE_COLORS[i % FUENTE_COLORS.length]} total={stats.total} />
+                        </div>
+                    ))}
+                    {topFuentes.length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+export default function RegistroCitas() {
+    const { user } = useAuth();
+
+    const isAdmin = useMemo(() => {
+        const permisos = user?.permisos || [];
+        const rol = String(user?.rol || "").trim().toLowerCase();
+        return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
+    }, [user]);
+
+    const userAgencia = String(user?.agencia || "").trim();
+
+    const [citas, setCitas] = useState([]);
+    const [vista, setVista] = useState("tabla"); // "tabla" | "agenda" | "graficos"
+
+    const DEALERS = useMemo(() => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"], []);
+    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen"];
+    const ASESORES = [
+        "AURA MARLIZETH FERNANDEZ LOPEZ", "Bianca Isabel Chavez Alarcon", "ERENDIRA SANTOS COYOTZI",
+        "IRENE DEL CARMEN GUIZA LOPEZ", "MARCOS RAUL DIAZ RAMOS", "MARIO ALBERTO LOPEZ RAMOS",
+        "MARISOL LAGUNES GONZALEZ", "NALLELY HERNANDEZ GARCIA", "OCTAVIO BRUNO GONZALEZ",
+        "ROGELIO VAZQUEZ SANCHEZ", "RUBEN ALBERTO TOSQUY ADRIANO", "Saja Azzam Mohammad Jamous",
+        "SANDRA LUZ PRIETO PEREZ", "YAMIL MISAEL RODRIGUEZ AGUILAR", "LUIS ALFONSO CORIA MARROQUIN",
+        "CANDY DENISSE MARQUEZ CORTES", "DELMAR JAVIER ILLESCAS DOMINGUEZ", "EDGAR JESUS GOMEZ PEREZ",
+        "Valeria Zilli Durante", "IDALMY JIMENEZ SANCHEZ", "IVAN JUAREZ ORTEGA",
+        "JESSICA OLIVARES CAMPOS", "JESUS XITLAMA GOMEZ", "LIZBETH CANO CLARA",
+        "LUIS MANUEL PALOMARES OLAYO", "MARIA DEL CARMEN ZAVALA VELAZQUEZ", "OMAR VILLIERS MONDRAGON",
+        "RUBEN ROMERO VALDES", "VERONICA CASTILLO FUENTES", "Hector Rodriguez",
+        "GEOVANI NAVA DIAZ", "ZEILA NAVARRO CONTRERAS", "JOSE ALFREDO BARRANCA REYES",
+        "ADRIAN GALVEZ ROLDAN", "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ", "Marelly Tenorio Salinas",
+        "ELIA INES ARANO REYES", "JORGE LUIS ALAMILLO RODRIGUEZ", "Cesar Ivan Salazar Reyes",
+        "Cristian Fernando Rivera Godinez", "DULCE ABIGAIL GARCIA OLIVARES", "Felix Emmanuel Solis Angeles",
+        "GERMAN JARITH SALAZAR MIRANDA", "Iris Yazmín Gómez Velázquez", "Israel Garcia Juarez",
+        "JORGE ANTONIO RODRIGUEZ MARTINEZ", "JOSE DE JESUS GARCIA ROMAN", "JUAN MANUEL SOBREVILLA VICENCIO",
+        "Miguel Capitanachi Paredes", "OLIMPIA VAZQUEZ MENDEZ", "Roberto Ramses Luna Fajardo",
+        "Carlos Arturo Garces Vengas", "Edgar Omar Noguera Solis", "Javier Perez Meraz",
+        "Luis Armando Almora Perez", "Mara Erubey Soto Villegas", "Sergio Ivan Quintana Martinez",
+        "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos",
+    ];
+    const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
+    const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter", "CRAFTER ELITE", "CRAFTER URBAN", "CRAFTER ELEMENTAL", "CRAFTER INSPIRE"];
+    const TIPO_CITA = ["Prueba de Manejo", "Tradicional", "Digital"];
+
+    const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
+    const [sort, setSort] = useState({ key: "fecha_hora_cita", dir: "desc" });
+    const [filters, setFilters] = useState({ q: "", agencia: "Todos", asesorDigital: "Todos", rangoDesde: "", rangoHasta: "" });
+    const [openModal, setOpenModal] = useState(false);
+    const [mode, setMode] = useState("create");
+    const [draft, setDraft] = useState(null);
+    const [loadingList, setLoadingList] = useState(false);
+    const [loadingDetail, setLoadingDetail] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [updatingInline, setUpdatingInline] = useState({});
+
+    function toggleSort(key) {
+        setSort((prev) => prev.key !== key ? { key, dir: "asc" } : { key, dir: prev.dir === "asc" ? "desc" : "asc" });
+    }
+
+    const REQUIRED = useMemo(() => ({ cliente_telefono: "Teléfono", fecha_hora_cita: "Fecha y hora" }), []);
+    const [touchedSave, setTouchedSave] = useState(false);
+
+    const missing = useMemo(() => {
+        if (!draft) return [];
+        return Object.keys(REQUIRED).filter((key) => {
+            const v = draft[key];
+            return v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+        });
+    }, [draft, REQUIRED]);
+
+    const isInvalid = (key) => touchedSave && missing.includes(key);
+
+    const telDigits = useMemo(() => String(draft?.cliente_telefono || "").replace(/\D/g, ""), [draft?.cliente_telefono]);
+    const telIsOk = useMemo(() => /^(?:\d{10}|52\d{10})$/.test(telDigits), [telDigits]);
+    const telIsNormalized = useMemo(() => /^52\d{10}$/.test(telDigits), [telDigits]);
+
+    const telError = useMemo(() => {
+        if (!openModal || !draft || !telDigits) return "";
+        if (/^\d{10}$/.test(telDigits) || /^52\d{10}$/.test(telDigits)) return "";
+        if (telDigits.length < 10) return "Número incompleto (mínimo 10 dígitos)";
+        if (telDigits.length === 11) return "Número incorrecto (11 dígitos no válido)";
+        if (telDigits.length === 12 && !telDigits.startsWith("52")) return "Número inválido: si tiene 12 dígitos debe iniciar con 52";
+        if (telDigits.length > 12) return "Número incorrecto (máximo 12 dígitos)";
+        return "Número inválido";
+    }, [openModal, draft, telDigits]);
+
+    const telInvalid = !!telError;
+    const inputBase = "w-full rounded-lg border shadow-lg px-3 py-2 text-sm text-[#131E5C] font-semibold outline-none";
+    const inputOk = "border-black/10 bg-neutral-100";
+    const inputBad = "border-red-500 bg-red-50";
+
+    useEffect(() => {
+        const onGlobal = () => setCtxMenu((p) => ({ ...p, open: false, row: null }));
+        window.addEventListener("click", onGlobal);
+        window.addEventListener("scroll", onGlobal, true);
+        window.addEventListener("resize", onGlobal);
+        return () => { window.removeEventListener("click", onGlobal); window.removeEventListener("scroll", onGlobal, true); window.removeEventListener("resize", onGlobal); };
+    }, []);
+
+    const onRowContextMenu = (e, row) => { e.preventDefault(); e.stopPropagation(); setCtxMenu({ open: true, x: e.clientX, y: e.clientY, row }); };
+
+    const refreshList = async () => {
+        setLoadingList(true);
+        try {
+            const data = await apiCitas.list();
+            setCitas(Array.isArray(data) ? data : []);
+        } catch (e) { console.error(e); setCitas([]); }
+        finally { setLoadingList(false); }
+    };
+
+    useEffect(() => { refreshList(); }, []);
+
+    const dealers = useMemo(() => {
+        const set = new Set((citas || []).map((c) => normalizeStr(c.agencia)).filter(Boolean));
+        if (!isAdmin && userAgencia) return ["Todos", userAgencia];
+        return ["Todos", ...Array.from(set)];
+    }, [citas, isAdmin, userAgencia]);
+
+    const asesoresDigitalesFiltro = useMemo(() => {
+        const set = new Set([...ASESORES_DIGITALES.map((a) => normalizeStr(a)), ...(citas || []).map((c) => normalizeStr(c.asesor_digital))].filter(Boolean));
+        return ["Todos", ...Array.from(set)];
+    }, [citas]);
+
+    const filtered = useMemo(() => {
+        const q = filters.q.trim().toLowerCase();
+        const desdeInt = ymdToInt(filters.rangoDesde);
+        const hastaInt = ymdToInt(filters.rangoHasta);
+        return (citas || []).filter((c) => {
+            if (!isAdmin && userAgencia && normalizeStr(c.agencia) !== normalizeStr(userAgencia)) return false;
+            const nombreCliente = normalizeStr(c?.cliente?.nombre);
+            const telCliente = normalizeStr(c?.cliente?.telefono);
+            const matchQ = !q || [c.agencia, nombreCliente, telCliente, c.auto_interes, c.tipo_cita, c.fuente_prospeccion, c.asesor_digital, c.asesor_piso, c.comentarios].some((v) => normalizeStr(v).toLowerCase().includes(q));
+            const matchAgencia = filters.agencia === "Todos" || normalizeStr(c.agencia) === normalizeStr(filters.agencia);
+            const matchAsesorDigital = filters.asesorDigital === "Todos" || normalizeStr(c.asesor_digital) === normalizeStr(filters.asesorDigital);
+            let matchRango = true;
+            if (desdeInt !== null || hastaInt !== null) {
+                const ymdInt = ymdToInt(c.fecha_hora_cita ? toYMDLocal(c.fecha_hora_cita) : "");
+                if (!ymdInt) return false;
+                if (desdeInt !== null && ymdInt < desdeInt) matchRango = false;
+                if (hastaInt !== null && ymdInt > hastaInt) matchRango = false;
+            }
+            return matchQ && matchAgencia && matchAsesorDigital && matchRango;
+        });
+    }, [citas, filters, isAdmin, userAgencia]);
+
+    const sorted = useMemo(() => {
+        const data = [...filtered];
+        const { key, dir } = sort || {};
+        if (!key) return data;
+        const mult = dir === "asc" ? 1 : -1;
+        return data.sort((a, b) => {
+            if (key === "fecha_hora_cita") {
+                const ta = a.fecha_hora_cita ? new Date(a.fecha_hora_cita).getTime() : 0;
+                const tb = b.fecha_hora_cita ? new Date(b.fecha_hora_cita).getTime() : 0;
+                return (ta - tb) * mult;
+            }
+            const va = normalizeStr(a?.[key]).toLowerCase();
+            const vb = normalizeStr(b?.[key]).toLowerCase();
+            return va < vb ? -1 * mult : va > vb ? 1 * mult : 0;
+        });
+    }, [filtered, sort]);
+
+    const openCreate = (dateOverride, hourOverride) => {
+        setTouchedSave(false);
+        setMode("create");
+        const agenciaDefault = isAdmin ? "" : userAgencia;
+
+        let fechaDefault = "";
+        if (dateOverride) {
+            const d = new Date(dateOverride);
+            d.setHours(hourOverride ?? 9, 0, 0, 0);
+            const pad = (n) => String(n).padStart(2, "0");
+            fechaDefault = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
+        }
+
+        setDraft({ id: null, cliente_id: null, agencia: agenciaDefault, cliente_nombre: "", cliente_telefono: "", auto_interes: "", fecha_hora_cita: fechaDefault, asistencia: false, tipo_cita: "", fuente_prospeccion: "", asesor_digital: "", asesor_piso: "", comentarios: "" });
+        setOpenModal(true);
+    };
+
+    const openEdit = async (row) => {
+        if (!row?.id) return;
+        try {
+            setTouchedSave(false); setMode("edit"); setLoadingDetail(true); setOpenModal(true);
+            const c = await apiCitas.get(row.id);
+            if (!isAdmin && userAgencia && normalizeStr(c.agencia) !== normalizeStr(userAgencia)) {
+                alert("No tienes permisos para ver registros de otra agencia."); setOpenModal(false); return;
+            }
+            setDraft({ id: c.id, cliente_id: c?.cliente?.id_cliente ?? null, agencia: c.agencia || (isAdmin ? "" : userAgencia), cliente_nombre: c?.cliente?.nombre || "", cliente_telefono: c?.cliente?.telefono || "", auto_interes: c.auto_interes || "", fecha_hora_cita: toDTLocal(c.fecha_hora_cita), asistencia: !!c.asistencia, tipo_cita: c.tipo_cita || "", fuente_prospeccion: c.fuente_prospeccion || "", asesor_digital: c.asesor_digital || "", asesor_piso: c.asesor_piso || "", comentarios: c.comentarios || "" });
+        } catch (e) { console.error(e); alert("No se pudo abrir la cita (revisa consola)."); setOpenModal(false); }
+        finally { setLoadingDetail(false); }
+    };
+
+    const closeModal = () => { if (saving) return; setOpenModal(false); setDraft(null); };
+
+    const eliminarCita = async (row) => {
+        if (!row?.id) return;
+        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) { alert("No tienes permisos para eliminar registros de otra agencia."); return; }
+        const ok = confirm(`¿Eliminar la cita de ${row?.cliente?.nombre || row?.cliente?.telefono || "cliente"}?`);
+        if (!ok) return;
+        try {
+            await apiCitas.remove(row.id);
+            setCitas((prev) => prev.filter((c) => c.id !== row.id));
+            setCtxMenu({ open: false, x: 0, y: 0, row: null });
+        } catch (e) { console.error(e); alert("No se pudo eliminar (revisa consola / backend)."); }
+    };
+
+    const save = async () => {
+        if (!draft || saving) return;
+        if (!telIsOk) return;
+        setTouchedSave(true);
+        if (missing.length) return;
+        setSaving(true);
+        try {
+            const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : userAgencia;
+            const payload = { agencia: agenciaFinal, ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}), nombre: draft.cliente_nombre || "", telefono: normalizeStr(draft.cliente_telefono), auto_interes: draft.auto_interes || "", fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita), asistencia: !!draft.asistencia, tipo_cita: draft.tipo_cita || "", fuente_prospeccion: draft.fuente_prospeccion || "", asesor_digital: draft.asesor_digital || "", asesor_piso: draft.asesor_piso || "", comentarios: draft.comentarios || "" };
+            if (mode === "create") await apiCitas.create(payload);
+            else await apiCitas.update(draft.id, payload);
+            await refreshList(); closeModal();
+        } catch (e) { console.error(e); alert("Error guardando la cita (revisa consola)."); }
+        finally { setSaving(false); }
+    };
+
+    const toggleAsistenciaInline = async (row) => {
+        const id = row?.id; if (!id) return;
+        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) { alert("No tienes permisos para modificar registros de otra agencia."); return; }
+        const prev = !!row.asistencia;
+        setCitas((p) => p.map((c) => (c.id === id ? { ...c, asistencia: !prev } : c)));
+        setUpdatingInline((p) => ({ ...p, [id]: true }));
+        try { await apiCitas.patch(id, { asistencia: !prev }); }
+        catch (e) { console.error(e); setCitas((p) => p.map((c) => (c.id === id ? { ...c, asistencia: prev } : c))); alert("No se pudo actualizar asistencia."); }
+        finally { setUpdatingInline((p) => { const n = { ...p }; delete n[id]; return n; }); }
+    };
+
+    const resetFilters = () => setFilters({ q: "", agencia: "Todos", asesorDigital: "Todos", rangoDesde: "", rangoHasta: "" });
+    const setHoy = () => { const hoy = toYMDLocal(new Date()); setFilters((p) => ({ ...p, rangoDesde: hoy, rangoHasta: hoy })); };
+
+
+    const ViewToggle = () => (
+        <div className="flex items-center rounded-lg border border-[#131E5C]/30 overflow-hidden">
+            {[
+                { key: "agenda", label: "Agenda", Icon: Calendar },
+                { key: "tabla", label: "Tabla", Icon: Table2 },
+                { key: "graficos", label: "Gráficos", Icon: BarChart3 },
+            ].map(({ key, label, Icon }) => (
+                <button
+                    key={key}
+                    onClick={() => setVista(key)}
+                    className={[
+                        "inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition",
+                        vista === key
+                            ? "bg-[#131E5C] text-white"
+                            : "bg-white text-[#131E5C] hover:bg-[#131E5C]/10",
+                    ].join(" ")}
+                >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                </button>
+            ))}
+        </div>
+    );
+
+    return (
+        <div className="w-full">
+
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                    <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Citas</h2>
+                    {!isAdmin && userAgencia ? (
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                            Agencia asignada: <span className="text-[#131E5C]">{userAgencia}</span>
+                        </p>
+                    ) : null}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <ViewToggle />
+                    <button
+                        onClick={() => openCreate()}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm bg-[#131E5C] hover:bg-[#131E5C]/80 text-white shadow-sm"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Nueva Cita
+                    </button>
+                </div>
+            </div>
+
+
+            <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <div className="grid gap-3 md:grid-cols-12">
+                    <div className="md:col-span-3">
+                        <FilterBlock label="Búsqueda">
+                            <div className="flex items-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2">
+                                <Search className="h-4 w-4 text-[#131E5C]" />
+                                <input
+                                    value={filters.q}
+                                    onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
+                                    placeholder="Buscar por dealer, cliente, teléfono…"
+                                    className="w-full text-sm text-[#131E5C] outline-none placeholder:text-[#131E5C]"
+                                />
+                                {filters.q ? (
+                                    <button onClick={() => setFilters((p) => ({ ...p, q: "" }))} className="rounded-lg p-1 bg-white text-[#131E5C] hover:bg-white/80 hover:text-red-500" aria-label="Limpiar búsqueda">
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                ) : null}
+                            </div>
+                        </FilterBlock>
+                    </div>
+                    <div className="md:col-span-3">
+                        <FilterBlock label="Dealer">
+                            <select value={filters.agencia} onChange={(e) => setFilters((p) => ({ ...p, agencia: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none">
+                                {dealers.map((d) => <option key={d} value={d} className="bg-neutral-100 text-[#131E5C]">{d}</option>)}
+                            </select>
+                        </FilterBlock>
+                    </div>
+                    <div className="md:col-span-3">
+                        <FilterBlock label="Asesor Digital">
+                            <select value={filters.asesorDigital} onChange={(e) => setFilters((p) => ({ ...p, asesorDigital: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none">
+                                {asesoresDigitalesFiltro.map((a) => <option key={a} value={a} className="bg-neutral-100 text-[#131E5C]">{a}</option>)}
+                            </select>
+                        </FilterBlock>
+                    </div>
+                    <div className="md:col-span-3">
+                        <FilterBlock label="Acciones">
+                            <div className="grid grid-cols-2 gap-2">
+                                <button onClick={setHoy} className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700">
+                                    <CalendarDays className="h-4 w-4" /> Hoy
+                                </button>
+                                <button onClick={resetFilters} className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] px-3 py-2 text-sm font-semibold bg-white text-[#131E5C] hover:text-white hover:bg-[#131E5C]">
+                                    <X className="h-4 w-4" /> Limpiar
+                                </button>
+                            </div>
+                        </FilterBlock>
+                    </div>
+                    <div className="md:col-span-6">
+                        <FilterBlock label="Desde">
+                            <input type="date" value={filters.rangoDesde} onChange={(e) => setFilters((p) => ({ ...p, rangoDesde: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none" />
+                        </FilterBlock>
+                    </div>
+                    <div className="md:col-span-6">
+                        <FilterBlock label="Hasta">
+                            <input type="date" value={filters.rangoHasta} onChange={(e) => setFilters((p) => ({ ...p, rangoHasta: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none" />
+                        </FilterBlock>
+                    </div>
+                </div>
+            </div>
+
+
+            {vista === "agenda" && (
+                <AgendaView
+                    rows={sorted}
+                    loading={loadingList}
+                    onEdit={openEdit}
+                    onNewAtSlot={(date, hour) => openCreate(date, hour)}
+                />
+            )}
+
+
+            {vista === "tabla" && (
+                <>
+
+                    <MobileCardList rows={sorted} loading={loadingList} onEdit={openEdit} onContext={onRowContextMenu} onToggleAsistencia={toggleAsistenciaInline} updatingInline={updatingInline} />
+
+
+                    <div className="hidden overflow-hidden rounded-lg shadow-lg bg-white/[0.03] lg:block">
+                        <div className="overflow-auto">
+                            <table className="min-w-full text-left text-sm">
+                                <thead className="font-vw-header text-xs bg-[#131E5C] text-white border border-black">
+                                    <tr>
+                                        {[
+                                            { key: "fecha_hora_cita", label: "Fecha y Hora Cita" },
+                                            { key: "agencia", label: "Dealer" },
+                                        ].map(({ key, label }) => (
+                                            <th key={key} className="px-4 py-3">
+                                                <button type="button" onClick={() => toggleSort(key)} className="inline-flex items-center gap-1 text-xs font-bold">
+                                                    {label}
+                                                    <span className="opacity-60">
+                                                        {sort.key === key ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}
+                                                    </span>
+                                                </button>
+                                            </th>
+                                        ))}
+                                        {["Cliente", "Auto interés", "Asesor Digital", "Asesor Piso", "Tipo Cita", "Comentarios", "¿Asistió?"].map((h) => (
+                                            <th key={h} className="px-4 py-3 text-xs font-bold">{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-black/30">
+                                    {loadingList ? (
+                                        Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
+                                    ) : (
+                                        <>
+                                            {sorted.map((row) => {
+                                                const isUpdating = !!updatingInline[row.id];
+                                                return (
+                                                    <tr key={row.id} onDoubleClick={() => openEdit(row)} onContextMenu={(e) => onRowContextMenu(e, row)} className="cursor-pointer hover:bg-white/[0.04]" title="Doble clic para editar">
+                                                        <td className="px-4 py-3 text-[#131E5C]">{row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—"}</td>
+                                                        <td className="px-4 py-3 font-semibold text-[#131E5C]">{row.agencia || "—"}</td>
+                                                        <td className="px-4 py-3 text-[#131E5C]"><div className="font-bold">{row?.cliente?.nombre || "—"}</div></td>
+                                                        <td className="px-4 py-3 text-[#131E5C]">{row.auto_interes || "—"}</td>
+                                                        <td className="px-4 py-3 text-[#131E5C]">{row.asesor_digital}</td>
+                                                        <td className="px-4 py-3 text-[#131E5C]">{row.asesor_piso || "--"}</td>
+                                                        <td className="px-4 py-3 text-[#131E5C]">{row.tipo_cita || "—"}</td>
+                                                        <td className="px-4 py-3 text-[#131E5C]"><span className="line-clamp-2">{row.comentarios || "—"}</span></td>
+                                                        <td className="px-4 py-3 text-[#131E5C]">
+                                                            <button disabled={isUpdating} onClick={(e) => { e.stopPropagation(); toggleAsistenciaInline(row); }}
+                                                                className={["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold",
+                                                                    row.asistencia ? "bg-emerald-200 text-emerald-800 border-emerald-300" : "bg-red-200 text-red-800 border-red-300",
+                                                                    isUpdating ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"].join(" ")}
+                                                            >
+                                                                {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                                                                {row.asistencia ? "Sí" : "No"}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {sorted.length === 0 && (
+                                                <tr><td colSpan={9} className="px-4 py-10 text-center text-[#131E5C]">No hay resultados con esos filtros.</td></tr>
+                                            )}
+                                        </>
+                                    )}
+                                </tbody>
+                            </table>
+                            <ContextMenu ctxMenu={ctxMenu} onDelete={async (row) => { await eliminarCita(row); setCtxMenu({ open: false, x: 0, y: 0, row: null }); }} onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })} />
+                        </div>
+                    </div>
+                </>
+            )}
+
+
+            {vista === "graficos" && (
+                <GraficosView rows={sorted} />
+            )}
+
+
+            <Modal
+                open={openModal}
+                title={mode === "create" ? "Nueva Cita" : `Editar Cita • ${draft?.id}`}
+                onClose={closeModal}
+                footer={
+                    <>
+                        <button onClick={closeModal} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-red-400 px-4 py-2 text-sm font-semibold text-white/90 hover:text-white hover:bg-red-600 disabled:opacity-60">
+                            <X className="h-4 w-4" /> Cancelar
+                        </button>
+                        <button onClick={save} disabled={saving || loadingDetail || telInvalid || (draft?.cliente_telefono ? !telIsOk : false)} className="inline-flex items-center justify-center gap-2 rounded-lg px-4 bg-[#131E5C]/85 py-2 text-sm font-bold text-white/90 hover:bg-[#131E5C] hover:text-white disabled:opacity-60">
+                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            {saving ? "Guardando..." : "Guardar cambios"}
+                        </button>
+                    </>
+                }
+            >
+                {loadingDetail ? <ModalSkeleton /> : !draft ? null : (
+                    <div className="grid gap-3 md:grid-cols-3">
+                        <div className="md:col-span-3">
+                            <Field label="Tipo de cita" icon={LayoutList}>
+                                <select value={draft.tipo_cita || ""} onChange={(e) => setDraft((p) => ({ ...p, tipo_cita: e.target.value }))} className={[inputBase, inputOk].join(" ")}>
+                                    <option value="" disabled>Selecciona un tipo de cita...</option>
+                                    {TIPO_CITA.map((t) => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </Field>
+                        </div>
+                        <Field label="Dealer" icon={Building2}>
+                            <select value={draft.agencia || ""} onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))} disabled={!isAdmin} className={[inputBase, inputOk, !isAdmin ? "opacity-75 cursor-not-allowed" : ""].join(" ")}>
+                                <option value="" disabled>Selecciona un dealer...</option>
+                                {(isAdmin ? DEALERS : userAgencia ? [userAgencia] : DEALERS).map((d) => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="Nombre del cliente" icon={User}>
+                            <input value={draft.cliente_nombre} onChange={(e) => setDraft((p) => ({ ...p, cliente_nombre: e.target.value }))} className={[inputBase, inputOk].join(" ")} placeholder="Nombre completo" />
+                        </Field>
+                        <Field label="Teléfono" icon={Phone}>
+                            <input maxLength={12} value={draft.cliente_telefono}
+                                onChange={(e) => setDraft((p) => ({ ...p, cliente_telefono: e.target.value.replace(/\D/g, "").slice(0, 12) }))}
+                                disabled={mode === "edit" || telIsNormalized}
+                                className={[inputBase, (isInvalid("cliente_telefono") || telInvalid) ? inputBad : inputOk, (mode === "edit" || telIsNormalized) ? "opacity-75 cursor-not-allowed" : ""].join(" ")}
+                            />
+                            {isInvalid("cliente_telefono") ? <div className="mt-2 text-xs font-bold text-red-600">Teléfono es requerido.</div> : null}
+                            {!isInvalid("cliente_telefono") && telError ? <div className="mt-2 text-xs font-bold text-red-600">{telError}</div> : null}
+                        </Field>
+                        <Field label="VW de sus sueños" icon={CarFront}>
+                            <select value={draft.auto_interes || ""} onChange={(e) => setDraft((p) => ({ ...p, auto_interes: e.target.value }))} className={[inputBase, inputOk].join(" ")}>
+                                <option value="" disabled>Selecciona un modelo...</option>
+                                {VEHICULOS.map((d) => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="Fecha y Hora de cita" icon={CalendarDays}>
+                            <input type="datetime-local" value={draft.fecha_hora_cita} onChange={(e) => setDraft((p) => ({ ...p, fecha_hora_cita: e.target.value }))} className={[inputBase, isInvalid("fecha_hora_cita") ? inputBad : inputOk].join(" ")} />
+                            {isInvalid("fecha_hora_cita") ? <div className="mt-2 text-xs font-bold text-red-600">Fecha y hora es requerido.</div> : null}
+                        </Field>
+                        <Field label="Fuente de Prospección" icon={UserSearch}>
+                            <select value={draft.fuente_prospeccion || ""} onChange={(e) => setDraft((p) => ({ ...p, fuente_prospeccion: e.target.value }))} className={[inputBase, inputOk].join(" ")}>
+                                <option value="" disabled>Selecciona una fuente ...</option>
+                                {FUENTE.map((d) => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="Asistencia de cita" icon={UserCheck}>
+                            <label className="flex items-center gap-3 text-sm font-semibold text-[#131E5C]">
+                                <input type="checkbox" checked={!!draft.asistencia} onChange={(e) => setDraft((p) => ({ ...p, asistencia: e.target.checked }))} className="h-4 w-4" />
+                                ¿Asistió?
+                            </label>
+                        </Field>
+                        <Field label="Asesor Digital" icon={UserMinus}>
+                            <select value={draft.asesor_digital || ""} onChange={(e) => setDraft((p) => ({ ...p, asesor_digital: e.target.value }))} className={[inputBase, inputOk].join(" ")}>
+                                <option value="" disabled>Selecciona un asesor ...</option>
+                                {ASESORES_DIGITALES.map((d) => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="Asesor Piso" icon={UserStar}>
+                            <select value={draft.asesor_piso || ""} onChange={(e) => setDraft((p) => ({ ...p, asesor_piso: e.target.value }))} className={[inputBase, inputOk].join(" ")}>
+                                <option value="" disabled>Selecciona un asesor ...</option>
+                                {ASESORES.map((d) => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </Field>
+                        <div className="md:col-span-3">
+                            <Field label="Comentarios" icon={MessageSquareText}>
+                                <textarea value={draft.comentarios} onChange={(e) => setDraft((p) => ({ ...p, comentarios: e.target.value }))} className={[inputBase, inputOk, "min-h-[110px]"].join(" ")} placeholder="Notas internas..." />
+                            </Field>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+        </div>
+    );
+}
