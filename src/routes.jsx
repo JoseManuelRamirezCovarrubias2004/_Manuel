@@ -2,6 +2,9 @@
 import React from "react";
 import { createBrowserRouter } from "react-router-dom";
 
+import TimeForActionLayout from "./pages/TimeForAction/TimeForActionLayout";
+import TimeForAction from "./pages/TimeForAction/TimeForAction";
+
 import ProtectedLayout from "./auth/ProtectedLayout";
 import RequirePermission from "./auth/RequirePermission";
 
@@ -38,8 +41,6 @@ import RegistroPruebaManejo from "./pages/PruebasManejo/RegistroPruebaManejo";
 import EntregasLayout from "./pages/Entregas/EntregasLayout";
 import RegistroEntregas from "./pages/Entregas/RegistroEntregas";
 
-import ClickupLayout from "./pages/Clickup/ClickupLayout";
-import ClickupTablero from "./pages/Clickup/ClickupTablero";
 
 import CalidadLayout from "./pages/Calidad/CalidadLayout";
 import CalidadIndex from "./pages/Calidad/CalidadIndex";
@@ -137,20 +138,7 @@ export const router = createBrowserRouter(
                                     ],
                                 },
 
-                                {
-                                    path: "clickup",
-                                    element: (
-                                        <RequirePermission anyOf={["USUARIOS_ADMIN"]}>
-                                            <ClickupLayout />
-                                        </RequirePermission>
-                                    ),
-                                    children: [
-                                        {
-                                            index: true,
-                                            element: <ClickupTablero />,
-                                        },
-                                    ],
-                                },
+
 
                                 {
                                     path: "safety",
@@ -489,6 +477,21 @@ export const router = createBrowserRouter(
                                             <Reclutamiento />
                                         </RequirePermission>
                                     ),
+                                },
+                            ],
+                        },
+
+                        {
+                            path: "timeforaction",
+                            element: (
+                                <RequirePermission anyOf={["USUARIOS_ADMIN"]}>
+                                    <TimeForActionLayout />
+                                </RequirePermission>
+                            ),
+                            children: [
+                                {
+                                    index: true,
+                                    element: <TimeForAction />,
                                 },
                             ],
                         },

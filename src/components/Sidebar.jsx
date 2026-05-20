@@ -4,6 +4,7 @@ import { NavLink } from "react-router-dom";
 import {
     BadgeCheck,
     HandCoins,
+    Zap,
     Settings2,
     Menu,
     X,
@@ -118,6 +119,14 @@ export default function Sidebar() {
                 icon: BadgeCheck,
                 show: hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN"]),
             },
+
+            {
+                to: "/timeforaction",
+                label: "TimeForAction",
+                icon: Zap,
+                show: hasAnyPermission(["USUARIOS_ADMIN"]),
+            },
+
             {
                 to: "/comercial",
                 label: "Gestion Comercial",

@@ -181,6 +181,23 @@ function normalizeTask(task, listsMap = {}) {
     created_by: task.creado_por ?? null,
     bug_evidencias_count: Number(task.bug_evidencias_count ?? 0),
     resolution_evidencias_count: Number(task.resolution_evidencias_count ?? 0),
+
+    // EXTRAER CAMPOS DEL PLAN DE ACCIÓN DESDE EL BACKEND:
+    descripcion_problema: task.descripcion_problema ?? "",
+    causa: task.causa ?? "",
+    raiz: task.raiz ?? "",
+    desarrollo_estrategia: task.desarrollo_estrategia ?? "",
+    resultados: task.resultados ?? "",
+
+    // NORMALIZAR LISTA DE SUBTAREAS:
+    subtareas: Array.isArray(task.subtareas)
+      ? task.subtareas.map((s) => ({
+          id: s.id,
+          titulo: s.titulo ?? "",
+          done: Boolean(s.done ?? s.completado ?? false), // Mapeo seguro por si cambia el booleano
+        }))
+      : [],
+
     report: task.reporte
       ? {
           id: Number(task.reporte.id),
@@ -398,6 +415,14 @@ export const apiClickup = {
       asignados_ids: Array.isArray(payload.asignados_ids)
         ? payload.asignados_ids.map(Number)
         : [],
+
+      // CAMPOS EXTENDIDOS DEL PLAN DE ACCIÓN REQUERIDOS POR TU BACKEND:
+      descripcion_problema: payload.descripcion_problema || "",
+      causa: payload.causa || "",
+      raiz: payload.raiz || "",
+      desarrollo_estrategia: payload.desarrollo_estrategia || "",
+      resultados: payload.resultados || "",
+      subtareas: Array.isArray(payload.subtareas) ? payload.subtareas : [],
     };
 
     if ("inicio" in payload) {
@@ -434,6 +459,20 @@ export const apiClickup = {
         : [];
     }
 
+    // CAMPOS EXTENDIDOS BLINDADOS PARA EL PATCH:
+    if ("descripcion_problema" in payload)
+      body.descripcion_problema = payload.descripcion_problema ?? "";
+    if ("causa" in payload) body.causa = payload.causa ?? "";
+    if ("raiz" in payload) body.raiz = payload.raiz ?? "";
+    if ("desarrollo_estrategia" in payload)
+      body.desarrollo_estrategia = payload.desarrollo_estrategia ?? "";
+    if ("resultados" in payload) body.resultados = payload.resultados ?? "";
+    if ("subtareas" in payload) {
+      body.subtareas = Array.isArray(payload.subtareas)
+        ? payload.subtareas
+        : [];
+    }
+
     const data = await http(
       `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/`,
       {
@@ -447,37 +486,9 @@ export const apiClickup = {
 
   async deleteTask(teamId, taskId) {
     return await http(
-      `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/eliminar/`,
+      `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/eliminar_tarea/`,
       { method: "DELETE" },
     );
-  },
-
-  async getTaskDetail(teamId, taskId) {
-    const data = await http(
-      `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/detalle/`,
-    );
-
-    const tarea = data?.tarea ? normalizeTask(data.tarea) : null;
-    const reporte = data?.reporte
-      ? {
-          id: Number(data.reporte.id),
-          type: data.reporte.tipo,
-          title: data.reporte.titulo,
-          description: data.reporte.descripcion,
-          status: data.reporte.estado,
-          created_at: data.reporte.creado_en,
-          updated_at: data.reporte.actualizado_en,
-          resolved_at: data.reporte.resuelto_en,
-          evidencias_bug: Array.isArray(data.reporte.evidencias_bug)
-            ? data.reporte.evidencias_bug.map(normalizeEvidence)
-            : [],
-          evidencias_solucion: Array.isArray(data.reporte.evidencias_solucion)
-            ? data.reporte.evidencias_solucion.map(normalizeEvidence)
-            : [],
-        }
-      : null;
-
-    return { tarea, reporte };
   },
 
   async uploadTaskEvidence(teamId, taskId, payload) {
@@ -489,8 +500,9 @@ export const apiClickup = {
       formData.append("archivos", file);
     });
 
+    // acción del backend: 'subir_evidencia'
     const data = await http(
-      `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/evidencias/`,
+      `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/subir_evidencia/`,
       {
         method: "POST",
         body: formData,
@@ -541,6 +553,34 @@ export const apiClickup = {
       {
         method: "POST",
       },
+    );
+  },
+
+  async updateProject(teamId, projectId, payload) {
+    const body = {
+      nombre: String(payload?.name || "").trim(),
+      descripcion: String(payload?.description || "").trim(),
+    };
+    const data = await http(
+      `${API_BASE}/equipos/${Number(teamId)}/proyectos/${Number(projectId)}/`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      },
+    );
+    return normalizeProject(data);
+  },
+
+  async deleteTeam(teamId) {
+    return await http(`${API_BASE}/equipos/${Number(teamId)}/`, {
+      method: "DELETE",
+    });
+  },
+
+  async deleteProject(teamId, projectId) {
+    return await http(
+      `${API_BASE}/equipos/${Number(teamId)}/proyectos/${Number(projectId)}/`,
+      { method: "DELETE" },
     );
   },
 };
