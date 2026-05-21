@@ -1411,7 +1411,7 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                         ))}
                     </div>
                     <p className="mt-3 text-xs text-amber-600 text-center">
-                        Asigna una fecha de inicio o límite para ver estas tareas en la línea de tiempo.
+                        Asigna una fecha de inicio o límite para ver tareas en la línea de tiempo.
                     </p>
                 </div>
             )}
