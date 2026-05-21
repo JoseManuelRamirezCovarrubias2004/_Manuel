@@ -8,7 +8,7 @@ export default function CalidadIndex() {
 
     useEffect(() => {
         // Calidad por ahora: reclamaciones (si no, manda a /comercial)
-        if (hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN"])) {
+        if (hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN", "CRM_CALIDAD"])) {
             navigate("/calidad/reclamaciones", { replace: true });
             return;
         }

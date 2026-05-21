@@ -18,26 +18,26 @@ export default function CalidadTopNav() {
                 label: "Reclamaciones",
                 href: "/calidad/reclamaciones",
                 icon: BadgeCheck,
-                show: hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
 
             {
                 label: "Safety Culture",
                 href: "/calidad/safety",
                 icon: ShieldCheck,
-                show: hasAnyPermission(["USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Experiencia de Entrega",
                 href: "/calidad/enc_satisfaccion",
                 icon: ThumbsUp,
-                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Experiencia de Servicio",
                 href: "/calidad/enc_servicio",
                 icon: Cog,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
         ];
 

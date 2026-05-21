@@ -15,7 +15,7 @@ export default function ComercialTopNav() {
     const { hasAnyPermission } = useAuth();
 
     const inProspectos = location.pathname.startsWith("/comercial/prospectos");
-    const canSeeContacto = hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN"]);
+    const canSeeContacto = hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]);
 
     const tabs = useMemo(() => {
         const items = [
@@ -23,7 +23,7 @@ export default function ComercialTopNav() {
                 label: "Prospectos Digitales",
                 href: "/comercial/prospectos",
                 icon: Globe,
-                show: hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Contacto",
@@ -35,31 +35,31 @@ export default function ComercialTopNav() {
                 label: "Citas",
                 href: "/comercial/citas",
                 icon: CalendarDays,
-                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Control piso",
                 href: "/comercial/control_piso",
                 icon: Building2,
-                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Trafico piso",
                 href: "/comercial/trafico_piso",
                 icon: Building2,
-                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Pruebas",
                 href: "/comercial/pruebas_manejo",
                 icon: SteeringWheelLab,
-                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Entregas",
                 href: "/comercial/entregas",
                 icon: PackageCheck,
-                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
         ];
 

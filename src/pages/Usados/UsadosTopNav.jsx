@@ -15,7 +15,7 @@ export default function ComercialTopNav() {
     const { hasAnyPermission } = useAuth();
 
     const inProspectos = location.pathname.startsWith("/usados/avaluos");
-    const canSeeContacto = hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]);
+    const canSeeContacto = hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]);
 
     const tabs = useMemo(() => {
         const items = [
@@ -23,7 +23,7 @@ export default function ComercialTopNav() {
                 label: "Avaluos",
                 href: "/usados/avaluos",
                 icon: BanknoteArrowUp,
-                show: hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_VENTAS"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_VENTAS", "CRM_CALIDAD"]),
             }
         ];
 

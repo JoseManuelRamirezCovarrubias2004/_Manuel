@@ -15,7 +15,7 @@ export default function ComercialTopNav() {
     const { hasAnyPermission } = useAuth();
 
     const inProspectos = location.pathname.startsWith("/financieros/credito");
-    const canSeeContacto = hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_FINANCIEROS",]);
+    const canSeeContacto = hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_FINANCIEROS", "CRM_CALIDAD"]);
 
     const tabs = useMemo(() => {
         const items = [
@@ -23,13 +23,13 @@ export default function ComercialTopNav() {
                 label: "Solicitudes Credito",
                 href: "/financieros/credito",
                 icon: CreditCard,
-                show: hasAnyPermission(["CRM_DIGITALES", "CRM_FINANCIEROS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_FINANCIEROS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Long Drive",
                 href: "/financieros/long_drive",
                 icon: CarFront,
-                show: hasAnyPermission(["CRM_DIGITALES", "CRM_FINANCIEROS", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_FINANCIEROS", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
         ];
 

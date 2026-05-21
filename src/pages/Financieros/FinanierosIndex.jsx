@@ -7,11 +7,11 @@ export default function ComercialIndex() {
     const { hasAnyPermission } = useAuth();
 
     useEffect(() => {
-        if (hasAnyPermission(["CRM_DIGITALES", "CRM_FINANCIEROS", "USUARIOS_ADMIN"])) {
+        if (hasAnyPermission(["CRM_DIGITALES", "CRM_FINANCIEROS", "USUARIOS_ADMIN", "CRM_CALIDAD"])) {
             navigate("/financieros/credito", { replace: true });
             return;
         }
-        if (hasAnyPermission(["CRM_VENTAS", "CRM_FINANCIEROS",])) {
+        if (hasAnyPermission(["CRM_VENTAS", "CRM_FINANCIEROS", "CRM_CALIDAD"])) {
             navigate("/financieros/long_drive", { replace: true });
             return;
         }

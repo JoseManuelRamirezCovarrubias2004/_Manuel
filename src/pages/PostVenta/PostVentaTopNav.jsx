@@ -16,7 +16,7 @@ export default function PostVentaTopNav() {
     const { hasAnyPermission } = useAuth();
 
     const inProspectos = location.pathname.startsWith("/postventa/pedidos_piezas");
-    const canSeeContacto = hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"]);
+    const canSeeContacto = hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]);
 
     const tabs = useMemo(() => {
         const items = [
@@ -24,7 +24,7 @@ export default function PostVentaTopNav() {
                 label: "Pedidos de Piezas",
                 href: "/postventa/pedidos_piezas",
                 icon: Package,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
         ];
 
