@@ -623,12 +623,6 @@ function getEndOfWeek(date) {
     return start;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Vista: Agenda  (placeholder — aquí puedes conectar tu componente real)
-// ────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// Vista: Agenda (CUADRICULADA - con días y horas)
-// ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Vista: Gráficos  (placeholder con estadísticas básicas)
@@ -870,7 +864,6 @@ export default function DigitalesProspectos() {
     const [viewMode, setViewMode] = useState("tabla"); // "tabla" | "agenda" | "graficos"
 
     const VIEW_MODES = [
-        { key: "agenda",   label: "Agenda",   Icon: CalendarRange },
         { key: "tabla",    label: "Tabla",    Icon: Table2        },
         { key: "graficos", label: "Gráficos", Icon: BarChart3     },
     ];
