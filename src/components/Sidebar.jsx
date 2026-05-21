@@ -245,25 +245,57 @@ export default function Sidebar() {
                             Tu cuenta no tiene módulos asignados. Pide al administrador que te asigne un rol.
                         </div>
                     ) : null}
+                        <div className="mt-2 flex flex-col gap-1">
+                            {links.map((item) => (
+                                <div key={item.label}>
+                                    {!item.children ? (
+                                        <NavLink
+                                            to={item.to}
+                                            className={linkClass}
+                                            title={!showText && !isMobile ? item.label : undefined}
+                                            onClick={() => {
+                                                if (isMobile) setMobileOpen(false);
+                                            }}
+                                        >
+                                            <item.icon size={18} className="shrink-0" />
 
-                    <div className="mt-2 flex flex-col gap-1">
-                        {links.map(({ to, label, icon: Icon }) => (
-                            <NavLink
-                                key={to}
-                                to={to}
-                                className={linkClass}
-                                title={!showText && !isMobile ? label : undefined}
-                                onClick={() => {
-                                    if (isMobile) setMobileOpen(false);
-                                }}
-                            >
-                                <Icon size={18} className="shrink-0" />
-                                <FadeSlide show={showText} className="text-sm">
-                                    {label}
-                                </FadeSlide>
-                            </NavLink>
-                        ))}
-                    </div>
+                                            <FadeSlide show={showText} className="text-sm">
+                                                {item.label}
+                                            </FadeSlide>
+                                        </NavLink>
+                                    ) : (
+                                        <div>
+                                            {/* MENU PRINCIPAL */}
+                                            <div className="flex items-center gap-3 rounded-xl bg-[#10216B] px-4 py-3 text-white">
+                                                <item.icon size={18} className="shrink-0" />
+
+                                                <FadeSlide show={showText} className="text-sm">
+                                                    {item.label}
+                                                </FadeSlide>
+                                            </div>
+
+                                            {/* SUBMENU */}
+                                            <div className="ml-6 mt-1 flex flex-col gap-1">
+                                                {item.children.map((child) => (
+                                                    <NavLink
+                                                        key={child.to}
+                                                        to={child.to}
+                                                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                                                        onClick={() => {
+                                                            if (isMobile) setMobileOpen(false);
+                                                        }}
+                                                    >
+                                                        <div className="h-2 w-2 rounded-full bg-[#10216B]" />
+
+                                                        <span>{child.label}</span>
+                                                    </NavLink>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                 </nav>
 
                 <div className="mt-auto" />

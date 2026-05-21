@@ -49,6 +49,8 @@ import {
     Pie,
     Cell,
     Legend,
+    LineChart,
+    Line,
 } from "recharts"; 
 const BRAND_BLUE = "#131E5C";
 const HOURS = Array.from({ length: 13 }, (_, index) => `${String(index + 8).padStart(2, "0")}:00`);
@@ -1162,32 +1164,44 @@ export default function RegistroEntregas() {
     };
 
    const entregasPorDealer = Object.values(
+    sorted.reduce((acc, item) => {
+
+        const dealer = item.agencia || "Sin dealer";
+
+        if (!acc[dealer]) {
+            acc[dealer] = {
+                dealer,
+                total: 0,
+            };
+        }
+
+        acc[dealer].total += 1;
+
+        return acc;
+
+    }, {})
+);
+    const entregasPorDia = Object.values(
         sorted.reduce((acc, item) => {
-            const dealer = item.agencia || "Sin dealer";
-            if (!acc[dealer]) acc[dealer] = { dealer, total: 0 };
-            acc[dealer].total += 1;
+
+            const fecha = item.fecha_hora_entrega
+                ? new Date(item.fecha_hora_entrega).toLocaleDateString("es-MX")
+                : "Sin fecha";
+
+            if (!acc[fecha]) {
+                acc[fecha] = {
+                    fecha,
+                    total: 0,
+                };
+            }
+
+            acc[fecha].total += 1;
+
             return acc;
+
         }, {})
     );
-
-    const entregadas = sorted.filter((row) => entregaFisicaActiva(row.entrega_reportada)).length;
-    const noEntregadas = sorted.length - entregadas;
-
-    const entregasEstado = [
-        { name: "Entregadas", value: entregadas },
-        { name: "No Entregadas", value: noEntregadas },
-    ];
-
-    const entregasPorAsesor = Object.values(
-        sorted.reduce((acc, item) => {
-            const asesor = item.asesor_ventas || "Sin asesor";
-            if (!acc[asesor]) acc[asesor] = { asesor, total: 0 };
-            acc[asesor].total += 1;
-            return acc;
-        }, {})
-    ).sort((a, b) => b.total - a.total);
-
-    return (
+    return(
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
@@ -1227,18 +1241,18 @@ export default function RegistroEntregas() {
                             <TableProperties className="h-4 w-4" />
                             Tabla
                         </button>
-                        <button
-                                type="button"
-                                onClick={() => setViewMode("graficas")}
-                                className={[
-                                    "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-black transition",
-                                    viewMode === "graficas"
-                                        ? "bg-[#131E5C] text-white"
-                                        : "text-[#131E5C] hover:bg-slate-50",
-                                ].join(" ")}
-                            >
-                                <BarChart3 className="h-4 w-4" />
-                                Gráficas
+                                                <button
+                            type="button"
+                            onClick={() => setViewMode("graficas")}
+                            className={[
+                                "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-black transition",
+                                viewMode === "graficas"
+                                    ? "bg-[#131E5C] text-white"
+                                    : "text-[#131E5C] hover:bg-slate-50",
+                            ].join(" ")}
+                        >
+                            <BarChart3 className="h-4 w-4" />
+                            Gráficas
                         </button>
                     </div>
 
@@ -1483,206 +1497,272 @@ export default function RegistroEntregas() {
 
             {viewMode === "graficas" ? (
 
-    <div className="space-y-6">
+                <div className="space-y-6">
 
-        {/* KPIs - efecto brillo deslavado con azules vibrantes */}
+                    {/* KPIs - efecto brillo deslavado con azules vibrantes */}
 
-        <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-3">
 
-            <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
-                <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">
-                    Total Entregas
-                </p>
+                        <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
+                            <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">
+                                Total Entregas
+                            </p>
 
-                <h2 className="mt-2 text-3xl font-black text-[#051DF2] drop-shadow-sm">
-                    {sorted.length}
-                </h2>
-            </div>
+                            <h2 className="mt-2 text-3xl font-black text-[#051DF2] drop-shadow-sm">
+                                {sorted.length}
+                            </h2>
+                        </div>
 
-            <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
-                <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">
-                    Entregadas
-                </p>
+                        <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
+                            <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">
+                                Entregadas
+                            </p>
 
-                <h2 className="mt-2 text-3xl font-black text-[#0570F2] drop-shadow-sm">
-                    {entregadas}
-                </h2>
-            </div>
+                            <h2 className="mt-2 text-3xl font-black text-[#0570F2] drop-shadow-sm">
+                                {entregadas}
+                            </h2>
+                        </div>
 
-            <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
-                <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">
-                    No Entregadas
-                </p>
+                        <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
+                            <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">
+                                No Entregadas
+                            </p>
 
-                <h2 className="mt-2 text-3xl font-black text-[#051DF2] drop-shadow-sm">
-                    {noEntregadas}
-                </h2>
-            </div>
+                            <h2 className="mt-2 text-3xl font-black text-[#051DF2] drop-shadow-sm">
+                                {noEntregadas}
+                            </h2>
+                        </div>
 
-        </div>
+                    </div>
 
-        {/* GRAFICAS */}
+                    {/* GRAFICAS */}
 
-        <div className="grid gap-6 xl:grid-cols-2">
+                    <div className="grid gap-6 xl:grid-cols-2">
 
-            {/* DEALERS */}
+                        {/* DEALERS */}
 
-            <div className="h-[420px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">          
-                <h2 className="mb-4 text-base font-semibold tracking-wide text-[#051DF2] border-l-4 border-[#0570F2] pl-3 drop-shadow-sm">
-                    Entregas por Dealer
-                </h2>
+                        <div className="h-[420px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">          
+                            <h2 className="mb-4 text-base font-semibold tracking-wide text-[#051DF2] border-l-4 border-[#0570F2] pl-3 drop-shadow-sm">
+                                Entregas por Dealer
+                            </h2>
 
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                        data={entregasPorDealer}
-                        margin={{
-                            top: 20,
-                            right: 20,
-                            left: 0,
-                            bottom: 40,
-                        }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.12} />
-                        <XAxis
-                            dataKey="dealer"
-                            angle={-10}
-                            textAnchor="end"
-                            interval={0}
-                            tick={{
-                                fill: "#051DF2",
-                                fontSize: 11,
-                                fontWeight: 500,
-                                fillOpacity: 0.65,
-                            }}
-                        />
-                        <YAxis
-                            tick={{
-                                fill: "#051DF2",
-                                fontSize: 11,
-                                fillOpacity: 0.65,
-                            }}
-                        />
-                        <Tooltip
-                            contentStyle={{
-                                borderRadius: "12px",
-                                border: "1px solid #0570F2",
-                                backgroundColor: "rgba(255,255,255,0.96)",
-                                backdropFilter: "blur(8px)",
-                                boxShadow: "0 8px 24px rgba(5,29,242,0.12)",
-                                fontSize: "12px",
-                                color: "#051DF2",
-                                fontWeight: 500,
-                            }}
-                        />
-                        <Bar
-                            dataKey="total"
-                            fill="#0570F2"
-                            radius={[8, 8, 0, 0]}
-                            fillOpacity={0.75}
-                        />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                    data={entregasPorDealer}
+                                    margin={{
+                                        top: 20,
+                                        right: 20,
+                                        left: 0,
+                                        bottom: 40,
+                                    }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.12} />
+                                    <XAxis
+                                        dataKey="dealer"
+                                        angle={-10}
+                                        textAnchor="end"
+                                        interval={0}
+                                        tick={{
+                                            fill: "#051DF2",
+                                            fontSize: 11,
+                                            fontWeight: 500,
+                                            fillOpacity: 0.65,
+                                        }}
+                                    />
+                                    <YAxis
+                                        tick={{
+                                            fill: "#051DF2",
+                                            fontSize: 11,
+                                            fillOpacity: 0.65,
+                                        }}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{
+                                            borderRadius: "12px",
+                                            border: "1px solid #0570F2",
+                                            backgroundColor: "rgba(255,255,255,0.96)",
+                                            backdropFilter: "blur(8px)",
+                                            boxShadow: "0 8px 24px rgba(5,29,242,0.12)",
+                                            fontSize: "12px",
+                                            color: "#051DF2",
+                                            fontWeight: 500,
+                                        }}
+                                    />
+                                    <Bar
+                                        dataKey="total"
+                                        fill="#0570F2"
+                                        radius={[8, 8, 0, 0]}
+                                        fillOpacity={0.75}
+                                    />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
 
-            {/* ESTATUS */}
+                        {/* ESTATUS */}
 
-            <div className="h-[500px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
-                <h2 className="mb-4 text-base font-semibold tracking-wide text-[#051DF2] border-l-4 border-[#0570F2] pl-3 drop-shadow-sm">
-                    Entregadas / No Entregadas
-                </h2>
+                        <div className="h-[500px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
+                            <h2 className="mb-4 text-base font-semibold tracking-wide text-[#051DF2] border-l-4 border-[#0570F2] pl-3 drop-shadow-sm">
+                                Entregadas / No Entregadas
+                            </h2>
 
-                <ResponsiveContainer width="100%" height="90%">
-                    <PieChart>
-                        <Pie
-                            data={entregasEstado}
-                            dataKey="value"
-                            nameKey="name"
-                            outerRadius={100}
-                            label
-                            labelLine={{ stroke: "#0570F2", strokeWidth: 1.5, strokeOpacity: 0.35 }}
-                        >
-                            <Cell fill="#0570F2" fillOpacity={0.75} />
-                            <Cell fill="#051DF2" fillOpacity={0.7} />
-                        </Pie>
-                        <Tooltip
-                            contentStyle={{
-                                borderRadius: "12px",
-                                border: "1px solid #0570F2",
-                                backgroundColor: "rgba(255,255,255,0.96)",
-                                backdropFilter: "blur(8px)",
-                                fontSize: "12px",
-                                color: "#051DF2",
-                            }}
-                        />
-                        <Legend
-                            verticalAlign="bottom"
-                            height={36}
-                            wrapperStyle={{
-                                fontSize: "12px",
-                                fontWeight: 500,
-                                color: "#051DF2",
-                                opacity: 0.7,
-                            }}
-                        />
-                    </PieChart>
-                </ResponsiveContainer>
-            </div>
+                            <ResponsiveContainer width="100%" height="90%">
+                                <PieChart>
+                                    <Pie
+                                        data={entregasEstado}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        outerRadius={100}
+                                        label
+                                        labelLine={{ stroke: "#0570F2", strokeWidth: 1.5, strokeOpacity: 0.35 }}
+                                    >
+                                        <Cell fill="#0570F2" fillOpacity={0.75} />
+                                        <Cell fill="#051DF2" fillOpacity={0.7} />
+                                    </Pie>
+                                    <Tooltip
+                                        contentStyle={{
+                                            borderRadius: "12px",
+                                            border: "1px solid #0570F2",
+                                            backgroundColor: "rgba(255,255,255,0.96)",
+                                            backdropFilter: "blur(8px)",
+                                            fontSize: "12px",
+                                            color: "#0534f2",
+                                        }}
+                                    />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        height={36}
+                                        wrapperStyle={{
+                                            fontSize: "12px",
+                                            fontWeight: 500,
+                                            color: "#0511f2",
+                                            opacity: 0.7,
+                                        }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
 
-        </div>
+                    </div>
 
-        {/* ASESORES */}
+                    {/* ASESORES */}
 
-        <div className="h-[700px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">              
-            <h2 className="mb-4 text-base font-semibold tracking-wide text-[#051DF2] border-l-4 border-[#0570F2] pl-3 drop-shadow-sm">
-                Entregas por Asesor
-            </h2>
+                    <div className="h-[700px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">              
+                        <h2 className="mb-4 text-base font-semibold tracking-wide text-[#051DF2] border-l-4 border-[#0570F2] pl-3 drop-shadow-sm">
+                            Entregas por Asesor
+                        </h2>
 
-            <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                    layout="vertical"
-                    data={entregasPorAsesor.slice(0, 10)}
-                    margin={{
-                        top: 20,
-                        right: 30,
-                        left: 80,
-                        bottom: 20,
-                    }}
-                    barCategoryGap={16}
-                >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.1} />
-                    <XAxis 
-                        type="number" 
-                        tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }}
-                    />
-                    <YAxis
-                        type="category"
-                        dataKey="asesor"
-                        width={160}
-                        tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }}
-                    />
-                    <Tooltip
-                        contentStyle={{
-                            borderRadius: "12px",
-                            border: "1px solid #0570F2",
-                            backgroundColor: "rgba(255,255,255,0.96)",
-                            backdropFilter: "blur(8px)",
-                            fontSize: "12px",
-                            color: "#051DF2",
-                        }}
-                    />
-                    <Bar
-                        dataKey="total"
-                        fill="#0570F2"
-                        radius={[0, 8, 8, 0]}
-                        fillOpacity={0.7}
-                    />
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                                layout="vertical"
+                                data={entregasPorAsesor.slice(0, 10)}
+                                margin={{
+                                    top: 20,
+                                    right: 30,
+                                    left: 80,
+                                    bottom: 20,
+                                }}
+                                barCategoryGap={16}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.1} />
+                                <XAxis 
+                                    type="number" 
+                                    tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }}
+                                />
+                                <YAxis
+                                    type="category"
+                                    dataKey="asesor"
+                                    width={160}
+                                    tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        borderRadius: "12px",
+                                        border: "1px solid #0570F2",
+                                        backgroundColor: "rgba(255,255,255,0.96)",
+                                        backdropFilter: "blur(8px)",
+                                        fontSize: "12px",
+                                        color: "#051DF2",
+                                    }}
+                                />
+                                <Bar
+                                    dataKey="total"
+                                    fill="#0570F2"
+                                    radius={[0, 8, 8, 0]}
+                                    fillOpacity={0.7}
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                   {/* ENTREGAS DIA */}
 
-    </div>
+                    <div className="h-[500px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
 
-) : null}
+                        <h2 className="mb-4 text-base font-semibold tracking-wide text-[#051DF2] border-l-4 border-[#0570F2] pl-3 drop-shadow-sm">
+                            Entregas por Día
+                        </h2>
+
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart
+                                data={entregasPorDia}
+                                margin={{
+                                    top: 20,
+                                    right: 30,
+                                    left: 0,
+                                    bottom: 20,
+                                }}
+                            >
+                                <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    stroke="#0570F2"
+                                    strokeOpacity={0.1}
+                                />
+
+                                <XAxis
+                                    dataKey="fecha"
+                                    tick={{
+                                        fill: "#051DF2",
+                                        fontSize: 11,
+                                        fillOpacity: 0.7,
+                                    }}
+                                />
+
+                                <YAxis
+                                    tick={{
+                                        fill: "#051DF2",
+                                        fontSize: 11,
+                                        fillOpacity: 0.7,
+                                    }}
+                                />
+
+                                <Tooltip
+                                    contentStyle={{
+                                        borderRadius: "12px",
+                                        border: "1px solid #0570F2",
+                                        backgroundColor: "rgba(255,255,255,0.96)",
+                                        backdropFilter: "blur(8px)",
+                                        fontSize: "12px",
+                                        color: "#051DF2",
+                                    }}
+                                />
+
+                                <Legend />
+
+                                <Line
+                                    type="monotone"
+                                    dataKey="total"
+                                    stroke="#0570F2"
+                                    strokeWidth={3}
+                                    dot={{ r: 5 }}
+                                    activeDot={{ r: 7 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+
+                    </div>
+
+                </div>
+
+            ) : null}
             <ContextMenu
                 ctxMenu={ctxMenu}
                 onDelete={async (row) => {
