@@ -622,4 +622,40 @@ export const apiClickup = {
       { method: "POST" },
     );
   },
+
+  // ========== FUNCIONES AGREGADAS PARA INVITACIONES Y MIEMBROS ==========
+
+  async getTeamMembers(teamId) {
+    const data = await http(`${API_BASE}/equipos/${Number(teamId)}/miembros/`);
+    return Array.isArray(data) ? data.map(normalizeMember) : [];
+  },
+
+  async cancelInvite(teamId, inviteId) {
+    return await http(`${API_BASE}/equipos/${Number(teamId)}/invitaciones/${Number(inviteId)}/cancelar/`, {
+      method: "POST",
+    });
+  },
+
+  async removeMember(teamId, userId) {
+    return await http(`${API_BASE}/equipos/${Number(teamId)}/miembros/${Number(userId)}/eliminar/`, {
+      method: "DELETE",
+    });
+  },
+
+  async inviteToTeam(teamId, data) {
+    return await this.invite(teamId, data);
+  },
+
+  async listUserInvites() {
+    try {
+      const data = await http(`${API_BASE}/invitaciones/`);
+      if (!Array.isArray(data)) return [];
+      return data
+        .filter(inv => inv.estado === "PENDING")
+        .map(inv => normalizeInvite(inv));
+    } catch (e) {
+      console.error("Error listUserInvites:", e);
+      return [];
+    }
+  },
 };
