@@ -6,7 +6,7 @@ import {
     Zap, Search, Calendar,
     LayoutGrid, Table2, GitBranch,
     ArrowUpDown, ChevronUp, Loader2, Save, UsersRound,
-    AlertTriangle, UserPlus, Mail
+    AlertTriangle, UserPlus, Mail, Check, EyeOff
 } from "lucide-react";
 import { apiClickup } from "../../lib/apiClickup";
 
@@ -147,6 +147,20 @@ function CausaRaiz({ causa, raiz, onChangeCausa, onChangeRaiz }) {
 }
 
 function SubtaskRow({ sub, onToggle, onDelete, onChangeDate }) {
+    const startVal = sub.start_date || sub.fecha_inicio || sub.startDate || sub.fechaInicio || sub.inicio || "";
+    const dueVal   = sub.due_date   || sub.fecha_fin    || sub.dueDate   || sub.fechaFin   || sub.fin    || "";
+
+    const toInputDate = (val) => {
+        if (!val) return "";
+        const s = String(val);
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+        const n = Number(s);
+        if (!isNaN(n) && n > 0) return new Date(n).toISOString().slice(0, 10);
+        const d = new Date(s);
+        if (!isNaN(d)) return d.toISOString().slice(0, 10);
+        return "";
+    };
+
     return (
         <div className="rounded-lg border border-black/5 bg-white px-3 py-2 space-y-1">
             <div className="flex items-center gap-2">
@@ -164,13 +178,13 @@ function SubtaskRow({ sub, onToggle, onDelete, onChangeDate }) {
             <div className="flex items-center gap-2 pl-7">
                 <div className="flex items-center gap-1">
                     <span className="text-[10px] text-black/40 font-semibold">Inicio:</span>
-                    <input type="date" value={sub.start_date||""}
+                    <input type="date" value={toInputDate(startVal)}
                         onChange={e=>onChangeDate(sub.id,"start_date",e.target.value)}
                         className="rounded-lg border border-black/10 bg-slate-50 px-2 py-0.5 text-[10px] outline-none focus:border-[#131E5C]"/>
                 </div>
                 <div className="flex items-center gap-1">
                     <span className="text-[10px] text-black/40 font-semibold">Fin:</span>
-                    <input type="date" value={sub.due_date||""}
+                    <input type="date" value={toInputDate(dueVal)}
                         onChange={e=>onChangeDate(sub.id,"due_date",e.target.value)}
                         className="rounded-lg border border-black/10 bg-slate-50 px-2 py-0.5 text-[10px] outline-none focus:border-[#131E5C]"/>
                 </div>
@@ -210,6 +224,8 @@ function ConfirmDialog({ open, title, message, onConfirm, onCancel, loading }) {
 
 /* ══════════════════════════════════════════════
    TEAMS MODAL
+   FIX: normalizar respuesta de listMembers que puede venir como
+        { members: [...] } | { usuarios: [...] } | [...] directamente
 ══════════════════════════════════════════════ */
 function TeamsModal({ open, onClose, onCreated }) {
     const [teams,setTeams]=useState([]);
@@ -229,6 +245,51 @@ function TeamsModal({ open, onClose, onCreated }) {
     const [loadingInvites,setLoadingInvites]=useState({});
     const [sendingInvite,setSendingInvite]=useState(false);
     const [selectedUser,setSelectedUser]=useState(null);
+    const [hiddenInvites,setHiddenInvites]=useState({});
+    const [acceptingInvite,setAcceptingInvite]=useState({});
+
+    // ── FIX MEMBERS: extraer array de cualquier forma que devuelva el servidor ──
+    function extractArray(data) {
+        if (!data) return [];
+        if (Array.isArray(data)) return data;
+        // { members: [...] }
+        if (Array.isArray(data.members)) return data.members;
+        // { usuarios: [...] }
+        if (Array.isArray(data.usuarios)) return data.usuarios;
+        // { data: [...] }
+        if (Array.isArray(data.data)) return data.data;
+        // { results: [...] }
+        if (Array.isArray(data.results)) return data.results;
+        // { team: { members: [...] } }
+        if (data.team && Array.isArray(data.team.members)) return data.team.members;
+        // Si es objeto con keys numéricas (raro pero posible)
+        const vals = Object.values(data);
+        const firstArr = vals.find(v => Array.isArray(v));
+        if (firstArr) return firstArr;
+        return [];
+    }
+
+    function normalizeMember(m) {
+        // Soportar objeto anidado usuario/user
+        const inner = m.usuario || m.user || m;
+        return {
+            id:    m.id     || m.user_id   || m.usuario_id || inner.id || inner.id_usuario,
+            name:  inner.nombre_completo || inner.nombre || inner.name || m.nombre_completo || m.nombre || m.name || m.email || "—",
+            email: inner.correo || inner.email || m.correo || m.email || "—",
+            role:  m.role   || m.rol       || m.rol_nombre || inner.role || "MEMBER",
+        };
+    }
+
+    function normalizeInvite(inv) {
+        const inner = inv.invited_user || inv.usuario_invitado || {};
+        return {
+            id:     inv.id,
+            name:   inner.nombre_completo || inner.nombre || inner.name || inv.nombre || inv.email || "Usuario",
+            email:  inv.email || inv.correo || inner.email || inner.correo || "",
+            role:   inv.role  || inv.rol    || "MEMBER",
+            status: inv.status || inv.estado || "PENDING",
+        };
+    }
 
     const fetchTeams=useCallback(async()=>{
         setLoading(true);
@@ -245,10 +306,24 @@ function TeamsModal({ open, onClose, onCreated }) {
         if(!teamId)return;
         setLoadingInvites(p=>({...p,[teamId]:true}));
         try{
-            const[members,invites]=await Promise.all([apiClickup.listMembers(teamId),apiClickup.listInvites(teamId)]);
-            setMembersByTeam(p=>({...p,[teamId]:Array.isArray(members)?members:[]}));
-            setInvitesByTeam(p=>({...p,[teamId]:Array.isArray(invites)?invites:[]}));
+            const [membersRaw, invitesRaw] = await Promise.allSettled([
+    apiClickup.listMembers(teamId),
+    apiClickup.listInvites(teamId)
+]);
+
+            // FIX: extraer array independientemente de la estructura devuelta
+            const membersArr = extractArray(membersRaw);
+            const invitesArr = extractArray(invitesRaw);
+
+            console.log("[TeamsModal] membersRaw:", membersRaw, "→ array:", membersArr);
+            console.log("[TeamsModal] invitesRaw:", invitesRaw, "→ array:", invitesArr);
+
+            const normalizedMembers = membersArr.map(normalizeMember);
+            const normalizedInvites = invitesArr.map(normalizeInvite);
+            setMembersByTeam(p=>({...p,[teamId]:normalizedMembers}));
+            setInvitesByTeam(p=>({...p,[teamId]:normalizedInvites}));
         }catch(e){
+            console.error("[TeamsModal] loadTeamData error:", e);
             setMembersByTeam(p=>({...p,[teamId]:[]}));
             setInvitesByTeam(p=>({...p,[teamId]:[]}));
         }
@@ -297,8 +372,38 @@ function TeamsModal({ open, onClose, onCreated }) {
         finally{setSendingInvite(false);}
     }
 
+    async function acceptInvite(inv) {
+  if (!selectedTeam) return;
+  setAcceptingInvite(p => ({ ...p, [inv.id]: true }));
+  try {
+    await apiClickup.acceptInvite(selectedTeam.id, inv.id);
+    // Ocultar la invitación inmediatamente en UI
+    setHiddenInvites(p => ({ ...p, [inv.id]: true }));
+    // Recargar miembros e invitaciones del equipo
+    await loadTeamData(selectedTeam.id);
+    // Notificar al padre para que recargue el board/proyectos
+    onCreated?.();
+  } catch (e) {
+    // Si el error es ACCEPTED, igual la tratamos como éxito y ocultamos
+    if (e.message?.includes("ACCEPTED") || e.status === 400) {
+      setHiddenInvites(p => ({ ...p, [inv.id]: true }));
+      await loadTeamData(selectedTeam.id);
+      onCreated?.();
+    } else {
+      alert(e.message || "No se pudo aceptar la invitación");
+    }
+  } finally {
+    setAcceptingInvite(p => ({ ...p, [inv.id]: false }));
+  }
+}
+
+    function hideInvite(invId) {
+        setHiddenInvites(p=>({...p,[invId]:true}));
+    }
+
     if(!open)return null;
     const inputBase="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-[#131E5C]";
+    const visibleInvites = (invitesByTeam[selectedTeam?.id] || []).filter(inv => !hiddenInvites[inv.id]);
 
     return(
         <>
@@ -385,28 +490,73 @@ function TeamsModal({ open, onClose, onCreated }) {
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Miembros */}
                                 <div>
-                                    <div className="text-xs font-extrabold text-black/60 mb-2 flex items-center gap-2"><UsersRound className="h-3.5 w-3.5"/>Miembros ({membersByTeam[selectedTeam.id]?.length||0})</div>
-                                    {loadingInvites[selectedTeam.id]?<div className="text-center py-4"><Loader2 className="h-5 w-5 animate-spin text-black/30 mx-auto"/></div>
-                                    :membersByTeam[selectedTeam.id]?.length===0?<div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin miembros</div>
-                                    :<div className="space-y-2 max-h-48 overflow-y-auto">
-                                        {membersByTeam[selectedTeam.id]?.map(m=>(
-                                            <div key={m.id} className="flex items-center justify-between rounded-xl border border-black/10 bg-white px-3 py-2">
-                                                <div><div className="text-sm font-bold text-[#131E5C]">{m.name}</div><div className="text-xs text-black/50">{m.email}</div><div className="text-[10px] text-black/40">Rol: {m.role}</div></div>
+                                    <div className="text-xs font-extrabold text-black/60 mb-2 flex items-center gap-2">
+                                        <UsersRound className="h-3.5 w-3.5"/>
+                                        Miembros ({membersByTeam[selectedTeam.id]?.length||0})
+                                    </div>
+                                    {loadingInvites[selectedTeam.id]
+                                        ?<div className="text-center py-4"><Loader2 className="h-5 w-5 animate-spin text-black/30 mx-auto"/></div>
+                                        :!membersByTeam[selectedTeam.id]||membersByTeam[selectedTeam.id].length===0
+                                            ?<div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin miembros</div>
+                                            :<div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {membersByTeam[selectedTeam.id].map((m,idx)=>(
+                                                    <div key={m.id||idx} className="flex items-center gap-3 rounded-xl border border-black/10 bg-white px-3 py-2">
+                                                        <UserAvatar user={m} size="sm"/>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm font-bold text-[#131E5C] truncate">{m.name}</div>
+                                                            <div className="text-xs text-black/50 truncate">{m.email}</div>
+                                                            <div className="text-[10px] text-black/40">Rol: {m.role}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>}
+                                    }
                                 </div>
+
+                                {/* Invitaciones */}
                                 <div>
-                                    <div className="text-xs font-extrabold text-black/60 mb-2 flex items-center gap-2"><Mail className="h-3.5 w-3.5"/>Invitaciones pendientes ({invitesByTeam[selectedTeam.id]?.length||0})</div>
-                                    {invitesByTeam[selectedTeam.id]?.length===0?<div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin invitaciones</div>
-                                    :<div className="space-y-2 max-h-36 overflow-y-auto">
-                                        {invitesByTeam[selectedTeam.id]?.map(inv=>(
-                                            <div key={inv.id} className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
-                                                <div><div className="text-sm font-bold text-amber-800">{inv.invited_user?.name||inv.email||"Usuario"}</div><div className="text-xs text-amber-600">Rol: {inv.role}</div></div>
-                                            </div>
-                                        ))}
-                                    </div>}
+                                    <div className="text-xs font-extrabold text-black/60 mb-2 flex items-center gap-2">
+                                        <Mail className="h-3.5 w-3.5"/>
+                                        Invitaciones pendientes ({visibleInvites.length})
+                                    </div>
+                                    {visibleInvites.length===0
+                                        ?<div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin invitaciones pendientes</div>
+                                        :<div className="space-y-2 max-h-36 overflow-y-auto">
+                                            {visibleInvites.map(inv=>(
+                                                <div key={inv.id} className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="text-sm font-bold text-amber-800 truncate">{inv.name}</div>
+                                                        {inv.email&&<div className="text-xs text-amber-600 truncate">{inv.email}</div>}
+                                                        <div className="text-xs text-amber-600">Rol: {inv.role}</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                                                        <button
+                                                            onClick={()=>acceptInvite(inv)}
+                                                            disabled={!!acceptingInvite[inv.id]}
+                                                            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50"
+                                                        >
+                                                            {acceptingInvite[inv.id]
+                                                                ?<Loader2 className="h-3 w-3 animate-spin"/>
+                                                                :<Check className="h-3 w-3"/>
+                                                            }
+                                                            Aceptar
+                                                        </button>
+                                                        <button
+                                                            onClick={()=>hideInvite(inv.id)}
+                                                            title="Ocultar notificación"
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] font-extrabold text-amber-700 hover:bg-amber-100"
+                                                        >
+                                                            <EyeOff className="h-3 w-3"/>
+                                                            Ocultar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         )}
@@ -445,13 +595,24 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     const [assigneeResults,setAssigneeResults]=useState([]);
     const [searchingAssignees,setSearchingAssignees]=useState(false);
 
+    const toInputDate = (val) => {
+        if (!val) return "";
+        const s = String(val);
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+        const n = Number(s);
+        if (!isNaN(n) && n > 0) return new Date(n).toISOString().slice(0, 10);
+        const d = new Date(s);
+        if (!isNaN(d)) return d.toISOString().slice(0, 10);
+        return "";
+    };
+
     useEffect(()=>{
         if(!open)return;
         setTitle(task?.title||"");
         setListId(task?.list?String(task.list):(lists[0]?.id?String(lists[0].id):""));
         setPriority(task?.priority||"MEDIUM");
-        setStart(task?.start_date?String(task.start_date).slice(0,10):"");
-        setDue(task?.due_date?String(task.due_date).slice(0,10):"");
+        setStart(task?.start_date?toInputDate(task.start_date):"");
+        setDue(task?.due_date?toInputDate(task.due_date):"");
         setProblema(task?.descripcion_problema||"");
         setCausa(task?.causa||"");
         setRaiz(task?.raiz||"");
@@ -461,8 +622,8 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
             id:s.id||Math.random(),
             title:s.title||s.titulo||"",
             done:!!s.done,
-            start_date:s.start_date||"",
-            due_date:s.due_date||"",
+            start_date: toInputDate(s.start_date || s.fecha_inicio || s.startDate || s.fechaInicio || s.inicio || ""),
+            due_date:   toInputDate(s.due_date   || s.fecha_fin   || s.dueDate   || s.fechaFin   || s.fin   || ""),
         })):[]);
         setEvidencias([]);
         setAssignedUsers(Array.isArray(task?.asignados)?task.asignados.map(a=>({id:a.user_id,name:a.name,email:a.email})):[]);
@@ -818,22 +979,21 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
 }
 
 /* ══════════════════════════════════════════════
-   TIMELINE — CORREGIDO
-   Fixes:
-   1. Columnas fijas NUNCA desaparecen al hacer scroll
-      → posición sticky horizontal via estructura separada,
-        scroll SOLO en la sección Gantt
-   2. Subtareas con fecha propia se renderizan correctamente
-   3. Sin espacio en blanco — alturas sincronizadas con JS
+   TIMELINE VIEW
+   FIX 1: drag persiste fechas al API via onUpdateDates callback
+   FIX 2: altura de filas con subtareas calcula sin límite de scroll interno
 ══════════════════════════════════════════════ */
-function TimelineView({ tasks, onEdit, onDelete, loading }) {
-    const ganttRef   = useRef(null); // scroll horizontal del Gantt
-    const leftRef    = useRef(null); // columnas fijas (scroll vertical sincronizado)
-    const wrapRef    = useRef(null); // contenedor scroll vertical principal
+function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading }) {
+    const ganttRef   = useRef(null);
+    const leftRef    = useRef(null);
 
     const today = new Date(); today.setHours(0,0,0,0);
     const [expandedRows, setExpandedRows] = useState({});
     const toggleRow = (id) => setExpandedRows(p => ({ ...p, [id]: !p[id] }));
+
+    const dragRef = useRef(null);
+    const [dragState, setDragState] = useState(null);
+    const [dragOverrides, setDragOverrides] = useState({});
 
     const ACCENT    = BRAND_BLUE;
     const PANEL_BG  = "#f8f9fc";
@@ -855,7 +1015,12 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
         !(t.due_date   && String(t.due_date).trim())
     ), [tasks]);
 
-    // Calcular rango de fechas incluyendo subtareas
+    function getSubDates(sub) {
+        const rawStart = sub.start_date || sub.fecha_inicio || sub.startDate || sub.fechaInicio || sub.inicio || null;
+        const rawEnd   = sub.due_date   || sub.fecha_fin   || sub.dueDate   || sub.fechaFin   || sub.fin   || null;
+        return { rawStart, rawEnd };
+    }
+
     const { minDate, totalDays, weeks } = useMemo(() => {
         let min = new Date(today), max = new Date(today);
 
@@ -871,8 +1036,9 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
             expand(t.start_date);
             expand(t.due_date);
             (Array.isArray(t.subtareas) ? t.subtareas : []).forEach(s => {
-                expand(s.start_date || s.fecha_inicio);
-                expand(s.due_date   || s.fecha_fin);
+                const { rawStart, rawEnd } = getSubDates(s);
+                expand(rawStart);
+                expand(rawEnd);
             });
         });
 
@@ -890,45 +1056,52 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
         return { minDate: min, totalDays, weeks };
     }, [withDate, today]);
 
-    // Constantes de layout
     const DAY_W    = 38;
-    const HDR_H    = 64;  // altura cabecera de columnas fijas
-    const WEEK_H   = 36;  // fila semanas
-    const DAY_H    = 28;  // fila días
-    const FIXED_HDR_H = WEEK_H + DAY_H; // total cabecera gantt = 64
-
+    const HDR_H    = 64;   // WEEK_H + DAY_H
+    const WEEK_H   = 36;
+    const DAY_H    = 28;
     const COL_PLAN = 240;
     const COL_PROB = 180;
     const COL_ESTRA= 180;
     const FIXED_W  = COL_PLAN + COL_PROB + COL_ESTRA;
+    const ROW_BASE = 62;   // FIX: altura base ligeramente mayor
+    const SUB_H    = 28;   // FIX: más espacio por subtarea
+    const SUB_HEADER_H = 28; // espacio para la barra de progreso
 
-    const ROW_BASE = 58;
-    const SUB_H    = 26;
-
+    // FIX: altura calculada con espacio generoso para que no se corten
     function rowHeight(task) {
         const subs = Array.isArray(task.subtareas) ? task.subtareas : [];
         if (!expandedRows[task.id] || subs.length === 0) return ROW_BASE;
-        return ROW_BASE + 20 + subs.length * SUB_H;
+        return ROW_BASE + SUB_HEADER_H + subs.length * SUB_H + 12;
     }
 
     const todayOffset = Math.floor((today - minDate) / 86400000);
 
-    // Auto-scroll a hoy
     useEffect(() => {
         if (ganttRef.current && todayOffset > 0) {
             ganttRef.current.scrollLeft = Math.max(0, todayOffset * DAY_W - 280);
         }
     }, [todayOffset]);
 
-    // Sincronizar scroll vertical entre panel fijo y gantt
+    // Sincronizar scroll vertical entre panel izquierdo y gantt
     useEffect(() => {
         const gantt = ganttRef.current;
         const left  = leftRef.current;
         if (!gantt || !left) return;
-
-        const onGanttScroll = () => { left.scrollTop = gantt.scrollTop; };
-        const onLeftScroll  = () => { gantt.scrollTop = left.scrollTop; };
-
+        let syncingFromGantt = false;
+        let syncingFromLeft  = false;
+        const onGanttScroll = () => {
+            if (syncingFromLeft) return;
+            syncingFromGantt = true;
+            left.scrollTop = gantt.scrollTop;
+            syncingFromGantt = false;
+        };
+        const onLeftScroll = () => {
+            if (syncingFromGantt) return;
+            syncingFromLeft = true;
+            gantt.scrollTop = left.scrollTop;
+            syncingFromLeft = false;
+        };
         gantt.addEventListener("scroll", onGanttScroll);
         left.addEventListener("scroll",  onLeftScroll);
         return () => {
@@ -936,6 +1109,91 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
             left.removeEventListener("scroll",  onLeftScroll);
         };
     }, []);
+
+    // ── FIX DRAG: al soltar convertir offset→fecha y persistir ──
+    useEffect(() => {
+        function onMouseMove(e) {
+            if (!dragRef.current) return;
+            const { origStartOff, origDur, startX, type, key } = dragRef.current;
+            const deltaX = e.clientX - startX;
+            const deltaDays = Math.round(deltaX / DAY_W);
+
+            let newStartOff = origStartOff;
+            let newDur = origDur;
+
+            if (type === "move") {
+                newStartOff = Math.max(0, Math.min(origStartOff + deltaDays, totalDays - origDur));
+            } else if (type === "resize-right") {
+                newDur = Math.max(1, origDur + deltaDays);
+                if (newStartOff + newDur > totalDays) newDur = totalDays - newStartOff;
+            } else if (type === "resize-left") {
+                const maxShift = origDur - 1;
+                const shift = Math.min(deltaDays, maxShift);
+                newStartOff = Math.max(0, origStartOff + shift);
+                newDur = origDur - (newStartOff - origStartOff);
+            }
+
+            setDragOverrides(p => ({ ...p, [key]: { startOff: newStartOff, dur: newDur } }));
+        }
+
+        function offsetToISODate(offset) {
+            const d = new Date(minDate);
+            d.setDate(d.getDate() + offset);
+            return d.toISOString().slice(0, 10);
+        }
+
+        function onMouseUp() {
+            if (dragRef.current) {
+                const { key, taskId, subIdx } = dragRef.current;
+                const override = dragRef.current._lastOverride;
+                if (override && onUpdateDates) {
+                    const newStart = offsetToISODate(override.startOff);
+                    const newEnd   = offsetToISODate(override.startOff + override.dur - 1);
+                    // Llamar al callback para persistir (taskId, subIdx=-1 para tarea principal)
+                    onUpdateDates(taskId, subIdx, newStart, newEnd);
+                }
+            }
+            dragRef.current = null;
+            setDragState(null);
+        }
+
+        function onMouseMoveWithSave(e) {
+            if (!dragRef.current) return;
+            onMouseMove(e);
+            // Guardar el último override en el ref para usarlo en mouseup
+            const { origStartOff, origDur, startX, type } = dragRef.current;
+            const deltaX = e.clientX - startX;
+            const deltaDays = Math.round(deltaX / DAY_W);
+            let newStartOff = origStartOff;
+            let newDur = origDur;
+            if (type === "move") {
+                newStartOff = Math.max(0, Math.min(origStartOff + deltaDays, totalDays - origDur));
+            } else if (type === "resize-right") {
+                newDur = Math.max(1, origDur + deltaDays);
+                if (newStartOff + newDur > totalDays) newDur = totalDays - newStartOff;
+            } else if (type === "resize-left") {
+                const maxShift = origDur - 1;
+                const shift = Math.min(deltaDays, maxShift);
+                newStartOff = Math.max(0, origStartOff + shift);
+                newDur = origDur - (newStartOff - origStartOff);
+            }
+            dragRef.current._lastOverride = { startOff: newStartOff, dur: newDur };
+        }
+
+        window.addEventListener("mousemove", onMouseMoveWithSave);
+        window.addEventListener("mouseup",   onMouseUp);
+        return () => {
+            window.removeEventListener("mousemove", onMouseMoveWithSave);
+            window.removeEventListener("mouseup",   onMouseUp);
+        };
+    }, [totalDays, minDate, onUpdateDates]);
+
+    function startDrag(e, key, type, origStartOff, origDur, taskId, subIdx = -1) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragRef.current = { key, type, startX: e.clientX, origStartOff, origDur, taskId, subIdx, _lastOverride: null };
+        setDragState({ key, type });
+    }
 
     function fmtDate(d) {
         return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -969,21 +1227,22 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
         </div>
     );
 
-    const cellStyle = {
-        borderRight: `1px solid rgba(19,30,92,0.08)`,
-        overflow: "hidden",
-        flexShrink: 0,
-    };
+    const cellStyle = { borderRight: `1px solid rgba(19,30,92,0.08)`, overflow: "hidden", flexShrink: 0 };
+
+    function getBarOffsets(key, origStartOff, origDur) {
+        if (dragOverrides[key]) return dragOverrides[key];
+        return { startOff: origStartOff, dur: origDur };
+    }
+
+    // Calcular altura total del contenido para el gantt (sin max-height interno)
+    const totalContentHeight = withDate.reduce((acc, task) => acc + rowHeight(task), 0);
 
     return (
         <div className="w-full space-y-4">
-            {/* ── Sección CON fecha ───────────────────────────────────────── */}
             {withDate.length > 0 && (
                 <div className="rounded-2xl overflow-hidden shadow-sm" style={{ border: `1.5px solid ${ACCENT}30` }}>
 
-                    {/* Leyenda superior */}
-                    <div className="flex items-center justify-between px-4 py-2.5 flex-wrap gap-2"
-                        style={{ background: ACCENT }}>
+                    <div className="flex items-center justify-between px-4 py-2.5 flex-wrap gap-2" style={{ background: ACCENT }}>
                         <div className="flex items-center gap-4 flex-wrap">
                             <span className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-1.5">
                                 <GitBranch className="h-3.5 w-3.5"/>Línea de tiempo
@@ -1001,23 +1260,13 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                 </span>
                             ))}
                         </div>
-                        <span className="text-[10px] text-white/50">{withDate.length} planes con fecha</span>
+                        <span className="text-[10px] text-white/50">{withDate.length} planes · arrastra las barras para ajustar fechas</span>
                     </div>
 
-                    {/*
-                     * ESTRUCTURA PRINCIPAL:
-                     * ┌─────────────────────────┬──────────────────────────────────┐
-                     * │  COLUMNAS FIJAS (sticky) │  GANTT (scroll h + v)            │
-                     * │  scroll-y sincronizado   │                                  │
-                     * └─────────────────────────┴──────────────────────────────────┘
-                     *
-                     * El wrapper externo NO tiene overflow — evita doble scroll.
-                     * La altura del área de datos es fija (max-h) para que ambos lados
-                     * tengan la misma ventana y el scroll vertical esté sincronizado.
-                     */}
-                    <div className="flex" style={{ background: PANEL_BG, maxHeight: "70vh", overflow: "hidden" }}>
+                    {/* FIX: contenedor con altura máxima fija solo para el wrapper, scroll único */}
+                    <div className="flex" style={{ background: PANEL_BG, maxHeight: "72vh", overflow: "hidden" }}>
 
-                        {/* ── COLUMNAS FIJAS ── */}
+                        {/* COLUMNAS FIJAS — FIX: overflow-y hidden, scroll controlado por gantt */}
                         <div
                             ref={leftRef}
                             style={{
@@ -1025,69 +1274,49 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                 flexShrink: 0,
                                 overflowY: "auto",
                                 overflowX: "hidden",
-                                // ocultamos scrollbar visualmente pero mantenemos funcionalidad
                                 scrollbarWidth: "none",
+                                msOverflowStyle: "none",
                             }}
                         >
-                            {/* Cabecera fija — misma altura que cabecera gantt */}
-                            <div
-                                className="flex sticky top-0 z-30"
-                                style={{ height: HDR_H, background: PANEL_HDR, borderBottom: `1px solid ${ACCENT}15` }}
-                            >
+                            {/* Header sticky */}
+                            <div className="sticky top-0 z-30 flex" style={{ height: HDR_H, background: PANEL_HDR, borderBottom: `1px solid ${ACCENT}15` }}>
                                 {[
                                     [COL_PLAN,  "Plan de acción"],
                                     [COL_PROB,  "Descripción del Problema"],
                                     [COL_ESTRA, "Desarrollo de la Estrategia"],
                                 ].map(([w, label]) => (
-                                    <div
-                                        key={label}
-                                        style={{ ...cellStyle, width: w, height: HDR_H, display: "flex", alignItems: "center", padding: "0 12px" }}
-                                    >
-                                        <span className="text-[10px] font-extrabold uppercase tracking-widest leading-tight"
-                                            style={{ color: `${ACCENT}80` }}>{label}</span>
+                                    <div key={label} style={{ ...cellStyle, width: w, height: HDR_H, display: "flex", alignItems: "center", padding: "0 12px" }}>
+                                        <span className="text-[10px] font-extrabold uppercase tracking-widest leading-tight" style={{ color: `${ACCENT}80` }}>{label}</span>
                                     </div>
                                 ))}
                             </div>
 
-                            {/* Filas de datos */}
+                            {/* Filas */}
                             {withDate.map(task => {
-                                const rh          = rowHeight(task);
-                                const subtasks    = Array.isArray(task.subtareas) ? task.subtareas : [];
-                                const doneCount   = subtasks.filter(s => s.done).length;
-                                const isExpanded  = !!expandedRows[task.id];
+                                const rh         = rowHeight(task);
+                                const subtasks   = Array.isArray(task.subtareas) ? task.subtareas : [];
+                                const doneCount  = subtasks.filter(s => s.done).length;
+                                const isExpanded = !!expandedRows[task.id];
                                 const { startDate, dueDate } = parseDates(task);
-                                const isOverdue   = dueDate && dueDate < today && task.list_name !== "Hecho";
+                                const isOverdue  = dueDate && dueDate < today && task.list_name !== "Hecho";
 
                                 return (
-                                    <div
-                                        key={task.id}
-                                        className="flex group transition-colors"
-                                        style={{ height: rh, minHeight: rh, borderBottom: `1px solid ${ACCENT}08`, background: "white" }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = `${ACCENT}04`; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = "white"; }}
-                                    >
-                                        {/* Col 1: Plan */}
-                                        <div style={{ ...cellStyle, width: COL_PLAN, height: rh, display: "flex", alignItems: "flex-start", padding: "10px 10px 10px 10px", background: "inherit" }}>
+                                    <div key={task.id} className="flex group"
+                                        style={{ height: rh, minHeight: rh, borderBottom: `1px solid ${ACCENT}08`, background: "white" }}>
+                                        <div style={{ ...cellStyle, width: COL_PLAN, height: rh, display: "flex", alignItems: "flex-start", padding: "10px", background: "inherit" }}>
                                             <div className="flex items-start gap-1 w-full">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleRow(task.id)}
-                                                    disabled={subtasks.length === 0}
+                                                <button type="button" onClick={() => toggleRow(task.id)} disabled={subtasks.length === 0}
                                                     className="shrink-0 mt-0.5 h-5 w-5 rounded flex items-center justify-center border transition-colors"
                                                     style={subtasks.length === 0
                                                         ? { borderColor: `${ACCENT}15`, color: `${ACCENT}30`, cursor: "not-allowed" }
                                                         : isExpanded
                                                             ? { borderColor: ACCENT, background: ACCENT, color: "white" }
-                                                            : { borderColor: `${ACCENT}30`, color: `${ACCENT}60` }
-                                                    }
-                                                >
+                                                            : { borderColor: `${ACCENT}30`, color: `${ACCENT}60` }}>
                                                     {isExpanded ? <ChevronDown className="h-3 w-3"/> : <ChevronRight className="h-3 w-3"/>}
                                                 </button>
-
                                                 <div className="flex-1 min-w-0">
                                                     <button type="button" onClick={() => onEdit(task)}
-                                                        className="text-left text-xs font-black leading-snug line-clamp-2 hover:underline w-full"
-                                                        style={{ color: ACCENT }}>
+                                                        className="text-left text-xs font-black leading-snug line-clamp-2 hover:underline w-full" style={{ color: ACCENT }}>
                                                         {task.title || "Sin título"}
                                                     </button>
                                                     <div className="flex items-center gap-1 flex-wrap mt-1">
@@ -1097,97 +1326,75 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                                     {startDate && dueDate && (
                                                         <div className="flex items-center gap-1 mt-1 text-[10px]" style={{ color: `${ACCENT}50` }}>
                                                             <Calendar className="h-2.5 w-2.5 shrink-0"/>
-                                                            <span>{fmtDate(startDate)}</span>
-                                                            <span>→</span>
+                                                            <span>{fmtDate(startDate)}</span><span>→</span>
                                                             <span className={isOverdue ? "text-rose-500 font-bold" : ""}>{fmtDate(dueDate)}</span>
                                                             {isOverdue && <span className="text-[8px] font-extrabold text-rose-500 bg-rose-50 border border-rose-200 rounded px-1">VENCIDA</span>}
                                                         </div>
                                                     )}
-
-                                                    {/* Subtareas expandidas en panel fijo */}
+                                                    {/* FIX: subtareas en panel izquierdo con scroll propio si son muchas */}
                                                     {isExpanded && subtasks.length > 0 && (
-                                                        <div className="mt-2 space-y-0.5 border-t pt-2" style={{ borderColor: `${ACCENT}08` }}>
-                                                            <div className="flex items-center gap-1.5 mb-1.5">
+                                                        <div className="mt-2 border-t pt-2" style={{ borderColor: `${ACCENT}08` }}>
+                                                            <div className="flex items-center gap-1.5 mb-2">
                                                                 <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: `${ACCENT}10` }}>
-                                                                    <div className="h-full rounded-full bg-emerald-500 transition-all"
-                                                                        style={{ width: `${(doneCount / subtasks.length) * 100}%` }}/>
+                                                                    <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(doneCount / subtasks.length) * 100}%` }}/>
                                                                 </div>
-                                                                <span className="text-[9px] font-bold shrink-0" style={{ color: `${ACCENT}50` }}>
-                                                                    {doneCount}/{subtasks.length}
-                                                                </span>
+                                                                <span className="text-[9px] font-bold shrink-0" style={{ color: `${ACCENT}50` }}>{doneCount}/{subtasks.length}</span>
                                                             </div>
-                                                            {subtasks.map((sub, i) => (
-                                                                <div key={i} className="flex items-center gap-1.5">
-                                                                    {sub.done
-                                                                        ? <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0"/>
-                                                                        : <Clock3 className="h-3 w-3 shrink-0" style={{ color: `${ACCENT}30` }}/>
-                                                                    }
-                                                                    <span
-                                                                        className={cls("text-[10px] truncate", sub.done ? "line-through text-black/30" : "font-semibold")}
-                                                                        style={sub.done ? {} : { color: `${ACCENT}70` }}>
-                                                                        {sub.title || sub.titulo}
-                                                                    </span>
-                                                                    {(sub.start_date || sub.due_date) && (
-                                                                        <span className="ml-auto text-[9px] shrink-0" style={{ color: `${ACCENT}40` }}>
-                                                                            {sub.start_date?.slice(0,10) || ""}
-                                                                            {sub.start_date && sub.due_date ? "→" : ""}
-                                                                            {sub.due_date?.slice(0,10) || ""}
+                                                            {subtasks.map((sub, i) => {
+                                                                const { rawStart, rawEnd } = getSubDates(sub);
+                                                                return (
+                                                                    <div key={i} className="flex items-center gap-1.5 py-0.5" style={{ height: SUB_H }}>
+                                                                        {sub.done
+                                                                            ? <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0"/>
+                                                                            : <Clock3 className="h-3 w-3 shrink-0" style={{ color: `${ACCENT}30` }}/>}
+                                                                        <span className={cls("text-[10px] truncate", sub.done ? "line-through text-black/30" : "font-semibold")}
+                                                                            style={sub.done ? {} : { color: `${ACCENT}70` }}>
+                                                                            {sub.title || sub.titulo}
                                                                         </span>
-                                                                    )}
-                                                                </div>
-                                                            ))}
+                                                                        {(rawStart || rawEnd) && (
+                                                                            <span className="ml-auto text-[9px] shrink-0" style={{ color: `${ACCENT}40` }}>
+                                                                                {rawStart ? new Date(rawStart).toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit"}) : ""}
+                                                                                {rawStart && rawEnd ? "→" : ""}
+                                                                                {rawEnd   ? new Date(rawEnd).toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit"}) : ""}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>
-
                                                 <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                                    <button onClick={e => { e.stopPropagation(); onEdit(task); }}
-                                                        className="p-1 rounded" style={{ color: `${ACCENT}50` }}
-                                                        onMouseEnter={e => e.currentTarget.style.background = `${ACCENT}10`}
-                                                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                                    <button onClick={e => { e.stopPropagation(); onEdit(task); }} className="p-1 rounded" style={{ color: `${ACCENT}50` }}
+                                                        onMouseEnter={e=>e.currentTarget.style.background=`${ACCENT}10`} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                                                         <Pencil className="h-3 w-3"/>
                                                     </button>
-                                                    <button onClick={e => { e.stopPropagation(); onDelete(task); }}
-                                                        className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50">
+                                                    <button onClick={e => { e.stopPropagation(); onDelete(task); }} className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50">
                                                         <Trash2 className="h-3 w-3"/>
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
-
-                                        {/* Col 2: Descripción */}
                                         <div style={{ ...cellStyle, width: COL_PROB, height: rh, display: "flex", alignItems: "flex-start", padding: "10px", background: PANEL_BG }}>
                                             {task.descripcion_problema
                                                 ? <p className="text-[10px] leading-relaxed line-clamp-4" style={{ color: `${ACCENT}70` }}>{task.descripcion_problema}</p>
-                                                : <span className="text-[10px] italic" style={{ color: `${ACCENT}25` }}>—</span>
-                                            }
+                                                : <span className="text-[10px] italic" style={{ color: `${ACCENT}25` }}>—</span>}
                                         </div>
-
-                                        {/* Col 3: Estrategia */}
                                         <div style={{ ...cellStyle, width: COL_ESTRA, height: rh, display: "flex", alignItems: "flex-start", padding: "10px", background: `${ACCENT}04`, borderRight: "none" }}>
                                             {task.desarrollo_estrategia
                                                 ? <p className="text-[10px] leading-relaxed line-clamp-4" style={{ color: `${ACCENT}80` }}>{task.desarrollo_estrategia}</p>
-                                                : <span className="text-[10px] italic" style={{ color: `${ACCENT}25` }}>—</span>
-                                            }
+                                                : <span className="text-[10px] italic" style={{ color: `${ACCENT}25` }}>—</span>}
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
 
-                        {/* ── GANTT (scroll horizontal + vertical sincronizado) ── */}
-                        <div
-                            ref={ganttRef}
-                            style={{
-                                flex: 1,
-                                overflowX: "auto",
-                                overflowY: "auto",
-                                minWidth: 0,
-                            }}
-                        >
+                        {/* GANTT */}
+                        <div ref={ganttRef} style={{ flex: 1, overflowX: "auto", overflowY: "auto", minWidth: 0 }}>
                             <div style={{ minWidth: totalDays * DAY_W, position: "relative" }}>
 
-                                {/* Cabecera semanas — sticky vertical */}
+                                {/* Cabecera semanas — sticky */}
                                 <div className="flex sticky z-40" style={{ top: 0, height: WEEK_H, borderBottom: `1px solid ${ACCENT}12`, background: PANEL_HDR }}>
                                     {weeks.map((w, i) => (
                                         <div key={i} className="flex items-center justify-center shrink-0 text-[10px] font-bold"
@@ -1197,7 +1404,7 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                     ))}
                                 </div>
 
-                                {/* Cabecera días — sticky vertical */}
+                                {/* Cabecera días — sticky */}
                                 <div className="flex sticky z-40" style={{ top: WEEK_H, height: DAY_H, borderBottom: `1px solid ${ACCENT}10`, background: "white" }}>
                                     {Array.from({ length: totalDays }).map((_, idx) => {
                                         const d = new Date(minDate); d.setDate(d.getDate() + idx);
@@ -1206,8 +1413,7 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                         return (
                                             <div key={idx} className="flex items-center justify-center border-r shrink-0 text-[10px]"
                                                 style={{
-                                                    width: DAY_W, height: DAY_H,
-                                                    borderColor: `${ACCENT}06`,
+                                                    width: DAY_W, height: DAY_H, borderColor: `${ACCENT}06`,
                                                     background: isToday ? `${ACCENT}15` : isWeekend ? `${ACCENT}04` : "white",
                                                     color: isToday ? ACCENT : isWeekend ? `${ACCENT}25` : `${ACCENT}45`,
                                                     fontWeight: isToday ? 700 : 400,
@@ -1218,36 +1424,24 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                     })}
                                 </div>
 
-                                {/* Cuerpo Gantt */}
+                                {/* Cuerpo */}
                                 <div style={{ position: "relative" }}>
-                                    {/* Línea de hoy */}
                                     {todayOffset >= 0 && todayOffset < totalDays && (
-                                        <div style={{
-                                            position: "absolute", top: 0, bottom: 0, zIndex: 20,
-                                            left: todayOffset * DAY_W, width: 2,
-                                            background: ACCENT, pointerEvents: "none",
-                                        }}/>
+                                        <div style={{ position: "absolute", top: 0, bottom: 0, zIndex: 20, left: todayOffset * DAY_W, width: 2, background: ACCENT, pointerEvents: "none" }}/>
                                     )}
-
-                                    {/* Franjas de fines de semana */}
                                     {Array.from({ length: totalDays }).map((_, idx) => {
                                         const d = new Date(minDate); d.setDate(d.getDate() + idx);
                                         if (d.getDay() !== 0 && d.getDay() !== 6) return null;
-                                        return (
-                                            <div key={idx} style={{
-                                                position: "absolute", top: 0, bottom: 0,
-                                                left: idx * DAY_W, width: DAY_W,
-                                                background: `${ACCENT}03`, zIndex: 0, pointerEvents: "none",
-                                            }}/>
-                                        );
+                                        return <div key={idx} style={{ position: "absolute", top: 0, bottom: 0, left: idx * DAY_W, width: DAY_W, background: `${ACCENT}03`, zIndex: 0, pointerEvents: "none" }}/>;
                                     })}
 
-                                    {/* Una fila por tarea */}
                                     {withDate.map(task => {
                                         const { startDate, dueDate } = parseDates(task);
                                         if (!startDate || !dueDate) return null;
 
-                                        const { startOff, dur } = toOffsets(startDate, dueDate);
+                                        const rawOffsets = toOffsets(startDate, dueDate);
+                                        const taskKey = `task_${task.id}`;
+                                        const { startOff, dur } = getBarOffsets(taskKey, rawOffsets.startOff, rawOffsets.dur);
                                         if (dur <= 0) return null;
 
                                         const bc         = barColor(task);
@@ -1257,30 +1451,51 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                         const isExpanded = !!expandedRows[task.id];
                                         const isOverdue  = dueDate < today && task.list_name !== "Hecho";
                                         const rh         = rowHeight(task);
+                                        const isDragging = dragState?.key === taskKey;
 
                                         return (
                                             <div key={task.id} style={{ height: rh, minHeight: rh, borderBottom: `1px solid ${ACCENT}06`, position: "relative" }}>
 
-                                                {/* Barra principal de la tarea */}
+                                                {/* Barra principal */}
                                                 <div
-                                                    className="absolute z-10 rounded-lg cursor-pointer transition-all hover:opacity-90 hover:-translate-y-0.5"
+                                                    className="absolute z-10 rounded-lg"
                                                     style={{
                                                         left: startOff * DAY_W + 3,
                                                         width: Math.max(dur * DAY_W - 6, 60),
-                                                        top: 9,
-                                                        height: 40,
+                                                        top: 9, height: 42,
                                                         background: `${bc}20`,
                                                         borderLeft: `4px solid ${bc}`,
                                                         borderTop: `1px solid ${bc}30`,
                                                         borderBottom: `1px solid ${bc}30`,
                                                         borderRight: isOverdue ? "2px solid #ef4444" : `1px solid ${bc}20`,
+                                                        cursor: isDragging ? "grabbing" : "grab",
+                                                        boxShadow: isDragging ? `0 4px 12px ${bc}40` : "none",
+                                                        transition: isDragging ? "none" : "box-shadow 0.15s",
+                                                        userSelect: "none",
                                                     }}
-                                                    onClick={() => onEdit(task)}
+                                                    onMouseDown={e => startDrag(e, taskKey, "move", startOff, dur, task.id, -1)}
                                                 >
-                                                    <div className="flex flex-col justify-center h-full px-2 overflow-hidden">
+                                                    {/* Handle resize izquierdo */}
+                                                    <div
+                                                        className="absolute left-0 top-0 bottom-0 w-2 z-20 flex items-center justify-center"
+                                                        style={{ cursor: "w-resize" }}
+                                                        onMouseDown={e => startDrag(e, taskKey, "resize-left", startOff, dur, task.id, -1)}
+                                                    >
+                                                        <div style={{ width: 2, height: 16, borderRadius: 2, background: `${bc}60` }}/>
+                                                    </div>
+
+                                                    <div className="flex flex-col justify-center h-full px-4 overflow-hidden">
                                                         <span className="text-[11px] font-bold truncate" style={{ color: bc }}>{task.title}</span>
                                                         <span className="text-[9px] truncate" style={{ color: `${ACCENT}40` }}>
-                                                            {fmtDate(startDate)} → {fmtDate(dueDate)}
+                                                            {/* FIX: mostrar fechas del override si existe */}
+                                                            {dragOverrides[taskKey]
+                                                                ? (() => {
+                                                                    const s = new Date(minDate); s.setDate(s.getDate() + dragOverrides[taskKey].startOff);
+                                                                    const e = new Date(minDate); e.setDate(e.getDate() + dragOverrides[taskKey].startOff + dragOverrides[taskKey].dur - 1);
+                                                                    return `${fmtDate(s)} → ${fmtDate(e)}`;
+                                                                })()
+                                                                : `${fmtDate(startDate)} → ${fmtDate(dueDate)}`
+                                                            }
                                                         </span>
                                                     </div>
                                                     {subtasks.length > 0 && (
@@ -1288,52 +1503,69 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                                             <div className="h-full" style={{ width: `${progress}%`, background: bc }}/>
                                                         </div>
                                                     )}
+
+                                                    {/* Handle resize derecho */}
+                                                    <div
+                                                        className="absolute right-0 top-0 bottom-0 w-2 z-20 flex items-center justify-center"
+                                                        style={{ cursor: "e-resize" }}
+                                                        onMouseDown={e => startDrag(e, taskKey, "resize-right", startOff, dur, task.id, -1)}
+                                                    >
+                                                        <div style={{ width: 2, height: 16, borderRadius: 2, background: `${bc}60` }}/>
+                                                    </div>
                                                 </div>
 
-                                                {/* Barras de subtareas (solo si están expandidas) */}
+                                                {/* Barras de subtareas */}
                                                 {isExpanded && subtasks.map((sub, i) => {
-                                                    // Leer fechas de la subtarea (varios alias posibles)
-                                                    const rawStart = sub.start_date || sub.fecha_inicio || sub.startDate || sub.fechaInicio || sub.inicio || null;
-                                                    const rawEnd   = sub.due_date   || sub.fecha_fin   || sub.endDate   || sub.fechaFin   || sub.fin   || null;
-
-                                                    let subStartOff, subDur;
+                                                    const { rawStart, rawEnd } = getSubDates(sub);
+                                                    let subRawStartOff, subRawDur;
 
                                                     if (rawStart || rawEnd) {
-                                                        // La subtarea tiene fecha propia → la usamos directamente
                                                         const ss = rawStart ? new Date(String(rawStart)) : new Date(String(rawEnd));
                                                         const se = rawEnd   ? new Date(String(rawEnd))   : new Date(String(rawStart));
                                                         const res = toOffsets(ss, se);
-                                                        subStartOff = res.startOff;
-                                                        subDur      = res.dur;
+                                                        subRawStartOff = res.startOff;
+                                                        subRawDur      = res.dur;
                                                     } else {
-                                                        // Sin fecha → distribuir equitativamente dentro de la tarea padre
                                                         const totalSubs = subtasks.length;
-                                                        const perSub    = Math.max(1, Math.floor(dur / totalSubs));
-                                                        subStartOff = startOff + i * perSub;
-                                                        subDur      = i === totalSubs - 1 ? dur - i * perSub : perSub;
+                                                        const perSub    = Math.max(1, Math.floor(rawOffsets.dur / totalSubs));
+                                                        subRawStartOff = rawOffsets.startOff + i * perSub;
+                                                        subRawDur      = i === totalSubs - 1 ? rawOffsets.dur - i * perSub : perSub;
                                                     }
 
-                                                    // Alinear barra de sub debajo de la barra principal
-                                                    const topPos    = ROW_BASE + 4 + i * SUB_H;
+                                                    const subKey = `sub_${task.id}_${i}`;
+                                                    const { startOff: subStartOff, dur: subDur } = getBarOffsets(subKey, subRawStartOff, subRawDur);
+                                                    // FIX: topPos alineado con SUB_H del panel izquierdo
+                                                    const topPos    = ROW_BASE + SUB_HEADER_H + i * SUB_H;
                                                     const subColor  = sub.done ? "#10b981" : `${ACCENT}70`;
+                                                    const isSubDrag = dragState?.key === subKey;
 
                                                     return (
                                                         <div
                                                             key={i}
-                                                            className="absolute z-10 rounded flex items-center px-2"
+                                                            className="absolute z-10 rounded flex items-center"
                                                             title={sub.title || sub.titulo}
                                                             style={{
                                                                 left:   subStartOff * DAY_W + 6,
                                                                 width:  Math.max(subDur * DAY_W - 12, 36),
                                                                 top:    topPos,
-                                                                height: SUB_H - 4,
+                                                                height: SUB_H - 6,
                                                                 background: sub.done ? "#10b98118" : `${ACCENT}0d`,
                                                                 borderLeft: `3px solid ${subColor}`,
+                                                                cursor: isSubDrag ? "grabbing" : "grab",
+                                                                boxShadow: isSubDrag ? `0 2px 8px ${subColor}40` : "none",
+                                                                transition: isSubDrag ? "none" : "box-shadow 0.15s",
+                                                                userSelect: "none",
                                                             }}
+                                                            onMouseDown={e => startDrag(e, subKey, "move", subStartOff, subDur, task.id, i)}
                                                         >
-                                                            <span className="text-[9px] font-bold truncate" style={{ color: subColor }}>
+                                                            <span className="text-[9px] font-bold truncate px-2" style={{ color: subColor, flex: 1 }}>
                                                                 {sub.done ? "✓ " : "○ "}{sub.title || sub.titulo}
                                                             </span>
+                                                            <div
+                                                                className="absolute right-0 top-0 bottom-0 w-1.5 z-20"
+                                                                style={{ cursor: "e-resize" }}
+                                                                onMouseDown={e => startDrag(e, subKey, "resize-right", subStartOff, subDur, task.id, i)}
+                                                            />
                                                         </div>
                                                     );
                                                 })}
@@ -1347,24 +1579,20 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                 </div>
             )}
 
-            {/* ── Sección SIN fecha ───────────────────────────────────────── */}
+            {/* Sección SIN fecha */}
             {noDate.length > 0 && (
                 <div className="rounded-2xl overflow-hidden w-full" style={{ border: `1.5px solid ${ACCENT}20` }}>
                     <div className="flex items-center gap-2 px-4 py-3" style={{ background: ACCENT }}>
                         <Clock3 className="h-4 w-4 text-white/70"/>
-                        <span className="text-xs font-extrabold text-white uppercase tracking-wide">
-                            Sin fecha asignada ({noDate.length})
-                        </span>
+                        <span className="text-xs font-extrabold text-white uppercase tracking-wide">Sin fecha asignada ({noDate.length})</span>
                     </div>
                     <div className="p-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3" style={{ background: PANEL_BG }}>
                         {noDate.map(task => {
                             const subtasks  = Array.isArray(task.subtareas) ? task.subtareas : [];
                             const doneCount = subtasks.filter(s => s.done).length;
                             const isExpND   = !!expandedRows[`nd_${task.id}`];
-
                             return (
-                                <div key={task.id} className="rounded-xl overflow-hidden transition-all"
-                                    style={{ border: `1px solid ${ACCENT}15`, background: "white" }}>
+                                <div key={task.id} className="rounded-xl overflow-hidden transition-all" style={{ border: `1px solid ${ACCENT}15`, background: "white" }}>
                                     <div className="flex items-start gap-2 p-3">
                                         <button type="button"
                                             onClick={() => setExpandedRows(p => ({ ...p, [`nd_${task.id}`]: !p[`nd_${task.id}`] }))}
@@ -1374,8 +1602,7 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                                 ? { borderColor: `${ACCENT}15`, color: `${ACCENT}30`, cursor: "not-allowed" }
                                                 : isExpND
                                                     ? { borderColor: ACCENT, background: ACCENT, color: "white" }
-                                                    : { borderColor: `${ACCENT}30`, color: `${ACCENT}60` }
-                                            }>
+                                                    : { borderColor: `${ACCENT}30`, color: `${ACCENT}60` }}>
                                             {isExpND ? <ChevronDown className="h-3 w-3"/> : <ChevronRight className="h-3 w-3"/>}
                                         </button>
                                         <div className="flex-1 min-w-0">
@@ -1390,9 +1617,7 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                                 )}
                                             </div>
                                             {task.descripcion_problema && (
-                                                <p className="text-[10px] line-clamp-2 mt-1 leading-snug" style={{ color: `${ACCENT}60` }}>
-                                                    {task.descripcion_problema}
-                                                </p>
+                                                <p className="text-[10px] line-clamp-2 mt-1 leading-snug" style={{ color: `${ACCENT}60` }}>{task.descripcion_problema}</p>
                                             )}
                                         </div>
                                         <div className="flex gap-0.5 shrink-0">
@@ -1403,16 +1628,14 @@ function TimelineView({ tasks, onEdit, onDelete, loading }) {
                                     {isExpND && subtasks.length > 0 && (
                                         <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: `${ACCENT}08`, background: `${ACCENT}03` }}>
                                             <div className="h-1.5 w-full rounded-full overflow-hidden mb-2" style={{ background: `${ACCENT}10` }}>
-                                                <div className="h-full rounded-full bg-emerald-500"
-                                                    style={{ width: `${subtasks.length ? (doneCount / subtasks.length) * 100 : 0}%` }}/>
+                                                <div className="h-full rounded-full bg-emerald-500" style={{ width: `${subtasks.length ? (doneCount / subtasks.length) * 100 : 0}%` }}/>
                                             </div>
                                             <div className="space-y-1">
                                                 {subtasks.map((sub, i) => (
                                                     <div key={i} className="flex items-center gap-1.5">
                                                         {sub.done
                                                             ? <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0"/>
-                                                            : <Clock3 className="h-3 w-3 shrink-0" style={{ color: `${ACCENT}30` }}/>
-                                                        }
+                                                            : <Clock3 className="h-3 w-3 shrink-0" style={{ color: `${ACCENT}30` }}/>}
                                                         <span className={cls("text-[10px] truncate", sub.done ? "line-through text-black/30" : "font-semibold")}
                                                             style={sub.done ? {} : { color: `${ACCENT}70` }}>
                                                             {sub.title || sub.titulo}
@@ -1468,8 +1691,19 @@ export default function TimeForAction() {
     },[]);
 
     const fetchTeams=useCallback(async()=>{
-        try{const data=await apiClickup.listTeams();const arr=Array.isArray(data)?data:[];setTeams(arr);if(!teamId&&arr[0])setTeamId(Number(arr[0].id));}catch(e){console.error(e);}
-    },[teamId]);
+    try{
+        const data=await apiClickup.listTeams();
+        const arr=Array.isArray(data)?data:[];
+        setTeams(arr);
+        // Si no hay equipo seleccionado, tomar el primero
+        if(!teamId && arr[0]) setTeamId(Number(arr[0].id));
+        // Si el equipo seleccionado ya no está en la lista, resetear
+        if(teamId && arr.length>0 && !arr.find(t=>Number(t.id)===Number(teamId))) {
+            setTeamId(Number(arr[0].id));
+            setProjectId(null);
+        }
+    }catch(e){console.error(e);}
+},[teamId]);
 
     useEffect(()=>{fetchTeams();},[]);
     useEffect(()=>{if(!teamId)return;apiClickup.listProjects(teamId).then(data=>{const arr=Array.isArray(data)?data:[];setProjects(arr);if(!projectId&&arr[0])setProjectId(Number(arr[0].id));}).catch(console.error);},[teamId]);
@@ -1481,16 +1715,118 @@ export default function TimeForAction() {
     },[teamId,projectId]);
 
     useEffect(()=>{loadBoard();},[loadBoard]);
+    useEffect(() => {
+  if (!teamId) return;
+  apiClickup.listNotifications().then(notifs => {
+    const hasInvites = notifs.some(n =>
+      n.type === "TEAM_INVITE" || n.type === "INVITATION" || n.type === "TASK_ASSIGNED"
+    );
+    if (hasInvites) loadBoard();
+  }).catch(() => {});
+}, [teamId]);
+
+useEffect(() => {
+    const handler = async (e) => {
+        const { teamId: tid, projectId: pid, taskId } = e.detail || {};
+        if (tid) { setTeamId(Number(tid)); localStorage.setItem("clickup_team_id", String(tid)); }
+        if (pid) { setProjectId(Number(pid)); localStorage.setItem("clickup_project_id", String(pid)); }
+        // Esperar a que el board recargue y luego abrir la tarea
+        setTimeout(async () => {
+            await loadBoard();
+            if (taskId) {
+                setTasks(prev => {
+                    const found = prev.find(t => Number(t.id) === Number(taskId));
+                    if (found) { setEditingTask(found); setModalOpen(true); }
+                    return prev;
+                });
+            }
+        }, 800);
+    };
+    window.addEventListener("clickup:navigate", handler);
+    return () => window.removeEventListener("clickup:navigate", handler);
+}, [loadBoard]);
+
+
+
+    // ── FIX TIMELINE: handler para persistir fechas tras arrastrar ──
+    const handleUpdateDates = useCallback(async (taskId, subIdx, newStart, newEnd) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task || !teamId) return;
+
+        try {
+            if (subIdx === -1) {
+                // Tarea principal
+                const payload = {
+                    lista: Number(task.list_id),
+                    titulo: task.title,
+                    prioridad: task.priority,
+                    inicio: `${newStart}T00:00:00Z`,
+                    vence: `${newEnd}T00:00:00Z`,
+                    descripcion_problema: task.descripcion_problema || "",
+                    causa: task.causa || "",
+                    raiz: task.raiz || "",
+                    desarrollo_estrategia: task.desarrollo_estrategia || "",
+                    resultados: task.resultados || "",
+                    subtareas: Array.isArray(task.subtareas) ? task.subtareas.map(s => ({
+                        titulo: s.title || s.titulo,
+                        done: !!s.done,
+                        start_date: s.start_date || null,
+                        due_date: s.due_date || null,
+                    })) : [],
+                    asignados_ids: Array.isArray(task.asignados) ? task.asignados.map(a => a.user_id || a.id) : [],
+                };
+                await apiClickup.updateTask(Number(teamId), Number(taskId), payload);
+                // Actualizar estado local inmediatamente para que la fecha mostrada cambie
+                setTasks(prev => prev.map(t => t.id === taskId
+                    ? { ...t, start_date: newStart, due_date: newEnd }
+                    : t
+                ));
+            } else {
+                // Subtarea: actualizar fechas en la subtarea correspondiente
+                const updatedSubtareas = (Array.isArray(task.subtareas) ? task.subtareas : []).map((s, i) =>
+                    i === subIdx ? { ...s, start_date: newStart, due_date: newEnd } : s
+                );
+                const payload = {
+                    lista: Number(task.list_id),
+                    titulo: task.title,
+                    prioridad: task.priority,
+                    inicio: task.start_date ? `${String(task.start_date).slice(0,10)}T00:00:00Z` : null,
+                    vence: task.due_date   ? `${String(task.due_date).slice(0,10)}T00:00:00Z`   : null,
+                    descripcion_problema: task.descripcion_problema || "",
+                    causa: task.causa || "",
+                    raiz: task.raiz || "",
+                    desarrollo_estrategia: task.desarrollo_estrategia || "",
+                    resultados: task.resultados || "",
+                    subtareas: updatedSubtareas.map(s => ({
+                        titulo: s.title || s.titulo,
+                        done: !!s.done,
+                        start_date: s.start_date || null,
+                        due_date: s.due_date || null,
+                    })),
+                    asignados_ids: Array.isArray(task.asignados) ? task.asignados.map(a => a.user_id || a.id) : [],
+                };
+                await apiClickup.updateTask(Number(teamId), Number(taskId), payload);
+                setTasks(prev => prev.map(t => t.id === taskId
+                    ? { ...t, subtareas: updatedSubtareas }
+                    : t
+                ));
+            }
+        } catch (e) {
+            console.error("Error al actualizar fechas desde timeline:", e);
+            // Si falla, recargar para resincronizar
+            await loadBoard();
+        }
+    }, [tasks, teamId, loadBoard]);
 
     const filtered=useMemo(()=>{
-        const qn=q.trim().toLowerCase();
-        return tasks.filter(t=>{
-            const matchQ=!qn||(t.title||"").toLowerCase().includes(qn)||(t.descripcion_problema||"").toLowerCase().includes(qn)||(t.causa||"").toLowerCase().includes(qn)||(t.desarrollo_estrategia||"").toLowerCase().includes(qn);
-            const matchS=filterStatus==="Todos"||t.list_name===filterStatus;
-            const matchMy=!showMyTasksOnly||!currentUser||(t.assigned&&t.assigned.some(a=>a.user_id===currentUser.id||a.id===currentUser.id));
-            return matchQ&&matchS&&matchMy;
-        });
-    },[tasks,q,filterStatus,showMyTasksOnly,currentUser]);
+    const qn=q.trim().toLowerCase();
+    return tasks.filter(t=>{
+        const matchQ=!qn||(t.title||"").toLowerCase().includes(qn)||(t.descripcion_problema||"").toLowerCase().includes(qn)||(t.causa||"").toLowerCase().includes(qn)||(t.desarrollo_estrategia||"").toLowerCase().includes(qn);
+        const matchS=filterStatus==="Todos"||t.list_name===filterStatus;
+        const matchMy=!showMyTasksOnly||!currentUser||(t.assigned&&t.assigned.some(a=>Number(a.user_id)===Number(currentUser.id)||Number(a.id)===Number(currentUser.id)));
+        return matchQ&&matchS&&matchMy;
+    });
+},[tasks,q,filterStatus,showMyTasksOnly,currentUser]);
 
     const statCounts=useMemo(()=>{const out={};for(const col of STATUS_COLS)out[col]=filtered.filter(t=>t.list_name===col).length;return out;},[filtered]);
 
@@ -1529,9 +1865,24 @@ export default function TimeForAction() {
             <div className="flex flex-wrap gap-3 rounded-xl border border-black/10 bg-white p-3">
                 <div className="flex items-center gap-2">
                     <label className="text-xs font-extrabold text-black/50 shrink-0">Equipo</label>
-                    <select value={teamId||""} onChange={e=>{setTeamId(Number(e.target.value));setProjectId(null);localStorage.setItem("clickup_team_id",e.target.value);}} className="rounded-xl border border-black/10 bg-slate-50 px-3 py-1.5 text-sm font-bold outline-none focus:border-[#131E5C]">
-                        {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
+                    <select value={teamId||""} onChange={e=>{
+    const newTeamId=Number(e.target.value);
+    setTeamId(newTeamId);
+    setProjectId(null);
+    localStorage.setItem("clickup_team_id",String(newTeamId));
+    localStorage.removeItem("clickup_project_id");
+    // Cargar proyectos del nuevo equipo
+    apiClickup.listProjects(newTeamId).then(data=>{
+        const arr=Array.isArray(data)?data:[];
+        setProjects(arr);
+        if(arr[0]){
+            setProjectId(Number(arr[0].id));
+            localStorage.setItem("clickup_project_id",String(arr[0].id));
+        }
+    }).catch(console.error);
+}} className="rounded-xl border border-black/10 bg-slate-50 px-3 py-1.5 text-sm font-bold outline-none focus:border-[#131E5C]">
+    {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+</select>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <label className="text-xs font-extrabold text-black/50 shrink-0">Proyecto</label>
@@ -1586,10 +1937,24 @@ export default function TimeForAction() {
 
             {view==="kanban"&&<KanbanView tasks={filtered} lists={lists} onEdit={openEdit} onDelete={handleDeleteTask} onCreateInCol={listId=>openCreate(listId)} loading={loading}/>}
             {view==="tabla"&&<TablaView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} loading={loading}/>}
-            {view==="timeline"&&<TimelineView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} loading={loading}/>}
+            {view==="timeline"&&<TimelineView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} onUpdateDates={handleUpdateDates} loading={loading}/>}
 
             <TaskModal open={modalOpen} onClose={()=>setModalOpen(false)} task={editingTask} lists={lists} teamId={teamId} onSaved={loadBoard}/>
-            <TeamsModal open={teamsModalOpen} onClose={()=>setTeamsModalOpen(false)} onCreated={fetchTeams}/>
+            <TeamsModal
+  open={teamsModalOpen}
+  onClose={() => setTeamsModalOpen(false)}
+  onCreated={async () => {
+    // Recargar equipos, proyectos y board
+    await fetchTeams();
+    if (teamId) {
+      const data = await apiClickup.listProjects(teamId);
+      const arr = Array.isArray(data) ? data : [];
+      setProjects(arr);
+      if (!projectId && arr[0]) setProjectId(Number(arr[0].id));
+    }
+    await loadBoard();
+  }}
+/>
             <ConfirmDialog open={!!confirmDeleteTask} title="Eliminar plan de acción" message={`¿Seguro que deseas eliminar "${confirmDeleteTask?.title}"? Esta acción no se puede deshacer.`} onConfirm={confirmTaskDelete} onCancel={()=>setConfirmDeleteTask(null)} loading={deletingTask}/>
             <ConfirmDialog open={confirmDeleteProject} title="Eliminar proyecto" message={`¿Seguro que deseas eliminar "${currentProject?.name}"? Se eliminarán todos sus planes.`} onConfirm={deleteCurrentProject} onCancel={()=>setConfirmDeleteProject(false)} loading={deletingProject}/>
 

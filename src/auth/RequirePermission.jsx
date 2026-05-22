@@ -1,4 +1,4 @@
-// RequirePermission.jsx
+//src/auth/RequirePermission.jsx
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 

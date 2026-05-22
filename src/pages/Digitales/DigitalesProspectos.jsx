@@ -12,7 +12,7 @@ import {
     ArrowUpDown,
     ChevronDown,
     ChevronUp,
-    ChevronLeft, ChevronRight, 
+    ChevronLeft, ChevronRight,
     MessageSquareShare,
     Building2,
     FileText,
@@ -276,8 +276,8 @@ function ModalSkeleton() {
     );
 }
 
-function cls(...a) { 
-    return a.filter(Boolean).join(" "); 
+function cls(...a) {
+    return a.filter(Boolean).join(" ");
 }
 
 function BadgeEstado({ value }) {
@@ -677,7 +677,7 @@ function VistaGraficos({ rows }) {
         const map = {
             "Lunes": 0, "Martes": 0, "Miércoles": 0, "Jueves": 0, "Viernes": 0, "Sábado": 0, "Domingo": 0
         };
-        
+
         for (const row of rows) {
             const fechaStr = row.fecha_reclamacion || row.fecha_contacto || row.fecha_registro;
             if (fechaStr) {
@@ -700,7 +700,7 @@ function VistaGraficos({ rows }) {
         for (let i = 0; i < 24; i++) {
             map[`${i.toString().padStart(2, "0")}:00`] = 0;
         }
-        
+
         for (const row of rows) {
             const fechaStr = row.fecha_reclamacion || row.fecha_contacto || row.fecha_registro;
             if (fechaStr) {
@@ -864,8 +864,8 @@ export default function DigitalesProspectos() {
     const [viewMode, setViewMode] = useState("tabla"); // "tabla" | "agenda" | "graficos"
 
     const VIEW_MODES = [
-        { key: "tabla",    label: "Tabla",    Icon: Table2        },
-        { key: "graficos", label: "Gráficos", Icon: BarChart3     },
+        { key: "tabla", label: "Tabla", Icon: Table2 },
+        { key: "graficos", label: "Gráficos", Icon: BarChart3 },
     ];
     // ──────────────────────────────────────────────────────────────────────
 
@@ -892,8 +892,6 @@ export default function DigitalesProspectos() {
         "VW Poza Rica",
         "VW Tuxtepec",
         "VW Tuxpan",
-        "Chirey",
-        "JAECOO R&R",
     ];
 
     const ASESORES = [
@@ -2069,7 +2067,7 @@ export default function DigitalesProspectos() {
                 </div>
             </div>
 
-        
+
 
             {/* ── Vista: Gráficos ───────────────────────────────────────────────── */}
             {viewMode === "graficos" && (
