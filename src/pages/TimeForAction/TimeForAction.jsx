@@ -1746,20 +1746,7 @@ useEffect(() => {
     return () => window.removeEventListener("clickup:navigate", handler);
 }, [loadBoard]);
 
-useEffect(()=>{
-    const handler = async () => {
-        await fetchTeams();
-        if(teamId){
-            const data = await apiClickup.listProjects(teamId).catch(()=>[]);
-            const arr = Array.isArray(data)?data:[];
-            setProjects(arr);
-            if(!projectId && arr[0]) setProjectId(Number(arr[0].id));
-        }
-        await loadBoard();
-    };
-    window.addEventListener("clickup:refresh", handler);
-    return ()=>window.removeEventListener("clickup:refresh", handler);
-},[fetchTeams, loadBoard, teamId, projectId]);
+
 
     // ── FIX TIMELINE: handler para persistir fechas tras arrastrar ──
     const handleUpdateDates = useCallback(async (taskId, subIdx, newStart, newEnd) => {
