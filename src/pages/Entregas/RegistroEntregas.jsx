@@ -1170,6 +1170,7 @@ export default function RegistroEntregas() {
         }, {})
     );
 
+<<<<<<< HEAD
     const entregadas = sorted.filter((row) => entregaFisicaActiva(row.entrega_reportada)).length;
     const noEntregadas = sorted.length - entregadas;
 
@@ -1215,6 +1216,44 @@ export default function RegistroEntregas() {
     }).map(({ fecha, total }) => ({ fecha, total }));
 
     return (
+=======
+    const entregadas = sorted.filter(
+    (item) => entregaFisicaActiva(item.entrega_reportada)
+).length;
+
+const noEntregadas = sorted.length - entregadas;
+
+const entregasEstado = [
+    {
+        name: "Entregadas",
+        value: entregadas,
+    },
+    {
+        name: "No entregadas",
+        value: noEntregadas,
+    },
+];
+
+const entregasPorAsesor = Object.values(
+    sorted.reduce((acc, item) => {
+
+        const asesor = item.asesor_ventas || "Sin asesor";
+
+        if (!acc[asesor]) {
+            acc[asesor] = {
+                asesor,
+                total: 0,
+            };
+        }
+
+        acc[asesor].total += 1;
+
+        return acc;
+
+    }, {})
+).sort((a, b) => b.total - a.total);
+    return(
+>>>>>>> 59a87a2320a8b73eadc9e5522985653b36fff5e0
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">

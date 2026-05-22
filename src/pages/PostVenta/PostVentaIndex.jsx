@@ -7,7 +7,7 @@ export default function PostVentaIndex() {
     const { hasAnyPermission } = useAuth();
 
     useEffect(() => {
-        if (hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"])) {
+        if (hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"])) {
             navigate("/postventa/pedidos_piezas", { replace: true });
             return;
         }

@@ -7,7 +7,7 @@ export default function AdministrativosIndex() {
     const { hasAnyPermission } = useAuth();
 
     useEffect(() => {
-        if (hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH"])) {
+        if (hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"])) {
             navigate("/administrativos/reclutamiento", { replace: true });
             return;
         }

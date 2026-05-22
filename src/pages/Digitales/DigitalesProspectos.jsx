@@ -12,6 +12,7 @@ import {
     ArrowUpDown,
     ChevronDown,
     ChevronUp,
+    ChevronLeft, ChevronRight, 
     MessageSquareShare,
     Building2,
     FileText,
@@ -26,6 +27,11 @@ import {
     UserStar,
     ClipboardCheck,
     BrainCircuit,
+    // ── Nuevos iconos para los botones de vista ──
+    CalendarRange,
+    Table2,
+    BarChart3,
+    Clock3,
 } from "lucide-react";
 import CONCESIONARIO from "/concesionario.png";
 import WAP from "/whatsapp.svg";
@@ -268,6 +274,10 @@ function ModalSkeleton() {
             </div>
         </div>
     );
+}
+
+function cls(...a) { 
+    return a.filter(Boolean).join(" "); 
 }
 
 function BadgeEstado({ value }) {
@@ -613,10 +623,251 @@ function getEndOfWeek(date) {
     return start;
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vista: Gráficos  (placeholder con estadísticas básicas)
+// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Vista: Gráficos (completa - por estado, dealer, business, asesor y días)
+// ─────────────────────────────────────────────────────────────────────────────
+function VistaGraficos({ rows }) {
+    // Estadísticas por Estado
+    const statsPorEstado = useMemo(() => {
+        const map = {};
+        for (const row of rows) {
+            const key = row.estado || "Sin estado";
+            map[key] = (map[key] || 0) + 1;
+        }
+        return Object.entries(map).sort(([, a], [, b]) => b - a);
+    }, [rows]);
+
+    // Estadísticas por Agencia/Dealer
+    const statsPorAgencia = useMemo(() => {
+        const map = {};
+        for (const row of rows) {
+            const key = row.agencia || "Sin dealer";
+            map[key] = (map[key] || 0) + 1;
+        }
+        return Object.entries(map).sort(([, a], [, b]) => b - a);
+    }, [rows]);
+
+    // Estadísticas por Business/Linea
+    const statsPorLinea = useMemo(() => {
+        const map = {};
+        for (const row of rows) {
+            const key = row.linea || "Sin business";
+            map[key] = (map[key] || 0) + 1;
+        }
+        return Object.entries(map).sort(([, a], [, b]) => b - a);
+    }, [rows]);
+
+    // ========== NUEVO: Estadísticas por Asesor ==========
+    const statsPorAsesor = useMemo(() => {
+        const map = {};
+        for (const row of rows) {
+            const key = row.asesor_digital || "Sin asesor";
+            map[key] = (map[key] || 0) + 1;
+        }
+        return Object.entries(map).sort(([, a], [, b]) => b - a).slice(0, 10); // Top 10 asesores
+    }, [rows]);
+
+    // ========== NUEVO: Estadísticas por Día de la semana ==========
+    const statsPorDia = useMemo(() => {
+        const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+        const map = {
+            "Lunes": 0, "Martes": 0, "Miércoles": 0, "Jueves": 0, "Viernes": 0, "Sábado": 0, "Domingo": 0
+        };
+        
+        for (const row of rows) {
+            const fechaStr = row.fecha_reclamacion || row.fecha_contacto || row.fecha_registro;
+            if (fechaStr) {
+                const fecha = new Date(fechaStr);
+                if (!isNaN(fecha.getTime())) {
+                    const diaNombre = diasSemana[fecha.getDay()];
+                    map[diaNombre] = (map[diaNombre] || 0) + 1;
+                }
+            }
+        }
+        return Object.entries(map).filter(([, count]) => count > 0).sort(([a], [b]) => {
+            const order = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+            return order.indexOf(a) - order.indexOf(b);
+        });
+    }, [rows]);
+
+    // ========== NUEVO: Estadísticas por Hora del día ==========
+    const statsPorHora = useMemo(() => {
+        const map = {};
+        for (let i = 0; i < 24; i++) {
+            map[`${i.toString().padStart(2, "0")}:00`] = 0;
+        }
+        
+        for (const row of rows) {
+            const fechaStr = row.fecha_reclamacion || row.fecha_contacto || row.fecha_registro;
+            if (fechaStr) {
+                const fecha = new Date(fechaStr);
+                if (!isNaN(fecha.getTime())) {
+                    const hora = `${fecha.getHours().toString().padStart(2, "0")}:00`;
+                    map[hora] = (map[hora] || 0) + 1;
+                }
+            }
+        }
+        return Object.entries(map).filter(([, count]) => count > 0);
+    }, [rows]);
+
+    // Totales
+    const totalProspectos = rows.length;
+    const maxEstado = statsPorEstado[0]?.[1] || 1;
+    const maxAgencia = statsPorAgencia[0]?.[1] || 1;
+    const maxLinea = statsPorLinea[0]?.[1] || 1;
+    const maxAsesor = statsPorAsesor[0]?.[1] || 1;
+    const maxDia = Math.max(...statsPorDia.map(([, c]) => c), 1);
+    const maxHora = Math.max(...statsPorHora.map(([, c]) => c), 1);
+
+    const colorBar = [
+        "bg-[#131E5C]",
+        "bg-sky-500",
+        "bg-emerald-500",
+        "bg-amber-500",
+        "bg-violet-500",
+        "bg-rose-500",
+        "bg-indigo-500",
+        "bg-teal-500",
+    ];
+
+    function BarGroup({ title, data, max, icon: Icon, colorIndex = 0 }) {
+        return (
+            <div className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+                <div className="flex items-center gap-2 px-5 py-3" style={{ backgroundColor: BRAND_BLUE }}>
+                    <Icon className="h-4 w-4 text-white/70" />
+                    <span className="text-sm font-extrabold text-white">{title}</span>
+                    <span className="ml-auto rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold text-white">
+                        {data.reduce((acc, [, n]) => acc + n, 0)} total
+                    </span>
+                </div>
+                <div className="space-y-3 p-5 max-h-[300px] overflow-y-auto">
+                    {data.map(([label, count], i) => (
+                        <div key={label}>
+                            <div className="mb-1 flex items-center justify-between text-xs font-semibold text-[#131E5C]">
+                                <span className="truncate max-w-[150px]" title={label}>{label}</span>
+                                <span className="ml-2 shrink-0">{count}</span>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                    className={[colorBar[(colorIndex + i) % colorBar.length], "h-2 rounded-full transition-all duration-500"].join(" ")}
+                                    style={{ width: `${Math.round((count / max) * 100)}%` }}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                    {data.length === 0 && (
+                        <p className="text-center text-sm text-slate-400">Sin datos</p>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    function DonutCard({ title, data, icon: Icon, total }) {
+        return (
+            <div className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+                <div className="flex items-center gap-2 px-5 py-3" style={{ backgroundColor: BRAND_BLUE }}>
+                    <Icon className="h-4 w-4 text-white/70" />
+                    <span className="text-sm font-extrabold text-white">{title}</span>
+                    <span className="ml-auto rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold text-white">
+                        {total || data.reduce((acc, [, n]) => acc + n, 0)}
+                    </span>
+                </div>
+                <div className="p-5">
+                    <div className="space-y-3">
+                        {data.map(([label, count], i) => {
+                            const percentage = total ? Math.round((count / total) * 100) : 0;
+                            return (
+                                <div key={label} className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`h-3 w-3 rounded-full ${colorBar[i % colorBar.length]}`} />
+                                        <span className="text-xs font-semibold text-[#131E5C] truncate max-w-[120px]" title={label}>
+                                            {label}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-black/60">{count}</span>
+                                        <span className="text-[10px] text-black/40">{percentage}%</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {data.length === 0 && (
+                        <p className="text-center text-sm text-slate-400">Sin datos</p>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="grid gap-4">
+            {/* Fila 1: Estado, Dealer, Business */}
+            <div className="grid gap-4 md:grid-cols-3">
+                <BarGroup title="Por estado" data={statsPorEstado} max={maxEstado} icon={BarChart3} colorIndex={0} />
+                <BarGroup title="Por dealer" data={statsPorAgencia} max={maxAgencia} icon={Building2} colorIndex={2} />
+                <BarGroup title="Por business" data={statsPorLinea} max={maxLinea} icon={Car} colorIndex={4} />
+            </div>
+
+            {/* Fila 2: Por Asesor (NUEVO) */}
+            <div className="grid gap-4 md:grid-cols-2">
+                <BarGroup title="Top 10 asesores" data={statsPorAsesor} max={maxAsesor} icon={UserStar} colorIndex={1} />
+                <DonutCard title="Distribución por asesor" data={statsPorAsesor} icon={UserStar} total={totalProspectos} />
+            </div>
+
+            {/* Fila 3: Por Día de la semana y Por Hora (NUEVOS) */}
+            <div className="grid gap-4 md:grid-cols-2">
+                <BarGroup title="Por día de la semana" data={statsPorDia} max={maxDia} icon={CalendarDays} colorIndex={3} />
+                <BarGroup title="Por hora del día" data={statsPorHora} max={maxHora} icon={Clock3} colorIndex={5} />
+            </div>
+
+            {/* Tarjeta de resumen */}
+            <div className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+                <div className="flex items-center gap-2 px-5 py-3" style={{ backgroundColor: BRAND_BLUE }}>
+                    <ClipboardCheck className="h-4 w-4 text-white/70" />
+                    <span className="text-sm font-extrabold text-white">Resumen general</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 p-5 md:grid-cols-4">
+                    <div className="text-center">
+                        <div className="text-2xl font-black text-[#131E5C]">{totalProspectos}</div>
+                        <div className="text-xs text-black/50">Total prospectos</div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-black text-emerald-600">{statsPorEstado.find(([k]) => k === "CONTACTADO")?.[1] || 0}</div>
+                        <div className="text-xs text-black/50">Contactados</div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-black text-amber-600">{statsPorEstado.find(([k]) => k === "NUEVO")?.[1] || 0}</div>
+                        <div className="text-xs text-black/50">Nuevos</div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-black text-slate-500">{statsPorAsesor.length}</div>
+                        <div className="text-xs text-black/50">Asesores activos</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function DigitalesProspectos() {
     const navigate = useNavigate();
     const { user, ready } = useAuth();
     const [cases, setCases] = useState([]);
+
+    // ── Estado de la vista activa ──────────────────────────────────────────
+    const [viewMode, setViewMode] = useState("tabla"); // "tabla" | "agenda" | "graficos"
+
+    const VIEW_MODES = [
+        { key: "tabla",    label: "Tabla",    Icon: Table2        },
+        { key: "graficos", label: "Gráficos", Icon: BarChart3     },
+    ];
+    // ──────────────────────────────────────────────────────────────────────
 
     const isAdmin = useMemo(() => {
         const permisos = user?.permisos || [];
@@ -954,13 +1205,6 @@ export default function DigitalesProspectos() {
         return cases.filter((c) => {
             const nombre = `${c.cliente_nombre || ""} ${c.cliente_apellidos || ""}`.trim();
 
-            // Para usuarios no admin:
-            // el registro DEBE coincidir con el asesor digital y la agencia
-            // definidos en ASESOR_DIGITAL_POR_NUMERO para su número.
-            //
-            // Para admin:
-            // - si selecciona "Todos", no se aplica este filtro base.
-            // - si selecciona un número, también debe coincidir con ambas cosas.
             if (filtroNumeroActivo) {
                 const matchAsesorDigital =
                     normalizeText(c.asesor_digital) ===
@@ -974,8 +1218,6 @@ export default function DigitalesProspectos() {
                     return false;
                 }
             } else if (!isAdmin) {
-                // Si no es admin y su número no existe en el mapeo,
-                // no debe ver registros.
                 return false;
             }
 
@@ -1227,7 +1469,6 @@ export default function DigitalesProspectos() {
 
         const texto = String(value).trim();
 
-        // Seguridad básica: evita que Excel interprete texto como fórmula
         if (/^[=+\-@]/.test(texto)) {
             return `'${texto}`;
         }
@@ -1276,38 +1517,14 @@ export default function DigitalesProspectos() {
         }));
 
         const filtrosAplicados = [
-            {
-                Filtro: "Búsqueda",
-                Valor: filters.q || "Todos",
-            },
-            {
-                Filtro: "Dealer",
-                Valor: filters.agencia || "Todos",
-            },
-            {
-                Filtro: "Business",
-                Valor: filters.linea || "Todos",
-            },
-            {
-                Filtro: "Estado",
-                Valor: filters.estado || "Todos",
-            },
-            {
-                Filtro: "Registro desde",
-                Valor: filters.fechaRegistroDesde || "Sin filtro",
-            },
-            {
-                Filtro: "Registro hasta",
-                Valor: filters.fechaRegistroHasta || "Sin filtro",
-            },
-            {
-                Filtro: "Contacto desde",
-                Valor: filters.fechaContactoDesde || "Sin filtro",
-            },
-            {
-                Filtro: "Contacto hasta",
-                Valor: filters.fechaContactoHasta || "Sin filtro",
-            },
+            { Filtro: "Búsqueda", Valor: filters.q || "Todos" },
+            { Filtro: "Dealer", Valor: filters.agencia || "Todos" },
+            { Filtro: "Business", Valor: filters.linea || "Todos" },
+            { Filtro: "Estado", Valor: filters.estado || "Todos" },
+            { Filtro: "Registro desde", Valor: filters.fechaRegistroDesde || "Sin filtro" },
+            { Filtro: "Registro hasta", Valor: filters.fechaRegistroHasta || "Sin filtro" },
+            { Filtro: "Contacto desde", Valor: filters.fechaContactoDesde || "Sin filtro" },
+            { Filtro: "Contacto hasta", Valor: filters.fechaContactoHasta || "Sin filtro" },
             {
                 Filtro: "Número asesor",
                 Valor:
@@ -1315,50 +1532,25 @@ export default function DigitalesProspectos() {
                         ? "Todos"
                         : `${formatTelefonoMx(selectedNumeroAsesor)} • ${getAsesorDigitalPorNumero(selectedNumeroAsesor)}`,
             },
-            {
-                Filtro: "Total exportado",
-                Valor: sorted.length,
-            },
+            { Filtro: "Total exportado", Valor: sorted.length },
         ];
 
         const worksheetRegistros = XLSX.utils.json_to_sheet(registros);
         const worksheetFiltros = XLSX.utils.json_to_sheet(filtrosAplicados);
 
         worksheetRegistros["!cols"] = [
-            { wch: 10 },
-            { wch: 22 },
-            { wch: 32 },
-            { wch: 18 },
-            { wch: 28 },
-            { wch: 16 },
-            { wch: 22 },
-            { wch: 35 },
-            { wch: 18 },
-            { wch: 28 },
-            { wch: 28 },
-            { wch: 20 },
-            { wch: 18 },
-            { wch: 22 },
-            { wch: 22 },
-            { wch: 45 },
-            { wch: 60 },
-            { wch: 22 },
-            { wch: 18 },
+            { wch: 10 }, { wch: 22 }, { wch: 32 }, { wch: 18 }, { wch: 28 },
+            { wch: 16 }, { wch: 22 }, { wch: 35 }, { wch: 18 }, { wch: 28 },
+            { wch: 28 }, { wch: 20 }, { wch: 18 }, { wch: 22 }, { wch: 22 },
+            { wch: 45 }, { wch: 60 }, { wch: 22 }, { wch: 18 },
         ];
 
-        worksheetFiltros["!cols"] = [
-            { wch: 24 },
-            { wch: 50 },
-        ];
+        worksheetFiltros["!cols"] = [{ wch: 24 }, { wch: 50 }];
 
         const workbook = XLSX.utils.book_new();
-
         XLSX.utils.book_append_sheet(workbook, worksheetRegistros, "Prospectos");
         XLSX.utils.book_append_sheet(workbook, worksheetFiltros, "Filtros aplicados");
-
-        XLSX.writeFile(workbook, generarNombreArchivoExcel(), {
-            compression: true,
-        });
+        XLSX.writeFile(workbook, generarNombreArchivoExcel(), { compression: true });
     }
 
     const save = async () => {
@@ -1584,12 +1776,34 @@ export default function DigitalesProspectos() {
 
     return (
         <div className="w-full">
+            {/* ── Encabezado con título + botones de vista ─────────────────────── */}
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Prospectos</h2>
                     <p className="text-sm text-slate-400">Doble clic para editar la información del prospecto.</p>
                 </div>
+
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    {/* ── Botones Agenda / Tabla / Gráficos ── */}
+                    <div className="flex items-center rounded-xl border border-[#131E5C]/20 bg-white p-1 shadow-sm">
+                        {VIEW_MODES.map(({ key, label, Icon }) => (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => setViewMode(key)}
+                                className={[
+                                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition",
+                                    viewMode === key
+                                        ? "bg-[#131E5C] text-white shadow"
+                                        : "text-[#131E5C] hover:bg-slate-100",
+                                ].join(" ")}
+                            >
+                                <Icon className="h-4 w-4" />
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+
                     <button
                         type="button"
                         onClick={exportarExcelProspectos}
@@ -1609,6 +1823,7 @@ export default function DigitalesProspectos() {
                     </button>
                 </div>
             </div>
+            {/* ────────────────────────────────────────────────────────────────── */}
 
             <div className="mb-4 rounded-2xl bg-white">
                 <div className="grid gap-4 xl:grid-cols-12">
@@ -1643,9 +1858,7 @@ export default function DigitalesProspectos() {
                             className={filterControlCls}
                         >
                             {dealers.map((d) => (
-                                <option key={d} value={d}>
-                                    {d}
-                                </option>
+                                <option key={d} value={d}>{d}</option>
                             ))}
                         </select>
                     </div>
@@ -1658,9 +1871,7 @@ export default function DigitalesProspectos() {
                             className={filterControlCls}
                         >
                             {businessOptions.map((linea) => (
-                                <option key={linea} value={linea}>
-                                    {linea}
-                                </option>
+                                <option key={linea} value={linea}>{linea}</option>
                             ))}
                         </select>
                     </div>
@@ -1673,9 +1884,7 @@ export default function DigitalesProspectos() {
                             className={filterControlCls}
                         >
                             {estados.map((s) => (
-                                <option key={s} value={s}>
-                                    {s}
-                                </option>
+                                <option key={s} value={s}>{s}</option>
                             ))}
                         </select>
                     </div>
@@ -1728,7 +1937,6 @@ export default function DigitalesProspectos() {
                         </div>
 
                         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-
                             {isAdmin ? (
                                 <select
                                     value={selectedNumeroAsesor}
@@ -1813,7 +2021,7 @@ export default function DigitalesProspectos() {
                         </div>
                     </div>
 
-                    {!loadingCases && sorted.length > 0 ? (
+                    {!loadingCases && sorted.length > 0 && viewMode === "tabla" ? (
                         <div className="flex flex-col gap-3 border-t border-[#131E5C]/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="text-xs font-semibold text-slate-500">
                                 Página {page} de {totalPages} • {PAGE_SIZE} registros por página
@@ -1861,282 +2069,283 @@ export default function DigitalesProspectos() {
                 </div>
             </div>
 
-            <div className="hidden overflow-hidden rounded-lg bg-white/[0.03] shadow-lg lg:block">
-                <div className="overflow-auto">
-                    <table className="min-w-full text-left text-sm">
-                        <thead className="font-vw-header border border-black bg-[#131E5C] text-xs text-white">
-                            <tr>
-                                <th className="px-4 py-3">
-                                    <button type="button" onClick={() => toggleSort("agencia")} className="inline-flex items-center gap-1 text-xs font-bold">
-                                        Dealer
-                                        <span className="opacity-60">
-                                            {sort.key === "agencia" ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}
-                                        </span>
-                                    </button>
-                                </th>
+        
 
-                                <th className="px-4 py-3">Cliente</th>
+            {/* ── Vista: Gráficos ───────────────────────────────────────────────── */}
+            {viewMode === "graficos" && (
+                <VistaGraficos rows={sorted} />
+            )}
 
-                                <th className="px-4 py-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleSort("fecha_reclamacion")}
-                                        className="inline-flex items-center gap-1 text-xs font-bold"
-                                    >
-                                        Fecha de Registro
-                                        <span className="opacity-60">
-                                            {sort.key === "fecha_reclamacion" ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}
-                                        </span>
-                                    </button>
-                                </th>
+            {/* ── Vista: Tabla (desktop) ────────────────────────────────────────── */}
+            {viewMode === "tabla" && (
+                <>
+                    <div className="hidden overflow-hidden rounded-lg bg-white/[0.03] shadow-lg lg:block">
+                        <div className="overflow-auto">
+                            <table className="min-w-full text-left text-sm">
+                                <thead className="font-vw-header border border-black bg-[#131E5C] text-xs text-white">
+                                    <tr>
+                                        <th className="px-4 py-3">
+                                            <button type="button" onClick={() => toggleSort("agencia")} className="inline-flex items-center gap-1 text-xs font-bold">
+                                                Dealer
+                                                <span className="opacity-60">
+                                                    {sort.key === "agencia" ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}
+                                                </span>
+                                            </button>
+                                        </th>
+                                        <th className="px-4 py-3">Cliente</th>
+                                        <th className="px-4 py-3">
+                                            <button type="button" onClick={() => toggleSort("fecha_reclamacion")} className="inline-flex items-center gap-1 text-xs font-bold">
+                                                Fecha de Registro
+                                                <span className="opacity-60">
+                                                    {sort.key === "fecha_reclamacion" ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}
+                                                </span>
+                                            </button>
+                                        </th>
+                                        <th className="px-4 py-3">
+                                            <button type="button" onClick={() => toggleSort("ultimo_contacto_at")} className="inline-flex items-center gap-1 text-xs font-bold">
+                                                Último Contacto
+                                                <span className="opacity-60">
+                                                    {sort.key === "ultimo_contacto_at" ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}
+                                                </span>
+                                            </button>
+                                        </th>
+                                        <th className="px-4 py-3">Business</th>
+                                        <th className="px-4 py-3">Asesor Digital</th>
+                                        <th className="px-4 py-3">Asignado a</th>
+                                        <th className="px-4 py-3">Estado</th>
+                                        <th className="w-40 px-4 py-3">Canal de Contacto</th>
+                                        <th className="px-4 py-3">Resumen</th>
+                                        <th className="px-4 py-3">Acciones</th>
+                                    </tr>
+                                </thead>
 
-                                <th className="px-4 py-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleSort("ultimo_contacto_at")}
-                                        className="inline-flex items-center gap-1 text-xs font-bold"
-                                    >
-                                        Último Contacto
-                                        <span className="opacity-60">
-                                            {sort.key === "ultimo_contacto_at" ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}
-                                        </span>
-                                    </button>
-                                </th>
+                                <tbody className="divide-y divide-black/30">
+                                    {loadingCases ? (
+                                        <>
+                                            {Array.from({ length: 8 }).map((_, i) => (
+                                                <SkeletonRow key={i} />
+                                            ))}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {paginatedRows.map((row) => {
+                                                const isUpdating = !!updatingEstado[row.id_exp];
 
-                                <th className="px-4 py-3">Business</th>
-                                <th className="px-4 py-3">Asesor Digital</th>
-                                <th className="px-4 py-3">Asignado a</th>
-                                <th className="px-4 py-3">Estado</th>
-                                <th className="w-40 px-4 py-3">Canal de Contacto</th>
-                                <th className="px-4 py-3">Resumen</th>
-                                <th className="px-4 py-3">Acciones</th>
-                            </tr>
-                        </thead>
+                                                return (
+                                                    <tr
+                                                        key={row.id_exp}
+                                                        onDoubleClick={() => openEdit(row)}
+                                                        onContextMenu={(e) => onRowContextMenu(e, row)}
+                                                        className="cursor-pointer hover:bg-white/[0.04]"
+                                                        title="Doble clic para editar"
+                                                    >
+                                                        <td className="px-4 py-3 text-xs text-[#131E5C]">{row.agencia}</td>
+                                                        <td className="max-w-32 px-4 py-3 truncate text-[#131E5C]">
+                                                            {row.cliente_nombre + " " + row.cliente_apellidos}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-[#131E5C]">{row.fecha_reclamacion || "—"}</td>
+                                                        <td className="px-4 py-3 text-[#131E5C]">{fmtDTIntl(row.ultimo_contacto_at)}</td>
+                                                        <td className="max-w-28 px-4 py-3 truncate text-[#131E5C]">{row.linea || "—"}</td>
+                                                        <td className="max-w-28 px-4 py-3 truncate text-[#131E5C]">{row.asesor_digital || "—"}</td>
+                                                        <td className="max-w-28 px-4 py-3 truncate text-[#131E5C]">{row.asesor_solicita || "—"}</td>
 
-                        <tbody className="divide-y divide-black/30">
-                            {loadingCases ? (
-                                <>
-                                    {Array.from({ length: 8 }).map((_, i) => (
-                                        <SkeletonRow key={i} />
-                                    ))}
-                                </>
-                            ) : (
-                                <>
-                                    {paginatedRows.map((row) => {
-                                        const isUpdating = !!updatingEstado[row.id_exp];
+                                                        <td className="px-4 py-3">
+                                                            <div className="relative inline-flex items-center">
+                                                                <select
+                                                                    value={row.estado || "Contactado"}
+                                                                    disabled={isUpdating}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    onChange={(e) => {
+                                                                        e.stopPropagation();
+                                                                        updateEstadoInline(row, e.target.value);
+                                                                    }}
+                                                                    className={[
+                                                                        "inline-flex appearance-none items-center rounded-full border bg-transparent px-3 py-1 pr-8 text-xs font-semibold outline-none shadow-sm",
+                                                                        badgeCls(row.estado),
+                                                                        isUpdating ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:opacity-90",
+                                                                    ].join(" ")}
+                                                                    title="Cambiar estado"
+                                                                >
+                                                                    {ESTADOS_PROSPECTO.map((s) => (
+                                                                        <option key={s} value={s} className="bg-white text-[#131E5C]">
+                                                                            {s}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
 
-                                        return (
-                                            <tr
-                                                key={row.id_exp}
-                                                onDoubleClick={() => openEdit(row)}
-                                                onContextMenu={(e) => onRowContextMenu(e, row)}
-                                                className="cursor-pointer hover:bg-white/[0.04]"
-                                                title="Doble clic para editar"
-                                            >
-                                                <td className="px-4 py-3 text-xs text-[#131E5C]">{row.agencia}</td>
-                                                <td className="max-w-32 px-4 py-3 truncate text-[#131E5C]">
-                                                    {row.cliente_nombre + " " + row.cliente_apellidos}
-                                                </td>
-                                                <td className="px-4 py-3 text-[#131E5C]">{row.fecha_reclamacion || "—"}</td>
-                                                <td className="px-4 py-3 text-[#131E5C]">{fmtDTIntl(row.ultimo_contacto_at)}</td>
-                                                <td className="max-w-28 px-4 py-3 truncate text-[#131E5C]">{row.linea || "—"}</td>
-                                                <td className="max-w-28 px-4 py-3 truncate text-[#131E5C]">{row.asesor_digital || "—"}</td>
-                                                <td className="max-w-28 px-4 py-3 truncate text-[#131E5C]">{row.asesor_solicita || "—"}</td>
-
-                                                <td className="px-4 py-3">
-                                                    <div className="relative inline-flex items-center">
-                                                        <select
-                                                            value={row.estado || "Contactado"}
-                                                            disabled={isUpdating}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            onChange={(e) => {
-                                                                e.stopPropagation();
-                                                                updateEstadoInline(row, e.target.value);
-                                                            }}
-                                                            className={[
-                                                                "inline-flex appearance-none items-center rounded-full border bg-transparent px-3 py-1 pr-8 text-xs font-semibold outline-none shadow-sm",
-                                                                badgeCls(row.estado),
-                                                                isUpdating ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:opacity-90",
-                                                            ].join(" ")}
-                                                            title="Cambiar estado"
-                                                        >
-                                                            {ESTADOS_PROSPECTO.map((s) => (
-                                                                <option key={s} value={s} className="bg-white text-[#131E5C]">
-                                                                    {s}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-
-                                                        <span className="pointer-events-none absolute right-2 inline-flex items-center">
-                                                            {isUpdating ? (
-                                                                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#131E5C]" />
-                                                            ) : (
-                                                                <ChevronDown className="h-3.5 w-3.5 text-[#131E5C]/70" />
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                </td>
-
-                                                <td className="px-4 py-3 text-[#131E5C]">
-                                                    <span className="line-clamp-2">{row.origen}</span>
-                                                </td>
-
-                                                <td className="w-[320px] px-4 py-3 text-[#131E5C]">
-                                                    <div className="flex items-start gap-2">
-                                                        <div className="min-w-0 flex-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    openSummaryViewer(row);
-                                                                }}
-                                                                className="w-full text-left"
-                                                                title={row.resumen ? "Ver resumen completo" : "No hay resumen"}
-                                                            >
-                                                                <span className="line-clamp-3 text-sm">{row.resumen || "Sin resumen"}</span>
-                                                                {row.resumen_actualizado_at ? (
-                                                                    <div className="mt-1 text-[11px] text-slate-500">
-                                                                        Actualizado: {fmtDTIntl(row.resumen_actualizado_at)}
-                                                                        {row.resumen_fuente ? ` • ${row.resumen_fuente}` : ""}
-                                                                    </div>
-                                                                ) : null}
-                                                            </button>
-                                                        </div>
-
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                generarResumenInline(row);
-                                                            }}
-                                                            disabled={!!generatingSummary[row.id_exp]}
-                                                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-black/10 bg-white shadow-sm disabled:opacity-60"
-                                                            title="Generar resumen"
-                                                        >
-                                                            {generatingSummary[row.id_exp] ? (
-                                                                <Loader2 className="h-5 w-5 animate-spin text-[#131E5C]" />
-                                                            ) : (
-                                                                <ClipboardCheck className="h-5 w-5 text-[#131E5C]" />
-                                                            )}
-                                                        </button>
-                                                    </div>
-                                                </td>
-
-                                                <td className="px-4 py-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                abrirAgendaCita(row);
-                                                            }}
-                                                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-black/10 bg-white shadow-sm transition hover:bg-neutral-50 hover:shadow focus:outline-none focus:ring-2 focus:ring-[#131E5C]/30 active:scale-[0.98]"
-                                                            title="Agendar cita"
-                                                        >
-                                                            <CalendarPlus className="h-5 w-5 text-[#131E5C]" />
-                                                        </button>
-
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                navigate(
-                                                                    `/comercial/prospectos/contacto?tel=${encodeURIComponent(row.telefono || "")}&direct=1`
-                                                                );
-                                                            }}
-                                                            className="flex h-9 w-[150px] items-center justify-between rounded-xl border border-black/10 bg-white px-3 shadow-sm transition hover:bg-neutral-50 hover:shadow focus:outline-none focus:ring-2 focus:ring-[#131E5C]/30 active:scale-[0.98] disabled:opacity-50"
-                                                            title="Abrir chat"
-                                                            disabled={!row.telefono}
-                                                        >
-                                                            <div className="flex min-w-0 items-center gap-2">
-                                                                <MessageSquareShare className="h-5 w-5 text-[#131E5C]" />
-                                                                <span className="min-w-0 truncate text-sm font-medium text-[#131E5C]">
-                                                                    {row.telefono || "SIN TELÉFONO"}
+                                                                <span className="pointer-events-none absolute right-2 inline-flex items-center">
+                                                                    {isUpdating ? (
+                                                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-[#131E5C]" />
+                                                                    ) : (
+                                                                        <ChevronDown className="h-3.5 w-3.5 text-[#131E5C]/70" />
+                                                                    )}
                                                                 </span>
                                                             </div>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                                        </td>
 
-                                    {paginatedRows.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={11} className="px-4 py-10 text-center text-[#131E5C]">
-                                                No hay resultados con esos filtros.
-                                            </td>
-                                        </tr>
-                                    ) : null}
-                                </>
-                            )}
-                        </tbody>
-                    </table>
+                                                        <td className="px-4 py-3 text-[#131E5C]">
+                                                            <span className="line-clamp-2">{row.origen}</span>
+                                                        </td>
 
-                    <ContextMenu
-                        ctxMenu={ctxMenu}
-                        onDelete={eliminarCaso}
-                        onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })}
-                    />
-                </div>
-            </div>
+                                                        <td className="w-[320px] px-4 py-3 text-[#131E5C]">
+                                                            <div className="flex items-start gap-2">
+                                                                <div className="min-w-0 flex-1">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.stopPropagation();
+                                                                            openSummaryViewer(row);
+                                                                        }}
+                                                                        className="w-full text-left"
+                                                                        title={row.resumen ? "Ver resumen completo" : "No hay resumen"}
+                                                                    >
+                                                                        <span className="line-clamp-3 text-sm">{row.resumen || "Sin resumen"}</span>
+                                                                        {row.resumen_actualizado_at ? (
+                                                                            <div className="mt-1 text-[11px] text-slate-500">
+                                                                                Actualizado: {fmtDTIntl(row.resumen_actualizado_at)}
+                                                                                {row.resumen_fuente ? ` • ${row.resumen_fuente}` : ""}
+                                                                            </div>
+                                                                        ) : null}
+                                                                    </button>
+                                                                </div>
 
-            <div className="grid gap-3 lg:hidden">
-                {loadingCases ? (
-                    <>
-                        {Array.from({ length: 6 }).map((_, i) => (
-                            <div key={i} className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm">
-                                <Skeleton className="h-4 w-48" />
-                                <Skeleton className="mt-2 h-3 w-36" />
-                                <Skeleton className="mt-3 h-3 w-full" />
-                                <Skeleton className="mt-2 h-3 w-3/4" />
-                            </div>
-                        ))}
-                    </>
-                ) : (
-                    <>
-                        {paginatedRows.map((row) => (
-                            <button
-                                key={row.id_exp}
-                                onClick={() => openEdit(row)}
-                                className="rounded-3xl border border-black/10 bg-white p-4 text-left shadow-sm hover:bg-slate-50"
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <div className="truncate text-sm font-extrabold text-[#131E5C]">
-                                            {row.cliente_nombre + " " + row.cliente_apellidos}
-                                        </div>
-                                        <div className="mt-1 text-xs text-slate-600">
-                                            {row.agencia} • {row.fecha_reclamacion || "—"}
-                                        </div>
-                                        <div className="mt-1 text-xs text-slate-600">
-                                            {row.linea || "Sin business"} • Último contacto: {row.fecha_contacto || "—"}
-                                        </div>
-                                        <div className="mt-1 text-xs text-slate-600">
-                                            {row.asesor_digital ? `Digital: ${row.asesor_digital}` : "Digital: —"} •{" "}
-                                            {row.asesor_solicita ? `Solicita: ${row.asesor_solicita}` : "Solicita: —"}
-                                        </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        generarResumenInline(row);
+                                                                    }}
+                                                                    disabled={!!generatingSummary[row.id_exp]}
+                                                                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-black/10 bg-white shadow-sm disabled:opacity-60"
+                                                                    title="Generar resumen"
+                                                                >
+                                                                    {generatingSummary[row.id_exp] ? (
+                                                                        <Loader2 className="h-5 w-5 animate-spin text-[#131E5C]" />
+                                                                    ) : (
+                                                                        <ClipboardCheck className="h-5 w-5 text-[#131E5C]" />
+                                                                    )}
+                                                                </button>
+                                                            </div>
+                                                        </td>
+
+                                                        <td className="px-4 py-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        abrirAgendaCita(row);
+                                                                    }}
+                                                                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-black/10 bg-white shadow-sm transition hover:bg-neutral-50 hover:shadow focus:outline-none focus:ring-2 focus:ring-[#131E5C]/30 active:scale-[0.98]"
+                                                                    title="Agendar cita"
+                                                                >
+                                                                    <CalendarPlus className="h-5 w-5 text-[#131E5C]" />
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        navigate(
+                                                                            `/comercial/prospectos/contacto?tel=${encodeURIComponent(row.telefono || "")}&direct=1`
+                                                                        );
+                                                                    }}
+                                                                    className="flex h-9 w-[150px] items-center justify-between rounded-xl border border-black/10 bg-white px-3 shadow-sm transition hover:bg-neutral-50 hover:shadow focus:outline-none focus:ring-2 focus:ring-[#131E5C]/30 active:scale-[0.98] disabled:opacity-50"
+                                                                    title="Abrir chat"
+                                                                    disabled={!row.telefono}
+                                                                >
+                                                                    <div className="flex min-w-0 items-center gap-2">
+                                                                        <MessageSquareShare className="h-5 w-5 text-[#131E5C]" />
+                                                                        <span className="min-w-0 truncate text-sm font-medium text-[#131E5C]">
+                                                                            {row.telefono || "SIN TELÉFONO"}
+                                                                        </span>
+                                                                    </div>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+
+                                            {paginatedRows.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={11} className="px-4 py-10 text-center text-[#131E5C]">
+                                                        No hay resultados con esos filtros.
+                                                    </td>
+                                                </tr>
+                                            ) : null}
+                                        </>
+                                    )}
+                                </tbody>
+                            </table>
+
+                            <ContextMenu
+                                ctxMenu={ctxMenu}
+                                onDelete={eliminarCaso}
+                                onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })}
+                            />
+                        </div>
+                    </div>
+
+                    {/* ── Vista: Tabla (móvil) ─────────────────────────────────────── */}
+                    <div className="grid gap-3 lg:hidden">
+                        {loadingCases ? (
+                            <>
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <div key={i} className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm">
+                                        <Skeleton className="h-4 w-48" />
+                                        <Skeleton className="mt-2 h-3 w-36" />
+                                        <Skeleton className="mt-3 h-3 w-full" />
+                                        <Skeleton className="mt-2 h-3 w-3/4" />
                                     </div>
-                                    <BadgeEstado value={row.estado} />
-                                </div>
+                                ))}
+                            </>
+                        ) : (
+                            <>
+                                {paginatedRows.map((row) => (
+                                    <button
+                                        key={row.id_exp}
+                                        onClick={() => openEdit(row)}
+                                        className="rounded-3xl border border-black/10 bg-white p-4 text-left shadow-sm hover:bg-slate-50"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <div className="truncate text-sm font-extrabold text-[#131E5C]">
+                                                    {row.cliente_nombre + " " + row.cliente_apellidos}
+                                                </div>
+                                                <div className="mt-1 text-xs text-slate-600">
+                                                    {row.agencia} • {row.fecha_reclamacion || "—"}
+                                                </div>
+                                                <div className="mt-1 text-xs text-slate-600">
+                                                    {row.linea || "Sin business"} • Último contacto: {row.fecha_contacto || "—"}
+                                                </div>
+                                                <div className="mt-1 text-xs text-slate-600">
+                                                    {row.asesor_digital ? `Digital: ${row.asesor_digital}` : "Digital: —"} •{" "}
+                                                    {row.asesor_solicita ? `Solicita: ${row.asesor_solicita}` : "Solicita: —"}
+                                                </div>
+                                            </div>
+                                            <BadgeEstado value={row.estado} />
+                                        </div>
 
-                                <div className="mt-3 line-clamp-3 text-sm text-slate-700">{row.comentarios}</div>
-                                <div className="mt-3 text-xs text-slate-500">Toca para editar</div>
-                            </button>
-                        ))}
+                                        <div className="mt-3 line-clamp-3 text-sm text-slate-700">{row.comentarios}</div>
+                                        <div className="mt-3 text-xs text-slate-500">Toca para editar</div>
+                                    </button>
+                                ))}
 
-                        {paginatedRows.length === 0 ? (
-                            <div className="rounded-3xl border border-black/10 bg-white p-10 text-center text-slate-600">
-                                No hay resultados con esos filtros.
-                            </div>
-                        ) : null}
-                    </>
-                )}
-            </div>
+                                {paginatedRows.length === 0 ? (
+                                    <div className="rounded-3xl border border-black/10 bg-white p-10 text-center text-slate-600">
+                                        No hay resultados con esos filtros.
+                                    </div>
+                                ) : null}
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
 
             <Modal
                 open={openModal}
@@ -2186,13 +2395,9 @@ export default function DigitalesProspectos() {
                                     !isAdmin && contextoDigitalSesion ? "cursor-not-allowed opacity-70" : "",
                                 ].join(" ")}
                             >
-                                <option value="" disabled>
-                                    Selecciona un dealer...
-                                </option>
+                                <option value="" disabled>Selecciona un dealer...</option>
                                 {DEALERS.map((d) => (
-                                    <option key={d} value={d}>
-                                        {d}
-                                    </option>
+                                    <option key={d} value={d}>{d}</option>
                                 ))}
                             </select>
                         </Field>
@@ -2201,16 +2406,11 @@ export default function DigitalesProspectos() {
                             <select
                                 value={draft.asesor_digital || ""}
                                 onChange={(e) => setDraft((p) => ({ ...p, asesor_digital: e.target.value }))}
-                                className={[
-                                    inputBase,
-                                    inputOk,
-                                ].join(" ")}
+                                className={[inputBase, inputOk].join(" ")}
                             >
                                 <option value="">— Selecciona —</option>
                                 {ASESORES_DIGITALES.map((n) => (
-                                    <option key={n} value={n}>
-                                        {n}
-                                    </option>
+                                    <option key={n} value={n}>{n}</option>
                                 ))}
                             </select>
                         </Field>
@@ -2223,12 +2423,11 @@ export default function DigitalesProspectos() {
                             >
                                 <option value="">— Selecciona —</option>
                                 {ASESORES.map((n) => (
-                                    <option key={n} value={n}>
-                                        {n}
-                                    </option>
+                                    <option key={n} value={n}>{n}</option>
                                 ))}
                             </select>
                         </Field>
+
                         <div className="md:col-span-3">
                             <Field label="Cliente" icon={User}>
                                 <div className="grid gap-3 md:grid-cols-3">
@@ -2286,6 +2485,7 @@ export default function DigitalesProspectos() {
                                             <div className="mt-1 text-xs font-bold text-red-600">{telError}</div>
                                         ) : null}
                                     </div>
+
                                     <div>
                                         <div className="mb-1 text-sm font-bold text-[#131E5C]">VW de sus sueños</div>
                                         <select
@@ -2293,13 +2493,9 @@ export default function DigitalesProspectos() {
                                             onChange={(e) => setDraft((p) => ({ ...p, cliente_interes: e.target.value }))}
                                             className={[inputBase, inputOk].join(" ")}
                                         >
-                                            <option value="" disabled>
-                                                Selecciona un modelo...
-                                            </option>
+                                            <option value="" disabled>Selecciona un modelo...</option>
                                             {VEHICULOS.map((d) => (
-                                                <option key={d} value={d}>
-                                                    {d}
-                                                </option>
+                                                <option key={d} value={d}>{d}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -2314,12 +2510,9 @@ export default function DigitalesProspectos() {
                                             className={[inputBase, inputOk].join(" ")}
                                         >
                                             {ESTADOS_PROSPECTO.map((s) => (
-                                                <option key={s} value={s} className="bg-neutral-200">
-                                                    {s}
-                                                </option>
+                                                <option key={s} value={s} className="bg-neutral-200">{s}</option>
                                             ))}
                                         </select>
-
                                         <div className="mt-2">
                                             <BadgeEstado value={draft.estado} />
                                         </div>
@@ -2341,7 +2534,6 @@ export default function DigitalesProspectos() {
                                             onChange={(v) => setDraft((p) => ({ ...p, linea: v }))}
                                         />
                                     </div>
-
                                     <div className="mt-5">
                                         <div className="mb-1 text-sm font-bold text-[#131E5C]">Pauta de Origen</div>
                                         {loadingPautas ? (
@@ -2359,28 +2551,22 @@ export default function DigitalesProspectos() {
                                                 className={[inputBase, inputOk].join(" ")}
                                             >
                                                 <option value="">— Selecciona una pauta —</option>
-
                                                 {draft.pauta &&
                                                     !pautasOptions.some(
                                                         (item) => normalizeText(item.value) === normalizeText(draft.pauta)
                                                     ) ? (
-                                                    <option value={draft.pauta}>
-                                                        {draft.pauta} (actual)
-                                                    </option>
+                                                    <option value={draft.pauta}>{draft.pauta} (actual)</option>
                                                 ) : null}
-
                                                 {pautasOptions.map((item) => (
-                                                    <option key={item.value} value={item.value}>
-                                                        {item.label}
-                                                    </option>
+                                                    <option key={item.value} value={item.value}>{item.label}</option>
                                                 ))}
                                             </select>
                                         )}
                                     </div>
                                 </div>
-
                             </Field>
                         </div>
+
                         <div className="md:col-span-1">
                             <Field label="Comentarios Adicionales" icon={FileText}>
                                 <textarea
@@ -2435,7 +2621,6 @@ export default function DigitalesProspectos() {
                                 className="w-full rounded-lg border border-black/10 bg-neutral-100 px-3 py-2 text-sm font-semibold text-[#131E5C]"
                             />
                         </Field>
-
                         <Field label="Resumen generado" icon={ClipboardCheck}>
                             <textarea
                                 value={summaryInfo.resumen || "Sin resumen disponible"}
@@ -2444,7 +2629,6 @@ export default function DigitalesProspectos() {
                                 className="w-full rounded-lg border border-black/10 bg-neutral-100 px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none"
                             />
                         </Field>
-
                         <div className="grid gap-3 md:grid-cols-2">
                             <Field label="Última actualización" icon={CalendarDays}>
                                 <input
@@ -2453,7 +2637,6 @@ export default function DigitalesProspectos() {
                                     className="w-full rounded-lg border border-black/10 bg-neutral-100 px-3 py-2 text-sm font-semibold text-[#131E5C]"
                                 />
                             </Field>
-
                             <Field label="Fuente" icon={BrainCircuit}>
                                 <input
                                     value={summaryInfo.resumen_fuente || "—"}
@@ -2479,7 +2662,6 @@ export default function DigitalesProspectos() {
                             <X className="h-4 w-4" />
                             Cerrar
                         </button>
-
                         <button
                             onClick={handleAgendar}
                             disabled={!agendaInfo || savingo}
@@ -2500,7 +2682,6 @@ export default function DigitalesProspectos() {
                                 className="w-full rounded-lg border border-black/10 bg-neutral-100 px-3 py-2 text-sm font-semibold text-[#131E5C]"
                             />
                         </Field>
-
                         <Field label="VW de sus sueños" icon={CarFront}>
                             <input
                                 value={agendaInfo.auto_interes || "—"}
@@ -2508,7 +2689,6 @@ export default function DigitalesProspectos() {
                                 className="w-full rounded-lg border border-black/10 bg-neutral-100 px-3 py-2 text-sm font-semibold text-[#131E5C]"
                             />
                         </Field>
-
                         <Field label="Teléfono" icon={Phone}>
                             <input
                                 value={agendaInfo.telefono || "—"}
@@ -2516,7 +2696,6 @@ export default function DigitalesProspectos() {
                                 className="w-full rounded-lg border border-black/10 bg-neutral-100 px-3 py-2 text-sm font-semibold text-[#131E5C]"
                             />
                         </Field>
-
                         <Field label="Fecha y Hora de cita" icon={CalendarDays}>
                             <input
                                 type="datetime-local"
@@ -2525,7 +2704,6 @@ export default function DigitalesProspectos() {
                                 className={[inputBase, inputOk].join(" ")}
                             />
                         </Field>
-
                         <Field label="Asesor Asignado" icon={UserStar}>
                             <select
                                 value={drafter.asesor_solicita || ""}
@@ -2534,13 +2712,10 @@ export default function DigitalesProspectos() {
                             >
                                 <option value="">— Selecciona —</option>
                                 {ASESORES.map((n) => (
-                                    <option key={n} value={n}>
-                                        {n}
-                                    </option>
+                                    <option key={n} value={n}>{n}</option>
                                 ))}
                             </select>
                         </Field>
-
                         <Field label="Tipo de cita" icon={LayoutList}>
                             <select
                                 value={drafter.tipo_cita || ""}
@@ -2549,13 +2724,10 @@ export default function DigitalesProspectos() {
                             >
                                 <option value="">— Selecciona —</option>
                                 {["Prueba de Manejo", "Tradicional", "Digital"].map((n) => (
-                                    <option key={n} value={n}>
-                                        {n}
-                                    </option>
+                                    <option key={n} value={n}>{n}</option>
                                 ))}
                             </select>
                         </Field>
-
                         {errorMsg ? (
                             <div className="md:col-span-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
                                 {errorMsg}
