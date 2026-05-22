@@ -350,12 +350,13 @@ export const apiClickup = {
     });
   },
 
-  async acceptInvite(invitationId) {
-    return await http(`${API_BASE}/equipos/aceptar/`, {
-      method: "POST",
-      body: JSON.stringify({ invitacion_id: Number(invitationId) }),
-    });
-  },
+  async acceptInvite(teamId, invitationId) {
+  // teamId se ignora, solo se necesita invitacion_id
+  return await http(`${API_BASE}/equipos/aceptar/`, {
+    method: "POST",
+    body: JSON.stringify({ invitacion_id: Number(invitationId) }),
+  });
+},
 
   async rejectInvite(invitationId) {
     return await http(`${API_BASE}/equipos/rechazar/`, {
@@ -479,11 +480,11 @@ export const apiClickup = {
       desarrollo_estrategia: payload.desarrollo_estrategia || "",
       resultados: payload.resultados || "",
       subtareas: Array.isArray(payload.subtareas)
-        ? payload.subtareas.map((s) => ({
-            titulo: texto(s.titulo || s.title),
-            done: Boolean(s.done ?? s.completada ?? false),
-          }))
-        : [],
+  ? payload.subtareas.map((s) => ({
+      titulo: texto(s.titulo || s.title),
+      done: Boolean(s.done ?? s.completada ?? false),
+    }))
+  : [],
     };
 
     const data = await http(
@@ -524,14 +525,14 @@ export const apiClickup = {
     }
     if ("resultados" in payload) body.resultados = payload.resultados ?? "";
 
-    if ("subtareas" in payload) {
-      body.subtareas = Array.isArray(payload.subtareas)
-        ? payload.subtareas.map((s) => ({
-            titulo: texto(s.titulo || s.title),
-            done: Boolean(s.done ?? s.completada ?? false),
-          }))
-        : [];
-    }
+   if ("subtareas" in payload) {
+  body.subtareas = Array.isArray(payload.subtareas)
+    ? payload.subtareas.map((s) => ({
+        titulo: texto(s.titulo || s.title),
+        done: Boolean(s.done ?? s.completada ?? false),
+      }))
+    : [];
+}
 
     const data = await http(
       `${API_BASE}/equipos/${Number(teamId)}/tablero/tareas/${Number(taskId)}/`,

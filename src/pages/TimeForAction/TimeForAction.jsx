@@ -306,10 +306,11 @@ function TeamsModal({ open, onClose, onCreated }) {
         if(!teamId)return;
         setLoadingInvites(p=>({...p,[teamId]:true}));
         try{
-            const[membersRaw,invitesRaw]=await Promise.all([
-                apiClickup.listMembers(teamId),
-                apiClickup.listInvites(teamId)
-            ]);
+            const [membersRaw, invitesRaw] = await Promise.allSettled([
+    apiClickup.listMembers(teamId),
+    apiClickup.listInvites(teamId)
+]);
+
             // FIX: extraer array independientemente de la estructura devuelta
             const membersArr = extractArray(membersRaw);
             const invitesArr = extractArray(invitesRaw);
@@ -372,18 +373,29 @@ function TeamsModal({ open, onClose, onCreated }) {
     }
 
     async function acceptInvite(inv) {
-        if(!selectedTeam)return;
-        setAcceptingInvite(p=>({...p,[inv.id]:true}));
-        try{
-            await apiClickup.acceptInvite(selectedTeam.id, inv.id);
-            await loadTeamData(selectedTeam.id);
-            onCreated?.();
-        }catch(e){
-            setHiddenInvites(p=>({...p,[inv.id]:true}));
-            alert(e.message||"No se pudo aceptar la invitación");
-        }
-        finally{setAcceptingInvite(p=>({...p,[inv.id]:false}));}
+  if (!selectedTeam) return;
+  setAcceptingInvite(p => ({ ...p, [inv.id]: true }));
+  try {
+    await apiClickup.acceptInvite(selectedTeam.id, inv.id);
+    // Ocultar la invitación inmediatamente en UI
+    setHiddenInvites(p => ({ ...p, [inv.id]: true }));
+    // Recargar miembros e invitaciones del equipo
+    await loadTeamData(selectedTeam.id);
+    // Notificar al padre para que recargue el board/proyectos
+    onCreated?.();
+  } catch (e) {
+    // Si el error es ACCEPTED, igual la tratamos como éxito y ocultamos
+    if (e.message?.includes("ACCEPTED") || e.status === 400) {
+      setHiddenInvites(p => ({ ...p, [inv.id]: true }));
+      await loadTeamData(selectedTeam.id);
+      onCreated?.();
+    } else {
+      alert(e.message || "No se pudo aceptar la invitación");
     }
+  } finally {
+    setAcceptingInvite(p => ({ ...p, [inv.id]: false }));
+  }
+}
 
     function hideInvite(invId) {
         setHiddenInvites(p=>({...p,[invId]:true}));
@@ -1679,8 +1691,19 @@ export default function TimeForAction() {
     },[]);
 
     const fetchTeams=useCallback(async()=>{
-        try{const data=await apiClickup.listTeams();const arr=Array.isArray(data)?data:[];setTeams(arr);if(!teamId&&arr[0])setTeamId(Number(arr[0].id));}catch(e){console.error(e);}
-    },[teamId]);
+    try{
+        const data=await apiClickup.listTeams();
+        const arr=Array.isArray(data)?data:[];
+        setTeams(arr);
+        // Si no hay equipo seleccionado, tomar el primero
+        if(!teamId && arr[0]) setTeamId(Number(arr[0].id));
+        // Si el equipo seleccionado ya no está en la lista, resetear
+        if(teamId && arr.length>0 && !arr.find(t=>Number(t.id)===Number(teamId))) {
+            setTeamId(Number(arr[0].id));
+            setProjectId(null);
+        }
+    }catch(e){console.error(e);}
+},[teamId]);
 
     useEffect(()=>{fetchTeams();},[]);
     useEffect(()=>{if(!teamId)return;apiClickup.listProjects(teamId).then(data=>{const arr=Array.isArray(data)?data:[];setProjects(arr);if(!projectId&&arr[0])setProjectId(Number(arr[0].id));}).catch(console.error);},[teamId]);
@@ -1692,6 +1715,51 @@ export default function TimeForAction() {
     },[teamId,projectId]);
 
     useEffect(()=>{loadBoard();},[loadBoard]);
+    useEffect(() => {
+  if (!teamId) return;
+  apiClickup.listNotifications().then(notifs => {
+    const hasInvites = notifs.some(n =>
+      n.type === "TEAM_INVITE" || n.type === "INVITATION" || n.type === "TASK_ASSIGNED"
+    );
+    if (hasInvites) loadBoard();
+  }).catch(() => {});
+}, [teamId]);
+
+useEffect(() => {
+    const handler = async (e) => {
+        const { teamId: tid, projectId: pid, taskId } = e.detail || {};
+        if (tid) { setTeamId(Number(tid)); localStorage.setItem("clickup_team_id", String(tid)); }
+        if (pid) { setProjectId(Number(pid)); localStorage.setItem("clickup_project_id", String(pid)); }
+        // Esperar a que el board recargue y luego abrir la tarea
+        setTimeout(async () => {
+            await loadBoard();
+            if (taskId) {
+                setTasks(prev => {
+                    const found = prev.find(t => Number(t.id) === Number(taskId));
+                    if (found) { setEditingTask(found); setModalOpen(true); }
+                    return prev;
+                });
+            }
+        }, 800);
+    };
+    window.addEventListener("clickup:navigate", handler);
+    return () => window.removeEventListener("clickup:navigate", handler);
+}, [loadBoard]);
+
+useEffect(()=>{
+    const handler = async () => {
+        await fetchTeams();
+        if(teamId){
+            const data = await apiClickup.listProjects(teamId).catch(()=>[]);
+            const arr = Array.isArray(data)?data:[];
+            setProjects(arr);
+            if(!projectId && arr[0]) setProjectId(Number(arr[0].id));
+        }
+        await loadBoard();
+    };
+    window.addEventListener("clickup:refresh", handler);
+    return ()=>window.removeEventListener("clickup:refresh", handler);
+},[fetchTeams, loadBoard, teamId, projectId]);
 
     // ── FIX TIMELINE: handler para persistir fechas tras arrastrar ──
     const handleUpdateDates = useCallback(async (taskId, subIdx, newStart, newEnd) => {
@@ -1764,14 +1832,14 @@ export default function TimeForAction() {
     }, [tasks, teamId, loadBoard]);
 
     const filtered=useMemo(()=>{
-        const qn=q.trim().toLowerCase();
-        return tasks.filter(t=>{
-            const matchQ=!qn||(t.title||"").toLowerCase().includes(qn)||(t.descripcion_problema||"").toLowerCase().includes(qn)||(t.causa||"").toLowerCase().includes(qn)||(t.desarrollo_estrategia||"").toLowerCase().includes(qn);
-            const matchS=filterStatus==="Todos"||t.list_name===filterStatus;
-            const matchMy=!showMyTasksOnly||!currentUser||(t.assigned&&t.assigned.some(a=>a.user_id===currentUser.id||a.id===currentUser.id));
-            return matchQ&&matchS&&matchMy;
-        });
-    },[tasks,q,filterStatus,showMyTasksOnly,currentUser]);
+    const qn=q.trim().toLowerCase();
+    return tasks.filter(t=>{
+        const matchQ=!qn||(t.title||"").toLowerCase().includes(qn)||(t.descripcion_problema||"").toLowerCase().includes(qn)||(t.causa||"").toLowerCase().includes(qn)||(t.desarrollo_estrategia||"").toLowerCase().includes(qn);
+        const matchS=filterStatus==="Todos"||t.list_name===filterStatus;
+        const matchMy=!showMyTasksOnly||!currentUser||(t.assigned&&t.assigned.some(a=>Number(a.user_id)===Number(currentUser.id)||Number(a.id)===Number(currentUser.id)));
+        return matchQ&&matchS&&matchMy;
+    });
+},[tasks,q,filterStatus,showMyTasksOnly,currentUser]);
 
     const statCounts=useMemo(()=>{const out={};for(const col of STATUS_COLS)out[col]=filtered.filter(t=>t.list_name===col).length;return out;},[filtered]);
 
@@ -1810,9 +1878,24 @@ export default function TimeForAction() {
             <div className="flex flex-wrap gap-3 rounded-xl border border-black/10 bg-white p-3">
                 <div className="flex items-center gap-2">
                     <label className="text-xs font-extrabold text-black/50 shrink-0">Equipo</label>
-                    <select value={teamId||""} onChange={e=>{setTeamId(Number(e.target.value));setProjectId(null);localStorage.setItem("clickup_team_id",e.target.value);}} className="rounded-xl border border-black/10 bg-slate-50 px-3 py-1.5 text-sm font-bold outline-none focus:border-[#131E5C]">
-                        {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
+                    <select value={teamId||""} onChange={e=>{
+    const newTeamId=Number(e.target.value);
+    setTeamId(newTeamId);
+    setProjectId(null);
+    localStorage.setItem("clickup_team_id",String(newTeamId));
+    localStorage.removeItem("clickup_project_id");
+    // Cargar proyectos del nuevo equipo
+    apiClickup.listProjects(newTeamId).then(data=>{
+        const arr=Array.isArray(data)?data:[];
+        setProjects(arr);
+        if(arr[0]){
+            setProjectId(Number(arr[0].id));
+            localStorage.setItem("clickup_project_id",String(arr[0].id));
+        }
+    }).catch(console.error);
+}} className="rounded-xl border border-black/10 bg-slate-50 px-3 py-1.5 text-sm font-bold outline-none focus:border-[#131E5C]">
+    {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+</select>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <label className="text-xs font-extrabold text-black/50 shrink-0">Proyecto</label>
@@ -1870,7 +1953,21 @@ export default function TimeForAction() {
             {view==="timeline"&&<TimelineView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} onUpdateDates={handleUpdateDates} loading={loading}/>}
 
             <TaskModal open={modalOpen} onClose={()=>setModalOpen(false)} task={editingTask} lists={lists} teamId={teamId} onSaved={loadBoard}/>
-            <TeamsModal open={teamsModalOpen} onClose={()=>setTeamsModalOpen(false)} onCreated={fetchTeams}/>
+            <TeamsModal
+  open={teamsModalOpen}
+  onClose={() => setTeamsModalOpen(false)}
+  onCreated={async () => {
+    // Recargar equipos, proyectos y board
+    await fetchTeams();
+    if (teamId) {
+      const data = await apiClickup.listProjects(teamId);
+      const arr = Array.isArray(data) ? data : [];
+      setProjects(arr);
+      if (!projectId && arr[0]) setProjectId(Number(arr[0].id));
+    }
+    await loadBoard();
+  }}
+/>
             <ConfirmDialog open={!!confirmDeleteTask} title="Eliminar plan de acción" message={`¿Seguro que deseas eliminar "${confirmDeleteTask?.title}"? Esta acción no se puede deshacer.`} onConfirm={confirmTaskDelete} onCancel={()=>setConfirmDeleteTask(null)} loading={deletingTask}/>
             <ConfirmDialog open={confirmDeleteProject} title="Eliminar proyecto" message={`¿Seguro que deseas eliminar "${currentProject?.name}"? Se eliminarán todos sus planes.`} onConfirm={deleteCurrentProject} onCancel={()=>setConfirmDeleteProject(false)} loading={deletingProject}/>
 
