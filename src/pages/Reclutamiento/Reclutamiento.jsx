@@ -1147,7 +1147,8 @@ export default function Reclutamiento() {
     }
 
     return (
-        <div className="w-full">
+        <div className="w-full"> 
+        
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">

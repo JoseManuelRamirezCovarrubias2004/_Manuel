@@ -76,6 +76,7 @@ import RegistroPiezas from "./pages/PedidoPiezas/RegistroPiezas";
 import Safety from "./pages/SafetyCulture/Safety";
 
 import Reclutamiento from "./pages/Reclutamiento/Reclutamiento";
+import Puestos from "./pages/puestos/Puestos";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
@@ -471,6 +472,15 @@ export const router = createBrowserRouter(
                                     element: (
                                         <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]}>
                                             <Reclutamiento />
+                                        </RequirePermission>
+                                    ),
+                                },
+
+                                {
+                                    path: "puestos",
+                                    element: (
+                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]}>
+                                            <Puestos />
                                         </RequirePermission>
                                     ),
                                 },
