@@ -156,11 +156,11 @@ export default function Sidebar() {
             },
             
            {
-                to: "/administrativos",
-                label: "Reclutamiento y Seleccion",
-                icon: UserSearch,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]),
-            },
+            to: "/administrativos",
+            label: "Reclutamiento y Seleccion",
+            icon: UserSearch,
+            show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]),
+        },
 
             {
                 to: "/qr",
