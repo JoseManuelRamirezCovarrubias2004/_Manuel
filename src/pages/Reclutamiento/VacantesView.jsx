@@ -1000,63 +1000,63 @@ export default function VacantesView() {
                                                    </div>
                                                </button>
                                                 {isOpen ? (
-                                                    <div className="border-t border-black/10 bg-slate-50 p-4">
-                                                        <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                                    <div className="border-t border-black/10 bg-slate-50 p-2">
+                                                        <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                                                             <div>
                                                                 <h3 className="text-sm font-black text-[#131E5C]">Expediente del candidato</h3>
                                                                 <p className="text-xs font-semibold text-slate-500">Captura datos generales y fechas reales de cada avance.</p>
                                                             </div>
-                                                            <button onClick={() => eliminarCandidato(index)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-600 shadow-sm transition hover:bg-red-50">
-                                                                <Trash2 className="h-4 w-4" /> Eliminar candidato
+                                                            <button onClick={() => eliminarCandidato(index)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-2 py-1 text-xs font-black text-red-600 shadow-sm transition hover:bg-red-50">
+                                                                <Trash2 className="h-3 w-3" /> Eliminar candidato
                                                             </button>
                                                         </div>
 
-                                                        <div className="space-y-5">
-                                                            {/* ========== DATOS DEL CANDIDATO - HORIZONTAL ========== */}
-                                                            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                                                                <div className="mb-3 flex items-center gap-2 text-sm font-black text-[#131E5C]">
-                                                                    <User className="h-4 w-4" /> Datos del candidato
+                                                        <div className="space-y-3">
+                                                            {/* DATOS DEL CANDIDATO - HORIZONTAL */}
+                                                            <div className="rounded-xl border border-black/5 bg-white p-3 shadow-sm">
+                                                                <div className="mb-2 flex items-center gap-2 text-sm font-black text-[#131E5C]">
+                                                                    <User className="h-3 w-3" /> Datos del candidato
                                                                 </div>
-                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                                                     <label className="block">
-                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Nombre *</span>
+                                                                        <span className="mb-0.5 block text-[11px] font-black text-slate-500">Nombre *</span>
                                                                         <input value={candidato.nombre || ""} onChange={e => actualizarCandidato(index, "nombre", e.target.value)} placeholder="Nombre completo" className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("nombre") ? inputBad : inputOk)} />
                                                                     </label>
                                                                     <label className="block">
-                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Sexo *</span>
+                                                                        <span className="mb-0.5 block text-[11px] font-black text-slate-500">Sexo *</span>
                                                                         <select value={candidato.sexo || ""} onChange={e => actualizarCandidato(index, "sexo", e.target.value)} className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("sexo") ? inputBad : inputOk)}>
                                                                             <option value="">Selecciona...</option>
                                                                             {SEXOS.map(s => <option key={s} value={s}>{s}</option>)}
                                                                         </select>
                                                                     </label>
                                                                     <label className="block">
-                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Teléfono *</span>
+                                                                        <span className="mb-0.5 block text-[11px] font-black text-slate-500">Teléfono *</span>
                                                                         <input value={candidato.telefono || ""} onChange={e => actualizarCandidato(index, "telefono", e.target.value)} placeholder="Ej. 2711234567" className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("telefono") ? inputBad : inputOk)} />
                                                                     </label>
                                                                     <label className="block">
-                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Correo *</span>
+                                                                        <span className="mb-0.5 block text-[11px] font-black text-slate-500">Correo *</span>
                                                                         <input type="email" value={candidato.correo || ""} onChange={e => actualizarCandidato(index, "correo", e.target.value)} placeholder="correo@ejemplo.com" className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("correo") ? inputBad : inputOk)} />
                                                                     </label>
                                                                     <label className="block">
-                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Ubicación *</span>
+                                                                        <span className="mb-0.5 block text-[11px] font-black text-slate-500">Ubicación *</span>
                                                                         <input value={candidato.ubicacion || ""} onChange={e => actualizarCandidato(index, "ubicacion", e.target.value)} placeholder="Ciudad / Estado" className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("ubicacion") ? inputBad : inputOk)} />
                                                                     </label>
                                                                     <label className="block">
-                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Puesto al que se postula *</span>
+                                                                        <span className="mb-0.5 block text-[11px] font-black text-slate-500">Puesto *</span>
                                                                         <select value={candidato.puesto_postulado || ""} onChange={e => actualizarCandidato(index, "puesto_postulado", e.target.value)} className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("puesto_postulado") ? inputBad : inputOk)}>
                                                                             <option value="">Selecciona puesto...</option>
                                                                             {PUESTOS.map(p => <option key={p} value={p}>{p}</option>)}
                                                                         </select>
                                                                     </label>
                                                                     <label className="block">
-                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Fuente *</span>
+                                                                        <span className="mb-0.5 block text-[11px] font-black text-slate-500">Fuente *</span>
                                                                         <select value={candidato.fuente || ""} onChange={e => actualizarCandidato(index, "fuente", e.target.value)} className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("fuente") ? inputBad : inputOk)}>
                                                                             <option value="">Selecciona fuente...</option>
                                                                             {FUENTES_RECLUTAMIENTO.map(f => <option key={f} value={f}>{f}</option>)}
                                                                         </select>
                                                                     </label>
                                                                     <label className="block">
-                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Estatus candidato</span>
+                                                                        <span className="mb-0.5 block text-[11px] font-black text-slate-500">Estatus</span>
                                                                         <select value={candidato.estatus || "Nuevo"} onChange={e => actualizarCandidato(index, "estatus", e.target.value)} className={modalInputCls}>
                                                                             {ESTATUS_CANDIDATO.map(e => <option key={e} value={e}>{e}</option>)}
                                                                         </select>
@@ -1064,13 +1064,13 @@ export default function VacantesView() {
                                                                 </div>
                                                             </div>
 
-                                                            {/* ========== FECHAS POR ETAPA ========== */}
-                                                            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                                                                <div className="mb-3 flex items-center gap-2 text-sm font-black text-[#131E5C]">
-                                                                    <CalendarDays className="h-4 w-4" /> Fechas por etapa
+                                                            {/* FECHAS POR ETAPA */}
+                                                            <div className="rounded-xl border border-black/5 bg-white p-3 shadow-sm">
+                                                                <div className="mb-2 flex items-center gap-2 text-sm font-black text-[#131E5C]">
+                                                                    <CalendarDays className="h-3 w-3" /> Fechas por etapa
                                                                 </div>
-                                                                <p className="text-xs font-semibold text-slate-500 mb-3">Usa una fecha por cada avance. Los campos vacíos representan pendientes.</p>
-                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                                <p className="text-[11px] font-semibold text-slate-500 mb-2">Usa una fecha por cada avance. Los campos vacíos representan pendientes.</p>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                                                     <DateField label="Entrevista DO" value={candidato.fecha_entrevista_do} onChange={v => actualizarCandidato(index, "fecha_entrevista_do", v)} inputClassName={modalInputCls} />
                                                                     <DateField label="Entrevista gerente" value={candidato.fecha_entrevista_gerente} onChange={v => actualizarCandidato(index, "fecha_entrevista_gerente", v)} inputClassName={modalInputCls} />
                                                                     <DateField label="Respuesta gerente" value={candidato.fecha_respuesta_gerente} onChange={v => actualizarCandidato(index, "fecha_respuesta_gerente", v)} inputClassName={modalInputCls} />
@@ -1080,35 +1080,145 @@ export default function VacantesView() {
                                                                 </div>
                                                             </div>
 
-                                                            {/* ========== COMENTARIOS ========== */}
-                                                            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                                                                <label className="block">
-                                                                    <span className="mb-1 flex items-center gap-2 text-xs font-black text-slate-500">
-                                                                        <FileText className="h-3.5 w-3.5" /> Comentarios / seguimiento
-                                                                    </span>
-                                                                    <textarea value={candidato.comentarios || ""} onChange={e => actualizarCandidato(index, "comentarios", e.target.value)} rows={3} placeholder="Observaciones, acuerdos, comentarios del gerente o detalles del seguimiento..." className={cls(inputBase, inputOk, "min-h-[96px] resize-y")} />
-                                                                </label>
+                                                                                                                        {/* ========== CRONOGRAMA DE ETAPAS ========== */}
+                                                            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                                                                <div className="mb-5 flex items-center gap-2">
+                                                                    <div className="h-5 w-1 bg-[#131E5C] rounded-full"></div>
+                                                                    <h4 className="text-sm font-black text-[#131E5C] uppercase tracking-wide">Cronograma de etapas</h4>
+                                                                </div>
+                                                                
+                                                                <div className="relative">
+                                                                    {/* Línea horizontal en el medio */}
+                                                                    <div className="absolute top-8 left-0 right-0 h-0.5 bg-gray-300"></div>
+                                                                    
+                                                                    <div className="relative flex justify-between">
+                                                                        {/* ETAPA 1 - ARRIBA */}
+                                                                        <div className="flex flex-col items-center text-center" style={{ width: '23%' }}>
+                                                                            <div className={`relative z-10 w-4 h-4 rounded-full ${candidato.fecha_primera_entrevista ? 'bg-emerald-500 ring-4 ring-emerald-100' : 'bg-gray-400 ring-4 ring-gray-100'}`}></div>
+                                                                            <div className="mt-2">
+                                                                                <div className="text-[10px] font-bold text-gray-400 uppercase">ETAPA 1</div>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* ETAPA 2 - ARRIBA */}
+                                                                        <div className="flex flex-col items-center text-center" style={{ width: '23%' }}>
+                                                                            <div className={`relative z-10 w-4 h-4 rounded-full ${candidato.fecha_segunda_entrevista ? 'bg-emerald-500 ring-4 ring-emerald-100' : 'bg-gray-400 ring-4 ring-gray-100'}`}></div>
+                                                                            <div className="mt-2">
+                                                                                <div className="text-[10px] font-bold text-gray-400 uppercase">ETAPA 2</div>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* ETAPA 3 - ARRIBA */}
+                                                                        <div className="flex flex-col items-center text-center" style={{ width: '23%' }}>
+                                                                            <div className={`relative z-10 w-4 h-4 rounded-full ${candidato.fecha_prueba_khor ? 'bg-emerald-500 ring-4 ring-emerald-100' : 'bg-gray-400 ring-4 ring-gray-100'}`}></div>
+                                                                            <div className="mt-2">
+                                                                                <div className="text-[10px] font-bold text-gray-400 uppercase">ETAPA 3</div>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* RESULTADO - ARRIBA */}
+                                                                        <div className="flex flex-col items-center text-center" style={{ width: '23%' }}>
+                                                                            <div className={`relative z-10 w-4 h-4 rounded-full ${
+                                                                                candidato.estatus_linea_tiempo === 'seleccionado' ? 'bg-emerald-500 ring-4 ring-emerald-100' :
+                                                                                candidato.estatus_linea_tiempo === 'descalificado' ? 'bg-red-500 ring-4 ring-red-100' : 'bg-gray-400 ring-4 ring-gray-100'
+                                                                            }`}></div>
+                                                                            <div className="mt-2">
+                                                                                <div className="text-[10px] font-bold text-gray-400 uppercase">RESULTADO</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                {/* Contenido debajo de la línea */}
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+                                                                    {/* Contenido ETAPA 1 */}
+                                                                    <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-100">
+                                                                        <div className="text-sm font-bold text-gray-800">Primera Entrevista</div>
+                                                                        <input 
+                                                                            type="date" 
+                                                                            value={candidato.fecha_primera_entrevista || ''} 
+                                                                            onChange={e => actualizarCandidato(index, "fecha_primera_entrevista", e.target.value)}
+                                                                            className="w-full text-center text-xs p-1.5 border border-gray-200 rounded-lg mt-2 bg-white focus:border-[#131E5C] focus:outline-none"
+                                                                        />
+                                                                        {candidato.fecha_primera_entrevista && (
+                                                                            <div className="text-[10px] font-semibold text-emerald-600 mt-1">✓ Completado</div>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    {/* Contenido ETAPA 2 */}
+                                                                    <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-100">
+                                                                        <div className="text-sm font-bold text-gray-800">Segunda Entrevista</div>
+                                                                        <input 
+                                                                            type="date" 
+                                                                            value={candidato.fecha_segunda_entrevista || ''} 
+                                                                            onChange={e => actualizarCandidato(index, "fecha_segunda_entrevista", e.target.value)}
+                                                                            className="w-full text-center text-xs p-1.5 border border-gray-200 rounded-lg mt-2 bg-white focus:border-[#131E5C] focus:outline-none"
+                                                                        />
+                                                                        {candidato.fecha_segunda_entrevista && (
+                                                                            <div className="text-[10px] font-semibold text-emerald-600 mt-1">✓ Completado</div>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    {/* Contenido ETAPA 3 */}
+                                                                    <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-100">
+                                                                        <div className="text-sm font-bold text-gray-800">Prueba KHOR</div>
+                                                                        <input 
+                                                                            type="date" 
+                                                                            value={candidato.fecha_prueba_khor || ''} 
+                                                                            onChange={e => actualizarCandidato(index, "fecha_prueba_khor", e.target.value)}
+                                                                            className="w-full text-center text-xs p-1.5 border border-gray-200 rounded-lg mt-2 bg-white focus:border-[#131E5C] focus:outline-none"
+                                                                        />
+                                                                        {candidato.fecha_prueba_khor && (
+                                                                            <div className="text-[10px] font-semibold text-emerald-600 mt-1">✓ Completado</div>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    {/* Contenido RESULTADO */}
+                                                                    <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-100">
+                                                                        <div className="text-sm font-bold text-gray-800">Estatus final</div>
+                                                                        <select 
+                                                                            value={candidato.estatus_linea_tiempo || 'en proceso'} 
+                                                                            onChange={e => actualizarCandidato(index, "estatus_linea_tiempo", e.target.value)}
+                                                                            className="w-full text-center text-xs p-1.5 border border-gray-200 rounded-lg mt-2 bg-white focus:border-[#131E5C] focus:outline-none"
+                                                                        >
+                                                                            <option value="en proceso">En proceso</option>
+                                                                            <option value="seleccionado">Seleccionado</option>
+                                                                            <option value="descalificado">Descalificado</option>
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                {/* Motivo de descalificación */}
+                                                                {candidato.estatus_linea_tiempo === 'descalificado' && (
+                                                                    <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                                                                        <div className="flex items-center gap-2 mb-2">
+                                                                            <div className="w-1 h-4 bg-red-500 rounded-full"></div>
+                                                                            <span className="text-[11px] font-black text-red-700 uppercase tracking-wide">Motivo de descalificación</span>
+                                                                        </div>
+                                                                        <select 
+                                                                            value={candidato.motivo_descalificacion || ''} 
+                                                                            onChange={e => actualizarCandidato(index, "motivo_descalificacion", e.target.value)}
+                                                                            className="w-full text-sm p-2 border border-red-200 rounded-lg bg-white focus:border-red-400 focus:outline-none"
+                                                                        >
+                                                                            <option value="">Selecciona un motivo...</option>
+                                                                            <option value="no_cumple_requerimientos">No cumple requerimientos</option>
+                                                                            <option value="no_alcanza_pretensiones">No se alcanzan pretensiones económicas</option>
+                                                                            <option value="mejor_perfil">Otro candidato mejor perfilado</option>
+                                                                            <option value="propenso_robo">Propenso al robo</option>
+                                                                            <option value="bajo_psicometria">Bajo resultado en psicometría</option>
+                                                                        </select>
+                                                                    </div>
+                                                                )}
                                                             </div>
 
-                                                            {/* ========== RESUMEN DE ETAPAS ========== */}
-                                                            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                                                                <div className="mb-3 text-sm font-black text-[#131E5C]">Resumen de etapas</div>
-                                                                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                                                    {stagesVisibles(candidato).map((stage) => {
-                                                                        const done = Boolean(candidato[stage.key]);
-                                                                        return (
-                                                                            <div key={stage.key} className={cls("rounded-2xl border p-3", done ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50")}>
-                                                                                <div className="flex items-center gap-2">
-                                                                                    {done ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <CalendarDays className="h-4 w-4 text-slate-400" />}
-                                                                                    <div className="min-w-0">
-                                                                                        <div className="truncate text-xs font-black text-[#131E5C]">{stage.label}</div>
-                                                                                        <div className="text-[11px] font-semibold text-slate-500">{done ? formatDate(candidato[stage.key]) : "Pendiente"}</div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
+                                                            {/* COMENTARIOS */}
+                                                            <div className="rounded-xl border border-black/5 bg-white p-3 shadow-sm">
+                                                                <label className="block">
+                                                                    <span className="mb-0.5 flex items-center gap-1 text-[11px] font-black text-slate-500">
+                                                                        <FileText className="h-3 w-3" /> Comentarios / seguimiento
+                                                                    </span>
+                                                                    <textarea value={candidato.comentarios || ""} onChange={e => actualizarCandidato(index, "comentarios", e.target.value)} rows={2} placeholder="Observaciones..." className={cls(inputBase, inputOk, "min-h-[60px] resize-y text-sm")} />
+                                                                </label>
                                                             </div>
                                                         </div>
                                                     </div>
