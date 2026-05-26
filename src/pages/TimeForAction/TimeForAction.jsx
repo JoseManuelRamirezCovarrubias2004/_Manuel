@@ -572,9 +572,7 @@ function TeamsModal({ open, onClose, onCreated }) {
     );
 }
 
-/* ══════════════════════════════════════════════
-   TASK MODAL
-══════════════════════════════════════════════ */
+/* TASK MODAL*/
 function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     const [title,setTitle]=useState("");
     const [listId,setListId]=useState("");
@@ -826,9 +824,7 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     );
 }
 
-/* ══════════════════════════════════════════════
-   KANBAN CARD
-══════════════════════════════════════════════ */
+/*KANBAN CARD */
 function KanbanCard({ task, onEdit, onDelete }) {
     const [expanded,setExpanded]=useState(false);
     const subtasks=Array.isArray(task.subtareas)?task.subtareas:[];
@@ -978,11 +974,7 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
     );
 }
 
-/* ══════════════════════════════════════════════
-   TIMELINE VIEW
-   FIX 1: drag persiste fechas al API via onUpdateDates callback
-   FIX 2: altura de filas con subtareas calcula sin límite de scroll interno
-══════════════════════════════════════════════ */
+/* TIMELINE VIEW*/
 function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading }) {
     const ganttRef   = useRef(null);
     const leftRef    = useRef(null);
@@ -1057,18 +1049,18 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading }) {
     }, [withDate, today]);
 
     const DAY_W    = 38;
-    const HDR_H    = 64;   // WEEK_H + DAY_H
+    const HDR_H    = 64;   
     const WEEK_H   = 36;
     const DAY_H    = 28;
     const COL_PLAN = 240;
     const COL_PROB = 180;
     const COL_ESTRA= 180;
     const FIXED_W  = COL_PLAN + COL_PROB + COL_ESTRA;
-    const ROW_BASE = 62;   // FIX: altura base ligeramente mayor
-    const SUB_H    = 28;   // FIX: más espacio por subtarea
+    const ROW_BASE = 62;   
+    const SUB_H    = 28;   
     const SUB_HEADER_H = 28; // espacio para la barra de progreso
 
-    // FIX: altura calculada con espacio generoso para que no se corten
+    
     function rowHeight(task) {
         const subs = Array.isArray(task.subtareas) ? task.subtareas : [];
         if (!expandedRows[task.id] || subs.length === 0) return ROW_BASE;
@@ -1726,7 +1718,6 @@ useEffect(() => {
         const { teamId: tid, projectId: pid, taskId } = e.detail || {};
         if (tid) { setTeamId(Number(tid)); localStorage.setItem("clickup_team_id", String(tid)); }
         if (pid) { setProjectId(Number(pid)); localStorage.setItem("clickup_project_id", String(pid)); }
-        // Esperar a que el board recargue y luego abrir la tarea
         setTimeout(async () => {
             await loadBoard();
             if (taskId) {

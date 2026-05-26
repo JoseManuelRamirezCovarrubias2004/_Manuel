@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { BarChart2, TableProperties, TrendingUp, SlidersHorizontal, ChevronDown, ChevronRight } from "lucide-react";
 
-// ─── CONSTANTES ──────────────────────────────────────────────────────────────
+// CONSTANTES 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const MESES_CORTOS = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 const SEMANAS = Array.from({length:52},(_,i)=>i+1);
@@ -101,7 +101,10 @@ const CustomBarLabel = (props) => {
 };
 
 function VistaGraficas({datos, datosComp, modoComp, labelA, labelB}){
-  const porCampana = datos.map(c=>({
+  const porCampana = [...datos]
+    .sort((a,b) => b.total_resultados - a.total_resultados)
+    .slice(0, 10)
+    .map(c=>({
     name: c.nombre_campana.length > 12 ? c.nombre_campana.substring(0,12)+"…" : c.nombre_campana,
     full: c.nombre_campana,
     alcance: c.alcance,
@@ -162,14 +165,14 @@ function VistaGraficas({datos, datosComp, modoComp, labelA, labelB}){
 
   const cronograma = useMemo(()=>{
     return [...datos].sort((a,b)=>a.mes - b.mes).slice(0,8).map(c=>({
-      nombre: c.nombre_campana.length > 22 ? c.nombre_campana.substring(0,22)+"…" : c.nombre_campana,
-      resultados: c.total_resultados,
-      inicio: c.semana,
-      duracion: 2,
-      mes: c.mes,
-      estado: c.estado_campana,
+        nombre: c.nombre_campana.length > 22 ? c.nombre_campana.substring(0,22)+"…" : c.nombre_campana,
+        resultados: c.total_resultados,
+        inicio: c.inicio_campana ? new Date(c.inicio_campana).getDate() : 1,
+        fin: c.fin_campana ? new Date(c.fin_campana).getDate() : 15,
+        mes: c.mes,
+        estado: c.estado_campana,
     }));
-  },[datos]);
+},[datos]);
 
   const totResultados = datos.reduce((a,c)=>a+c.total_resultados,0);
   const totGasto = datos.reduce((a,c)=>a+c.importe_gastado,0);
@@ -293,11 +296,11 @@ function VistaGraficas({datos, datosComp, modoComp, labelA, labelB}){
               <tr className="border-b border-gray-200">
                 <th className="text-left py-2 px-3 font-semibold text-gray-600 w-52">nombre_campana</th>
                 <th className="text-right py-2 px-3 font-semibold text-gray-600 w-20">total_resultados</th>
-                {Array.from({length:10},(_,i)=>i).map(w=>(
-                  <th key={w} className="text-center py-2 px-1 font-medium text-gray-400 min-w-[52px]">
-                    Sem {w+1}
-                  </th>
-                ))}
+                {Array.from({length:31},(_,i)=>i+1).map(d=>(
+    <th key={d} className="text-center py-2 px-1 font-medium text-gray-400 min-w-[28px]">
+        {d}
+    </th>
+))}
               </tr>
             </thead>
             <tbody>
@@ -305,9 +308,9 @@ function VistaGraficas({datos, datosComp, modoComp, labelA, labelB}){
                 <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/50">
                   <td className="py-2 px-3 font-medium text-gray-700">{c.nombre}</td>
                   <td className="py-2 px-3 text-right font-bold" style={{color:NAVY}}>{c.resultados}</td>
-                  {Array.from({length:10},(_,w)=>{
-                    const semStart = ((c.inicio-1) % 10);
-                    const inRange = w >= semStart && w < semStart + c.duracion;
+                  {Array.from({length:31},(_,w)=>{
+                    const dia = w + 1;
+                    const inRange = dia >= c.inicio && dia <= c.fin;
                     const ESTATUS_COLORS = { Activa:"#378ADD", Finalizada:"#1D9E75", Pausada:"#F0A500" };
                     const color = ESTATUS_COLORS[c.estado] ?? "#378ADD";
                     return (
@@ -377,7 +380,7 @@ function VistaGraficas({datos, datosComp, modoComp, labelA, labelB}){
   );
 }
 
-// ─── Componente principal ────────────────────────────────────────────────────
+// Componente principal 
 export default function CampanasMeta() {
   const [vista, setVista] = useState("tabla");
 
@@ -400,50 +403,69 @@ export default function CampanasMeta() {
 
   useEffect(() => {
     setLoading(true);
-    fetch("https://crm.grupoautomotrizryr.com/campanas-meta/api/campanas-meta/")
-      .then(res => {
-        if (!res.ok) throw new Error("Error al cargar campañas");
-        return res.json();
-      })
+    
+    const fetchAll = async () => {
+        let allData = [];
+        let url = "https://crm.grupoautomotrizryr.com/campanas-meta/api/campanas-meta/?page_size=200";
+        let pageCount = 0;
+        
+        while (url) {
+            pageCount++;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Error en página ${pageCount}: ${res.status}`);
+            const data = await res.json();
+            
+            const lista = Array.isArray(data) ? data : data.results ?? [];
+            allData = [...allData, ...lista];
+            
+            let nextUrl = data.next ?? null;
+            if (nextUrl && nextUrl.startsWith("http://")) {
+                nextUrl = nextUrl.replace("http://", "https://");
+            }
+            url = nextUrl;
+        }
+        
+        return allData;
+    };
 
-      .then(data => {
-        const lista = Array.isArray(data) ? data : data.results ?? [];
-        const mapeado = lista.map(c => ({
-          id_campana: String(c.id_campana),
-          nombre_campana: c.nombre_campana ?? "Sin nombre",
-          sucursal: c.sucursal ?? "—",
-          estado_campana: c.estado_campana ?? "Sin estado",
-          año: c.inicio_campana
-            ? new Date(c.inicio_campana).getFullYear()
-            : c.inicio_informe
-            ? new Date(c.inicio_informe).getFullYear()
-            : 0,
-          mes: c.inicio_campana
-            ? new Date(c.inicio_campana).getMonth() + 1
-            : c.inicio_informe
-            ? new Date(c.inicio_informe).getMonth() + 1
-            : 0,
-          semana: 1,
-          alcance: Number(c.alcance ?? 0),
-          impresiones: Number(c.impresiones ?? 0),
-          importe_gastado: parseFloat(c.importe_gastado ?? 0),
-          total_resultados: Number(c.total_resultados ?? 0),
-          id_concesionaria: c.id_concesionaria,
-          objetivo_campana: c.objetivo_campana,
-          inicio_campana: c.inicio_campana,
-          fin_campana: c.fin_campana,
-        }));
-        setDatosRaw(mapeado);
-      })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
-  // ─────────────────────────────────────────────────────────────────────────
+    fetchAll()
+        .then(lista => {
+            const mapeado = lista.map(c => ({
+                id_campana: String(c.id_campana),
+                nombre_campana: c.nombre_campana ?? "Sin nombre",
+                sucursal: c.sucursal ?? "—",
+                estado_campana: c.estado_campana ?? "Sin estado",
+                año: c.inicio_campana
+                    ? new Date(c.inicio_campana).getFullYear()
+                    : c.inicio_informe
+                    ? new Date(c.inicio_informe).getFullYear()
+                    : 0,
+                mes: c.inicio_campana
+                    ? new Date(c.inicio_campana).getMonth() + 1
+                    : c.inicio_informe
+                    ? new Date(c.inicio_informe).getMonth() + 1
+                    : 0,
+                semana: 1,
+                alcance: Number(c.alcance ?? 0),
+                impresiones: Number(c.impresiones ?? 0),
+                importe_gastado: parseFloat(c.importe_gastado ?? 0),
+                total_resultados: Number(c.total_resultados ?? 0),
+                id_concesionaria: c.id_concesionaria,
+                objetivo_campana: c.objetivo_campana,
+                inicio_campana: c.inicio_campana,
+                fin_campana: c.fin_campana,
+            }));
+            setDatosRaw(mapeado);
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setLoading(false));
+}, []);
+
 
   // Sucursales y años dinámicos desde los datos reales
-  const SUCURSALES = useMemo(() =>
-    ["Todas", ...Array.from(new Set(DATOS_RAW.map(d => d.sucursal)))]
-  , [DATOS_RAW]);
+ const SUCURSALES = useMemo(() =>
+    ["Todas", ...Array.from(new Set(DATOS_RAW.map(d => d.sucursal))).sort()]
+, [DATOS_RAW]);
 
   const añosDisponibles = useMemo(() =>
     [...new Set(DATOS_RAW.map(d => d.año))].sort()
@@ -506,7 +528,7 @@ export default function CampanasMeta() {
     return [...new Set(src.map(d=>d.mes))].sort((a,b)=>a-b);
   },[año,DATOS_RAW]);
 
-  // ─── Loading / Error ──────────────────────────────────────────────────────
+  // Loading / Error
   if (loading) return (
     <div className="flex items-center justify-center py-20 text-gray-400 text-sm">
       <div className="flex flex-col items-center gap-3">
@@ -524,7 +546,7 @@ export default function CampanasMeta() {
       </div>
     </div>
   );
-  // ─────────────────────────────────────────────────────────────────────────
+
 
   return (
     <div className="space-y-0 p-1">
