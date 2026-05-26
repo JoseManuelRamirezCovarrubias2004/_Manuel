@@ -1,7 +1,7 @@
 // src/pages/Comercial/ComercialTopNav.jsx
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Globe, CalendarDays, Building2, createLucideIcon, MessageCircle, PackageCheck, ThumbsUp } from "lucide-react";
+import { Globe, CalendarDays, Building2, createLucideIcon, MessageCircle, PackageCheck, ThumbsUp, BarChart2 } from "lucide-react";
 import vwWhite from "../../assets/vw_white.png";
 import ryr from "../../assets/ryr.png";
 import { steeringWheel } from "@lucide/lab";
@@ -61,6 +61,13 @@ export default function ComercialTopNav() {
                 icon: PackageCheck,
                 show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
+
+            {
+    label: "Campañas Meta",
+    href: "/comercial/campanas_meta",
+    icon: BarChart2,
+    show: hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
+},
         ];
 
         return items.filter((x) => x.show);

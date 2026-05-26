@@ -400,7 +400,6 @@ export default function Sidebar() {
                                 <X size={18} />
                             </button>
                         </div>
-
                         <SidebarContent isMobile />
                     </div>
                 </div>

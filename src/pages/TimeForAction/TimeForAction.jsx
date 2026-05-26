@@ -1658,9 +1658,7 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading }) {
     );
 }
 
-/* ══════════════════════════════════════════════
-   COMPONENTE PRINCIPAL
-══════════════════════════════════════════════ */
+
 export default function TimeForAction() {
     const [teamId,setTeamId]=useState(()=>{const v=localStorage.getItem("clickup_team_id");return v?Number(v):null;});
     const [projectId,setProjectId]=useState(()=>{const v=localStorage.getItem("clickup_project_id");return v?Number(v):null;});
@@ -1695,9 +1693,7 @@ export default function TimeForAction() {
         const data=await apiClickup.listTeams();
         const arr=Array.isArray(data)?data:[];
         setTeams(arr);
-        // Si no hay equipo seleccionado, tomar el primero
         if(!teamId && arr[0]) setTeamId(Number(arr[0].id));
-        // Si el equipo seleccionado ya no está en la lista, resetear
         if(teamId && arr.length>0 && !arr.find(t=>Number(t.id)===Number(teamId))) {
             setTeamId(Number(arr[0].id));
             setProjectId(null);

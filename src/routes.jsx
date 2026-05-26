@@ -78,6 +78,8 @@ import Safety from "./pages/SafetyCulture/Safety";
 import Reclutamiento from "./pages/Reclutamiento/Reclutamiento";
 import Puestos from "./pages/puestos/Puestos";
 
+import CampanasMeta from './pages/CampanasMeta/CampanasMeta';
+
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
 export const router = createBrowserRouter(
@@ -186,6 +188,15 @@ export const router = createBrowserRouter(
                                 },
 
                                 {
+      path: "campanas_meta",
+    element: (
+        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]}>
+            <CampanasMeta />
+        </RequirePermission>
+    ),
+},
+
+                                {
                                     path: "prospectos",
                                     element: (
                                         <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]}>
@@ -205,6 +216,7 @@ export const router = createBrowserRouter(
                                             path: "contacto",
                                             element: <DigitalesContacto />,
                                         },
+
                                     ],
                                 },
 
@@ -502,6 +514,7 @@ export const router = createBrowserRouter(
                             ],
                         },
 
+
                         {
                             path: "qr",
                             element: (
@@ -524,6 +537,7 @@ export const router = createBrowserRouter(
                             path: "*",
                             element: <NotFound />,
                         },
+
                     ],
                 },
             ],
