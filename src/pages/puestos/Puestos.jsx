@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { PUESTOS, CATEGORIAS } from './datos/puestosData';
 import { obtenerFormatoEvaluacion } from './datos/formatosEvaluacion';
 import { ChevronDown, ChevronRight, Star, Search, X, User, Building2, Clock } from 'lucide-react';
+import { listarPuestos, listarEvaluaciones, guardarEvaluacion } from '../../lib/apiPuestos';
 
 export default function Puestos() {
     const [puestos, setPuestos] = useState([]);
@@ -11,33 +12,50 @@ export default function Puestos() {
     const [evaluacionActual, setEvaluacionActual] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoriaFiltro, setCategoriaFiltro] = useState('Todos');
+    const [loading, setLoading] = useState(true);
 
+    // Cargar puestos y evaluaciones desde la API
     useEffect(() => {
-        const puestosGuardados = localStorage.getItem('puestos_lista');
-        if (puestosGuardados) {
-            setPuestos(JSON.parse(puestosGuardados));
-        } else {
-            setPuestos(PUESTOS);
-        }
-
-        const evaluacionesGuardadas = localStorage.getItem('evaluaciones_puestos');
-        if (evaluacionesGuardadas) {
-            setEvaluaciones(JSON.parse(evaluacionesGuardadas));
-        }
+        cargarDatos();
     }, []);
 
-    useEffect(() => {
-        localStorage.setItem('evaluaciones_puestos', JSON.stringify(evaluaciones));
-    }, [evaluaciones]);
+    async function cargarDatos() {
+        setLoading(true);
+        try {
+            // Intentar cargar desde la API
+            const [puestosData, evaluacionesData] = await Promise.all([
+                listarPuestos(),
+                listarEvaluaciones()
+            ]);
+            setPuestos(puestosData);
+            setEvaluaciones(evaluacionesData);
+        } catch (error) {
+            console.error('Error al cargar desde API:', error);
+            // Fallback a localStorage si la API falla
+            const puestosGuardados = localStorage.getItem('puestos_lista');
+            if (puestosGuardados) {
+                setPuestos(JSON.parse(puestosGuardados));
+            } else {
+                setPuestos(PUESTOS);
+            }
+
+            const evaluacionesGuardadas = localStorage.getItem('evaluaciones_puestos');
+            if (evaluacionesGuardadas) {
+                setEvaluaciones(JSON.parse(evaluacionesGuardadas));
+            }
+        } finally {
+            setLoading(false);
+        }
+    }
 
     const getEvaluacionesPorPuesto = (puestoId) => {
-        return evaluaciones.filter(e => e.puestoId === puestoId);
+        return evaluaciones.filter(e => e.puesto === puestoId || e.puestoId === puestoId);
     };
 
     const getPromedioPuesto = (puestoId) => {
         const evals = getEvaluacionesPorPuesto(puestoId);
         if (evals.length === 0) return null;
-        const suma = evals.reduce((total, e) => total + e.calificacion, 0);
+        const suma = evals.reduce((total, e) => total + (e.calificacion || 0), 0);
         return Math.round(suma / evals.length);
     };
 
@@ -58,6 +76,17 @@ export default function Puestos() {
     const totalPuestos = puestos.length;
     const totalEvaluados = puestos.filter(p => getEvaluacionesPorPuesto(p.id).length > 0).length;
     const totalEvaluaciones = evaluaciones.length;
+
+    if (loading) {
+        return (
+            <div className="w-full bg-slate-50 min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-500">Cargando puestos...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full bg-slate-50 min-h-screen">
@@ -185,16 +214,28 @@ export default function Puestos() {
                         puesto={evaluacionActual}
                         formato={obtenerFormatoEvaluacion(evaluacionActual.nombre)}
                         onClose={() => setEvaluacionActual(null)}
-                        onSave={(evaluacion) => {
-                            const nuevaEvaluacion = {
-                                id: Date.now(),
-                                puestoId: evaluacionActual.id,
-                                puestoNombre: evaluacionActual.nombre,
-                                fecha: new Date().toISOString().split('T')[0],
-                                ...evaluacion
-                            };
-                            setEvaluaciones([...evaluaciones, nuevaEvaluacion]);
-                            setEvaluacionActual(null);
+                        onSave={async (evaluacion) => {
+                            try {
+                                const dataToSend = {
+                                    puesto: evaluacionActual.id,
+                                    colaborador_nombre: evaluacion.colaborador_nombre,
+                                    periodo: evaluacion.periodo,
+                                    concesionario: evaluacion.concesionario,
+                                    antiguedad: evaluacion.antiguedad,
+                                    evaluador_nombre: evaluacion.evaluador,
+                                    evaluador_puesto: evaluacion.evaluador_puesto,
+                                    motivo: evaluacion.motivo,
+                                    respuestas: evaluacion.respuestas,
+                                    calificacion: evaluacion.calificacion,
+                                    comentarios: evaluacion.comentarios,
+                                };
+                                const nuevaEvaluacion = await guardarEvaluacion(dataToSend);
+                                setEvaluaciones([...evaluaciones, nuevaEvaluacion]);
+                                setEvaluacionActual(null);
+                            } catch (error) {
+                                console.error('Error al guardar:', error);
+                                alert('Error al guardar la evaluación. Intenta de nuevo.');
+                            }
                         }}
                     />
                 )}
@@ -265,10 +306,7 @@ function ModalEvaluacion({ puesto, formato, onClose, onSave }) {
             alert('Por favor, ingresa el nombre del colaborador evaluado');
             return;
         }
-        
-        const fecha = new Date().toISOString().split('T')[0];
-        onSave({ ...evaluacion, fecha, calificacion });
-        onClose();
+        onSave(evaluacion);
     };
 
     return (
