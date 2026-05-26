@@ -61,7 +61,7 @@ const DATE_STAGES = [
     { key: "fecha_respuesta_gerente", label: "Respuesta gerente", group: "Entrevistas" },
     { key: "fecha_alta_khor", label: "Alta KHOR", group: "KHOR" },
     { key: "fecha_realizacion_khor", label: "Realización KHOR", group: "KHOR" },
-    { key: "fecha_entrega_resultados_khor", label: "Entrega resultados KHOR", group: "KHOR" },
+    // { key: "fecha_entrega_resultados_khor", label: "Entrega resultados KHOR", group: "KHOR" }, ← ELIMINADA
     { key: "fecha_solicitud_estudio_socioeconomico", label: "Solicitud estudio", group: "Socioeconómico", onlyWhen: "Estudio socioeconómico" },
     { key: "fecha_entrega_reporte_socioeconomico", label: "Entrega reporte", group: "Socioeconómico", onlyWhen: "Estudio socioeconómico" },
     { key: "fecha_solicitud_referencias_laborales", label: "Solicitud referencias", group: "Referencias", onlyWhen: "Referencias laborales" },
@@ -999,462 +999,120 @@ export default function VacantesView() {
                                                        <ProgressBar value={progreso} />
                                                    </div>
                                                </button>
-   
-                                               {isOpen ? (
-                                                   <div className="border-t border-black/10 bg-slate-50 p-4">
-                                                       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                                                           <div>
-                                                               <h3 className="text-sm font-black text-[#131E5C]">
-                                                                   Expediente del candidato
-                                                               </h3>
-                                                               <p className="text-xs font-semibold text-slate-500">
-                                                                   Captura datos generales y fechas reales de cada avance.
-                                                               </p>
-                                                           </div>
-   
-                                                           <button
-                                                               type="button"
-                                                               onClick={() => eliminarCandidato(index)}
-                                                               className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-600 shadow-sm transition hover:bg-red-50"
-                                                           >
-                                                               <Trash2 className="h-4 w-4" />
-                                                               Eliminar candidato
-                                                           </button>
-                                                       </div>
-   
-                                                       <div className="grid gap-3 lg:grid-cols-12">
-                                                           <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm lg:col-span-4">
-                                                               <div className="mb-4 flex items-center gap-2 text-sm font-black text-[#131E5C]">
-                                                                   <User className="h-4 w-4" />
-                                                                   Datos del candidato
-                                                               </div>
-   
-                                                               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                                                                   <label className="block sm:col-span-2 lg:col-span-1">
-                                                                       <span className="mb-1.5 block text-xs font-black text-slate-500">
-                                                                           Nombre
-                                                                       </span>
-                                                                       <input
-                                                                           value={candidato.nombre || ""}
-                                                                           onChange={(event) =>
-                                                                               actualizarCandidato(index, "nombre", event.target.value)
-                                                                           }
-                                                                           placeholder="Nombre completo"
-                                                                           className={cls(
-                                                                               inputBase,
-                                                                               touchedSave && errorCandidato?.faltantes.includes("nombre")
-                                                                                   ? inputBad
-                                                                                   : inputOk
-                                                                           )}
-                                                                       />
-                                                                   </label>
-   
-                                                                   <label className="block">
-                                                                       <span className="mb-1.5 block text-xs font-black text-slate-500">
-                                                                           Sexo
-                                                                       </span>
-                                                                       <select
-                                                                           value={candidato.sexo || ""}
-                                                                           onChange={(event) =>
-                                                                               actualizarCandidato(index, "sexo", event.target.value)
-                                                                           }
-                                                                           className={cls(
-                                                                               inputBase,
-                                                                               touchedSave && errorCandidato?.faltantes.includes("sexo")
-                                                                                   ? inputBad
-                                                                                   : inputOk
-                                                                           )}
-                                                                       >
-                                                                           <option value="">Selecciona...</option>
-                                                                           {SEXOS.map((sexo) => (
-                                                                               <option key={sexo} value={sexo}>
-                                                                                   {sexo}
-                                                                               </option>
-                                                                           ))}
-                                                                       </select>
-                                                                   </label>
-   
-                                                                   <label className="block">
-                                                                       <span className="mb-1.5 block text-xs font-black text-slate-500">
-                                                                           Teléfono
-                                                                       </span>
-                                                                       <input
-                                                                           value={candidato.telefono || ""}
-                                                                           onChange={(event) =>
-                                                                               actualizarCandidato(index, "telefono", event.target.value)
-                                                                           }
-                                                                           placeholder="Ej. 2711234567"
-                                                                           className={cls(
-                                                                               inputBase,
-                                                                               touchedSave && errorCandidato?.faltantes.includes("telefono")
-                                                                                   ? inputBad
-                                                                                   : inputOk
-                                                                           )}
-                                                                       />
-                                                                   </label>
-   
-                                                                   <label className="block sm:col-span-2 lg:col-span-1">
-                                                                       <span className="mb-1.5 block text-xs font-black text-slate-500">
-                                                                           Correo
-                                                                       </span>
-                                                                       <input
-                                                                           type="email"
-                                                                           value={candidato.correo || ""}
-                                                                           onChange={(event) =>
-                                                                               actualizarCandidato(index, "correo", event.target.value)
-                                                                           }
-                                                                           placeholder="correo@ejemplo.com"
-                                                                           className={cls(
-                                                                               inputBase,
-                                                                               touchedSave && errorCandidato?.faltantes.includes("correo")
-                                                                                   ? inputBad
-                                                                                   : inputOk
-                                                                           )}
-                                                                       />
-                                                                   </label>
-   
-                                                                   <label className="block sm:col-span-2 lg:col-span-1">
-                                                                       <span className="mb-1.5 block text-xs font-black text-slate-500">
-                                                                           Ubicación
-                                                                       </span>
-                                                                       <input
-                                                                           value={candidato.ubicacion || ""}
-                                                                           onChange={(event) =>
-                                                                               actualizarCandidato(index, "ubicacion", event.target.value)
-                                                                           }
-                                                                           placeholder="Ciudad / Estado"
-                                                                           className={cls(
-                                                                               inputBase,
-                                                                               touchedSave && errorCandidato?.faltantes.includes("ubicacion")
-                                                                                   ? inputBad
-                                                                                   : inputOk
-                                                                           )}
-                                                                       />
-                                                                   </label>
-   
-                                                                   <label className="block sm:col-span-2 lg:col-span-1">
-                                                                       <span className="mb-1.5 block text-xs font-black text-slate-500">
-                                                                           Puesto al que se postula
-                                                                       </span>
-                                                                       <select
-                                                                           value={candidato.puesto_postulado || ""}
-                                                                           onChange={(event) =>
-                                                                               actualizarCandidato(index, "puesto_postulado", event.target.value)
-                                                                           }
-                                                                           className={cls(
-                                                                               inputBase,
-                                                                               touchedSave && errorCandidato?.faltantes.includes("puesto_postulado")
-                                                                                   ? inputBad
-                                                                                   : inputOk
-                                                                           )}
-                                                                       >
-                                                                           <option value="">Selecciona puesto...</option>
-                                                                           {PUESTOS.map((puesto) => (
-                                                                               <option key={puesto} value={puesto}>
-                                                                                   {puesto}
-                                                                               </option>
-                                                                           ))}
-                                                                       </select>
-                                                                   </label>
-   
-                                                                   <label className="block">
-                                                                       <span className="mb-1.5 block text-xs font-black text-slate-500">
-                                                                           Fuente
-                                                                       </span>
-                                                                       <select
-                                                                           value={candidato.fuente || ""}
-                                                                           onChange={(event) =>
-                                                                               actualizarCandidato(index, "fuente", event.target.value)
-                                                                           }
-                                                                           className={cls(
-                                                                               inputBase,
-                                                                               touchedSave && errorCandidato?.faltantes.includes("fuente")
-                                                                                   ? inputBad
-                                                                                   : inputOk
-                                                                           )}
-                                                                       >
-                                                                           <option value="">Selecciona fuente...</option>
-                                                                           {FUENTES_RECLUTAMIENTO.map((fuente) => (
-                                                                               <option key={fuente} value={fuente}>
-                                                                                   {fuente}
-                                                                               </option>
-                                                                           ))}
-                                                                       </select>
-                                                                   </label>
-   
-                                                                   <label className="block">
-                                                                       <span className="mb-1.5 block text-xs font-black text-slate-500">
-                                                                           Estatus candidato
-                                                                       </span>
-                                                                       <select
-                                                                           value={candidato.estatus || "Nuevo"}
-                                                                           onChange={(event) =>
-                                                                               actualizarCandidato(index, "estatus", event.target.value)
-                                                                           }
-                                                                           className={modalInputCls}
-                                                                       >
-                                                                           {ESTATUS_CANDIDATO.map((estatus) => (
-                                                                               <option key={estatus} value={estatus}>
-                                                                                   {estatus}
-                                                                               </option>
-                                                                           ))}
-                                                                       </select>
-                                                                   </label>
-                                                               </div>
-                                                           </div>
-   
-                                                           <div className="space-y-3 lg:col-span-8">
-                                                               <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                                                                   <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                                                       <div>
-                                                                           <div className="flex items-center gap-2 text-sm font-black text-[#131E5C]">
-                                                                               <CalendarDays className="h-4 w-4" />
-                                                                               Fechas por etapa
-                                                                           </div>
-                                                                           <p className="mt-1 text-xs font-semibold text-slate-500">
-                                                                               Usa una fecha por cada avance. Los campos vacíos representan pendientes.
-                                                                           </p>
-                                                                       </div>
-   
-                                                                       <div className="w-full md:w-56">
-                                                                           <div className="mb-1 flex items-center justify-between text-xs font-black text-[#131E5C]">
-                                                                               <span>Avance total</span>
-                                                                               <span>{progreso}%</span>
-                                                                           </div>
-                                                                           <ProgressBar value={progreso} />
-                                                                       </div>
-                                                                   </div>
-   
-                                                                   <div className="grid gap-3 md:grid-cols-3">
-                                                                       <DateField
-                                                                           label="Fecha entrevista DO"
-                                                                           value={candidato.fecha_entrevista_do}
-                                                                           onChange={(value) =>
-                                                                               actualizarCandidato(index, "fecha_entrevista_do", value)
-                                                                           }
-                                                                           inputClassName={modalInputCls}
-                                                                       />
-   
-                                                                       <DateField
-                                                                           label="Entrevista gerente"
-                                                                           value={candidato.fecha_entrevista_gerente}
-                                                                           onChange={(value) =>
-                                                                               actualizarCandidato(index, "fecha_entrevista_gerente", value)
-                                                                           }
-                                                                           inputClassName={modalInputCls}
-                                                                       />
-   
-                                                                       <DateField
-                                                                           label="Fecha respuesta gerente"
-                                                                           value={candidato.fecha_respuesta_gerente}
-                                                                           onChange={(value) =>
-                                                                               actualizarCandidato(index, "fecha_respuesta_gerente", value)
-                                                                           }
-                                                                           inputClassName={modalInputCls}
-                                                                       />
-   
-                                                                       <DateField
-                                                                           label="Alta KHOR"
-                                                                           value={candidato.fecha_alta_khor}
-                                                                           onChange={(value) =>
-                                                                               actualizarCandidato(index, "fecha_alta_khor", value)
-                                                                           }
-                                                                           inputClassName={modalInputCls}
-                                                                       />
-   
-                                                                       <DateField
-                                                                           label="Realización KHOR"
-                                                                           value={candidato.fecha_realizacion_khor}
-                                                                           onChange={(value) =>
-                                                                               actualizarCandidato(index, "fecha_realizacion_khor", value)
-                                                                           }
-                                                                           inputClassName={modalInputCls}
-                                                                       />
-   
-                                                                       <DateField
-                                                                           label="Entrega resultados KHOR"
-                                                                           value={candidato.fecha_entrega_resultados_khor}
-                                                                           onChange={(value) =>
-                                                                               actualizarCandidato(index, "fecha_entrega_resultados_khor", value)
-                                                                           }
-                                                                           inputClassName={modalInputCls}
-                                                                       />
-                                                                   </div>
-                                                               </div>
-   
-                                                               <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                                                                   <div className="mb-4 flex items-center gap-2 text-sm font-black text-[#131E5C]">
-                                                                       <FileText className="h-4 w-4" />
-                                                                       Validación socioeconómica / referencias
-                                                                   </div>
-   
-                                                                   <div className="grid gap-3 md:grid-cols-3">
-                                                                       <label className="block md:col-span-3">
-                                                                           <span className="mb-1.5 block text-xs font-black text-slate-500">
-                                                                               Tipo de validación
-                                                                           </span>
-                                                                           <select
-                                                                               value={candidato.tipo_validacion_socioeconomica || "No aplica"}
-                                                                               onChange={(event) =>
-                                                                                   actualizarCandidato(index, "tipo_validacion_socioeconomica", event.target.value)
-                                                                               }
-                                                                               className={modalInputCls}
-                                                                           >
-                                                                               {TIPOS_VALIDACION.map((tipo) => (
-                                                                                   <option key={tipo} value={tipo}>
-                                                                                       {tipo}
-                                                                                   </option>
-                                                                               ))}
-                                                                           </select>
-                                                                       </label>
-   
-                                                                       {candidato.tipo_validacion_socioeconomica === "Estudio socioeconómico" ? (
-                                                                           <>
-                                                                               <DateField
-                                                                                   label="Solicitud estudio socioeconómico"
-                                                                                   value={candidato.fecha_solicitud_estudio_socioeconomico}
-                                                                                   onChange={(value) =>
-                                                                                       actualizarCandidato(index, "fecha_solicitud_estudio_socioeconomico", value)
-                                                                                   }
-                                                                                   inputClassName={modalInputCls}
-                                                                               />
-   
-                                                                               <DateField
-                                                                                   label="Entrega reporte socioeconómico"
-                                                                                   value={candidato.fecha_entrega_reporte_socioeconomico}
-                                                                                   onChange={(value) =>
-                                                                                       actualizarCandidato(index, "fecha_entrega_reporte_socioeconomico", value)
-                                                                                   }
-                                                                                   inputClassName={modalInputCls}
-                                                                               />
-                                                                           </>
-                                                                       ) : null}
-   
-                                                                       {candidato.tipo_validacion_socioeconomica === "Referencias laborales" ? (
-                                                                           <>
-                                                                               <DateField
-                                                                                   label="Solicitud referencias laborales"
-                                                                                   value={candidato.fecha_solicitud_referencias_laborales}
-                                                                                   onChange={(value) =>
-                                                                                       actualizarCandidato(index, "fecha_solicitud_referencias_laborales", value)
-                                                                                   }
-                                                                                   inputClassName={modalInputCls}
-                                                                               />
-   
-                                                                               <DateField
-                                                                                   label="Entrega referencias laborales"
-                                                                                   value={candidato.fecha_entrega_referencias_laborales}
-                                                                                   onChange={(value) =>
-                                                                                       actualizarCandidato(index, "fecha_entrega_referencias_laborales", value)
-                                                                                   }
-                                                                                   inputClassName={modalInputCls}
-                                                                               />
-                                                                           </>
-                                                                       ) : null}
-                                                                   </div>
-                                                               </div>
-   
-                                                               <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                                                                   <div className="mb-4 flex items-center gap-2 text-sm font-black text-[#131E5C]">
-                                                                       <ClipboardCheck className="h-4 w-4" />
-                                                                       Alta e ingreso
-                                                                   </div>
-   
-                                                                   <div className="grid gap-3 md:grid-cols-3">
-                                                                       <DateField
-                                                                           label="Solicitud de alta"
-                                                                           value={candidato.fecha_solicitud_alta}
-                                                                           onChange={(value) =>
-                                                                               actualizarCandidato(index, "fecha_solicitud_alta", value)
-                                                                           }
-                                                                           inputClassName={modalInputCls}
-                                                                       />
-   
-                                                                       <DateField
-                                                                           label="Respuesta alta"
-                                                                           value={candidato.fecha_respuesta_alta}
-                                                                           onChange={(value) =>
-                                                                               actualizarCandidato(index, "fecha_respuesta_alta", value)
-                                                                           }
-                                                                           inputClassName={modalInputCls}
-                                                                       />
-   
-                                                                       <DateField
-                                                                           label="Fecha de ingreso"
-                                                                           value={candidato.fecha_ingreso}
-                                                                           onChange={(value) =>
-                                                                               actualizarCandidato(index, "fecha_ingreso", value)
-                                                                           }
-                                                                           inputClassName={modalInputCls}
-                                                                       />
-                                                                   </div>
-                                                               </div>
-   
-                                                               <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                                                                   <label className="block">
-                                                                       <span className="mb-1.5 flex items-center gap-2 text-xs font-black text-slate-500">
-                                                                           <FileText className="h-3.5 w-3.5" />
-                                                                           Comentarios / seguimiento
-                                                                       </span>
-                                                                       <textarea
-                                                                           value={candidato.comentarios || ""}
-                                                                           onChange={(event) =>
-                                                                               actualizarCandidato(index, "comentarios", event.target.value)
-                                                                           }
-                                                                           rows={3}
-                                                                           placeholder="Observaciones, acuerdos, comentarios del gerente o detalles del seguimiento..."
-                                                                           className={cls(
-                                                                               inputBase,
-                                                                               inputOk,
-                                                                               "min-h-[96px] resize-y"
-                                                                           )}
-                                                                       />
-                                                                   </label>
-                                                               </div>
-   
-                                                               <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                                                                   <div className="mb-3 text-sm font-black text-[#131E5C]">
-                                                                       Resumen de etapas
-                                                                   </div>
-   
-                                                                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                                                       {stagesVisibles(candidato).map((stage) => {
-                                                                           const done = Boolean(candidato[stage.key]);
-   
-                                                                           return (
-                                                                               <div
-                                                                                   key={stage.key}
-                                                                                   className={cls(
-                                                                                       "rounded-2xl border p-3",
-                                                                                       done
-                                                                                           ? "border-emerald-200 bg-emerald-50"
-                                                                                           : "border-slate-200 bg-slate-50"
-                                                                                   )}
-                                                                               >
-                                                                                   <div className="flex items-center gap-2">
-                                                                                       {done ? (
-                                                                                           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                                                                       ) : (
-                                                                                           <CalendarDays className="h-4 w-4 text-slate-400" />
-                                                                                       )}
-                                                                                       <div className="min-w-0">
-                                                                                           <div className="truncate text-xs font-black text-[#131E5C]">
-                                                                                               {stage.label}
-                                                                                           </div>
-                                                                                           <div className="text-[11px] font-semibold text-slate-500">
-                                                                                               {done ? formatDate(candidato[stage.key]) : "Pendiente"}
-                                                                                           </div>
-                                                                                       </div>
-                                                                                   </div>
-                                                                               </div>
-                                                                           );
-                                                                       })}
-                                                                   </div>
-                                                               </div>
-                                                           </div>
-                                                       </div>
-                                                   </div>
-                                               ) : null}
+                                                {isOpen ? (
+                                                    <div className="border-t border-black/10 bg-slate-50 p-4">
+                                                        <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                                            <div>
+                                                                <h3 className="text-sm font-black text-[#131E5C]">Expediente del candidato</h3>
+                                                                <p className="text-xs font-semibold text-slate-500">Captura datos generales y fechas reales de cada avance.</p>
+                                                            </div>
+                                                            <button onClick={() => eliminarCandidato(index)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-600 shadow-sm transition hover:bg-red-50">
+                                                                <Trash2 className="h-4 w-4" /> Eliminar candidato
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="space-y-5">
+                                                            {/* ========== DATOS DEL CANDIDATO - HORIZONTAL ========== */}
+                                                            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
+                                                                <div className="mb-3 flex items-center gap-2 text-sm font-black text-[#131E5C]">
+                                                                    <User className="h-4 w-4" /> Datos del candidato
+                                                                </div>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                                                    <label className="block">
+                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Nombre *</span>
+                                                                        <input value={candidato.nombre || ""} onChange={e => actualizarCandidato(index, "nombre", e.target.value)} placeholder="Nombre completo" className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("nombre") ? inputBad : inputOk)} />
+                                                                    </label>
+                                                                    <label className="block">
+                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Sexo *</span>
+                                                                        <select value={candidato.sexo || ""} onChange={e => actualizarCandidato(index, "sexo", e.target.value)} className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("sexo") ? inputBad : inputOk)}>
+                                                                            <option value="">Selecciona...</option>
+                                                                            {SEXOS.map(s => <option key={s} value={s}>{s}</option>)}
+                                                                        </select>
+                                                                    </label>
+                                                                    <label className="block">
+                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Teléfono *</span>
+                                                                        <input value={candidato.telefono || ""} onChange={e => actualizarCandidato(index, "telefono", e.target.value)} placeholder="Ej. 2711234567" className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("telefono") ? inputBad : inputOk)} />
+                                                                    </label>
+                                                                    <label className="block">
+                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Correo *</span>
+                                                                        <input type="email" value={candidato.correo || ""} onChange={e => actualizarCandidato(index, "correo", e.target.value)} placeholder="correo@ejemplo.com" className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("correo") ? inputBad : inputOk)} />
+                                                                    </label>
+                                                                    <label className="block">
+                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Ubicación *</span>
+                                                                        <input value={candidato.ubicacion || ""} onChange={e => actualizarCandidato(index, "ubicacion", e.target.value)} placeholder="Ciudad / Estado" className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("ubicacion") ? inputBad : inputOk)} />
+                                                                    </label>
+                                                                    <label className="block">
+                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Puesto al que se postula *</span>
+                                                                        <select value={candidato.puesto_postulado || ""} onChange={e => actualizarCandidato(index, "puesto_postulado", e.target.value)} className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("puesto_postulado") ? inputBad : inputOk)}>
+                                                                            <option value="">Selecciona puesto...</option>
+                                                                            {PUESTOS.map(p => <option key={p} value={p}>{p}</option>)}
+                                                                        </select>
+                                                                    </label>
+                                                                    <label className="block">
+                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Fuente *</span>
+                                                                        <select value={candidato.fuente || ""} onChange={e => actualizarCandidato(index, "fuente", e.target.value)} className={cls(inputBase, touchedSave && errorCandidato?.faltantes.includes("fuente") ? inputBad : inputOk)}>
+                                                                            <option value="">Selecciona fuente...</option>
+                                                                            {FUENTES_RECLUTAMIENTO.map(f => <option key={f} value={f}>{f}</option>)}
+                                                                        </select>
+                                                                    </label>
+                                                                    <label className="block">
+                                                                        <span className="mb-1 block text-xs font-black text-slate-500">Estatus candidato</span>
+                                                                        <select value={candidato.estatus || "Nuevo"} onChange={e => actualizarCandidato(index, "estatus", e.target.value)} className={modalInputCls}>
+                                                                            {ESTATUS_CANDIDATO.map(e => <option key={e} value={e}>{e}</option>)}
+                                                                        </select>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* ========== FECHAS POR ETAPA ========== */}
+                                                            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
+                                                                <div className="mb-3 flex items-center gap-2 text-sm font-black text-[#131E5C]">
+                                                                    <CalendarDays className="h-4 w-4" /> Fechas por etapa
+                                                                </div>
+                                                                <p className="text-xs font-semibold text-slate-500 mb-3">Usa una fecha por cada avance. Los campos vacíos representan pendientes.</p>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                                    <DateField label="Entrevista DO" value={candidato.fecha_entrevista_do} onChange={v => actualizarCandidato(index, "fecha_entrevista_do", v)} inputClassName={modalInputCls} />
+                                                                    <DateField label="Entrevista gerente" value={candidato.fecha_entrevista_gerente} onChange={v => actualizarCandidato(index, "fecha_entrevista_gerente", v)} inputClassName={modalInputCls} />
+                                                                    <DateField label="Respuesta gerente" value={candidato.fecha_respuesta_gerente} onChange={v => actualizarCandidato(index, "fecha_respuesta_gerente", v)} inputClassName={modalInputCls} />
+                                                                    <DateField label="Alta KHOR" value={candidato.fecha_alta_khor} onChange={v => actualizarCandidato(index, "fecha_alta_khor", v)} inputClassName={modalInputCls} />
+                                                                    <DateField label="Realización KHOR" value={candidato.fecha_realizacion_khor} onChange={v => actualizarCandidato(index, "fecha_realizacion_khor", v)} inputClassName={modalInputCls} />
+                                                                    <DateField label="Entrega resultados KHOR" value={candidato.fecha_entrega_resultados_khor} onChange={v => actualizarCandidato(index, "fecha_entrega_resultados_khor", v)} inputClassName={modalInputCls} />
+                                                                </div>
+                                                            </div>
+
+                                                            {/* ========== COMENTARIOS ========== */}
+                                                            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
+                                                                <label className="block">
+                                                                    <span className="mb-1 flex items-center gap-2 text-xs font-black text-slate-500">
+                                                                        <FileText className="h-3.5 w-3.5" /> Comentarios / seguimiento
+                                                                    </span>
+                                                                    <textarea value={candidato.comentarios || ""} onChange={e => actualizarCandidato(index, "comentarios", e.target.value)} rows={3} placeholder="Observaciones, acuerdos, comentarios del gerente o detalles del seguimiento..." className={cls(inputBase, inputOk, "min-h-[96px] resize-y")} />
+                                                                </label>
+                                                            </div>
+
+                                                            {/* ========== RESUMEN DE ETAPAS ========== */}
+                                                            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
+                                                                <div className="mb-3 text-sm font-black text-[#131E5C]">Resumen de etapas</div>
+                                                                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                                                    {stagesVisibles(candidato).map((stage) => {
+                                                                        const done = Boolean(candidato[stage.key]);
+                                                                        return (
+                                                                            <div key={stage.key} className={cls("rounded-2xl border p-3", done ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50")}>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    {done ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <CalendarDays className="h-4 w-4 text-slate-400" />}
+                                                                                    <div className="min-w-0">
+                                                                                        <div className="truncate text-xs font-black text-[#131E5C]">{stage.label}</div>
+                                                                                        <div className="text-[11px] font-semibold text-slate-500">{done ? formatDate(candidato[stage.key]) : "Pendiente"}</div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : null}
                                            </div>
                                        );
                                    })}
