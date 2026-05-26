@@ -1,291 +1,280 @@
 import { useState } from 'react';
-import { X, User, Star, Award, TrendingUp, Target, Users, MessageSquare, CheckCircle } from 'lucide-react';
+import { X, User, Star, Award, TrendingUp, Target, Users, MessageSquare, CheckCircle, Calendar, Building2, Clock } from 'lucide-react';
 import { obtenerFormatoEvaluacion } from './datos/formatosEvaluacion';
 
 export default function EvaluarPuesto({ puesto, onClose, onSave }) {
     const formato = obtenerFormatoEvaluacion(puesto.nombre);
-    
-    // Inicializar valores de criterios según el tipo de formato
-    const inicializarCriterios = () => {
-        if (formato.tipo === "escala" || formato.tipo === "escala_10") {
-            const criteriosObj = {};
-            formato.criterios.forEach(criterio => {
-                criteriosObj[criterio] = 3; // valor por defecto 3 (regular)
-            });
-            return criteriosObj;
-        } else if (formato.tipo === "semanal") {
-            const criteriosObj = {};
-            formato.criterios.forEach(criterio => {
-                criteriosObj[criterio.nombre] = {
-                    semanas: {
-                        "semana 1": "",
-                        "semana 2": "",
-                        "semana 3": "",
-                        "semana 4": ""
-                    },
-                    meta: criterio.meta
-                };
-            });
-            return criteriosObj;
-        }
-        return {};
-    };
+    const criterios = formato?.criterios || [];
+    const criteriosStrings = criterios.map(c => typeof c === 'string' ? c : c.nombre);
 
     const [evaluacion, setEvaluacion] = useState({
         puestoId: puesto.id,
         puestoNombre: puesto.nombre,
-        evaluador: '',
-        calificacion: 0,
+        
+        // Datos del colaborador evaluado
+        colaborador_nombre: '',
+        periodo: '',
+        concesionario: '',
+        antiguedad: '',
+        
+        // Datos del evaluador
+        evaluador_nombre: '',
+        evaluador_puesto: '',
+        motivo: 'A',
+        
+        calificacion: 75,
         comentarios: '',
-        criterios: inicializarCriterios()
+        criterios: {}
     });
 
-    const calcularCalificacion = (criterios) => {
-        if (formato.tipo === "escala") {
-            const valores = Object.values(criterios);
-            const suma = valores.reduce((a, b) => a + b, 0);
-            const totalPosible = formato.criterios.length * 5;
-            return Math.round((suma / totalPosible) * 100);
-        } else if (formato.tipo === "escala_10") {
-            const valores = Object.values(criterios);
-            const suma = valores.reduce((a, b) => a + b, 0);
-            const totalPosible = formato.criterios.length * 10;
-            return Math.round((suma / totalPosible) * 100);
-        } else if (formato.tipo === "semanal") {
-            // Para formato semanal, calcular promedio de metas cumplidas
-            let totalCumplimiento = 0;
-            let count = 0;
-            Object.values(criterios).forEach(criterio => {
-                const semanas = Object.values(criterio.semanas);
-                semanas.forEach(valor => {
-                    if (valor && criterio.meta) {
-                        const valorNum = parseFloat(valor);
-                        const metaNum = parseFloat(criterio.meta);
-                        if (!isNaN(valorNum) && !isNaN(metaNum)) {
-                            let porcentaje = (valorNum / metaNum) * 100;
-                            if (porcentaje > 100) porcentaje = 100;
-                            totalCumplimiento += porcentaje;
-                            count++;
-                        }
-                    }
-                });
-            });
-            return count > 0 ? Math.round(totalCumplimiento / count) : 0;
-        }
-        return 0;
+    if (Object.keys(evaluacion.criterios).length === 0 && criteriosStrings.length > 0) {
+        const criteriosObj = {};
+        criteriosStrings.forEach(c => criteriosObj[c] = 3);
+        evaluacion.criterios = criteriosObj;
+    }
+
+    const calcularCalificacion = () => {
+        if (criteriosStrings.length === 0) return 0;
+        let suma = 0;
+        criteriosStrings.forEach(criterio => {
+            suma += evaluacion.criterios[criterio] || 3;
+        });
+        return Math.round((suma / (criteriosStrings.length * 5)) * 100);
     };
 
-    const handleCriterioChange = (criterioNombre, value, semana = null) => {
-        const nuevosCriterios = { ...evaluacion.criterios };
-        
-        if (semana) {
-            nuevosCriterios[criterioNombre].semanas[semana] = value;
-        } else {
-            nuevosCriterios[criterioNombre] = parseInt(value);
-        }
-        
-        const nuevaCalificacion = calcularCalificacion(nuevosCriterios);
+    const handleCriterioChange = (criterio, valor) => {
+        const nuevosCriterios = { ...evaluacion.criterios, [criterio]: valor };
         setEvaluacion({
             ...evaluacion,
             criterios: nuevosCriterios,
-            calificacion: nuevaCalificacion
+            calificacion: calcularCalificacion()
         });
     };
 
-    const getColorCalificacion = (puntaje) => {
-        if (puntaje >= 85) return 'text-emerald-600';
-        if (puntaje >= 70) return 'text-amber-600';
-        return 'text-red-600';
-    };
+    const escala = [
+        { valor: 5, label: "Excelente", color: "bg-emerald-500", light: "bg-emerald-50", text: "text-emerald-700" },
+        { valor: 4, label: "Bueno", color: "bg-blue-500", light: "bg-blue-50", text: "text-blue-700" },
+        { valor: 3, label: "Regular", color: "bg-amber-500", light: "bg-amber-50", text: "text-amber-700" },
+        { valor: 2, label: "Tolerable", color: "bg-orange-500", light: "bg-orange-50", text: "text-orange-700" },
+        { valor: 1, label: "Malo", color: "bg-red-500", light: "bg-red-50", text: "text-red-700" }
+    ];
 
-    const getTextoCalificacion = (puntaje) => {
-        if (puntaje >= 85) return 'Excelente';
-        if (puntaje >= 70) return 'Bueno';
-        if (puntaje >= 50) return 'Regular';
-        return 'Necesita mejorar';
-    };
+    const calificacion = evaluacion.calificacion;
 
-    const getEscalaLabel = (valor, tipo) => {
-        if (tipo === "escala") {
-            const labels = { 5: "Excelente", 4: "Bueno", 3: "Regular", 2: "Tolerable", 1: "Malo" };
-            return labels[valor] || "";
-        } else if (tipo === "escala_10") {
-            const labels = { 10: "Excelente", 9: "Muy bien", 8: "Bien", 7: "Bien", 6: "Regular", 5: "Regular", 4: "Malo", 3: "Malo", 2: "Muy mal", 1: "Muy mal", 0: "Muy mal" };
-            return labels[valor] || "";
+    const handleSubmit = () => {
+        if (!evaluacion.evaluador_nombre) {
+            alert('Por favor, ingresa el nombre del evaluador');
+            return;
         }
-        return "";
+        if (!evaluacion.colaborador_nombre) {
+            alert('Por favor, ingresa el nombre del colaborador evaluado');
+            return;
+        }
+        
+        const fecha = new Date().toISOString().split('T')[0];
+        onSave({ ...evaluacion, fecha, calificacion });
+        onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm overflow-y-auto">
             <div className="relative w-full max-w-4xl my-8 mx-4 bg-white rounded-2xl shadow-2xl">
-                {/* Header */}
-                <div className="sticky top-0 bg-white border-b border-slate-200 rounded-t-2xl p-5 flex justify-between items-center">
-                    <div>
-                        <h2 className="text-xl font-black text-[#131E5C]">Evaluar puesto</h2>
-                        <p className="text-sm text-slate-500">{puesto.nombre}</p>
-                        <p className="text-xs text-slate-400 mt-1">
-                            Tipo de evaluación: {formato.tipo === "escala" ? "Escala 1-5" : formato.tipo === "escala_10" ? "Escala 0-10" : "Semanal por metas"}
-                        </p>
+                
+                <div className="relative rounded-t-2xl bg-gradient-to-r from-[#0f2866] to-[#1a3a8a] p-6 text-white">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <span className="text-2xl">📋</span> Evaluación de Desempeño
+                            </h2>
+                            <p className="text-white/80 text-sm mt-1">{puesto.nombre}</p>
+                            <p className="text-white/60 text-xs mt-0.5">{criteriosStrings.length} criterios de evaluación</p>
+                        </div>
+                        <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+                            <X className="h-5 w-5" />
+                        </button>
                     </div>
-                    <button onClick={onClose} className="rounded-full p-2 hover:bg-slate-100">
-                        <X className="h-5 w-5 text-slate-400" />
-                    </button>
                 </div>
 
-                {/* Body */}
-                <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
-                    {/* Evaluador */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">
-                            <User className="inline h-4 w-4 mr-1" />
-                            Nombre del evaluador *
-                        </label>
-                        <input
-                            type="text"
-                            value={evaluacion.evaluador}
-                            onChange={(e) => setEvaluacion({ ...evaluacion, evaluador: e.target.value })}
-                            placeholder="Ej: Juan Pérez, Gerente de RH"
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2 focus:border-[#131E5C] focus:outline-none"
-                        />
-                    </div>
+                <div className="p-6 space-y-6 max-h-[65vh] overflow-y-auto">
 
-                    {/* Criterios según tipo de formato */}
-                    <div className="space-y-4">
-                        <h3 className="text-md font-bold text-[#131E5C] border-l-4 border-[#131E5C] pl-3">
-                            Criterios de evaluación
+                     
+                    {/* CUADRO DE PRUEBA - AGREGA ESTO AQUÍ */}
+                    <div className="bg-red-500 text-white p-4 mb-4 rounded-xl">
+                        🔥 PRUEBA - SI VES ESTO, EL ARCHIVO SE ACTUALIZÓ 🔥
+                    </div>
+                                    
+                    {/* DATOS DEL COLABORADOR EVALUADO */}
+                    <div className="bg-gradient-to-r from-blue-50 to-white rounded-xl p-4 border border-blue-100">
+                        <h3 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                            <User className="h-4 w-4" /> Datos del colaborador evaluado
                         </h3>
-
-                        {formato.tipo === "escala" && (
-                            <div className="space-y-4">
-                                {formato.criterios.map((criterio, idx) => (
-                                    <div key={idx} className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-sm font-semibold text-slate-600">
-                                                {criterio}
-                                            </label>
-                                            <span className={`text-sm font-black ${getColorCalificacion(evaluacion.criterios[criterio] * 20)}`}>
-                                                {evaluacion.criterios[criterio]} - {getEscalaLabel(evaluacion.criterios[criterio], "escala")}
-                                            </span>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            {[1, 2, 3, 4, 5].map(val => (
-                                                <button
-                                                    key={val}
-                                                    type="button"
-                                                    onClick={() => handleCriterioChange(criterio, val)}
-                                                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${
-                                                        evaluacion.criterios[criterio] === val
-                                                            ? 'bg-[#131E5C] text-white'
-                                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                                    }`}
-                                                >
-                                                    {val}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Nombre completo *</label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.colaborador_nombre}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, colaborador_nombre: e.target.value })}
+                                    placeholder="Ej: Juan Pérez Gómez"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
                             </div>
-                        )}
-
-                        {formato.tipo === "escala_10" && (
-                            <div className="space-y-4">
-                                {formato.criterios.map((criterio, idx) => (
-                                    <div key={idx} className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-sm font-semibold text-slate-600">
-                                                {criterio}
-                                            </label>
-                                            <span className={`text-sm font-black ${getColorCalificacion(evaluacion.criterios[criterio] * 10)}`}>
-                                                {evaluacion.criterios[criterio]} - {getEscalaLabel(evaluacion.criterios[criterio], "escala_10")}
-                                            </span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="10"
-                                            step="1"
-                                            value={evaluacion.criterios[criterio]}
-                                            onChange={(e) => handleCriterioChange(criterio, parseInt(e.target.value))}
-                                            className="w-full accent-[#131E5C]"
-                                        />
-                                    </div>
-                                ))}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Período que se evalúa</label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.periodo}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, periodo: e.target.value })}
+                                    placeholder="Ej: Enero - Marzo 2026"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
                             </div>
-                        )}
-
-                        {formato.tipo === "semanal" && (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm border-collapse">
-                                    <thead>
-                                        <tr className="bg-slate-100">
-                                            <th className="p-2 text-left text-[#131E5C]">Indicador</th>
-                                            <th className="p-2 text-center text-[#131E5C]">Semana 1</th>
-                                            <th className="p-2 text-center text-[#131E5C]">Semana 2</th>
-                                            <th className="p-2 text-center text-[#131E5C]">Semana 3</th>
-                                            <th className="p-2 text-center text-[#131E5C]">Semana 4</th>
-                                            <th className="p-2 text-center text-[#131E5C]">Meta</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {formato.criterios.map((criterio, idx) => (
-                                            <tr key={idx} className="border-b border-slate-100">
-                                                <td className="p-2 font-semibold text-slate-700">{criterio.nombre}</td>
-                                                {["semana 1", "semana 2", "semana 3", "semana 4"].map(semana => (
-                                                    <td key={semana} className="p-2">
-                                                        <input
-                                                            type="text"
-                                                            value={evaluacion.criterios[criterio.nombre]?.semanas[semana] || ''}
-                                                            onChange={(e) => handleCriterioChange(criterio.nombre, e.target.value, semana)}
-                                                            className="w-24 text-center px-2 py-1 border border-slate-200 rounded-lg focus:border-[#131E5C] focus:outline-none"
-                                                            placeholder="Valor"
-                                                        />
-                                                    </td>
-                                                ))}
-                                                <td className="p-2 text-center text-emerald-600 font-bold">
-                                                    {criterio.meta || '-'}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1">
+                                    <Building2 className="h-3 w-3" /> Concesionario
+                                </label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.concesionario}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, concesionario: e.target.value })}
+                                    placeholder="Ej: VW Cordoba"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
                             </div>
-                        )}
-                    </div>
-
-                    {/* Calificación total */}
-                    <div className="bg-gradient-to-r from-[#131E5C] to-[#1E2A7A] rounded-xl p-5 text-white text-center">
-                        <div className="text-sm font-bold opacity-80">Calificación total</div>
-                        <div className="text-5xl font-black mt-1">{evaluacion.calificacion}%</div>
-                        <div className="mt-2 flex items-center justify-center gap-2">
-                            <CheckCircle className="h-5 w-5" />
-                            <span className="text-sm font-semibold">{getTextoCalificacion(evaluacion.calificacion)}</span>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1">
+                                    <Clock className="h-3 w-3" /> Antigüedad
+                                </label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.antiguedad}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, antiguedad: e.target.value })}
+                                    placeholder="Ej: 2 años, 3 meses"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    {/* Comentarios */}
+                    {/* DATOS DEL EVALUADOR */}
+                    <div className="bg-gradient-to-r from-emerald-50 to-white rounded-xl p-4 border border-emerald-100">
+                        <h3 className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-2">
+                            <User className="h-4 w-4" /> Datos del evaluador
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Nombre completo *</label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.evaluador_nombre}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, evaluador_nombre: e.target.value })}
+                                    placeholder="Ej: María López Sánchez"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Puesto</label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.evaluador_puesto}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, evaluador_puesto: e.target.value })}
+                                    placeholder="Ej: Gerente de Ventas"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-3">
+                            <label className="block text-xs font-semibold text-gray-600 mb-2">Motivo de la evaluación</label>
+                            <div className="flex gap-4">
+                                {[
+                                    { value: 'A', label: 'Análisis de desempeño', desc: 'Evaluación inicial o periódica' },
+                                    { value: 'D', label: 'Desarrollo del trabajador', desc: 'Desempeño a la baja' },
+                                    { value: 'E', label: 'Evaluación directa', desc: 'Evaluación de resultados' }
+                                ].map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => setEvaluacion({ ...evaluacion, motivo: opt.value })}
+                                        className={`flex-1 p-3 rounded-lg text-left transition border ${
+                                            evaluacion.motivo === opt.value
+                                                ? 'bg-blue-600 border-blue-600 text-white'
+                                                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <div className="font-bold text-sm">{opt.value} - {opt.label}</div>
+                                        <div className={`text-xs mt-1 ${evaluacion.motivo === opt.value ? 'text-white/80' : 'text-gray-400'}`}>
+                                            {opt.desc}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CRITERIOS */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Comentarios</label>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
+                            Criterios de evaluación
+                        </h3>
+                        <div className="space-y-3">
+                            {criteriosStrings.map((criterio, idx) => (
+                                <div key={idx} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition">
+                                    <div className="text-sm font-medium text-gray-800 mb-3">{criterio}</div>
+                                    <div className="flex gap-2">
+                                        {escala.map(opt => (
+                                            <button
+                                                key={opt.valor}
+                                                onClick={() => handleCriterioChange(criterio, opt.valor)}
+                                                className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all transform hover:scale-105 ${
+                                                    evaluacion.criterios[criterio] === opt.valor
+                                                        ? `${opt.color} text-white shadow-md`
+                                                        : `${opt.light} ${opt.text} hover:${opt.color} hover:text-white`
+                                                }`}
+                                            >
+                                                {opt.valor}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* CALIFICACIÓN */}
+                    <div className="rounded-xl p-5 text-center bg-gradient-to-br from-gray-50 to-white border border-gray-100">
+                        <div className="text-sm text-gray-500 uppercase tracking-wide">Calificación total</div>
+                        <div className="text-5xl font-black mt-2 bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">
+                            {calificacion}%
+                        </div>
+                        <div className="mt-4">
+                            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-500" style={{ width: `${calificacion}%` }} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* COMENTARIOS */}
+                    <div className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-100">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Comentarios y observaciones</label>
                         <textarea
                             rows={3}
                             value={evaluacion.comentarios}
                             onChange={(e) => setEvaluacion({ ...evaluacion, comentarios: e.target.value })}
-                            placeholder="Observaciones, áreas de mejora, logros destacados..."
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2 focus:border-[#131E5C] focus:outline-none resize-none"
+                            placeholder="Escribe aquí tus comentarios..."
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-400 focus:outline-none resize-none"
                         />
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="sticky bottom-0 bg-white border-t border-slate-200 rounded-b-2xl p-5 flex justify-end gap-3">
-                    <button onClick={onClose} className="rounded-xl border border-slate-300 px-6 py-2 text-sm font-semibold hover:bg-slate-50 transition">
+                <div className="sticky bottom-0 bg-white border-t border-gray-100 rounded-b-2xl p-5 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-6 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">
                         Cancelar
                     </button>
                     <button
-                        onClick={() => onSave(evaluacion)}
-                        disabled={!evaluacion.evaluador}
-                        className="rounded-xl bg-[#131E5C] px-6 py-2 text-sm font-semibold text-white hover:bg-[#131E5C]/85 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleSubmit}
+                        disabled={!evaluacion.evaluador_nombre || !evaluacion.colaborador_nombre}
+                        className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md disabled:opacity-50"
                     >
                         Guardar evaluación
                     </button>

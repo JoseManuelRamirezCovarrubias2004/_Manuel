@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PUESTOS, CATEGORIAS } from './datos/puestosData';
 import { obtenerFormatoEvaluacion } from './datos/formatosEvaluacion';
-import { ChevronDown, ChevronRight, Star, Search, X, User } from 'lucide-react';
+import { ChevronDown, ChevronRight, Star, Search, X, User, Building2, Clock } from 'lucide-react';
 
 export default function Puestos() {
     const [puestos, setPuestos] = useState([]);
@@ -179,7 +179,7 @@ export default function Puestos() {
                     })}
                 </div>
 
-                {/* Modal de evaluación elegante */}
+                {/* Modal de evaluación */}
                 {evaluacionActual && (
                     <ModalEvaluacion
                         puesto={evaluacionActual}
@@ -203,22 +203,47 @@ export default function Puestos() {
     );
 }
 
-// Modal de evaluación con diseño elegante y colorido
+// Modal de evaluación completo con todos los campos
 function ModalEvaluacion({ puesto, formato, onClose, onSave }) {
-    const [evaluador, setEvaluador] = useState('');
-    const [respuestas, setRespuestas] = useState({});
-    const [comentarios, setComentarios] = useState('');
+    const [evaluacion, setEvaluacion] = useState({
+        evaluador: '',
+        evaluador_puesto: '',
+        colaborador_nombre: '',
+        periodo: '',
+        concesionario: '',
+        antiguedad: '',
+        motivo: 'A',
+        respuestas: {},
+        comentarios: '',
+        calificacion: 75
+    });
 
     const criterios = formato?.criterios || [];
     const criteriosStrings = criterios.map(c => typeof c === 'string' ? c : c.nombre);
+
+    // Inicializar respuestas
+    if (Object.keys(evaluacion.respuestas).length === 0 && criteriosStrings.length > 0) {
+        const respuestasObj = {};
+        criteriosStrings.forEach(c => respuestasObj[c] = 3);
+        evaluacion.respuestas = respuestasObj;
+    }
 
     const calcularCalificacion = () => {
         if (criteriosStrings.length === 0) return 0;
         let suma = 0;
         criteriosStrings.forEach(criterio => {
-            suma += respuestas[criterio] || 3;
+            suma += evaluacion.respuestas[criterio] || 3;
         });
         return Math.round((suma / (criteriosStrings.length * 5)) * 100);
+    };
+
+    const handleCriterioChange = (criterio, valor) => {
+        const nuevasRespuestas = { ...evaluacion.respuestas, [criterio]: valor };
+        setEvaluacion({
+            ...evaluacion,
+            respuestas: nuevasRespuestas,
+            calificacion: calcularCalificacion()
+        });
     };
 
     const escala = [
@@ -229,11 +254,27 @@ function ModalEvaluacion({ puesto, formato, onClose, onSave }) {
         { valor: 1, label: "Malo", color: "bg-red-500", light: "bg-red-50", text: "text-red-700" }
     ];
 
-    const calificacion = calcularCalificacion();
+    const calificacion = evaluacion.calificacion;
+
+    const handleSubmit = () => {
+        if (!evaluacion.evaluador) {
+            alert('Por favor, ingresa el nombre del evaluador');
+            return;
+        }
+        if (!evaluacion.colaborador_nombre) {
+            alert('Por favor, ingresa el nombre del colaborador evaluado');
+            return;
+        }
+        
+        const fecha = new Date().toISOString().split('T')[0];
+        onSave({ ...evaluacion, fecha, calificacion });
+        onClose();
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm overflow-y-auto">
-            <div className="relative w-full max-w-3xl my-8 mx-4 bg-white rounded-2xl shadow-2xl">
+            <div className="relative w-full max-w-4xl my-8 mx-4 bg-white rounded-2xl shadow-2xl">
+                
                 {/* Header elegante */}
                 <div className="relative rounded-t-2xl bg-gradient-to-r from-[#0f2866] to-[#1a3a8a] p-6 text-white">
                     <div className="flex justify-between items-start">
@@ -250,24 +291,117 @@ function ModalEvaluacion({ puesto, formato, onClose, onSave }) {
                     </div>
                 </div>
 
-                {/* Body */}
                 <div className="p-6 space-y-6 max-h-[65vh] overflow-y-auto">
-                    {/* Evaluador */}
-                    <div className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-100">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                            Datos del evaluador
-                        </label>
-                        <input
-                            type="text"
-                            value={evaluador}
-                            onChange={(e) => setEvaluador(e.target.value)}
-                            placeholder="Nombre completo del evaluador"
-                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition"
-                        />
+                    
+                    {/* DATOS DEL COLABORADOR EVALUADO */}
+                    <div className="bg-gradient-to-r from-blue-50 to-white rounded-xl p-4 border border-blue-100">
+                        <h3 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                            <User className="h-4 w-4" /> Datos del colaborador evaluado
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Nombre completo *</label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.colaborador_nombre}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, colaborador_nombre: e.target.value })}
+                                    placeholder="Ej: Juan Pérez Gómez"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Período que se evalúa</label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.periodo}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, periodo: e.target.value })}
+                                    placeholder="Ej: Enero - Marzo 2026"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1">
+                                    <Building2 className="h-3 w-3" /> Concesionario
+                                </label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.concesionario}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, concesionario: e.target.value })}
+                                    placeholder="Ej: VW Cordoba"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1">
+                                    <Clock className="h-3 w-3" /> Antigüedad
+                                </label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.antiguedad}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, antiguedad: e.target.value })}
+                                    placeholder="Ej: 2 años, 3 meses"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Criterios */}
+                    {/* DATOS DEL EVALUADOR */}
+                    <div className="bg-gradient-to-r from-emerald-50 to-white rounded-xl p-4 border border-emerald-100">
+                        <h3 className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-2">
+                            <User className="h-4 w-4" /> Datos del evaluador
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Nombre completo *</label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.evaluador}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, evaluador: e.target.value })}
+                                    placeholder="Ej: María López Sánchez"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Puesto</label>
+                                <input
+                                    type="text"
+                                    value={evaluacion.evaluador_puesto}
+                                    onChange={(e) => setEvaluacion({ ...evaluacion, evaluador_puesto: e.target.value })}
+                                    placeholder="Ej: Gerente de Ventas"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-3">
+                            <label className="block text-xs font-semibold text-gray-600 mb-2">Motivo de la evaluación</label>
+                            <div className="flex gap-4">
+                                {[
+                                    { value: 'A', label: 'Análisis de desempeño', desc: 'Evaluación inicial o periódica' },
+                                    { value: 'D', label: 'Desarrollo del trabajador', desc: 'Desempeño a la baja' },
+                                    { value: 'E', label: 'Evaluación directa', desc: 'Evaluación de resultados' }
+                                ].map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => setEvaluacion({ ...evaluacion, motivo: opt.value })}
+                                        className={`flex-1 p-3 rounded-lg text-left transition border ${
+                                            evaluacion.motivo === opt.value
+                                                ? 'bg-blue-600 border-blue-600 text-white'
+                                                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <div className="font-bold text-sm">{opt.value} - {opt.label}</div>
+                                        <div className={`text-xs mt-1 ${evaluacion.motivo === opt.value ? 'text-white/80' : 'text-gray-400'}`}>
+                                            {opt.desc}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CRITERIOS */}
                     <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                             <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
@@ -281,9 +415,9 @@ function ModalEvaluacion({ puesto, formato, onClose, onSave }) {
                                         {escala.map(opt => (
                                             <button
                                                 key={opt.valor}
-                                                onClick={() => setRespuestas({ ...respuestas, [criterio]: opt.valor })}
+                                                onClick={() => handleCriterioChange(criterio, opt.valor)}
                                                 className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all transform hover:scale-105 ${
-                                                    respuestas[criterio] === opt.valor
+                                                    evaluacion.respuestas[criterio] === opt.valor
                                                         ? `${opt.color} text-white shadow-md`
                                                         : `${opt.light} ${opt.text} hover:${opt.color} hover:text-white`
                                                 }`}
@@ -292,10 +426,10 @@ function ModalEvaluacion({ puesto, formato, onClose, onSave }) {
                                             </button>
                                         ))}
                                     </div>
-                                    {respuestas[criterio] && (
+                                    {evaluacion.respuestas[criterio] && (
                                         <div className="mt-2 text-right">
-                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${escala.find(e => e.valor === respuestas[criterio])?.light} ${escala.find(e => e.valor === respuestas[criterio])?.text}`}>
-                                                {escala.find(e => e.valor === respuestas[criterio])?.label}
+                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${escala.find(e => e.valor === evaluacion.respuestas[criterio])?.light} ${escala.find(e => e.valor === evaluacion.respuestas[criterio])?.text}`}>
+                                                {escala.find(e => e.valor === evaluacion.respuestas[criterio])?.label}
                                             </span>
                                         </div>
                                     )}
@@ -304,17 +438,11 @@ function ModalEvaluacion({ puesto, formato, onClose, onSave }) {
                         </div>
                     </div>
 
-                    {/* Calificación */}
+                    {/* CALIFICACIÓN */}
                     <div className="rounded-xl p-5 text-center bg-gradient-to-br from-gray-50 to-white border border-gray-100">
                         <div className="text-sm text-gray-500 uppercase tracking-wide">Calificación total</div>
                         <div className="text-5xl font-black mt-2 bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">
                             {calificacion}%
-                        </div>
-                        <div className={`inline-flex items-center gap-2 mt-3 px-4 py-1.5 rounded-full ${calificacion >= 85 ? 'bg-emerald-50' : calificacion >= 70 ? 'bg-blue-50' : calificacion >= 50 ? 'bg-amber-50' : 'bg-red-50'}`}>
-                            <span>{calificacion >= 85 ? '🌟' : calificacion >= 70 ? '👍' : calificacion >= 50 ? '⚠️' : '📌'}</span>
-                            <span className={`text-sm font-semibold ${calificacion >= 85 ? 'text-emerald-600' : calificacion >= 70 ? 'text-blue-600' : calificacion >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                                {calificacion >= 85 ? 'Excelente' : calificacion >= 70 ? 'Bueno' : calificacion >= 50 ? 'Regular' : 'Necesita mejorar'}
-                            </span>
                         </div>
                         <div className="mt-4">
                             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -323,36 +451,26 @@ function ModalEvaluacion({ puesto, formato, onClose, onSave }) {
                         </div>
                     </div>
 
-                    {/* Comentarios */}
+                    {/* COMENTARIOS */}
                     <div className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-100">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-amber-500"></div>
-                            Comentarios y observaciones
-                        </label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Comentarios y observaciones</label>
                         <textarea
                             rows={3}
-                            value={comentarios}
-                            onChange={(e) => setComentarios(e.target.value)}
-                            placeholder="Escribe aquí tus comentarios, áreas de mejora o logros destacados..."
-                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition resize-none"
+                            value={evaluacion.comentarios}
+                            onChange={(e) => setEvaluacion({ ...evaluacion, comentarios: e.target.value })}
+                            placeholder="Escribe aquí tus comentarios..."
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-400 focus:outline-none resize-none"
                         />
                     </div>
                 </div>
 
-                {/* Footer */}
                 <div className="sticky bottom-0 bg-white border-t border-gray-100 rounded-b-2xl p-5 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-6 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all">
+                    <button onClick={onClose} className="px-6 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">
                         Cancelar
                     </button>
                     <button
-                        onClick={() => {
-                            if (!evaluador) {
-                                alert('Por favor, ingresa el nombre del evaluador');
-                                return;
-                            }
-                            onSave({ evaluador, respuestas, comentarios, calificacion });
-                        }}
-                        disabled={!evaluador}
+                        onClick={handleSubmit}
+                        disabled={!evaluacion.evaluador || !evaluacion.colaborador_nombre}
                         className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md disabled:opacity-50"
                     >
                         💾 Guardar evaluación
