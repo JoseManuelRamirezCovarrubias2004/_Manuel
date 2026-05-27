@@ -59,13 +59,37 @@ function decimalSeguro(valor) {
   return Number.isFinite(numero) ? numero : 0;
 }
 
+function normalizarTexto(valor) {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function obtenerCanalPorNombreCampana(nombreCampana) {
+  const nombre = normalizarTexto(nombreCampana);
+
+  if (/\b(comercial|comerciales)\b/.test(nombre)) {
+    return "Comerciales";
+  }
+
+  if (/\b(seminuevo|seminuevos|semi nuevos|usado|usados)\b/.test(nombre)) {
+    return "Usados";
+  }
+
+  return "Nuevos";
+}
+
 function mapearCampana(c) {
   const fechaBase = c.inicio_campana || c.inicio_informe;
   const fecha = parseFechaLocal(fechaBase);
+  const nombreCampana = c.nombre_campana ?? "Sin nombre";
 
   return {
     id_campana: String(c.id_campana),
-    nombre_campana: c.nombre_campana ?? "Sin nombre",
+    nombre_campana: nombreCampana,
+    canal: obtenerCanalPorNombreCampana(nombreCampana),
     sucursal: c.sucursal ?? "—",
     estado_campana: c.estado_campana ?? "Sin estado",
     año: fecha ? fecha.getFullYear() : 0,
@@ -153,7 +177,7 @@ function VistaTabla({ datos }) {
       <table className="min-w-full text-sm">
         <thead>
           <tr style={{ backgroundColor: NAVY }} className="text-white text-left">
-            {["Campaña", "Dealer", "Estado", "Año", "Mes", "Alcance", "Impresiones", "Gasto ($)", "Resultados"].map(h => (
+            {["Campaña", "Dealer", "Canal", "Estado", "Año", "Mes", "Alcance", "Impresiones", "Gasto ($)", "Resultados"].map(h => (
               <th key={h} className={`px-4 py-3 font-medium ${["Alcance", "Impresiones", "Gasto ($)", "Resultados"].includes(h) ? "text-right" : ""}`}>{h}</th>
             ))}
           </tr>
@@ -163,6 +187,18 @@ function VistaTabla({ datos }) {
             <tr key={c.id_campana} className={`border-t border-gray-100 hover:bg-blue-50/40 transition ${i % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}>
               <td className="px-4 py-3 font-medium text-gray-800 max-w-[200px] truncate">{c.nombre_campana}</td>
               <td className="px-4 py-3 text-gray-600">{c.sucursal}</td>
+              <td className="px-4 py-3">
+                <span
+                  className={`text-xs px-2 py-1 rounded-full font-medium ${c.canal === "Nuevos"
+                    ? "bg-blue-100 text-blue-700"
+                    : c.canal === "Usados"
+                      ? "bg-violet-100 text-violet-700"
+                      : "bg-orange-100 text-orange-700"
+                    }`}
+                >
+                  {c.canal}
+                </span>
+              </td>
               <td className="px-4 py-3">
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${ESTADO_STYLES[c.estado_campana] ?? "bg-gray-100 text-gray-600"}`}>
                   {c.estado_campana ?? "—"}
@@ -177,7 +213,7 @@ function VistaTabla({ datos }) {
             </tr>
           ))}
           {datos.length === 0 && (
-            <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">Sin resultados para los filtros seleccionados</td></tr>
+            <tr><td colSpan={10} className="px-4 py-10 text-center text-gray-400">Sin resultados para los filtros seleccionados</td></tr>
           )}
         </tbody>
       </table>
@@ -256,6 +292,49 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
     return Object.values(map);
   }, [datos]);
 
+  const rendimientoPorCanal = useMemo(() => {
+    const ordenCanales = ["Nuevos", "Usados", "Comerciales"];
+    const map = {};
+
+    datos.forEach((c) => {
+      const canal = c.canal || "Sin canal";
+
+      if (!map[canal]) {
+        map[canal] = {
+          canal,
+          gasto: 0,
+          resultados: 0,
+          alcance: 0,
+          impresiones: 0,
+          campanas: 0,
+        };
+      }
+
+      map[canal].gasto += c.importe_gastado;
+      map[canal].resultados += c.total_resultados;
+      map[canal].alcance += c.alcance;
+      map[canal].impresiones += c.impresiones;
+      map[canal].campanas += 1;
+    });
+
+    return Object.values(map)
+      .map((item) => ({
+        ...item,
+        costo_por_resultado: item.resultados > 0 ? item.gasto / item.resultados : 0,
+        costo_por_mil_alcance: item.alcance > 0 ? (item.gasto / item.alcance) * 1000 : 0,
+      }))
+      .sort((a, b) => {
+        const ia = ordenCanales.indexOf(a.canal);
+        const ib = ordenCanales.indexOf(b.canal);
+
+        if (ia === -1 && ib === -1) return a.canal.localeCompare(b.canal);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+
+        return ia - ib;
+      });
+  }, [datos]);
+
   const ESTATUS_COLORS = { Activa: "#378ADD", Finalizada: "#1D9E75", Pausada: "#F0A500" };
 
   const cronograma = useMemo(() => {
@@ -285,35 +364,35 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
     <div className="space-y-5">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Total de Impresiones</p>
-          <p className="text-[10px] text-gray-400 mb-2">Cantidad de visualizaciones en social media</p>
+          <p className="text-[14px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Total de Impresiones</p>
+          <p className="text-[12px] text-gray-400 mb-2">Cantidad de visualizaciones en social media</p>
           <p className="text-2xl font-bold" style={{ color: NAVY }}>{(totImpresiones / 1000).toFixed(3)} mil</p>
           <div className="mt-3 pt-3 border-t border-gray-100">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Total de Alcance</p>
-            <p className="text-[10px] text-gray-400 mb-2">Cantidad de cuentas que visualizaron el contenido</p>
+            <p className="text-[14px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Total de Alcance</p>
+            <p className="text-[12px] text-gray-400 mb-2">Cantidad de cuentas que visualizaron el contenido</p>
             <p className="text-2xl font-bold" style={{ color: NAVY }}>{(totAlcance / 1000).toFixed(3)} mil</p>
           </div>
         </div>
 
         <div className="rounded-xl p-4 flex flex-col justify-between" style={{ backgroundColor: NAVY }}>
           <div>
-            <p className="text-[10px] text-blue-200 uppercase tracking-wide font-semibold mb-1">Resultados</p>
-            <p className="text-[10px] text-blue-300 mb-3">Interesados contactando de forma más directa</p>
+            <p className="text-[20px] text-blue-200 uppercase tracking-wide font-semibold mb-1">Resultados</p>
+            <p className="text-[14px] text-blue-300 mb-3">Interesados contactando de forma más directa</p>
           </div>
           <p className="text-5xl font-black text-white">{totResultados}</p>
         </div>
 
         <div className="rounded-xl p-4 flex flex-col justify-between" style={{ backgroundColor: NAVY }}>
           <div>
-            <p className="text-[10px] text-blue-200 uppercase tracking-wide font-semibold mb-1">Inversión</p>
-            <p className="text-[10px] text-blue-300 mb-3">Dinero invertido en pautas en redes sociales</p>
+            <p className="text-[20px] text-blue-200 uppercase tracking-wide font-semibold mb-1">Inversión</p>
+            <p className="text-[14px] text-blue-300 mb-3">Dinero invertido en pautas en redes sociales</p>
           </div>
           <p className="text-4xl font-black text-white">${totGasto.toLocaleString()}</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Estatus de la Pauta</p>
-          <p className="text-[10px] text-gray-400 mb-2">Relación de Completadas, Pausadas y Activas</p>
+          <p className="text-[14px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Estatus de la Pauta</p>
+          <p className="text-[12px] text-gray-400 mb-2">Relación de Completadas, Pausadas y Activas</p>
           <ResponsiveContainer width="100%" height={90}>
             <PieChart>
               <Pie data={estatusPauta} dataKey="value" cx="50%" cy="50%" outerRadius={42} innerRadius={24}>
@@ -340,8 +419,8 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="bg-white rounded-xl border border-gray-200 p-5 lg:col-span-2">
-          <p className="text-sm font-bold mb-1" style={{ color: NAVY }}>Pautas del Período</p>
-          <p className="text-[11px] text-gray-400 mb-4">En relación a la cantidad de resultados generados en META</p>
+          <p className="text-lg font-bold mb-1" style={{ color: NAVY }}>Pautas del Período</p>
+          <p className="text-[14px] text-gray-400 mb-4">En relación a la cantidad de resultados generados en META</p>
           <ResponsiveContainer width="100%" height={280}>
             <ComposedChart data={pautasPeriodo} margin={{ top: 20, right: 10, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
@@ -358,8 +437,8 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <p className="text-sm font-bold mb-1" style={{ color: NAVY }}>Gasto por Dealer</p>
-          <p className="text-[11px] text-gray-400 mb-4">Distribución de inversión</p>
+          <p className="text-lg font-bold mb-1" style={{ color: NAVY }}>Gasto por Dealer</p>
+          <p className="text-[14px] text-gray-400 mb-4">Distribución de inversión</p>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={porSucursal} dataKey="gasto" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={38}>
@@ -383,8 +462,121 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <p className="text-sm font-bold mb-1" style={{ color: NAVY }}>Cronograma de Pautas</p>
-        <p className="text-[11px] text-gray-400 mb-4">Fechas de inicio y final de la programación de las pautas</p>
+        <div className="flex flex-col gap-1 mb-4">
+          <p className="text-lg font-bold" style={{ color: NAVY }}>
+            Rendimiento por Canal
+          </p>
+          <p className="text-[14px] text-gray-400">
+            Comparativa de inversión total y costo por resultado entre Nuevos, Usados y Comerciales
+          </p>
+        </div>
+
+        <ResponsiveContainer width="100%" height={280}>
+          <ComposedChart
+            data={rendimientoPorCanal}
+            margin={{ top: 20, right: 15, left: -5, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+
+            <XAxis
+              dataKey="canal"
+              tick={{ fontSize: 11, fill: "#6b7280" }}
+            />
+
+            <YAxis
+              yAxisId="left"
+              tick={{ fontSize: 11, fill: "#6b7280" }}
+              tickFormatter={(value) => `$${Number(value).toLocaleString()}`}
+            />
+
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tick={{ fontSize: 11, fill: "#6b7280" }}
+              tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
+            />
+
+            <Tooltip
+              contentStyle={TooltipStyle}
+              formatter={(value, name) => {
+                const numero = Number(value || 0);
+
+                if (name === "Costo por resultado") {
+                  return [`$${numero.toFixed(2)}`, name];
+                }
+
+                if (name === "Inversión total") {
+                  return [`$${numero.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, name];
+                }
+
+                return [numero.toLocaleString(), name];
+              }}
+            />
+
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+
+            <Bar
+              yAxisId="left"
+              dataKey="gasto"
+              name="Inversión total"
+              fill={NAVY}
+              radius={[5, 5, 0, 0]}
+              barSize={42}
+            />
+
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="costo_por_resultado"
+              name="Costo por resultado"
+              stroke="#D85A30"
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+          {rendimientoPorCanal.map((item) => (
+            <div key={item.canal} className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+              <p className="text-lg font-bold mb-1" style={{ color: NAVY }}>
+                {item.canal}
+              </p>
+
+              <div className="space-y-1 text-[14px] text-gray-500">
+                <div className="flex justify-between gap-3">
+                  <span>Campañas</span>
+                  <span className="font-semibold text-gray-700">{item.campanas}</span>
+                </div>
+
+                <div className="flex justify-between gap-3">
+                  <span>Resultados</span>
+                  <span className="font-semibold text-gray-700">{item.resultados}</span>
+                </div>
+
+                <div className="flex justify-between gap-3">
+                  <span>Inversión</span>
+                  <span className="font-semibold text-gray-700">
+                    ${item.gasto.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-3">
+                  <span>Costo / resultado</span>
+                  <span className="font-bold" style={{ color: NAVY }}>
+                    ${item.costo_por_resultado.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <p className="text-lg font-bold mb-1" style={{ color: NAVY }}>Cronograma de Pautas</p>
+        <p className="text-[14px] text-gray-400 mb-4">Fechas de inicio y final de la programación de las pautas</p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -424,10 +616,10 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <p className="text-sm font-bold mb-1" style={{ color: NAVY }}>
+        <p className="text-lg font-bold mb-1" style={{ color: NAVY }}>
           Evolución de Alcance {modoComp ? `— ${labelA} vs ${labelB}` : "Mensual"}
         </p>
-        <p className="text-[11px] text-gray-400 mb-4">Comparativa acumulada por mes</p>
+        <p className="text-[14px] text-gray-400 mb-4">Comparativa acumulada por mes</p>
         <ResponsiveContainer width="100%" height={240}>
           {modoComp ? (
             <ComposedChart data={serieComp} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
@@ -834,7 +1026,7 @@ export default function CampanasMeta() {
 
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>
-          <h2 className="text-lg font-bold text-gray-800">Campañas Meta</h2>
+          <h2 className="text-lg font-bold text-gray-800">Marketing | META ADS</h2>
           <p className="text-xs text-gray-500">Métricas y rendimiento de campañas publicitarias</p>
         </div>
         <div className="flex gap-2">

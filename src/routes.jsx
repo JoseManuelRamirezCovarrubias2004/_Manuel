@@ -188,13 +188,13 @@ export const router = createBrowserRouter(
                                 },
 
                                 {
-      path: "campanas_meta",
-    element: (
-        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]}>
-            <CampanasMeta />
-        </RequirePermission>
-    ),
-},
+                                    path: "campanas_meta",
+                                    element: (
+                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]}>
+                                            <CampanasMeta />
+                                        </RequirePermission>
+                                    ),
+                                },
 
                                 {
                                     path: "prospectos",
