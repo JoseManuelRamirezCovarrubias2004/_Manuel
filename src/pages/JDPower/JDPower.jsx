@@ -557,7 +557,7 @@ function VistaTabla({ datos }) {
                                 </td>
 
                                 <td className="max-w-[220px] truncate px-4 py-3 font-medium text-gray-800">
-                                    {item.concesionaria}
+                                    {item.codigo_concesionaria || "—"}
                                 </td>
 
                                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">
@@ -759,7 +759,7 @@ function VistaGraficas({ datos, labelPeriodo }) {
     }, [datos]);
 
     const porConcesionaria = useMemo(
-        () => agruparPor(datos, (item) => item.concesionaria, 10),
+        () => agruparPor(datos, (item) => item.codigo_concesionaria || "Sin código", 10),
         [datos]
     );
 
@@ -945,128 +945,6 @@ function VistaGraficas({ datos, labelPeriodo }) {
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </DashboardPanel>
-            </div>
-
-            <div className="grid grid-cols-1 gap-1 xl:grid-cols-[1fr_0.5fr_1.5fr]">
-                <DashboardPanel title="Alertas" icon={AlertTriangle}>
-                    <div className="flex min-h-[260px] items-center justify-center">
-                        {alertasAbiertas > 0 ? (
-                            <div className="w-full space-y-3">
-                                {datos
-                                    .filter(
-                                        (item) =>
-                                            item.q1_satisfaccion_general > 0 &&
-                                            (normalizarEscalaCinco(item.q1_satisfaccion_general) <= 3 ||
-                                                (item.p3_recomendacion_distribuidor > 0 &&
-                                                    item.p3_recomendacion_distribuidor <= 6))
-                                    )
-                                    .slice(0, 5)
-                                    .map((item) => (
-                                        <div
-                                            key={item.id_ventas}
-                                            className="rounded-lg border border-orange-100 bg-orange-50 px-4 py-3"
-                                        >
-                                            <div className="flex items-center justify-between gap-3">
-                                                <p className="font-bold text-gray-700">
-                                                    {item.concesionaria}
-                                                </p>
-                                                <span className="rounded-full bg-orange-100 px-2 py-1 text-xs font-bold text-orange-700">
-                                                    Q1: {item.q1_satisfaccion_general}
-                                                </span>
-                                            </div>
-
-                                            <p className="mt-1 text-sm text-gray-500">
-                                                {item.q3_comentarios_adicionales ||
-                                                    item.q1_1_razones_calificacion ||
-                                                    "Sin comentario registrado"}
-                                            </p>
-                                        </div>
-                                    ))}
-                            </div>
-                        ) : (
-                            <p className="text-sm font-medium text-gray-400">
-                                No data to display.
-                            </p>
-                        )}
-                    </div>
-                </DashboardPanel>
-
-                <DashboardPanel title="Alertas" icon={MessageSquareWarning}>
-                    <div className="flex min-h-[260px] flex-col items-center justify-center text-center">
-                        <p className="max-w-[190px] text-lg font-black text-gray-600">
-                            Alertas abiertas
-                            <br />
-                            <span className="text-base">(Pendientes por atender)</span>
-                        </p>
-
-                        <p className="mt-8 text-[72px] font-light leading-none text-[#FFC928]">
-                            {alertasAbiertas}
-                        </p>
-
-                        <p className="mt-8 text-sm font-black text-gray-600">
-                            Periodo Anterior: 0
-                        </p>
-                    </div>
-                </DashboardPanel>
-
-                <DashboardPanel title="Detalle de alertas cerradas" icon={ClipboardList}>
-                    <div className="min-h-[260px]">
-                        <p className="mb-3 text-center text-xl font-black text-gray-600">
-                            # Alertas Cerrada: {alertasCerradas}
-                        </p>
-
-                        <ResponsiveContainer width="100%" height={220}>
-                            <BarChart
-                                data={detalleAlertasCerradas}
-                                margin={{ top: 18, right: 20, left: -15, bottom: 35 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
-                                <XAxis
-                                    dataKey="name"
-                                    interval={0}
-                                    tick={{ fontSize: 11, fill: "#555" }}
-                                    height={70}
-                                />
-                                <YAxis hide domain={[0, 100]} />
-                                <Tooltip
-                                    contentStyle={TooltipStyle}
-                                    formatter={(value) => [`${value}%`, ""]}
-                                />
-                                <Legend wrapperStyle={{ fontSize: 13 }} />
-                                <Bar
-                                    dataKey="concesionaria"
-                                    name="Concesionaria"
-                                    fill={NAVY_2}
-                                    radius={[2, 2, 0, 0]}
-                                    barSize={26}
-                                >
-                                    <LabelList
-                                        dataKey="concesionaria"
-                                        position="top"
-                                        formatter={(value) => `${value}%`}
-                                        fontSize={12}
-                                        fill="#333"
-                                    />
-                                </Bar>
-                                <Bar
-                                    dataKey="nacional"
-                                    name="Nacional"
-                                    fill={TEAL_LIGHT}
-                                    radius={[2, 2, 0, 0]}
-                                    barSize={26}
-                                >
-                                    <LabelList
-                                        dataKey="nacional"
-                                        position="top"
-                                        formatter={(value) => `${value}%`}
-                                        fontSize={12}
-                                        fill="#333"
-                                    />
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
                     </div>
                 </DashboardPanel>
             </div>
@@ -1278,7 +1156,7 @@ export default function JDPower() {
     const [anio, setAnio] = useState(ANIO_ACTUAL);
     const [mes, setMes] = useState("Todos");
     const [estatus, setEstatus] = useState("Todos");
-    const [concesionaria, setConcesionaria] = useState("Todas");
+    const [codigoConcesionaria, setCodigoConcesionaria] = useState("Todas");
     const [asesor, setAsesor] = useState("Todos");
     const [modelo, setModelo] = useState("Todos");
     const [busqueda, setBusqueda] = useState("");
@@ -1386,7 +1264,7 @@ export default function JDPower() {
                         anio,
                         mes,
                         estatus,
-                        concesionaria,
+                        codigo_concesionaria: codigoConcesionaria,
                         asesor,
                         modelo,
                         ordering: "-periodo",
@@ -1412,7 +1290,7 @@ export default function JDPower() {
         anio,
         mes,
         estatus,
-        concesionaria,
+        codigoConcesionaria,
         asesor,
         modelo,
         cargarEncuestas,
@@ -1682,12 +1560,12 @@ export default function JDPower() {
                     </SelectField>
 
                     <SelectField
-                        label="Concesionaria"
-                        value={concesionaria}
-                        onChange={setConcesionaria}
+                        label="Código concesionaria"
+                        value={codigoConcesionaria}
+                        onChange={setCodigoConcesionaria}
                     >
                         <option value="Todas">Todas</option>
-                        {opciones.concesionarias.map((item) => (
+                        {opciones.codigos_concesionaria.map((item) => (
                             <option key={item} value={item}>
                                 {item}
                             </option>
