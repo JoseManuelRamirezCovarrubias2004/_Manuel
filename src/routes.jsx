@@ -82,6 +82,8 @@ import CampanasMeta from './pages/CampanasMeta/CampanasMeta';
 
 import Retencion from './pages/Retencion/Retencion';
 
+import JDPower from './pages/JDPower/JDPower';
+
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
 export const router = createBrowserRouter(
@@ -134,9 +136,6 @@ export const router = createBrowserRouter(
                                         },
                                     ],
                                 },
-
-
-
                                 {
                                     path: "safety",
                                     element: (
@@ -165,12 +164,19 @@ export const router = createBrowserRouter(
                                         </RequirePermission>
                                     ),
                                 },
-
                                 {
                                     path: "retencion",
                                     element: (
                                         <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_POSTVENTA"]}>
                                             <Retencion />
+                                        </RequirePermission>
+                                    ),
+                                },
+                                {
+                                    path: "jdpower",
+                                    element: (
+                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_POSTVENTA"]}>
+                                            <JDPower />
                                         </RequirePermission>
                                     ),
                                 },
