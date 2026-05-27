@@ -78,6 +78,10 @@ function obtenerCanalPorNombreCampana(nombreCampana) {
     return "Usados";
   }
 
+  if (/\b(postventa|postventas)\b/.test(nombre)) {
+    return "PostVenta";
+  }
+
   return "Nuevos";
 }
 
@@ -193,7 +197,9 @@ function VistaTabla({ datos }) {
                     ? "bg-blue-100 text-blue-700"
                     : c.canal === "Usados"
                       ? "bg-violet-100 text-violet-700"
-                      : "bg-orange-100 text-orange-700"
+                      : c.canal === "Comerciales" ?
+                        "bg-orange-100 text-orange-700"
+                        : "bg-emerald-50 text-emerald-700"
                     }`}
                 >
                   {c.canal}
@@ -293,7 +299,7 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
   }, [datos]);
 
   const rendimientoPorCanal = useMemo(() => {
-    const ordenCanales = ["Nuevos", "Usados", "Comerciales"];
+    const ordenCanales = ["Nuevos", "Usados", "Comerciales", "PostVenta"];
     const map = {};
 
     datos.forEach((c) => {

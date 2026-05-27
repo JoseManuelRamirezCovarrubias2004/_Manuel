@@ -1,7 +1,7 @@
 // src/pages/Calidad/CalidadTopNav.jsx
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BadgeCheck, ShieldCheck, Cog, ThumbsUp } from "lucide-react";
+import { BadgeCheck, ShieldCheck, Cog, ThumbsUp, UndoDot } from "lucide-react";
 import vwWhite from "../../assets/vw_white.png";
 import ryr from "../../assets/ryr.png";
 import { useAuth } from "../../auth/AuthContext";
@@ -37,6 +37,12 @@ export default function CalidadTopNav() {
                 label: "Experiencia de Servicio",
                 href: "/calidad/enc_servicio",
                 icon: Cog,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
+            },
+            {
+                label: "Retencion",
+                href: "/calidad/retencion",
+                icon: UndoDot,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
         ];
