@@ -310,14 +310,6 @@ function DashboardPanel({ title, subtitle, icon: Icon, children, footer, classNa
                         ) : null}
                     </div>
                 </div>
-
-                <button
-                    type="button"
-                    className="flex h-8 items-center gap-1 rounded border border-gray-300 bg-white px-2 text-gray-500 shadow-sm"
-                >
-                    <span className="text-lg leading-none">•••</span>
-                    <ChevronDown size={14} />
-                </button>
             </div>
 
             <div className="p-4">{children}</div>
@@ -901,7 +893,7 @@ function VistaGraficas({ datos, labelPeriodo }) {
                 </DashboardPanel>
 
                 <DashboardPanel
-                    title="Net Promoter Score (NPS)"
+                    title="Puntuación Neta del Promotor"
                     icon={TrendingUp}
                 >
                     <div className="grid min-h-[245px] grid-cols-1 gap-4 md:grid-cols-[0.75fr_1.25fr]">
