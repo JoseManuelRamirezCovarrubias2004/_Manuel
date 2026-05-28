@@ -899,9 +899,9 @@ function VistaGraficas({ datos, labelPeriodo }) {
                     <div className="grid min-h-[245px] grid-cols-1 gap-4 md:grid-cols-[0.75fr_1.25fr]">
                         <div className="flex flex-col justify-center">
                             <p className="text-2xl font-black leading-tight text-gray-600">
-                                Net Promoter
+                                Puntuación Neta
                                 <br />
-                                Score (NPS)
+                                del promotor
                             </p>
 
                             <p className="mt-6 text-[54px] font-black leading-none text-gray-600">
