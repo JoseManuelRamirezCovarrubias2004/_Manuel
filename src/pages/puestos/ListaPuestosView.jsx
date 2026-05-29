@@ -77,11 +77,17 @@ const ListaPuestosView = () => {
     
     let y = 25;
     
-    // Función para agregar texto justificado
-    const textoJustificado = (texto, x, y, maxWidth) => {
-        const lines = doc.splitTextToSize(texto, maxWidth);
-        doc.text(lines, x, y);
-        return lines.length * 5;
+    // Función para verificar espacio y agregar página si es necesario
+    const checkPageBreak = (spaceNeeded, keepHeader = true) => {
+        if (y + spaceNeeded > pageHeight - 30) {
+            doc.addPage();
+            y = 25;
+            if (keepHeader) {
+                agregarEncabezado();
+            }
+            return true;
+        }
+        return false;
     };
     
     // Función para agregar encabezado en cada página
@@ -109,23 +115,18 @@ const ListaPuestosView = () => {
         doc.setFont('helvetica', 'bold');
         doc.text(descriptivo.titulo || puesto.nombre, 20, y);
         y += 10;
-
-    };
-    
-    // Función para verificar espacio y agregar página si es necesario
-    const checkPageBreak = (spaceNeeded) => {
-        if (y + spaceNeeded > pageHeight - 30) {
-            doc.addPage();
-            agregarEncabezado();
-            return true;
-        }
-        return false;
+        
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Categoría: ${puesto.categoria}`, 20, y);
+        y += 12;
     };
     
     // Agregar encabezado inicial
     agregarEncabezado();
     
-    // Datos generales (tabla)
+    // ========== DATOS GENERALES (TABLA) ==========
     const datosGenerales = [];
     if (puesto.concesionario) datosGenerales.push(['Concesionario', puesto.concesionario]);
     if (puesto.perfilVWAG) datosGenerales.push(['Perfil en VW AG', puesto.perfilVWAG]);
@@ -141,29 +142,26 @@ const ListaPuestosView = () => {
             theme: 'plain',
             styles: { fontSize: 10, cellPadding: 4, textColor: [0, 0, 0] },
             columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold', textColor: [0, 0, 0] }, 1: { cellWidth: 105, textColor: [0, 0, 0] } },
-            margin: { left: 20, right: 20 },
-            pageBreak: 'auto'
+            margin: { left: 20, right: 20 }
         });
         y = doc.lastAutoTable.finalY + 10;
     }
     
-    // Objetivo General
+    // ========== OBJETIVO GENERAL ==========
     if (descriptivo.objetivo && descriptivo.objetivo !== "No hay información detallada disponible para este puesto." && descriptivo.objetivo !== "Información no disponible") {
-        checkPageBreak(20);
+        checkPageBreak(30);
         doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'bold');
         doc.text('Objetivo General', 20, y);
         y += 6;
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
         const objetivoLines = doc.splitTextToSize(descriptivo.objetivo, 160);
         doc.text(objetivoLines, 25, y);
         y += (objetivoLines.length * 5) + 8;
     }
     
-    // Nivel de estudios
+    // ========== NIVEL DE ESTUDIOS ==========
     if (descriptivo.nivelEstudios && descriptivo.nivelEstudios !== "Información no disponible") {
         checkPageBreak(20);
         doc.setFontSize(11);
@@ -171,13 +169,12 @@ const ListaPuestosView = () => {
         doc.text('Nivel de estudios', 20, y);
         y += 6;
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
         const estudiosLines = doc.splitTextToSize(descriptivo.nivelEstudios, 160);
         doc.text(estudiosLines, 25, y);
         y += (estudiosLines.length * 5) + 8;
     }
     
-    // Conocimientos
+    // ========== CONOCIMIENTOS ==========
     if (descriptivo.conocimientos && descriptivo.conocimientos !== "Información no disponible") {
         checkPageBreak(20);
         doc.setFontSize(11);
@@ -190,7 +187,7 @@ const ListaPuestosView = () => {
         y += (conocLines.length * 5) + 8;
     }
     
-    // Experiencia
+    // ========== EXPERIENCIA REQUERIDA ==========
     if (descriptivo.experiencia && descriptivo.experiencia !== "Información no disponible") {
         checkPageBreak(20);
         doc.setFontSize(11);
@@ -203,7 +200,7 @@ const ListaPuestosView = () => {
         y += (expLines.length * 5) + 8;
     }
     
-    // Funciones principales
+    // ========== FUNCIONES PRINCIPALES ==========
     if (funcionesData && funcionesData.funciones && funcionesData.funciones.length > 0) {
         checkPageBreak(20);
         doc.setFontSize(11);
@@ -215,19 +212,16 @@ const ListaPuestosView = () => {
         
         for (let idx = 0; idx < funcionesData.funciones.length; idx++) {
             const func = funcionesData.funciones[idx];
-            // Calcular espacio necesario para esta función
             let spaceNeeded = 15;
             if (func.subactividades) {
                 spaceNeeded += func.subactividades.length * 5;
             }
-            if (y + spaceNeeded > pageHeight - 40) {
+            if (y + spaceNeeded > pageHeight - 50) {
                 doc.addPage();
                 agregarEncabezado();
-                y = 65;
             }
             
             doc.setFont('helvetica', 'bold');
-            doc.setTextColor(0, 0, 0);
             doc.text(`${idx + 1}. ${func.nombre}`, 25, y);
             y += 5;
             doc.setFont('helvetica', 'normal');
@@ -243,7 +237,7 @@ const ListaPuestosView = () => {
         y += 5;
     }
     
-    // Habilidades
+    // ========== HABILIDADES Y COMPETENCIAS ==========
     if (descriptivo.habilidades && descriptivo.habilidades.length > 0 && descriptivo.habilidades[0] !== "Información no disponible") {
         checkPageBreak(20);
         doc.setFontSize(11);
@@ -253,7 +247,7 @@ const ListaPuestosView = () => {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         descriptivo.habilidades.forEach(habilidad => {
-            if (y > pageHeight - 30) {
+            if (y > pageHeight - 40) {
                 doc.addPage();
                 agregarEncabezado();
                 y = 65;
@@ -264,70 +258,103 @@ const ListaPuestosView = () => {
         y += 5;
     }
     
-    // Reporta a
+    // ========== REPORTA A ==========
     if (puesto.dependeDe && puesto.dependeDe !== '—') {
-        checkPageBreak(20);
+        checkPageBreak(15);
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text('Reporta a', 20, y);
         y += 6;
         doc.setFont('helvetica', 'normal');
         doc.text(puesto.dependeDe, 25, y);
+        y += 15;
     }
     
-    // Firmas y pie de página
+    // ========== FIRMAS (si hay espacio suficiente) ==========
     const totalPages = doc.internal.getNumberOfPages();
+    
+    // Verificar si hay espacio para las firmas en la última página
+    let espacioParaFirmas = pageHeight - y;
+    
+    if (espacioParaFirmas < 35) {
+        // No hay espacio, crear una nueva página solo para firmas
+        doc.addPage();
+        y = 25;
+        agregarEncabezado();
+        espacioParaFirmas = pageHeight - y;
+    }
+    
+    // Posición de las firmas (justo después del contenido o al final de la página)
+    let posFirmas = y + 10;
+    if (posFirmas > pageHeight - 45) {
+        posFirmas = pageHeight - 45;
+    }
+    
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
         
-        // Pie de página
+        // Pie de página (todas las páginas)
         doc.setFontSize(8);
         doc.setTextColor(100, 100, 100);
         doc.setFont('helvetica', 'italic');
         doc.text('Grupo Automotriz R&R - Documento confidencial', pageWidth / 2, pageHeight - 12, { align: 'center' });
-        doc.text(`Página ${i} de ${totalPages}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
-        
-        // Firmas solo en la última página
-        if (i === totalPages) {
-            doc.setDrawColor(0, 0, 0);
-            doc.setLineWidth(0.5);
-            
-            // Línea firma - Gerente RH
-            doc.line(35, pageHeight - 45, 85, pageHeight - 45);
-            doc.setFontSize(9);
-            doc.setTextColor(0, 0, 0);
-            doc.setFont('helvetica', 'normal');
-            doc.text('_____________________', 40, pageHeight - 47);
-            doc.text('Gerente de Recursos Humanos', 40, pageHeight - 38);
-            
-            // Línea firma - Director General
-            doc.line(120, pageHeight - 45, 170, pageHeight - 45);
-            doc.text('_____________________', 125, pageHeight - 47);
-            doc.text('Director General', 135, pageHeight - 38);
-        }
+        doc.text(`Página ${i} de ${totalPages + (espacioParaFirmas < 35 ? 1 : 0)}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
     }
     
+    // Dibujar firmas en la última página
+    doc.setPage(doc.internal.getNumberOfPages());
+    
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    
+    // Línea firma - Gerente RH
+    doc.line(35, posFirmas, 85, posFirmas);
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.text('_____________________', 40, posFirmas - 2);
+    doc.text('Gerente de Recursos Humanos', 35, posFirmas + 6);
+    
+    // Línea firma - Director General
+    doc.line(120, posFirmas, 170, posFirmas);
+    doc.text('_____________________', 125, posFirmas - 2);
+    doc.text('Director General', 130, posFirmas + 6);
+    
+    // Guardar PDF
     doc.save(`Descriptivo_${puesto.nombre.replace(/ /g, '_')}.pdf`);
 };
     const toggleFuncion = (idx) => {
         setFuncionesExpandidas(prev => ({ ...prev, [idx]: !prev[idx] }));
     };
     
-    const handleVerDetalles = (puesto) => {
-        const descriptivo = obtenerDescriptivo(puesto.nombre);
-        const funciones = obtenerFunciones(puesto.nombre);
-        setPuestoSeleccionado({ ...puesto, descriptivo, funciones });
-        setModoEdicion(false);
-        setDatosEditables({
-            objetivo: descriptivo.objetivo || "",
-            nivelEstudios: descriptivo.nivelEstudios || "",
-            conocimientos: descriptivo.conocimientos || "",
-            experiencia: descriptivo.experiencia || "",
-            habilidades: descriptivo.habilidades || [],
-            funciones: funciones.funciones || [],
-            reportaA: puesto.dependeDe || ""
-        });
-    };
+  const handleVerDetalles = (puesto) => {
+    const descriptivo = obtenerDescriptivo(puesto.nombre);
+    const funciones = obtenerFunciones(puesto.nombre);
+
+    // LIMPIAR FUNCIONES EXPANDIDAS
+    setFuncionesExpandidas({});
+
+    setPuestoSeleccionado({
+        ...puesto,
+        descriptivo,
+        funciones
+    });
+
+    setModoEdicion(false);
+
+    setDatosEditables({
+        objetivo: descriptivo.objetivo || "",
+        nivelEstudios: descriptivo.nivelEstudios || "",
+        conocimientos: descriptivo.conocimientos || "",
+        experiencia: descriptivo.experiencia || "",
+        habilidades: descriptivo.habilidades || [],
+
+        // COPIA NUEVA DEL ARRAY
+        funciones: [...(funciones.funciones || [])],
+
+        reportaA: puesto.dependeDe || ""
+    });
+};
     
     const handleGuardarCambios = () => {
         setPuestoSeleccionado({
@@ -557,50 +584,164 @@ const ListaPuestosView = () => {
                                     <p className="text-gray-700 text-sm mt-1">{puestoSeleccionado.descriptivo?.experiencia || 'No disponible'}</p>
                                 )}
                             </div>
-                            
-                            {puestoSeleccionado.funciones?.funciones && puestoSeleccionado.funciones.funciones.length > 0 && (
-                                <div className="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-400">
-                                    <p className="text-sm font-bold text-purple-800">- FUNCIONES PRINCIPALES</p>
-                                    <div className="mt-2 space-y-2">
-                                        {modoEdicion ? (
-                                            datosEditables.funciones.map((func, idx) => (
-                                                <div key={idx} className="border border-purple-200 rounded-lg overflow-hidden">
-                                                    <div className="p-3 bg-purple-100">
-                                                        <input type="text" value={func.nombre} onChange={(e) => { const nuevasFunciones = [...datosEditables.funciones]; nuevasFunciones[idx].nombre = e.target.value; setDatosEditables({ ...datosEditables, funciones: nuevasFunciones }); }} className="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="Nombre de la función" />
-                                                    </div>
-                                                    <div className="p-3 bg-white border-t border-purple-200">
-                                                        <p className="text-xs font-semibold text-gray-500 mb-2">Subactividades:</p>
-                                                        {func.subactividades.map((sub, subIdx) => (
-                                                            <div key={subIdx} className="flex gap-2 mb-2">
-                                                                <input type="text" value={sub} onChange={(e) => handleSubactividadChange(idx, subIdx, e.target.value)} className="flex-1 p-2 border border-gray-300 rounded-lg text-sm" />
-                                                                <button onClick={() => eliminarSubactividad(idx, subIdx)} className="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-xs">✕</button>
-                                                            </div>
-                                                        ))}
-                                                        <button onClick={() => agregarSubactividad(idx)} className="text-xs text-purple-600 hover:text-purple-700 mt-2">+ Agregar subactividad</button>
-                                                    </div>
+                         {puestoSeleccionado?.funciones?.funciones?.length > 0 && (
+                                  <div className="rounded-xl border-l-4 border-purple-400 bg-purple-50 p-4">
+                                <p className="text-sm font-bold text-purple-800">
+                                    - FUNCIONES PRINCIPALES
+                                </p>
+
+                                <div className="mt-4 space-y-4">
+
+                                    {modoEdicion ? (
+
+                                        datosEditables.funciones.map((func, idx) => (
+                                            <div
+                                                key={`${func.nombre}-${idx}`}
+                                                className="overflow-hidden rounded-xl border border-purple-200 bg-white shadow-sm"
+                                            >
+
+                                                {/* HEADER */}
+                                                <div className="bg-purple-100 p-3">
+                                                    <input
+                                                        type="text"
+                                                        value={func.nombre || ""}
+                                                        onChange={(e) => {
+
+                                                            const nuevasFunciones = [...datosEditables.funciones];
+
+                                                            nuevasFunciones[idx].nombre = e.target.value;
+
+                                                            setDatosEditables({
+                                                                ...datosEditables,
+                                                                funciones: nuevasFunciones
+                                                            });
+
+                                                        }}
+                                                        className="w-full rounded-lg border border-gray-300 p-2 text-sm"
+                                                        placeholder="Nombre de la función"
+                                                    />
                                                 </div>
-                                            ))
-                                        ) : (
-                                            puestoSeleccionado.funciones.funciones.map((func, idx) => (
-                                                <div key={idx} className="border border-purple-200 rounded-lg overflow-hidden">
-                                                    <button onClick={() => toggleFuncion(idx)} className="w-full flex items-center justify-between p-3 bg-purple-100 hover:bg-purple-200 transition text-left">
-                                                        <span className="text-sm font-medium text-purple-800">{func.nombre}</span>
-                                                        {funcionesExpandidas[idx] ? <ChevronDown className="text-purple-500" size={18} /> : <ChevronRight className="text-purple-500" size={18} />}
-                                                    </button>
-                                                    {funcionesExpandidas[idx] && func.subactividades && func.subactividades.length > 0 && (
-                                                        <div className="p-3 bg-white border-t border-purple-200">
-                                                            <ul className="space-y-1">
-                                                                {func.subactividades.map((sub, subIdx) => (
-                                                                    <li key={subIdx} className="text-sm text-gray-600 flex items-start gap-2"><span className="text-purple-400">•</span><span>{sub}</span></li>
-                                                                ))}
-                                                            </ul>
+
+                                                {/* SUBACTIVIDADES */}
+                                                <div className="border-t border-purple-200 bg-white p-3">
+
+                                                    <p className="mb-2 text-xs font-semibold text-gray-500">
+                                                        Subactividades
+                                                    </p>
+
+                                                    {func.subactividades?.map((sub, subIdx) => (
+                                                        <div
+                                                            key={`${idx}-${subIdx}`}
+                                                            className="mb-2 flex items-center gap-2"
+                                                        >
+
+                                                            <input
+                                                                type="text"
+                                                                value={sub}
+                                                                onChange={(e) =>
+                                                                    handleSubactividadChange(
+                                                                        idx,
+                                                                        subIdx,
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                                className="flex-1 rounded-lg border border-gray-300 p-2 text-sm"
+                                                            />
+
+                                                            <button
+                                                                onClick={() =>
+                                                                    eliminarSubactividad(idx, subIdx)
+                                                                }
+                                                                className="rounded-lg bg-red-100 px-2 py-1 text-xs text-red-600 hover:bg-red-200"
+                                                            >
+                                                                ✕
+                                                            </button>
+
                                                         </div>
-                                                    )}
+                                                    ))}
+
+                                                    <button
+                                                        onClick={() => agregarSubactividad(idx)}
+                                                        className="mt-2 text-xs font-medium text-purple-600 hover:text-purple-800"
+                                                    >
+                                                        + Agregar subactividad
+                                                    </button>
+
                                                 </div>
-                                            ))
-                                        )}
-                                    </div>
+                                            </div>
+                                        ))
+
+                                    ) : (
+
+                                        datosEditables.funciones.map((func, idx) => (
+                                            <div
+                                                key={`${func.nombre}-${idx}`}
+                                                className="overflow-hidden rounded-xl border border-purple-200 bg-white shadow-sm"
+                                            >
+
+                                                {/* HEADER */}
+                                                <button
+                                                    onClick={() => toggleFuncion(idx)}
+                                                    className="flex w-full items-center justify-between bg-purple-100 px-4 py-3 text-left transition hover:bg-purple-200"
+                                                >
+
+                                                    <span className="text-sm font-semibold uppercase tracking-wide text-purple-800">
+                                                        {func.nombre}
+                                                    </span>
+
+                                                    {funcionesExpandidas[idx] ? (
+                                                        <ChevronDown
+                                                            className="text-purple-500"
+                                                            size={18}
+                                                        />
+                                                    ) : (
+                                                        <ChevronRight
+                                                            className="text-purple-500"
+                                                            size={18}
+                                                        />
+                                                    )}
+
+                                                </button>
+
+                                                {/* TABLA */}
+                                                {funcionesExpandidas[idx] && (
+                                                    <div className="overflow-x-auto border-t border-purple-200">
+
+                                                        <table className="w-full border-collapse">
+
+                                                            <tbody>
+
+                                                                {func.subactividades?.map((sub, subIdx) => (
+                                                                    <tr
+                                                                        key={`${idx}-${subIdx}`}
+                                                                        className="border-b border-gray-200 transition hover:bg-purple-50"
+                                                                    >
+
+                                                                        <td className="w-14 px-4 py-3 text-center font-bold text-purple-500">
+                                                                            {subIdx + 1}
+                                                                        </td>
+
+                                                                        <td className="px-4 py-3 text-sm text-gray-700">
+                                                                            {sub}
+                                                                        </td>
+
+                                                                    </tr>
+                                                                ))}
+
+                                                            </tbody>
+
+                                                        </table>
+
+                                                    </div>
+                                                )}
+
+                                            </div>
+                                        ))
+
+                                    )}
+
                                 </div>
+                            </div>
                             )}
                             
                             <div className="bg-pink-50 rounded-lg p-4 border-l-4 border-pink-400">
