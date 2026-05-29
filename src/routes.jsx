@@ -73,6 +73,7 @@ import RegistroSatisfaccion from "./pages/Satisfaccion/RegistroSatisfaccion";
 import RegistroServicio from "./pages/Servicio/RegistroServicio";
 
 import RegistroPiezas from "./pages/PedidoPiezas/RegistroPiezas";
+import HojaIngresos from "./pages/HojaIngresos/HojaIngresos";
 import Safety from "./pages/SafetyCulture/Safety";
 
 import Reclutamiento from "./pages/Reclutamiento/Reclutamiento";
@@ -330,13 +331,7 @@ export const router = createBrowserRouter(
                             path: "usados",
                             element: (
                                 <RequirePermission
-                                    anyOf={[
-                                        "CRM_RECLAMACIONES",
-                                        "CRM_DIGITALES",
-                                        "CRM_VENTAS",
-                                        "USUARIOS_ADMIN",
-                                        "CRM_CALIDAD"
-                                    ]}
+                                    anyOf={["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
                                 >
                                     <UsadosLayout />
                                 </RequirePermission>
@@ -399,14 +394,7 @@ export const router = createBrowserRouter(
                             path: "financieros",
                             element: (
                                 <RequirePermission
-                                    anyOf={[
-                                        "CRM_RECLAMACIONES",
-                                        "CRM_FINANCIEROS",
-                                        "CRM_DIGITALES",
-                                        "CRM_VENTAS",
-                                        "USUARIOS_ADMIN",
-                                        "CRM_CALIDAD",
-                                    ]}
+                                    anyOf={["CRM_RECLAMACIONES", "CRM_FINANCIEROS", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD",]}
                                 >
                                     <FinancierosLayout />
                                 </RequirePermission>
@@ -438,13 +426,7 @@ export const router = createBrowserRouter(
                                     path: "long_drive",
                                     element: (
                                         <RequirePermission
-                                            anyOf={[
-                                                "CRM_DIGITALES",
-                                                "CRM_FINANCIEROS",
-                                                "CRM_VENTAS",
-                                                "USUARIOS_ADMIN",
-                                                "CRM_CALIDAD"
-                                            ]}
+                                            anyOf={["CRM_DIGITALES", "CRM_FINANCIEROS", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
                                         >
                                             <LongDriveLayout />
                                         </RequirePermission>
@@ -477,6 +459,14 @@ export const router = createBrowserRouter(
                                     element: (
                                         <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
                                             <RegistroPiezas />
+                                        </RequirePermission>
+                                    ),
+                                },
+                                {
+                                    path: "hoja_ingresos",
+                                    element: (
+                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
+                                            <HojaIngresos />
                                         </RequirePermission>
                                     ),
                                 },

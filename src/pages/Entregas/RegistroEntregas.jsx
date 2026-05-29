@@ -722,6 +722,7 @@ export default function RegistroEntregas() {
         "Peak Edition",
         "Robust",
         "Extreme",
+        "Cross Sport",
     ];
 
     const COLORES = [
