@@ -40,72 +40,37 @@ const DEALERS = [
     "JAECOO R&R",
 ];
 
-const ASESORES = [
-    "AURA MARLIZETH FERNANDEZ LOPEZ",
-    "Bianca Isabel Chavez Alarcon",
-    "ERENDIRA SANTOS COYOTZI",
-    "IRENE DEL CARMEN GUIZA LOPEZ",
-    "MARCOS RAUL DIAZ RAMOS",
-    "MARIO ALBERTO LOPEZ RAMOS",
-    "MARISOL LAGUNES GONZALEZ",
-    "NALLELY HERNANDEZ GARCIA",
-    "OCTAVIO BRUNO GONZALEZ",
-    "ROGELIO VAZQUEZ SANCHEZ",
-    "RUBEN ALBERTO TOSQUY ADRIANO",
-    "Saja Azzam Mohammad Jamous",
-    "SANDRA LUZ PRIETO PEREZ",
-    "YAMIL MISAEL RODRIGUEZ AGUILAR",
-    "LUIS ALFONSO CORIA MARROQUIN",
-    "CANDY DENISSE MARQUEZ CORTES",
-    "DELMAR JAVIER ILLESCAS DOMINGUEZ",
-    "EDGAR JESUS GOMEZ PEREZ",
-    "Valeria Zilli Durante",
-    "IDALMY JIMENEZ SANCHEZ",
-    "IVAN JUAREZ ORTEGA",
-    "JESSICA OLIVARES CAMPOS",
-    "JESUS XITLAMA GOMEZ",
-    "LIZBETH CANO CLARA",
-    "LUIS MANUEL PALOMARES OLAYO",
-    "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
-    "OMAR VILLIERS MONDRAGON",
-    "RUBEN ROMERO VALDES",
-    "VERONICA CASTILLO FUENTES",
-    "Hector Rodriguez",
-    "GEOVANI NAVA DIAZ",
-    "ZEILA NAVARRO CONTRERAS",
-    "JOSE ALFREDO BARRANCA REYES",
-    "ADRIAN GALVEZ ROLDAN",
-    "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
-    "Marelly Tenorio Salinas",
-    "ELIA INES ARANO REYES",
-    "JORGE LUIS ALAMILLO RODRIGUEZ",
-    "Cesar Ivan Salazar Reyes",
-    "Cristian Fernando Rivera Godinez",
-    "DULCE ABIGAIL GARCIA OLIVARES",
-    "Felix Emmanuel Solis Angeles",
-    "GERMAN JARITH SALAZAR MIRANDA",
-    "Iris Yazmín Gómez Velázquez",
-    "Israel Garcia Juarez",
-    "JORGE ANTONIO RODRIGUEZ MARTINEZ",
-    "JOSE DE JESUS GARCIA ROMAN",
-    "JUAN MANUEL SOBREVILLA VICENCIO",
-    "Miguel Capitanachi Paredes",
-    "OLIMPIA VAZQUEZ MENDEZ",
-    "Roberto Ramses Luna Fajardo",
-    "Carlos Arturo Garces Vengas",
-    "Edgar Omar Noguera Solis",
-    "Javier Perez Meraz",
-    "Luis Armando Almora Perez",
-    "Mara Erubey Soto Villegas",
-    "Sergio Ivan Quintana Martinez",
-    "Sergio Rene Delgado Sarmiento",
-    "Yoseth Ruiz Castellanos",
-    "Luis Alfonso Coria Marroquín",
-    "Juan Jesús Márquez Aquino",
-    "Estefano Marlom De Azcue Aparicio",
-    "VANESSA JIMENEZ MEDINA",
-    "JOSE ALBERTO SEDAS FLORES",
-];
+const ASESORES_POR_DEALER = {
+    "VW Cordoba": [
+        {
+            nombre: "Yamil Tepole",
+            className: "border-blue-300 bg-blue-100 text-blue-800",
+            dotClassName: "bg-blue-600",
+        },
+        {
+            nombre: "Iván Ramírez",
+            className: "border-slate-300 bg-slate-100 text-slate-700",
+            dotClassName: "bg-slate-500",
+        },
+        {
+            nombre: "Verónica González",
+            className: "border-emerald-300 bg-emerald-100 text-emerald-800",
+            dotClassName: "bg-emerald-600",
+        },
+    ],
+    "VW Orizaba": [
+        {
+            nombre: "Carlos Oliveros",
+            className: "border-emerald-300 bg-emerald-100 text-emerald-800",
+            dotClassName: "bg-emerald-600",
+        },
+        {
+            nombre: "Norma Angélica Reyes",
+            className: "border-yellow-300 bg-yellow-100 text-yellow-800",
+            dotClassName: "bg-yellow-500",
+        },
+    ],
+};
 
 const MEDIOS_CONCERTACION = [
     "Facebook",
@@ -132,6 +97,77 @@ const TIPOS_SERVICIO = [
 function normalizeStr(value) {
     return String(value ?? "").trim();
 }
+
+function normalizeKey(value) {
+    return normalizeStr(value)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+}
+
+function getDealerCanonical(agencia) {
+    const key = normalizeKey(agencia);
+
+    if (key.includes("cordoba")) return "VW Cordoba";
+    if (key.includes("orizaba")) return "VW Orizaba";
+
+    return normalizeStr(agencia);
+}
+
+function getAsesoresPorAgencia(agencia, incluirTodos = false) {
+    const dealer = getDealerCanonical(agencia);
+
+    if (incluirTodos && !dealer) {
+        return Object.values(ASESORES_POR_DEALER).flat();
+    }
+
+    return ASESORES_POR_DEALER[dealer] || [];
+}
+
+function getAsesorConfig(asesor, agencia) {
+    const asesorKey = normalizeKey(asesor);
+    if (!asesorKey) return null;
+
+    const dealer = getDealerCanonical(agencia);
+    const asesoresDealer = ASESORES_POR_DEALER[dealer] || [];
+    const matchDealer = asesoresDealer.find(
+        (item) => normalizeKey(item.nombre) === asesorKey
+    );
+
+    if (matchDealer) return matchDealer;
+
+    return Object.values(ASESORES_POR_DEALER)
+        .flat()
+        .find((item) => normalizeKey(item.nombre) === asesorKey) || null;
+}
+
+function AsesorBadge({ asesor, agencia }) {
+    const text = normalizeStr(asesor);
+
+    if (!text) {
+        return <span className="text-[#131E5C]">—</span>;
+    }
+
+    const config = getAsesorConfig(text, agencia);
+
+    if (!config) {
+        return <span className="font-semibold text-[#131E5C]">{text}</span>;
+    }
+
+    return (
+        <span
+            className={[
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-extrabold",
+                config.className,
+            ].join(" ")}
+            title={config.nombre}
+        >
+            <span className={["h-2.5 w-2.5 rounded-full", config.dotClassName].join(" ")} />
+            {text}
+        </span>
+    );
+}
+
 
 function boolFromAny(value) {
     if (typeof value === "boolean") return value;
@@ -540,6 +576,16 @@ export default function HojaRegistros() {
             (value, index, array) => array.indexOf(value) === index
         );
     }, [rows, isAdmin, userAgencia]);
+
+    const availableAsesores = useMemo(() => {
+        if (!draft) return [];
+
+        const agenciaActual = isAdmin
+            ? normalizeStr(draft.agencia)
+            : normalizeStr(userAgencia);
+
+        return getAsesoresPorAgencia(agenciaActual, isAdmin);
+    }, [draft, isAdmin, userAgencia]);
 
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
@@ -1118,8 +1164,8 @@ export default function HojaRegistros() {
                                             {row.torre || "—"}
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
-                                            {row.asesor || "—"}
+                                        <td className="whitespace-nowrap px-4 py-3">
+                                            <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
                                         </td>
 
                                         <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
@@ -1185,8 +1231,8 @@ export default function HojaRegistros() {
                                         {formatDate(row.fecha_ingreso)}
                                     </div>
 
-                                    <div className="mt-1 text-xs text-slate-600">
-                                        Asesor: {row.asesor || "—"}
+                                    <div className="mt-2">
+                                        <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
                                     </div>
                                 </div>
 
@@ -1252,7 +1298,11 @@ export default function HojaRegistros() {
                             <select
                                 value={draft.agencia || ""}
                                 onChange={(event) =>
-                                    setDraft((prev) => ({ ...prev, agencia: event.target.value }))
+                                    setDraft((prev) => ({
+                                        ...prev,
+                                        agencia: event.target.value,
+                                        asesor: "",
+                                    }))
                                 }
                                 disabled={!isAdmin}
                                 className={[
@@ -1410,12 +1460,24 @@ export default function HojaRegistros() {
                                     Selecciona un asesor...
                                 </option>
 
-                                {ASESORES.map((asesor) => (
-                                    <option key={asesor} value={asesor}>
-                                        {asesor}
+                                {availableAsesores.length === 0 ? (
+                                    <option value="" disabled>
+                                        Selecciona primero VW Cordoba o VW Orizaba...
+                                    </option>
+                                ) : null}
+
+                                {availableAsesores.map((asesor) => (
+                                    <option key={asesor.nombre} value={asesor.nombre}>
+                                        {asesor.nombre}
                                     </option>
                                 ))}
                             </select>
+
+                            {draft.asesor ? (
+                                <div className="mt-3">
+                                    <AsesorBadge asesor={draft.asesor} agencia={draft.agencia} />
+                                </div>
+                            ) : null}
                         </Field>
 
                         <Field label="Tipo de servicio" icon={ClipboardList}>
