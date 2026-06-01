@@ -713,7 +713,7 @@ export default function RegistroCitas() {
         "Miguel Capitanachi Paredes", "OLIMPIA VAZQUEZ MENDEZ", "Roberto Ramses Luna Fajardo",
         "Carlos Arturo Garces Vengas", "Edgar Omar Noguera Solis", "Javier Perez Meraz",
         "Luis Armando Almora Perez", "Mara Erubey Soto Villegas", "Sergio Ivan Quintana Martinez",
-        "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos",
+        "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos", "JOSE ALBERTO SEDAS FLORES"
     ];
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
     const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter", "CRAFTER ELITE", "CRAFTER URBAN", "CRAFTER ELEMENTAL", "CRAFTER INSPIRE"];
