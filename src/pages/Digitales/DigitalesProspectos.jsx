@@ -953,6 +953,7 @@ export default function DigitalesProspectos() {
         "Sergio Rene Delgado Sarmiento",
         "Yoseth Ruiz Castellanos",
         "Dulce Abigail Garcia Olivares",
+        "JOSE ALBERTO SEDAS FLORES",
     ];
 
     const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });

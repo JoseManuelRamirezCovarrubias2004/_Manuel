@@ -73,12 +73,17 @@ import RegistroSatisfaccion from "./pages/Satisfaccion/RegistroSatisfaccion";
 import RegistroServicio from "./pages/Servicio/RegistroServicio";
 
 import RegistroPiezas from "./pages/PedidoPiezas/RegistroPiezas";
+import HojaIngresos from "./pages/HojaIngresos/HojaIngresos";
 import Safety from "./pages/SafetyCulture/Safety";
 
 import Reclutamiento from "./pages/Reclutamiento/Reclutamiento";
 import Puestos from "./pages/puestos/Puestos";
 
 import CampanasMeta from './pages/CampanasMeta/CampanasMeta';
+
+import Retencion from './pages/Retencion/Retencion';
+
+import JDPower from './pages/JDPower/JDPower';
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
@@ -132,9 +137,6 @@ export const router = createBrowserRouter(
                                         },
                                     ],
                                 },
-
-
-
                                 {
                                     path: "safety",
                                     element: (
@@ -163,6 +165,22 @@ export const router = createBrowserRouter(
                                         </RequirePermission>
                                     ),
                                 },
+                                {
+                                    path: "retencion",
+                                    element: (
+                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_POSTVENTA"]}>
+                                            <Retencion />
+                                        </RequirePermission>
+                                    ),
+                                },
+                                {
+                                    path: "jdpower",
+                                    element: (
+                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_POSTVENTA"]}>
+                                            <JDPower />
+                                        </RequirePermission>
+                                    ),
+                                },
                             ],
                         },
 
@@ -188,13 +206,13 @@ export const router = createBrowserRouter(
                                 },
 
                                 {
-      path: "campanas_meta",
-    element: (
-        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]}>
-            <CampanasMeta />
-        </RequirePermission>
-    ),
-},
+                                    path: "campanas_meta",
+                                    element: (
+                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]}>
+                                            <CampanasMeta />
+                                        </RequirePermission>
+                                    ),
+                                },
 
                                 {
                                     path: "prospectos",
@@ -313,13 +331,7 @@ export const router = createBrowserRouter(
                             path: "usados",
                             element: (
                                 <RequirePermission
-                                    anyOf={[
-                                        "CRM_RECLAMACIONES",
-                                        "CRM_DIGITALES",
-                                        "CRM_VENTAS",
-                                        "USUARIOS_ADMIN",
-                                        "CRM_CALIDAD"
-                                    ]}
+                                    anyOf={["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
                                 >
                                     <UsadosLayout />
                                 </RequirePermission>
@@ -382,14 +394,7 @@ export const router = createBrowserRouter(
                             path: "financieros",
                             element: (
                                 <RequirePermission
-                                    anyOf={[
-                                        "CRM_RECLAMACIONES",
-                                        "CRM_FINANCIEROS",
-                                        "CRM_DIGITALES",
-                                        "CRM_VENTAS",
-                                        "USUARIOS_ADMIN",
-                                        "CRM_CALIDAD",
-                                    ]}
+                                    anyOf={["CRM_RECLAMACIONES", "CRM_FINANCIEROS", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD",]}
                                 >
                                     <FinancierosLayout />
                                 </RequirePermission>
@@ -421,13 +426,7 @@ export const router = createBrowserRouter(
                                     path: "long_drive",
                                     element: (
                                         <RequirePermission
-                                            anyOf={[
-                                                "CRM_DIGITALES",
-                                                "CRM_FINANCIEROS",
-                                                "CRM_VENTAS",
-                                                "USUARIOS_ADMIN",
-                                                "CRM_CALIDAD"
-                                            ]}
+                                            anyOf={["CRM_DIGITALES", "CRM_FINANCIEROS", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
                                         >
                                             <LongDriveLayout />
                                         </RequirePermission>
@@ -460,6 +459,14 @@ export const router = createBrowserRouter(
                                     element: (
                                         <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
                                             <RegistroPiezas />
+                                        </RequirePermission>
+                                    ),
+                                },
+                                {
+                                    path: "hoja_ingresos",
+                                    element: (
+                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
+                                            <HojaIngresos />
                                         </RequirePermission>
                                     ),
                                 },

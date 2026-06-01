@@ -1,7 +1,7 @@
 // src/pages/PostVenta/PostVentaTopNav.jsx
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Globe, CalendarDays, Building2, createLucideIcon, MessageCircle, CreditCard, CarFront, CircleDollarSign, Cog, ThumbsUp, Package } from "lucide-react";
+import { Globe, CalendarDays, Building2, createLucideIcon, MessageCircle, CreditCard, CarFront, CircleDollarSign, Cog, ThumbsUp, Package, DoorOpen } from "lucide-react";
 import vwWhite from "../../assets/vw_white.png";
 import ryr from "../../assets/ryr.png";
 import refaccion from "../../assets/engine.svg";
@@ -24,6 +24,12 @@ export default function PostVentaTopNav() {
                 label: "Pedidos de Piezas",
                 href: "/postventa/pedidos_piezas",
                 icon: Package,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
+            },
+            {
+                label: "Hoja de Ingresos",
+                href: "/postventa/hoja_ingresos",
+                icon: DoorOpen,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
         ];
