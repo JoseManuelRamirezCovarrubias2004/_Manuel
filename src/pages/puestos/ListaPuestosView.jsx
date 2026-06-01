@@ -5,6 +5,7 @@ import autoTable from "jspdf-autotable";
 import { PUESTOS, CATEGORIAS } from "./Datos/PuestosData";
 import { obtenerDescriptivo } from "./Datos/descriptivosPuestos";
 import { obtenerFunciones } from "./Datos/funcionesPuesto";
+import { obtenerPuestoCompleto } from "./Datos/puestosCompletos";
 
 const ListaPuestosView = () => {
     const [searchTerm, setSearchTerm] = useState("");
@@ -326,33 +327,72 @@ const ListaPuestosView = () => {
     const toggleFuncion = (idx) => {
         setFuncionesExpandidas(prev => ({ ...prev, [idx]: !prev[idx] }));
     };
-    
-  const handleVerDetalles = (puesto) => {
-    const descriptivo = obtenerDescriptivo(puesto.nombre);
-    const funciones = obtenerFunciones(puesto.nombre);
+ const handleVerDetalles = (puesto) => {
 
-    // LIMPIAR FUNCIONES EXPANDIDAS
-    setFuncionesExpandidas({});
+    // Obtener datos completos
+    const completo = obtenerPuestoCompleto(puesto.id);
 
+    if (!completo) return;
+
+    // ===== FORMATEAR FUNCIONES =====
+    let funcionesFormateadas = [];
+
+    if (Array.isArray(completo.funciones)) {
+
+        funcionesFormateadas = completo.funciones.map((func) => {
+
+            // Si viene como texto
+            if (typeof func === "string") {
+                return {
+                    nombre: func,
+                    subactividades: []
+                };
+            }
+
+            // Si viene como objeto
+            return {
+                nombre: func.nombre || "Función",
+                subactividades: Array.isArray(func.subactividades)
+                    ? func.subactividades
+                    : []
+            };
+        });
+    }
+
+    // ===== DESCRIPTIVO =====
+    const descriptivoParaModal = {
+        titulo: completo.nombre,
+        objetivo: completo.objetivoGeneral,
+        nivelEstudios: completo.nivelEstudios,
+        conocimientos: completo.conocimientos || "Información en proceso",
+        experiencia: completo.experiencia,
+        habilidades: completo.competencias || []
+    };
+
+    // ===== SET PUESTO =====
     setPuestoSeleccionado({
-        ...puesto,
-        descriptivo,
-        funciones
+        ...completo,
+        descriptivo: descriptivoParaModal,
+        funciones: {
+            funciones: funcionesFormateadas
+        },
+        categoria: completo.categoria,
+        dependeDe: completo.dependeDe || puesto.dependeDe
     });
 
+    // ===== RESET =====
     setModoEdicion(false);
+    setFuncionesExpandidas({});
 
+    // ===== DATOS EDITABLES =====
     setDatosEditables({
-        objetivo: descriptivo.objetivo || "",
-        nivelEstudios: descriptivo.nivelEstudios || "",
-        conocimientos: descriptivo.conocimientos || "",
-        experiencia: descriptivo.experiencia || "",
-        habilidades: descriptivo.habilidades || [],
-
-        // COPIA NUEVA DEL ARRAY
-        funciones: [...(funciones.funciones || [])],
-
-        reportaA: puesto.dependeDe || ""
+        objetivo: completo.objetivoGeneral || "",
+        nivelEstudios: completo.nivelEstudios || "",
+        conocimientos: completo.conocimientos || "",
+        experiencia: completo.experiencia || "",
+        habilidades: completo.competencias || [],
+        funciones: funcionesFormateadas,
+        reportaA: completo.dependeDe || puesto.dependeDe || ""
     });
 };
     

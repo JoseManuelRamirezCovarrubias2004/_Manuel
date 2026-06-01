@@ -13,6 +13,18 @@ const SEMANAS = Array.from({ length: 52 }, (_, i) => i + 1);
 const CHART_COLORS = ["#378ADD", "#1D9E75", "#D85A30", "#7F77DD", "#D4537E", "#F0A500", "#00B8D9"];
 const NAVY = "#131E5C";
 
+// ─── GRUPOS DE DEALERS POR CIUDAD ───────────────────────────────────────────
+// Los valores del array deben coincidir EXACTAMENTE con el campo "sucursal"
+// que llega del backend. Si hay diferencia de mayúsculas o acentos, ajústalos.
+const GRUPOS_DEALER = {
+  "Córdoba":   ["Cordoba", "Comerciales Cordoba", "Seminuevos Cordoba"],
+  "Orizaba":   ["Orizaba", "Comerciales Orizaba", "Seminuevos Orizaba"],
+  "Poza Rica": ["Poza Rica"],
+  "Tuxtepec":  ["Tuxtepec", "Seminuevos Tuxtepec"],
+  "Tuxpan":    ["Tuxpan"],
+};
+// ────────────────────────────────────────────────────────────────────────────
+
 const API_BASE = (
   import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com"
 ).replace(/\/$/, "");
@@ -24,38 +36,28 @@ const MES_ACTUAL = String(new Date().getMonth() + 1);
 
 function parseFechaLocal(fecha) {
   if (!fecha) return null;
-
   const partes = String(fecha).split("-").map(Number);
-
   if (partes.length < 3) return null;
-
   const [anio, mes, dia] = partes;
-
   if (!anio || !mes || !dia) return null;
-
   return new Date(anio, mes - 1, dia);
 }
 
 function obtenerSemana(fecha) {
   const date = parseFechaLocal(fecha);
-
   if (!date) return 0;
-
   const inicio = new Date(date.getFullYear(), 0, 1);
   const dias = Math.floor((date - inicio) / 86400000);
-
   return Math.ceil((dias + inicio.getDay() + 1) / 7);
 }
 
 function numeroSeguro(valor) {
   const numero = Number(valor ?? 0);
-
   return Number.isFinite(numero) ? numero : 0;
 }
 
 function decimalSeguro(valor) {
   const numero = parseFloat(valor ?? 0);
-
   return Number.isFinite(numero) ? numero : 0;
 }
 
@@ -69,19 +71,9 @@ function normalizarTexto(valor) {
 
 function obtenerCanalPorNombreCampana(nombreCampana) {
   const nombre = normalizarTexto(nombreCampana);
-
-  if (/\b(comercial|comerciales)\b/.test(nombre)) {
-    return "Comerciales";
-  }
-
-  if (/\b(seminuevo|seminuevos|semi nuevos|usado|usados)\b/.test(nombre)) {
-    return "Usados";
-  }
-
-  if (/\b(postventa|postventas)\b/.test(nombre)) {
-    return "PostVenta";
-  }
-
+  if (/\b(comercial|comerciales)\b/.test(nombre)) return "Comerciales";
+  if (/\b(seminuevo|seminuevos|semi nuevos|usado|usados)\b/.test(nombre)) return "Usados";
+  if (/\b(postventa|postventas)\b/.test(nombre)) return "PostVenta";
   return "Nuevos";
 }
 
@@ -89,7 +81,6 @@ function mapearCampana(c) {
   const fechaBase = c.inicio_campana || c.inicio_informe;
   const fecha = parseFechaLocal(fechaBase);
   const nombreCampana = c.nombre_campana ?? "Sin nombre";
-
   return {
     id_campana: String(c.id_campana),
     nombre_campana: nombreCampana,
@@ -118,21 +109,10 @@ function esFiltroVacio(valor) {
 
 function construirQueryCampanas({ anio, mes, sucursal }) {
   const params = new URLSearchParams();
-
-  if (!esFiltroVacio(anio)) {
-    params.set("anio", anio);
-  }
-
-  if (!esFiltroVacio(mes)) {
-    params.set("mes", mes);
-  }
-
-  if (!esFiltroVacio(sucursal)) {
-    params.set("sucursal", sucursal);
-  }
-
+  if (!esFiltroVacio(anio)) params.set("anio", anio);
+  if (!esFiltroVacio(mes)) params.set("mes", mes);
+  if (!esFiltroVacio(sucursal)) params.set("sucursal", sucursal);
   params.set("ordering", "-inicio_informe");
-
   return params.toString();
 }
 
@@ -192,16 +172,7 @@ function VistaTabla({ datos }) {
               <td className="px-4 py-3 font-medium text-gray-800 max-w-[200px] truncate">{c.nombre_campana}</td>
               <td className="px-4 py-3 text-gray-600">{c.sucursal}</td>
               <td className="px-4 py-3">
-                <span
-                  className={`text-xs px-2 py-1 rounded-full font-medium ${c.canal === "Nuevos"
-                    ? "bg-blue-100 text-blue-700"
-                    : c.canal === "Usados"
-                      ? "bg-violet-100 text-violet-700"
-                      : c.canal === "Comerciales" ?
-                        "bg-orange-100 text-orange-700"
-                        : "bg-emerald-50 text-emerald-700"
-                    }`}
-                >
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${c.canal === "Nuevos" ? "bg-blue-100 text-blue-700" : c.canal === "Usados" ? "bg-violet-100 text-violet-700" : c.canal === "Comerciales" ? "bg-orange-100 text-orange-700" : "bg-emerald-50 text-emerald-700"}`}>
                   {c.canal}
                 </span>
               </td>
@@ -301,28 +272,15 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
   const rendimientoPorCanal = useMemo(() => {
     const ordenCanales = ["Nuevos", "Usados", "Comerciales", "PostVenta"];
     const map = {};
-
     datos.forEach((c) => {
       const canal = c.canal || "Sin canal";
-
-      if (!map[canal]) {
-        map[canal] = {
-          canal,
-          gasto: 0,
-          resultados: 0,
-          alcance: 0,
-          impresiones: 0,
-          campanas: 0,
-        };
-      }
-
+      if (!map[canal]) map[canal] = { canal, gasto: 0, resultados: 0, alcance: 0, impresiones: 0, campanas: 0 };
       map[canal].gasto += c.importe_gastado;
       map[canal].resultados += c.total_resultados;
       map[canal].alcance += c.alcance;
       map[canal].impresiones += c.impresiones;
       map[canal].campanas += 1;
     });
-
     return Object.values(map)
       .map((item) => ({
         ...item,
@@ -332,11 +290,9 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
       .sort((a, b) => {
         const ia = ordenCanales.indexOf(a.canal);
         const ib = ordenCanales.indexOf(b.canal);
-
         if (ia === -1 && ib === -1) return a.canal.localeCompare(b.canal);
         if (ia === -1) return 1;
         if (ib === -1) return -1;
-
         return ia - ib;
       });
   }, [datos]);
@@ -469,111 +425,35 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
 
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <div className="flex flex-col gap-1 mb-4">
-          <p className="text-lg font-bold" style={{ color: NAVY }}>
-            Rendimiento por Canal
-          </p>
-          <p className="text-[14px] text-gray-400">
-            Comparativa de inversión total y costo por resultado entre Nuevos, Usados y Comerciales
-          </p>
+          <p className="text-lg font-bold" style={{ color: NAVY }}>Rendimiento por Canal</p>
+          <p className="text-[14px] text-gray-400">Comparativa de inversión total y costo por resultado entre Nuevos, Usados y Comerciales</p>
         </div>
-
         <ResponsiveContainer width="100%" height={280}>
-          <ComposedChart
-            data={rendimientoPorCanal}
-            margin={{ top: 20, right: 15, left: -5, bottom: 0 }}
-          >
+          <ComposedChart data={rendimientoPorCanal} margin={{ top: 20, right: 15, left: -5, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-
-            <XAxis
-              dataKey="canal"
-              tick={{ fontSize: 11, fill: "#6b7280" }}
-            />
-
-            <YAxis
-              yAxisId="left"
-              tick={{ fontSize: 11, fill: "#6b7280" }}
-              tickFormatter={(value) => `$${Number(value).toLocaleString()}`}
-            />
-
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              tick={{ fontSize: 11, fill: "#6b7280" }}
-              tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
-            />
-
-            <Tooltip
-              contentStyle={TooltipStyle}
-              formatter={(value, name) => {
-                const numero = Number(value || 0);
-
-                if (name === "Costo por resultado") {
-                  return [`$${numero.toFixed(2)}`, name];
-                }
-
-                if (name === "Inversión total") {
-                  return [`$${numero.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, name];
-                }
-
-                return [numero.toLocaleString(), name];
-              }}
-            />
-
+            <XAxis dataKey="canal" tick={{ fontSize: 11, fill: "#6b7280" }} />
+            <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#6b7280" }} tickFormatter={(value) => `$${Number(value).toLocaleString()}`} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#6b7280" }} tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
+            <Tooltip contentStyle={TooltipStyle} formatter={(value, name) => {
+              const numero = Number(value || 0);
+              if (name === "Costo por resultado") return [`$${numero.toFixed(2)}`, name];
+              if (name === "Inversión total") return [`$${numero.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, name];
+              return [numero.toLocaleString(), name];
+            }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-
-            <Bar
-              yAxisId="left"
-              dataKey="gasto"
-              name="Inversión total"
-              fill={NAVY}
-              radius={[5, 5, 0, 0]}
-              barSize={42}
-            />
-
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="costo_por_resultado"
-              name="Costo por resultado"
-              stroke="#D85A30"
-              strokeWidth={3}
-              dot={{ r: 4 }}
-              activeDot={{ r: 6 }}
-            />
+            <Bar yAxisId="left" dataKey="gasto" name="Inversión total" fill={NAVY} radius={[5, 5, 0, 0]} barSize={42} />
+            <Line yAxisId="right" type="monotone" dataKey="costo_por_resultado" name="Costo por resultado" stroke="#D85A30" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
           </ComposedChart>
         </ResponsiveContainer>
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
           {rendimientoPorCanal.map((item) => (
             <div key={item.canal} className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
-              <p className="text-lg font-bold mb-1" style={{ color: NAVY }}>
-                {item.canal}
-              </p>
-
+              <p className="text-lg font-bold mb-1" style={{ color: NAVY }}>{item.canal}</p>
               <div className="space-y-1 text-[14px] text-gray-500">
-                <div className="flex justify-between gap-3">
-                  <span>Campañas</span>
-                  <span className="font-semibold text-gray-700">{item.campanas}</span>
-                </div>
-
-                <div className="flex justify-between gap-3">
-                  <span>Resultados</span>
-                  <span className="font-semibold text-gray-700">{item.resultados}</span>
-                </div>
-
-                <div className="flex justify-between gap-3">
-                  <span>Inversión</span>
-                  <span className="font-semibold text-gray-700">
-                    ${item.gasto.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                <div className="flex justify-between gap-3">
-                  <span>Costo / resultado</span>
-                  <span className="font-bold" style={{ color: NAVY }}>
-                    ${item.costo_por_resultado.toFixed(2)}
-                  </span>
-                </div>
+                <div className="flex justify-between gap-3"><span>Campañas</span><span className="font-semibold text-gray-700">{item.campanas}</span></div>
+                <div className="flex justify-between gap-3"><span>Resultados</span><span className="font-semibold text-gray-700">{item.resultados}</span></div>
+                <div className="flex justify-between gap-3"><span>Inversión</span><span className="font-semibold text-gray-700">${item.gasto.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                <div className="flex justify-between gap-3"><span>Costo / resultado</span><span className="font-bold" style={{ color: NAVY }}>${item.costo_por_resultado.toFixed(2)}</span></div>
               </div>
             </div>
           ))}
@@ -590,9 +470,7 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
                 <th className="text-left py-2 px-3 font-semibold text-gray-600 w-52">nombre_campana</th>
                 <th className="text-right py-2 px-3 font-semibold text-gray-600 w-20">total_resultados</th>
                 {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                  <th key={d} className="text-center py-2 px-1 font-medium text-gray-400 min-w-[28px]">
-                    {d}
-                  </th>
+                  <th key={d} className="text-center py-2 px-1 font-medium text-gray-400 min-w-[28px]">{d}</th>
                 ))}
               </tr>
             </thead>
@@ -608,9 +486,7 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
                     const color = ESTATUS_COLORS[c.estado] ?? "#378ADD";
                     return (
                       <td key={w} className="py-2 px-1">
-                        {inRange ? (
-                          <div className="h-5 rounded-sm mx-0.5" style={{ backgroundColor: color, opacity: 0.85 }} />
-                        ) : null}
+                        {inRange ? <div className="h-5 rounded-sm mx-0.5" style={{ backgroundColor: color, opacity: 0.85 }} /> : null}
                       </td>
                     );
                   })}
@@ -673,17 +549,18 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
   );
 }
 
-// Componente principal 
+// ─── COMPONENTE PRINCIPAL ────────────────────────────────────────────────────
 export default function CampanasMeta() {
   const [vista, setVista] = useState("tabla");
 
   // Filtros principales
-  // Antes iniciaba en "Todos", eso obligaba a cargar toda la tabla al abrir.
-  // Para dashboard es mejor abrir en el año actual y dejar "Todos" como opción manual.
   const [año, setAño] = useState(ANIO_ACTUAL);
   const [mes, setMes] = useState("Todos");
   const [semana, setSemana] = useState("Todas");
   const [sucursal, setSucursal] = useState("Todas");
+
+  // ── NUEVO: ciudad seleccionada en el filtro de dealers ──
+  const [ciudadSeleccionada, setCiudadSeleccionada] = useState("Todas");
 
   // Modo comparación
   const [modoComp, setModoComp] = useState(false);
@@ -715,299 +592,164 @@ export default function CampanasMeta() {
   const cargarCampanas = useCallback(async (filtros, signal) => {
     const query = construirQueryCampanas(filtros);
     const cacheKey = query || "sin-filtros";
-
-    if (cacheRef.current.has(cacheKey)) {
-      return cacheRef.current.get(cacheKey);
-    }
-
+    if (cacheRef.current.has(cacheKey)) return cacheRef.current.get(cacheKey);
     const url = `${META_ENDPOINT}/ligero/${query ? `?${query}` : ""}`;
-
     const res = await fetch(url, { signal });
-
-    if (!res.ok) {
-      throw new Error(`Error al cargar campañas: ${res.status}`);
-    }
-
+    if (!res.ok) throw new Error(`Error al cargar campañas: ${res.status}`);
     const data = await res.json();
     const lista = Array.isArray(data) ? data : data.results ?? [];
     const mapeado = lista.map(mapearCampana);
-
     cacheRef.current.set(cacheKey, mapeado);
-
     return mapeado;
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-
     async function cargarOpciones() {
       try {
         setLoadingOpciones(true);
-
-        const res = await fetch(`${META_ENDPOINT}/opciones/`, {
-          signal: controller.signal,
-        });
-
-        if (!res.ok) {
-          throw new Error(`Error al cargar opciones: ${res.status}`);
-        }
-
+        const res = await fetch(`${META_ENDPOINT}/opciones/`, { signal: controller.signal });
+        if (!res.ok) throw new Error(`Error al cargar opciones: ${res.status}`);
         const data = await res.json();
-
         setOpciones({
           sucursales: Array.isArray(data.sucursales) ? data.sucursales : [],
-          estados_campana: Array.isArray(data.estados_campana)
-            ? data.estados_campana
-            : [],
-          concesionarias: Array.isArray(data.concesionarias)
-            ? data.concesionarias
-            : [],
+          estados_campana: Array.isArray(data.estados_campana) ? data.estados_campana : [],
+          concesionarias: Array.isArray(data.concesionarias) ? data.concesionarias : [],
           anios: Array.isArray(data.anios) ? data.anios : [],
           anio_mes: Array.isArray(data.anio_mes) ? data.anio_mes : [],
-          meses_por_anio:
-            data.meses_por_anio && typeof data.meses_por_anio === "object"
-              ? data.meses_por_anio
-              : {},
+          meses_por_anio: data.meses_por_anio && typeof data.meses_por_anio === "object" ? data.meses_por_anio : {},
         });
       } catch (err) {
-        if (err.name !== "AbortError") {
-          setError(err.message);
-        }
+        if (err.name !== "AbortError") setError(err.message);
       } finally {
         setLoadingOpciones(false);
       }
     }
-
     cargarOpciones();
-
     return () => controller.abort();
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-
     async function cargarDatosBase() {
       try {
         setLoadingBase(true);
         setError(null);
-
-        const datos = await cargarCampanas(
-          {
-            anio: año,
-            mes,
-            sucursal,
-          },
-          controller.signal
-        );
-
+        // Si hay ciudad seleccionada le pedimos "Todas" al backend y filtramos en frontend
+        const sucursalQuery = sucursal.startsWith("__grupo__") ? "Todas" : sucursal;
+        const datos = await cargarCampanas({ anio: año, mes, sucursal: sucursalQuery }, controller.signal);
         setDatosRaw(datos);
       } catch (err) {
-        if (err.name !== "AbortError") {
-          setError(err.message);
-        }
+        if (err.name !== "AbortError") setError(err.message);
       } finally {
         setLoadingBase(false);
       }
     }
-
     cargarDatosBase();
-
     return () => controller.abort();
   }, [año, mes, sucursal, cargarCampanas]);
 
-  const filtrosDesdeComparacion = useCallback(
-    (key) => {
-      if (tipoComp === "años") {
-        return {
-          anio: key,
-          mes: "Todos",
-          sucursal,
-        };
-      }
-
-      const [anio, mesComp] = String(key).split("-");
-
-      return {
-        anio,
-        mes: mesComp,
-        sucursal,
-      };
-    },
-    [tipoComp, sucursal]
-  );
+  const filtrosDesdeComparacion = useCallback((key) => {
+    if (tipoComp === "años") return { anio: key, mes: "Todos", sucursal };
+    const [anio, mesComp] = String(key).split("-");
+    return { anio, mes: mesComp, sucursal };
+  }, [tipoComp, sucursal]);
 
   useEffect(() => {
-    if (!modoComp) {
-      setDatosAComp([]);
-      setDatosBComp([]);
-      return;
-    }
-
+    if (!modoComp) { setDatosAComp([]); setDatosBComp([]); return; }
     const controller = new AbortController();
-
     async function cargarComparacion() {
       try {
         setLoadingComp(true);
         setError(null);
-
         const [a, b] = await Promise.all([
           cargarCampanas(filtrosDesdeComparacion(compA), controller.signal),
           cargarCampanas(filtrosDesdeComparacion(compB), controller.signal),
         ]);
-
         setDatosAComp(a);
         setDatosBComp(b);
       } catch (err) {
-        if (err.name !== "AbortError") {
-          setError(err.message);
-        }
+        if (err.name !== "AbortError") setError(err.message);
       } finally {
         setLoadingComp(false);
       }
     }
-
     cargarComparacion();
-
     return () => controller.abort();
-  }, [
-    modoComp,
-    compA,
-    compB,
-    tipoComp,
-    sucursal,
-    cargarCampanas,
-    filtrosDesdeComparacion,
-  ]);
+  }, [modoComp, compA, compB, tipoComp, sucursal, cargarCampanas, filtrosDesdeComparacion]);
 
-  const SUCURSALES = useMemo(() => {
-    return ["Todas", ...opciones.sucursales];
-  }, [opciones.sucursales]);
+  // ── NUEVO: seleccionar ciudad y mapearla a sucursal interna ──────────────
+  const seleccionarCiudad = useCallback((ciudad) => {
+    setCiudadSeleccionada(ciudad);
+    setSucursal(ciudad === "Todas" ? "Todas" : `__grupo__${ciudad}`);
+  }, []);
 
   const añosDisponibles = useMemo(() => {
-    if (opciones.anios.length > 0) {
-      return opciones.anios;
-    }
-
-    return [...new Set(DATOS_RAW.map((d) => d.año))]
-      .filter(Boolean)
-      .sort((a, b) => b - a);
+    if (opciones.anios.length > 0) return opciones.anios;
+    return [...new Set(DATOS_RAW.map((d) => d.año))].filter(Boolean).sort((a, b) => b - a);
   }, [opciones.anios, DATOS_RAW]);
 
-  const filtrarPorSemana = useCallback(
-    (arr) => {
-      if (semana === "Todas") return arr;
+  const filtrarPorSemana = useCallback((arr) => {
+    if (semana === "Todas") return arr;
+    const semanaNumero = parseInt(semana);
+    return arr.filter((c) => c.semana === semanaNumero);
+  }, [semana]);
 
-      const semanaNumero = parseInt(semana);
-
-      return arr.filter((c) => c.semana === semanaNumero);
-    },
-    [semana]
-  );
+  // ── NUEVO: filtrado por grupo de ciudad en frontend ──────────────────────
+  const filtrarPorCiudad = useCallback((arr) => {
+    if (!sucursal.startsWith("__grupo__")) return arr;
+    const ciudad = sucursal.replace("__grupo__", "");
+    const sucursalesDelGrupo = GRUPOS_DEALER[ciudad] ?? [];
+    return arr.filter(c =>
+      sucursalesDelGrupo.some(s => normalizarTexto(c.sucursal) === normalizarTexto(s))
+    );
+  }, [sucursal]);
 
   const datosFiltrados = useMemo(() => {
-    return filtrarPorSemana(DATOS_RAW);
-  }, [DATOS_RAW, filtrarPorSemana]);
+    return filtrarPorSemana(filtrarPorCiudad(DATOS_RAW));
+  }, [DATOS_RAW, filtrarPorSemana, filtrarPorCiudad]);
 
-  const datosA = useMemo(() => {
-    return filtrarPorSemana(datosAComp);
-  }, [datosAComp, filtrarPorSemana]);
-
-  const datosB = useMemo(() => {
-    return filtrarPorSemana(datosBComp);
-  }, [datosBComp, filtrarPorSemana]);
+  const datosA = useMemo(() => filtrarPorSemana(filtrarPorCiudad(datosAComp)), [datosAComp, filtrarPorSemana, filtrarPorCiudad]);
+  const datosB = useMemo(() => filtrarPorSemana(filtrarPorCiudad(datosBComp)), [datosBComp, filtrarPorSemana, filtrarPorCiudad]);
 
   const datosActivos = modoComp ? datosA : datosFiltrados;
   const datosComp = modoComp ? datosB : [];
 
-  const labelA =
-    tipoComp === "años"
-      ? compA
-      : (() => {
-        const [y, m] = compA.split("-");
-        return `${MESES[parseInt(m) - 1]?.slice(0, 3) ?? "Mes"} ${y}`;
-      })();
-
-  const labelB =
-    tipoComp === "años"
-      ? compB
-      : (() => {
-        const [y, m] = compB.split("-");
-        return `${MESES[parseInt(m) - 1]?.slice(0, 3) ?? "Mes"} ${y}`;
-      })();
+  const labelA = tipoComp === "años" ? compA : (() => { const [y, m] = compA.split("-"); return `${MESES[parseInt(m) - 1]?.slice(0, 3) ?? "Mes"} ${y}`; })();
+  const labelB = tipoComp === "años" ? compB : (() => { const [y, m] = compB.split("-"); return `${MESES[parseInt(m) - 1]?.slice(0, 3) ?? "Mes"} ${y}`; })();
 
   const totA = useMemo(() => agg(datosActivos), [datosActivos]);
   const totB = useMemo(() => agg(datosComp), [datosComp]);
 
   const opcionesAñoMes = useMemo(() => {
-    const fuente =
-      opciones.anio_mes.length > 0
-        ? opciones.anio_mes
-        : DATOS_RAW.map((c) => ({
-          anio: c.año,
-          mes: c.mes,
-        }));
-
+    const fuente = opciones.anio_mes.length > 0 ? opciones.anio_mes : DATOS_RAW.map((c) => ({ anio: c.año, mes: c.mes }));
     const set = new Set();
-
-    fuente.forEach((item) => {
-      if (item.anio && item.mes) {
-        set.add(`${item.anio}-${item.mes}`);
-      }
+    fuente.forEach((item) => { if (item.anio && item.mes) set.add(`${item.anio}-${item.mes}`); });
+    return Array.from(set).sort((a, b) => {
+      const [ya, ma] = a.split("-").map(Number);
+      const [yb, mb] = b.split("-").map(Number);
+      if (yb !== ya) return yb - ya;
+      return mb - ma;
+    }).map((value) => {
+      const [y, m] = value.split("-");
+      return { value, label: `${MESES[parseInt(m) - 1]?.slice(0, 3) ?? "Mes"} ${y}` };
     });
-
-    return Array.from(set)
-      .sort((a, b) => {
-        const [ya, ma] = a.split("-").map(Number);
-        const [yb, mb] = b.split("-").map(Number);
-
-        if (yb !== ya) return yb - ya;
-
-        return mb - ma;
-      })
-      .map((value) => {
-        const [y, m] = value.split("-");
-
-        return {
-          value,
-          label: `${MESES[parseInt(m) - 1]?.slice(0, 3) ?? "Mes"} ${y}`,
-        };
-      });
   }, [opciones.anio_mes, DATOS_RAW]);
 
-  const opcionesAño = useMemo(() => {
-    return añosDisponibles.map((a) => ({
-      value: String(a),
-      label: String(a),
-    }));
-  }, [añosDisponibles]);
+  const opcionesAño = useMemo(() => añosDisponibles.map((a) => ({ value: String(a), label: String(a) })), [añosDisponibles]);
 
   const mesesDisponibles = useMemo(() => {
     if (año === "Todos") {
-      const meses = opciones.anio_mes
-        .map((item) => item.mes)
-        .filter(Boolean);
-
+      const meses = opciones.anio_mes.map((item) => item.mes).filter(Boolean);
       return [...new Set(meses)].sort((a, b) => a - b);
     }
-
-    const desdeOpciones = opciones.anio_mes
-      .filter((item) => String(item.anio) === String(año))
-      .map((item) => item.mes)
-      .filter(Boolean);
-
-    if (desdeOpciones.length > 0) {
-      return [...new Set(desdeOpciones)].sort((a, b) => a - b);
-    }
-
-    return [...new Set(DATOS_RAW.map((d) => d.mes))]
-      .filter(Boolean)
-      .sort((a, b) => a - b);
+    const desdeOpciones = opciones.anio_mes.filter((item) => String(item.anio) === String(año)).map((item) => item.mes).filter(Boolean);
+    if (desdeOpciones.length > 0) return [...new Set(desdeOpciones)].sort((a, b) => a - b);
+    return [...new Set(DATOS_RAW.map((d) => d.mes))].filter(Boolean).sort((a, b) => a - b);
   }, [año, opciones.anio_mes, DATOS_RAW]);
 
-  const loading =
-    loadingOpciones || (modoComp ? loadingComp : loadingBase);
+  const loading = loadingOpciones || (modoComp ? loadingComp : loadingBase);
 
-  // Loading / Error
   if (loading) return (
     <div className="flex items-center justify-center py-20 text-gray-400 text-sm">
       <div className="flex flex-col items-center gap-3">
@@ -1026,7 +768,6 @@ export default function CampanasMeta() {
     </div>
   );
 
-
   return (
     <div className="space-y-0 p-1">
 
@@ -1038,8 +779,7 @@ export default function CampanasMeta() {
         <div className="flex gap-2">
           {["tabla", "graficas"].map(v => (
             <button key={v} onClick={() => setVista(v)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition ${vista === v ? "text-white border-transparent" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition ${vista === v ? "text-white border-transparent" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}
               style={vista === v ? { backgroundColor: NAVY } : {}}
             >
               {v === "tabla" ? <><TableProperties size={15} />Tabla</> : <><BarChart2 size={15} />Gráficas</>}
@@ -1050,29 +790,21 @@ export default function CampanasMeta() {
 
       <div className="rounded-xl border border-gray-200 overflow-hidden mb-5">
 
+        {/* Filtro de años */}
         <div className="flex items-center gap-1 px-4 py-3 border-b border-gray-200 bg-gray-50/60 flex-wrap">
           <button className="p-1 rounded hover:bg-gray-200 text-gray-400 mr-1">
             <ChevronRight size={14} className="rotate-180" />
           </button>
           {añosDisponibles.map(a => (
-            <button
-              key={a}
-              onClick={() => { setAño(año === String(a) ? "Todos" : String(a)); setMes("Todos"); }}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${año === String(a)
-                ? "text-white border-transparent"
-                : "bg-white border-gray-300 text-gray-600 hover:border-blue-300 hover:text-blue-600"
-                }`}
+            <button key={a} onClick={() => { setAño(año === String(a) ? "Todos" : String(a)); setMes("Todos"); }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${año === String(a) ? "text-white border-transparent" : "bg-white border-gray-300 text-gray-600 hover:border-blue-300 hover:text-blue-600"}`}
               style={año === String(a) ? { backgroundColor: NAVY } : {}}
             >
               {a}
             </button>
           ))}
-          <button
-            onClick={() => { setAño("Todos"); setMes("Todos"); }}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ml-1 ${año === "Todos"
-              ? "text-white border-transparent"
-              : "bg-white border-gray-300 text-gray-600 hover:border-blue-300"
-              }`}
+          <button onClick={() => { setAño("Todos"); setMes("Todos"); }}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ml-1 ${año === "Todos" ? "text-white border-transparent" : "bg-white border-gray-300 text-gray-600 hover:border-blue-300"}`}
             style={año === "Todos" ? { backgroundColor: NAVY } : {}}
           >
             Todos
@@ -1082,20 +814,15 @@ export default function CampanasMeta() {
           </button>
         </div>
 
+        {/* Filtro de meses */}
         <div className="flex items-center gap-1 px-4 py-3 border-b border-gray-200 bg-white flex-wrap">
           {MESES_CORTOS.map((m, i) => {
             const mesNum = i + 1;
             const disponible = año === "Todos" || mesesDisponibles.includes(mesNum);
             return (
-              <button
-                key={m}
+              <button key={m}
                 onClick={() => disponible && setMes(mes === String(mesNum) ? "Todos" : String(mesNum))}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${mes === String(mesNum)
-                  ? "text-white border-transparent"
-                  : disponible
-                    ? "bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50"
-                    : "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed"
-                  }`}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${mes === String(mesNum) ? "text-white border-transparent" : disponible ? "bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50" : "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed"}`}
                 style={mes === String(mesNum) ? { backgroundColor: NAVY } : {}}
               >
                 {m}
@@ -1104,34 +831,52 @@ export default function CampanasMeta() {
           })}
         </div>
 
+        {/* ── Filtros inferiores ── */}
         <div className="flex flex-wrap items-end gap-4 px-4 py-3 bg-white">
+
+          {/* ── NUEVO filtro de dealers agrupados por ciudad ── */}
           <div>
             <label className="block text-[10px] text-gray-400 mb-1 font-medium uppercase tracking-wide">Dealer</label>
             <div className="flex flex-wrap gap-1.5">
-              {SUCURSALES.map(s => (
+              {/* Botón "Todas" */}
+              <button
+                onClick={() => seleccionarCiudad("Todas")}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${ciudadSeleccionada === "Todas" ? "text-white border-transparent" : "bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50"}`}
+                style={ciudadSeleccionada === "Todas" ? { backgroundColor: NAVY } : {}}
+              >
+                Todas
+              </button>
+              {/* Un botón por ciudad */}
+              {Object.keys(GRUPOS_DEALER).map(ciudad => (
                 <button
-                  key={s}
-                  onClick={() => setSucursal(s)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${sucursal === s
-                    ? "text-white border-transparent"
-                    : "bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50"
-                    }`}
-                  style={sucursal === s ? { backgroundColor: NAVY } : {}}
+                  key={ciudad}
+                  onClick={() => seleccionarCiudad(ciudad)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${ciudadSeleccionada === ciudad ? "text-white border-transparent" : "bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50"}`}
+                  style={ciudadSeleccionada === ciudad ? { backgroundColor: NAVY } : {}}
                 >
-                  {s}
+                  {ciudad}
                 </button>
               ))}
             </div>
+
+            {/* Sub-chips: muestra las sucursales de la ciudad activa */}
+            {ciudadSeleccionada !== "Todas" && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {(GRUPOS_DEALER[ciudadSeleccionada] ?? []).map(s => (
+                  <span key={s} className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-600 font-medium">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* Filtro de semana */}
           <div>
             <label className="block text-[10px] text-gray-400 mb-1 font-medium uppercase tracking-wide">Semana</label>
             <div className="relative">
-              <select
-                value={semana}
-                onChange={e => setSemana(e.target.value)}
-                className="appearance-none bg-white border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 cursor-pointer min-w-[130px]"
-              >
+              <select value={semana} onChange={e => setSemana(e.target.value)}
+                className="appearance-none bg-white border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 cursor-pointer min-w-[130px]">
                 <option value="Todas">Todas</option>
                 {SEMANAS.map(s => <option key={s} value={String(s)}>Semana {s}</option>)}
               </select>
@@ -1139,12 +884,11 @@ export default function CampanasMeta() {
             </div>
           </div>
 
+          {/* Comparar períodos */}
           <div>
             <label className="block text-[10px] text-gray-400 mb-1 font-medium uppercase tracking-wide">Comparar períodos</label>
-            <button
-              onClick={() => setModoComp(!modoComp)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition h-[38px] ${modoComp ? "text-white border-transparent" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
+            <button onClick={() => setModoComp(!modoComp)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition h-[38px] ${modoComp ? "text-white border-transparent" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}
               style={modoComp ? { backgroundColor: "#1D9E75" } : {}}
             >
               <TrendingUp size={14} />
@@ -1152,57 +896,51 @@ export default function CampanasMeta() {
             </button>
           </div>
 
+          {/* Accesos rápidos */}
           <div className="ml-auto flex items-end gap-2 flex-wrap">
-            <button
-              onClick={() => {
-                setAño(ANIO_ACTUAL);
-                setMes(MES_ACTUAL);
-              }}
+            <button onClick={() => { setAño(ANIO_ACTUAL); setMes(MES_ACTUAL); }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white transition"
-              style={{ backgroundColor: "#1D9E75" }}
-            >
+              style={{ backgroundColor: "#1D9E75" }}>
               𝄜  Hoy
             </button>
-            <button
-              onClick={() => {
-                const hoy = new Date();
-                const mesAnterior = hoy.getMonth() === 0 ? 12 : hoy.getMonth();
-                const añoAnterior =
-                  hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear();
-
-                setAño(String(añoAnterior));
-                setMes(String(mesAnterior));
-              }}
+            <button onClick={() => {
+              const hoy = new Date();
+              const mesAnterior = hoy.getMonth() === 0 ? 12 : hoy.getMonth();
+              const añoAnterior = hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear();
+              setAño(String(añoAnterior)); setMes(String(mesAnterior));
+            }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white transition"
-              style={{ backgroundColor: "#F0A500" }}
-            >
+              style={{ backgroundColor: "#F0A500" }}>
               𝄜  Mes anterior
             </button>
-            <button
-              onClick={() => {
-                setAño(ANIO_ACTUAL);
-                setMes("Todos");
-              }}
+            <button onClick={() => { setAño(ANIO_ACTUAL); setMes("Todos"); }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white transition"
-              style={{ backgroundColor: "#378ADD" }}
-            >
+              style={{ backgroundColor: "#378ADD" }}>
               𝄜  Este año
             </button>
-            <button
-              onClick={() => { setAño("Todos"); setMes("Todos"); setSemana("Todas"); setSucursal("Todas"); setModoComp(false); }}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
-            >
+            {/* ── NUEVO: limpia también ciudadSeleccionada ── */}
+            <button onClick={() => {
+              setAño("Todos"); setMes("Todos"); setSemana("Todas");
+              setSucursal("Todas"); setCiudadSeleccionada("Todas");
+              setModoComp(false);
+            }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 transition">
               ✕ Limpiar
             </button>
           </div>
         </div>
 
+        {/* Panel de comparación */}
         {modoComp && (
           <div className="px-4 py-3 border-t border-gray-100 bg-blue-50/40 flex flex-wrap gap-4 items-end">
             <div>
               <label className="block text-[10px] text-gray-400 mb-1 font-medium uppercase tracking-wide">Tipo comparación</label>
               <div className="relative">
-                <select value={tipoComp} onChange={v => { setTipoComp(v.target.value); setCompA(v.target.value === "años" ? String(new Date().getFullYear()) : `${new Date().getFullYear()}-${new Date().getMonth() + 1}`); setCompB(v.target.value === "años" ? String(new Date().getFullYear() - 1) : `${new Date().getFullYear() - 1}-${new Date().getMonth() + 1}`); }}
+                <select value={tipoComp} onChange={v => {
+                  setTipoComp(v.target.value);
+                  setCompA(v.target.value === "años" ? String(new Date().getFullYear()) : `${new Date().getFullYear()}-${new Date().getMonth() + 1}`);
+                  setCompB(v.target.value === "años" ? String(new Date().getFullYear() - 1) : `${new Date().getFullYear() - 1}-${new Date().getMonth() + 1}`);
+                }}
                   className="appearance-none bg-white border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 cursor-pointer min-w-[140px]">
                   <option value="meses">Mes vs Mes</option>
                   <option value="años">Año vs Año</option>
@@ -1242,15 +980,12 @@ export default function CampanasMeta() {
         )}
       </div>
 
+      {/* Tarjetas de resumen */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
-        <StatCard label="Campañas" value={datosActivos.length} sub={modoComp ? `${datosB.length} en ${labelB}` : undefined} color="#378ADD"
-          delta={modoComp ? pct(datosActivos.length, datosB.length) : null} />
-        <StatCard label="Alcance total" value={totA.alcance.toLocaleString()} sub={modoComp ? `${totB.alcance.toLocaleString()} en ${labelB}` : "personas únicas"} color="#1D9E75"
-          delta={modoComp ? pct(totA.alcance, totB.alcance) : null} />
-        <StatCard label="Impresiones" value={totA.impresiones.toLocaleString()} sub={modoComp ? `${totB.impresiones.toLocaleString()} en ${labelB}` : "total"} color="#7F77DD"
-          delta={modoComp ? pct(totA.impresiones, totB.impresiones) : null} />
-        <StatCard label="Gasto total" value={`$${totA.importe_gastado.toFixed(0)}`} sub={modoComp ? `$${totB.importe_gastado.toFixed(0)} en ${labelB}` : "importe gastado"} color="#D85A30"
-          delta={modoComp ? pct(totA.importe_gastado, totB.importe_gastado) : null} />
+        <StatCard label="Campañas" value={datosActivos.length} sub={modoComp ? `${datosB.length} en ${labelB}` : undefined} color="#378ADD" delta={modoComp ? pct(datosActivos.length, datosB.length) : null} />
+        <StatCard label="Alcance total" value={totA.alcance.toLocaleString()} sub={modoComp ? `${totB.alcance.toLocaleString()} en ${labelB}` : "personas únicas"} color="#1D9E75" delta={modoComp ? pct(totA.alcance, totB.alcance) : null} />
+        <StatCard label="Impresiones" value={totA.impresiones.toLocaleString()} sub={modoComp ? `${totB.impresiones.toLocaleString()} en ${labelB}` : "total"} color="#7F77DD" delta={modoComp ? pct(totA.impresiones, totB.impresiones) : null} />
+        <StatCard label="Gasto total" value={`$${totA.importe_gastado.toFixed(0)}`} sub={modoComp ? `$${totB.importe_gastado.toFixed(0)} en ${labelB}` : "importe gastado"} color="#D85A30" delta={modoComp ? pct(totA.importe_gastado, totB.importe_gastado) : null} />
       </div>
 
       {vista === "tabla"
