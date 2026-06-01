@@ -18,6 +18,9 @@ import {
     Pencil,
     Trash2,
     Plus,
+    Copy,
+    Check,
+    Save,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
@@ -43,6 +46,44 @@ const CANALES = [
     "Facebook",
     "Llamada Entrante",
 ];
+
+const ESTADOS_PROSPECTO = [
+    "Nuevo",
+    "Contactado",
+    "Seguimiento",
+    "Lead Calificado",
+    "Cita",
+    "Venta",
+    "Descalificado",
+    "Sin respuesta",
+];
+
+const BUSINESS_OPTIONS = [
+    "VW",
+    "Chirey",
+    "JAECOO",
+    "Autos Usados",
+    "Servicios Financieros",
+];
+
+const PAUTAS_ORIGEN = [
+    "Facebook Ads",
+    "Google Ads",
+    "Instagram Ads",
+    "Orgánico",
+    "Referido",
+    "WhatsApp",
+    "Evento",
+    "Otro",
+];
+
+/** Devuelve el color del punto de estado según el estado del prospecto */
+function getStatusDotColor(estado) {
+    const value = String(estado || "").toLowerCase();
+    if (value === "descalificado") return "#3B82F6"; // azul
+    if (value === "sin respuesta" || value === "sin_respuesta" || value === "") return "#EF4444"; // rojo
+    return "#22C55E"; // verde — respondió / tiene estado activo
+}
 
 function cls(...items) {
     return items.filter(Boolean).join(" ");
@@ -938,6 +979,14 @@ export default function DigitalesContacto() {
     const [newBubbleText, setNewBubbleText] = useState("");
     const [newBubbleTitle, setNewBubbleTitle] = useState("");
 
+    // Edición rápida del prospecto
+    const [showQuickEdit, setShowQuickEdit] = useState(false);
+    const [quickEditDraft, setQuickEditDraft] = useState({});
+    const [savingQuickEdit, setSavingQuickEdit] = useState(false);
+
+    // Feedback de copia de teléfono
+    const [copiedTel, setCopiedTel] = useState(false);
+
     const endRef = useRef(null);
     const messagesScrollRef = useRef(null);
     const activeTelRef = useRef("");
@@ -1667,6 +1716,50 @@ export default function DigitalesContacto() {
         }
     }
 
+    function copyTel() {
+        if (!activeTel) return;
+        const display = formateaTelUi(activeTel);
+        navigator.clipboard?.writeText(display).then(() => {
+            setCopiedTel(true);
+            setTimeout(() => setCopiedTel(false), 2000);
+        }).catch(() => { });
+    }
+
+    function openQuickEdit() {
+        setQuickEditDraft({
+            nombre: prospecto?.nombre || "",
+            auto_interes: prospecto?.auto_interes || "",
+            estado: prospecto?.estado || "",
+            canal_contacto: prospecto?.canal_contacto || "",
+            business: prospecto?.business || "",
+            pauta_origen: prospecto?.pauta_origen || "",
+            comentario: prospecto?.comentario || "",
+        });
+        setShowQuickEdit(true);
+    }
+
+    async function saveQuickEdit() {
+        if (!prospecto?.id || !activeTel) return;
+        setSavingQuickEdit(true);
+        try {
+            await api.digitalesPatchProspecto(prospecto.id, {
+                nombre: quickEditDraft.nombre,
+                auto_interes: quickEditDraft.auto_interes,
+                estado: quickEditDraft.estado,
+                canal_contacto: quickEditDraft.canal_contacto,
+                business: quickEditDraft.business,
+                pauta_origen: quickEditDraft.pauta_origen,
+                comentario: quickEditDraft.comentario,
+            });
+            await refreshActiveChat(activeTel);
+            setShowQuickEdit(false);
+        } catch (error) {
+            alert(`No se pudo guardar: ${error.message}`);
+        } finally {
+            setSavingQuickEdit(false);
+        }
+    }
+
     function startEditMessage(message) {
         if (!message?.mine) return;
 
@@ -1710,6 +1803,20 @@ export default function DigitalesContacto() {
     useEffect(() => {
         activeTelRef.current = activeTel;
     }, [activeTel]);
+
+    // Sincronizar el draft de edición rápida cada vez que carga un nuevo prospecto
+    useEffect(() => {
+        if (!prospecto) return;
+        setQuickEditDraft({
+            nombre: prospecto.nombre || "",
+            auto_interes: prospecto.auto_interes || "",
+            estado: prospecto.estado || "",
+            canal_contacto: prospecto.canal_contacto || "",
+            business: prospecto.business || "",
+            pauta_origen: prospecto.pauta_origen || "",
+            comentario: prospecto.comentario || "",
+        });
+    }, [prospecto]);
 
     useEffect(() => {
         mensajesRef.current = mensajes;
@@ -1945,7 +2052,9 @@ export default function DigitalesContacto() {
                         "grid h-[calc(100dvh-170px)] sm:h-[75vh]",
                         isDirectChatMode
                             ? "grid-cols-1"
-                            : "grid-cols-1 lg:grid-cols-[360px_1fr]",
+                            : activeTel
+                                ? "grid-cols-1 lg:grid-cols-[320px_1fr_280px]"
+                                : "grid-cols-1 lg:grid-cols-[320px_1fr]",
                     )}
                 >
                     <aside
@@ -1991,7 +2100,14 @@ export default function DigitalesContacto() {
                                             type="button"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <Avatar name={chat.nombre} />
+                                                <div className="relative shrink-0">
+                                                    <Avatar name={chat.nombre} />
+                                                    <span
+                                                        className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white"
+                                                        style={{ backgroundColor: getStatusDotColor(chat.estado) }}
+                                                        title={chat.estado || "Sin respuesta"}
+                                                    />
+                                                </div>
 
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center justify-between gap-2">
@@ -2064,10 +2180,21 @@ export default function DigitalesContacto() {
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-slate-500">
-                                        <span className="inline-flex items-center gap-1">
-                                            <User className="h-3.5 w-3.5" />
-                                            {activeTel ? formateaTelUi(activeTel) : "—"}
-                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={copyTel}
+                                            className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition hover:bg-neutral-100"
+                                            title="Copiar número"
+                                        >
+                                            {copiedTel ? (
+                                                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                            ) : (
+                                                <Copy className="h-3.5 w-3.5" />
+                                            )}
+                                            <span className={copiedTel ? "text-emerald-600 font-bold" : ""}>
+                                                {activeTel ? formateaTelUi(activeTel) : "—"}
+                                            </span>
+                                        </button>
 
                                         <span className="inline-flex items-center gap-1">
                                             <Clock className="h-3.5 w-3.5" />
@@ -2463,6 +2590,162 @@ export default function DigitalesContacto() {
                             </div>
                         </div>
                     </section>
+
+                    {/* ── Columna derecha: edición rápida del prospecto (siempre visible) ── */}
+                    {activeTel && !isDirectChatMode ? (
+                        <aside className="hidden lg:flex flex-col border-l border-black/10 bg-neutral-50">
+                            {/* Header */}
+                            <div
+                                className="flex items-center gap-2 px-4 py-3 border-b border-black/10"
+                                style={{ backgroundColor: BRAND_BLUE }}
+                            >
+                                <Pencil className="h-3.5 w-3.5 text-white/70" />
+                                <span className="text-xs font-extrabold uppercase tracking-wide text-white">
+                                    Datos del prospecto
+                                </span>
+                            </div>
+
+                            {/* Nombre del prospecto */}
+                            {prospecto?.nombre ? (
+                                <div className="border-b border-black/8 bg-white px-4 py-2.5">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Prospecto</div>
+                                    <div className="mt-0.5 text-sm font-extrabold text-[#131E5C] truncate">{prospecto.nombre}</div>
+                                </div>
+                            ) : null}
+
+                            {/* Campos */}
+                            <div className="flex-1 overflow-y-auto px-3 py-3">
+                                <div className="grid gap-3">
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Nombre</label>
+                                        <input
+                                            value={quickEditDraft.nombre || ""}
+                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))}
+                                            placeholder="Nombre del prospecto"
+                                            className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">VW de sus sueños</label>
+                                        <input
+                                            value={quickEditDraft.auto_interes || ""}
+                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))}
+                                            placeholder="Modelo de interés"
+                                            className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Estado</label>
+                                        <div className="relative">
+                                            <select
+                                                value={quickEditDraft.estado || ""}
+                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))}
+                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                <option value="">Sin estado</option>
+                                                {ESTADOS_PROSPECTO.map((s) => (
+                                                    <option key={s} value={s}>{s}</option>
+                                                ))}
+                                            </select>
+                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Canal de contacto</label>
+                                        <div className="relative">
+                                            <select
+                                                value={quickEditDraft.canal_contacto || ""}
+                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))}
+                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                <option value="">Sin canal</option>
+                                                {CANALES.map((c) => (
+                                                    <option key={c} value={c}>{c}</option>
+                                                ))}
+                                            </select>
+                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Business</label>
+                                        <div className="relative">
+                                            <select
+                                                value={quickEditDraft.business || ""}
+                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, business: e.target.value }))}
+                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                <option value="">Sin business</option>
+                                                {BUSINESS_OPTIONS.map((b) => (
+                                                    <option key={b} value={b}>{b}</option>
+                                                ))}
+                                            </select>
+                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Pauta de origen</label>
+                                        <div className="relative">
+                                            <select
+                                                value={quickEditDraft.pauta_origen || ""}
+                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, pauta_origen: e.target.value }))}
+                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                <option value="">Sin pauta</option>
+                                                {PAUTAS_ORIGEN.map((p) => (
+                                                    <option key={p} value={p}>{p}</option>
+                                                ))}
+                                            </select>
+                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Comentario adicional</label>
+                                        <textarea
+                                            value={quickEditDraft.comentario || ""}
+                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, comentario: e.target.value }))}
+                                            placeholder="Notas internas..."
+                                            rows={3}
+                                            className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none placeholder:text-slate-400 focus:border-[#131E5C]/40"
+                                        />
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            {/* Botón guardar */}
+                            <div className="border-t border-black/10 bg-white px-3 py-3">
+                                <button
+                                    onClick={saveQuickEdit}
+                                    disabled={savingQuickEdit}
+                                    className={cls(
+                                        "w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-extrabold text-white",
+                                        savingQuickEdit ? "opacity-60 cursor-not-allowed" : "hover:opacity-90",
+                                    )}
+                                    style={{ backgroundColor: BRAND_BLUE }}
+                                    type="button"
+                                >
+                                    <Save className="h-3.5 w-3.5" />
+                                    {savingQuickEdit ? "Guardando..." : "Guardar cambios"}
+                                </button>
+                            </div>
+                        </aside>
+                    ) : null}
+
                 </div>
             </div>
 

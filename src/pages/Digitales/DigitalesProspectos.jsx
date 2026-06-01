@@ -27,7 +27,6 @@ import {
     UserStar,
     ClipboardCheck,
     BrainCircuit,
-    // ── Nuevos iconos para los botones de vista ──
     CalendarRange,
     Table2,
     BarChart3,
@@ -661,7 +660,7 @@ function VistaGraficos({ rows }) {
         return Object.entries(map).sort(([, a], [, b]) => b - a);
     }, [rows]);
 
-    // ========== NUEVO: Estadísticas por Asesor ==========
+    
     const statsPorAsesor = useMemo(() => {
         const map = {};
         for (const row of rows) {
@@ -671,7 +670,7 @@ function VistaGraficos({ rows }) {
         return Object.entries(map).sort(([, a], [, b]) => b - a).slice(0, 10); // Top 10 asesores
     }, [rows]);
 
-    // ========== NUEVO: Estadísticas por Día de la semana ==========
+    // Estadísticas por Día de la semana 
     const statsPorDia = useMemo(() => {
         const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
         const map = {
@@ -694,7 +693,7 @@ function VistaGraficos({ rows }) {
         });
     }, [rows]);
 
-    // ========== NUEVO: Estadísticas por Hora del día ==========
+    // Estadísticas por Hora del día 
     const statsPorHora = useMemo(() => {
         const map = {};
         for (let i = 0; i < 24; i++) {
@@ -814,13 +813,13 @@ function VistaGraficos({ rows }) {
                 <BarGroup title="Por business" data={statsPorLinea} max={maxLinea} icon={Car} colorIndex={4} />
             </div>
 
-            {/* Fila 2: Por Asesor (NUEVO) */}
+            {/* Fila 2: Por Asesor */}
             <div className="grid gap-4 md:grid-cols-2">
                 <BarGroup title="Top 10 asesores" data={statsPorAsesor} max={maxAsesor} icon={UserStar} colorIndex={1} />
                 <DonutCard title="Distribución por asesor" data={statsPorAsesor} icon={UserStar} total={totalProspectos} />
             </div>
 
-            {/* Fila 3: Por Día de la semana y Por Hora (NUEVOS) */}
+            {/* Fila 3: Por Día de la semana y Por Hora */}
             <div className="grid gap-4 md:grid-cols-2">
                 <BarGroup title="Por día de la semana" data={statsPorDia} max={maxDia} icon={CalendarDays} colorIndex={3} />
                 <BarGroup title="Por hora del día" data={statsPorHora} max={maxHora} icon={Clock3} colorIndex={5} />
@@ -860,14 +859,13 @@ export default function DigitalesProspectos() {
     const { user, ready } = useAuth();
     const [cases, setCases] = useState([]);
 
-    // ── Estado de la vista activa ──────────────────────────────────────────
-    const [viewMode, setViewMode] = useState("tabla"); // "tabla" | "agenda" | "graficos"
+    //Estado de la vista activa 
+    const [viewMode, setViewMode] = useState("tabla"); 
 
     const VIEW_MODES = [
         { key: "tabla", label: "Tabla", Icon: Table2 },
         { key: "graficos", label: "Gráficos", Icon: BarChart3 },
     ];
-    // ──────────────────────────────────────────────────────────────────────
 
     const isAdmin = useMemo(() => {
         const permisos = user?.permisos || [];

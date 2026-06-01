@@ -222,11 +222,7 @@ function ConfirmDialog({ open, title, message, onConfirm, onCancel, loading }) {
     );
 }
 
-/* ══════════════════════════════════════════════
-   TEAMS MODAL
-   FIX: normalizar respuesta de listMembers que puede venir como
-        { members: [...] } | { usuarios: [...] } | [...] directamente
-══════════════════════════════════════════════ */
+
 function TeamsModal({ open, onClose, onCreated }) {
     const [teams,setTeams]=useState([]);
     const [loading,setLoading]=useState(false);
@@ -248,7 +244,7 @@ function TeamsModal({ open, onClose, onCreated }) {
     const [hiddenInvites,setHiddenInvites]=useState({});
     const [acceptingInvite,setAcceptingInvite]=useState({});
 
-    // ── FIX MEMBERS: extraer array de cualquier forma que devuelva el servidor ──
+    // ── FIX MEMBERS: extraer array de cualquier forma que devuelva el servidor 
     function extractArray(data) {
         if (!data) return [];
         if (Array.isArray(data)) return data;
@@ -262,7 +258,7 @@ function TeamsModal({ open, onClose, onCreated }) {
         if (Array.isArray(data.results)) return data.results;
         // { team: { members: [...] } }
         if (data.team && Array.isArray(data.team.members)) return data.team.members;
-        // Si es objeto con keys numéricas (raro pero posible)
+        // Si es objeto con keys numéricas 
         const vals = Object.values(data);
         const firstArr = vals.find(v => Array.isArray(v));
         if (firstArr) return firstArr;
@@ -381,7 +377,7 @@ function TeamsModal({ open, onClose, onCreated }) {
     setHiddenInvites(p => ({ ...p, [inv.id]: true }));
     // Recargar miembros e invitaciones del equipo
     await loadTeamData(selectedTeam.id);
-    // Notificar al padre para que recargue el board/proyectos
+    // Notificar recargue el board/proyectos
     onCreated?.();
   } catch (e) {
     // Si el error es ACCEPTED, igual la tratamos como éxito y ocultamos
@@ -1058,7 +1054,7 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading }) {
     const FIXED_W  = COL_PLAN + COL_PROB + COL_ESTRA;
     const ROW_BASE = 62;   
     const SUB_H    = 28;   
-    const SUB_HEADER_H = 28; // espacio para la barra de progreso
+    const SUB_HEADER_H = 28; 
 
     
     function rowHeight(task) {
@@ -1102,7 +1098,7 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading }) {
         };
     }, []);
 
-    // ── FIX DRAG: al soltar convertir offset→fecha y persistir ──
+    // ── FIX DRAG: al soltar convertir offset→fecha y persistir 
     useEffect(() => {
         function onMouseMove(e) {
             if (!dragRef.current) return;
@@ -1152,7 +1148,7 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading }) {
         function onMouseMoveWithSave(e) {
             if (!dragRef.current) return;
             onMouseMove(e);
-            // Guardar el último override en el ref para usarlo en mouseup
+            
             const { origStartOff, origDur, startX, type } = dragRef.current;
             const deltaX = e.clientX - startX;
             const deltaDays = Math.round(deltaX / DAY_W);
@@ -1226,7 +1222,7 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading }) {
         return { startOff: origStartOff, dur: origDur };
     }
 
-    // Calcular altura total del contenido para el gantt (sin max-height interno)
+    // Calcular altura total del contenido para el gantt 
     const totalContentHeight = withDate.reduce((acc, task) => acc + rowHeight(task), 0);
 
     return (
