@@ -40,6 +40,28 @@ const DEALERS = [
     "JAECOO R&R",
 ];
 
+const VEHICULOS = [
+    "Virtus",
+    "Polo",
+    "Jetta",
+    "Jetta GLI",
+    "Golf GTI",
+    "Taos",
+    "Nivus",
+    "Taigun",
+    "Tiguan",
+    "Teramont",
+    "Crossport",
+    "Saveiro",
+    "Amarok",
+    "Seminuevos",
+    "Tera",
+    "Avaluo",
+    "Transporter",
+    "Caddy",
+    "Crafter"
+];
+
 const CANALES = [
     "VW-Concesionario",
     "WhatsApp",
@@ -47,23 +69,13 @@ const CANALES = [
     "Llamada Entrante",
 ];
 
-const ESTADOS_PROSPECTO = [
-    "Nuevo",
-    "Contactado",
-    "Seguimiento",
-    "Lead Calificado",
-    "Cita",
-    "Venta",
-    "Descalificado",
-    "Sin respuesta",
-];
+const ESTADOS_PROSPECTO = ["Descalificado", "Contactado", "Sin Respuesta"];
+
 
 const BUSINESS_OPTIONS = [
-    "VW",
-    "Chirey",
-    "JAECOO",
-    "Autos Usados",
-    "Servicios Financieros",
+    "Nuevos",
+    "Usados",
+    "Comercial",
 ];
 
 const PAUTAS_ORIGEN = [
@@ -76,6 +88,27 @@ const PAUTAS_ORIGEN = [
     "Evento",
     "Otro",
 ];
+
+function renderOptionsConValorActual(options, currentValue) {
+    const value = String(currentValue || "").trim();
+    const exists = (options || []).some(
+        (option) => String(option || "").trim().toLowerCase() === value.toLowerCase(),
+    );
+
+    return (
+        <>
+            {value && !exists ? (
+                <option value={value}>{value} (actual)</option>
+            ) : null}
+
+            {(options || []).map((option) => (
+                <option key={option} value={option}>
+                    {option}
+                </option>
+            ))}
+        </>
+    );
+}
 
 /** Devuelve el color del punto de estado según el estado del prospecto */
 function getStatusDotColor(estado) {
@@ -1732,8 +1765,8 @@ export default function DigitalesContacto() {
             estado: prospecto?.estado || "",
             canal_contacto: prospecto?.canal_contacto || "",
             business: prospecto?.business || "",
-            pauta_origen: prospecto?.pauta_origen || "",
-            comentario: prospecto?.comentario || "",
+            pauta: prospecto?.pauta || prospecto?.pauta_origen || "",
+            comentarios: prospecto?.comentarios || prospecto?.comentario || "",
         });
         setShowQuickEdit(true);
     }
@@ -1748,8 +1781,8 @@ export default function DigitalesContacto() {
                 estado: quickEditDraft.estado,
                 canal_contacto: quickEditDraft.canal_contacto,
                 business: quickEditDraft.business,
-                pauta_origen: quickEditDraft.pauta_origen,
-                comentario: quickEditDraft.comentario,
+                pauta: quickEditDraft.pauta || "",
+                comentarios: quickEditDraft.comentarios || "",
             });
             await refreshActiveChat(activeTel);
             setShowQuickEdit(false);
@@ -1813,8 +1846,8 @@ export default function DigitalesContacto() {
             estado: prospecto.estado || "",
             canal_contacto: prospecto.canal_contacto || "",
             business: prospecto.business || "",
-            pauta_origen: prospecto.pauta_origen || "",
-            comentario: prospecto.comentario || "",
+            pauta: prospecto.pauta || prospecto.pauta_origen || "",
+            comentarios: prospecto.comentarios || prospecto.comentario || "",
         });
     }, [prospecto]);
 
@@ -2629,12 +2662,19 @@ export default function DigitalesContacto() {
 
                                     <div>
                                         <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">VW de sus sueños</label>
-                                        <input
-                                            value={quickEditDraft.auto_interes || ""}
-                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))}
-                                            placeholder="Modelo de interés"
-                                            className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                        />
+                                        <div className="relative">
+                                            <select
+                                                value={quickEditDraft.auto_interes || ""}
+                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))}
+                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                <option value="">Selecciona una opción</option>
+                                                {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
+                                            </select>
+                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
+                                            </span>
+                                        </div>
                                     </div>
 
                                     <div>
@@ -2646,9 +2686,7 @@ export default function DigitalesContacto() {
                                                 className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
                                             >
                                                 <option value="">Sin estado</option>
-                                                {ESTADOS_PROSPECTO.map((s) => (
-                                                    <option key={s} value={s}>{s}</option>
-                                                ))}
+                                                {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
                                             </select>
                                             <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
                                                 <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
@@ -2665,9 +2703,7 @@ export default function DigitalesContacto() {
                                                 className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
                                             >
                                                 <option value="">Sin canal</option>
-                                                {CANALES.map((c) => (
-                                                    <option key={c} value={c}>{c}</option>
-                                                ))}
+                                                {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
                                             </select>
                                             <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
                                                 <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
@@ -2684,9 +2720,7 @@ export default function DigitalesContacto() {
                                                 className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
                                             >
                                                 <option value="">Sin business</option>
-                                                {BUSINESS_OPTIONS.map((b) => (
-                                                    <option key={b} value={b}>{b}</option>
-                                                ))}
+                                                {renderOptionsConValorActual(BUSINESS_OPTIONS, quickEditDraft.business)}
                                             </select>
                                             <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
                                                 <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
@@ -2698,14 +2732,12 @@ export default function DigitalesContacto() {
                                         <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Pauta de origen</label>
                                         <div className="relative">
                                             <select
-                                                value={quickEditDraft.pauta_origen || ""}
-                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, pauta_origen: e.target.value }))}
+                                                value={quickEditDraft.pauta || ""}
+                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))}
                                                 className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
                                             >
                                                 <option value="">Sin pauta</option>
-                                                {PAUTAS_ORIGEN.map((p) => (
-                                                    <option key={p} value={p}>{p}</option>
-                                                ))}
+                                                {renderOptionsConValorActual(PAUTAS_ORIGEN, quickEditDraft.pauta)}
                                             </select>
                                             <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
                                                 <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
@@ -2716,8 +2748,8 @@ export default function DigitalesContacto() {
                                     <div>
                                         <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Comentario adicional</label>
                                         <textarea
-                                            value={quickEditDraft.comentario || ""}
-                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, comentario: e.target.value }))}
+                                            value={quickEditDraft.comentarios || ""}
+                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, comentarios: e.target.value }))}
                                             placeholder="Notas internas..."
                                             rows={3}
                                             className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none placeholder:text-slate-400 focus:border-[#131E5C]/40"
