@@ -21,20 +21,12 @@ export default function PostVentaTopNav() {
     const tabs = useMemo(() => {
         const items = [
             {
-                label: "Pedidos de Piezas",
-                href: "/postventa/pedidos_piezas",
+                label: "Envio de Encuestas",
+                href: "/encuesta_whats/envio_satisfaccion",
                 icon: Package,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"]),
             },
-
-            {
-    label: "Encuestas WhatsApp",
-    href: "/encuesta_whats/envio_satisfaccion",
-    icon: MessageCircle,
-    show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"]),
-},
         ];
-
 
         return items.filter((x) => x.show);
     }, [hasAnyPermission, canSeeContacto, inProspectos]);

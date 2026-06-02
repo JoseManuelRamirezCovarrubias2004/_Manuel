@@ -1,6 +1,7 @@
 // routes.jsx
 import React from "react";
 import { createBrowserRouter } from "react-router-dom";
+import EncuestasWhats from './pages/EncuestasWhats/EncuestasWhats';
 
 import TimeForActionLayout from "./pages/TimeForAction/TimeForActionLayout";
 import TimeForAction from "./pages/TimeForAction/TimeForAction";
@@ -303,6 +304,29 @@ export const router = createBrowserRouter(
                             ],
                         },
 
+                        {
+                            path: "encuesta_whats",
+                            element: (
+                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA"]}>
+                                    <PostVentaLayout />
+                                </RequirePermission>
+                            ),
+                            children: [
+                                {
+                                    index: true,
+                                    element: <PostVentaIndex />,
+                                },
+
+                                {
+                                    path: "envio_satisfaccion",
+                                    element: (
+                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA"]}>
+                                            <EncuestasWhats />
+                                        </RequirePermission>
+                                    ),
+                                },
+                            ],
+                        },
                         {
                             path: "usados",
                             element: (

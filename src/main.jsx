@@ -3,7 +3,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 
-import { router } from "./routes";
+import { router } from "./routes.jsx";
 import "./index.css";
 import { AuthProvider } from "./auth/AuthContext";
 import NotificacionesWhatsappRoot from "./app/NotificacionesWhatsappRoot";

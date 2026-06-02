@@ -133,6 +133,13 @@ export default function Sidebar() {
                 icon: HandCoins,
                 show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
             },
+
+            {
+                to: "/encuesta_whats",
+                label: "Envio Encuestas",
+                icon: HandCoins,
+                show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+            },
             //avaluos / ventas cruzadas
             {
                 to: "/usados",
