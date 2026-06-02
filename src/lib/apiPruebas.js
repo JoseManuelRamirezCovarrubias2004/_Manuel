@@ -180,7 +180,6 @@ async function http(path, { method = "GET", body, headers } = {}) {
 }
 
 export const api = {
-  // ------------------ DIGITALES / PROSPECTOS ------------------
   digitalesListProspectos: () => http("/digitales/api/prospectos/"),
 
   digitalesGetProspecto: (id) => http(`/digitales/api/prospectos/${id}/`),
@@ -220,7 +219,6 @@ export const api = {
   digitalesCampanasMeta: (days = 30) =>
     http(`/digitales/api/campanas-meta/?days=${encodeURIComponent(days)}`),
 
-  // ------------------ WHATSAPP UI ------------------
   digitalesChats: () => {
     const numero = getWhatsAppNumberFromSources();
     const usuario = getCrmUsername();
@@ -242,7 +240,13 @@ export const api = {
 
   digitalesContacto: (
     tel,
-    { limit = 20, before_id = "", usuario = "", numero_asesor = "" } = {},
+    {
+      limit = 20,
+      before_id = "",
+      usuario = "",
+      numero_asesor = "",
+      mark_read = 1,
+    } = {},
   ) => {
     const numero = numero_asesor || getWhatsAppNumberFromSources();
     const user = usuario || getCrmUsername();
@@ -252,6 +256,7 @@ export const api = {
         tel,
         limit,
         before_id,
+        mark_read,
         numero_asesor: numero,
         usuario: user,
       })}`,
@@ -261,7 +266,7 @@ export const api = {
   digitalesContactoUpdates: (
     tel,
     after = "",
-    { limit = 50, usuario = "", numero_asesor = "" } = {},
+    { limit = 50, usuario = "", numero_asesor = "", after_id = "" } = {},
   ) => {
     const numero = numero_asesor || getWhatsAppNumberFromSources();
     const user = usuario || getCrmUsername();
@@ -270,6 +275,7 @@ export const api = {
       `/digitales/contacto/updates/${buildQuery({
         tel,
         after,
+        after_id,
         limit,
         numero_asesor: numero,
         usuario: user,

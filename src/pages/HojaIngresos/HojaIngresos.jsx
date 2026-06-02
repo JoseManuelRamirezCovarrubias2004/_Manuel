@@ -84,8 +84,41 @@ const MEDIOS_CONCERTACION = [
     "Otro",
 ];
 
+const MODELOS = [
+    "AMAROK GP",
+    "BEETLE",
+    "BORA A5",
+    "CADDY",
+    "CLASICO",
+    "CRAFTER",
+    "GOL",
+    "GOL SEDAN",
+    "GOLF",
+    "JETTA",
+    "JETTA A6",
+    "JETTA A7",
+    "PASSAT",
+    "POLO",
+    "SAVEIRO GP",
+    "T CROSS",
+    "TAOS",
+    "TERAMONT",
+    "TIGUAN",
+    "TIGUAN LWB",
+    "TRANSPORTER",
+    "VENTO",
+    "VIRTUS",
+    "NIVUS",
+    "TERA",
+];
+
 const TIPOS_SERVICIO = [
-    "Mantenimiento",
+    "Mtto. 15 km",
+    "Mtto. 30 km",
+    "Mtto. 45 km",
+    "Mtto. 60 km",
+    "Mtto. 75 km",
+    "Mtto. 90 km",
     "Diagnóstico",
     "Garantía",
     "Hojalatería y pintura",
@@ -470,18 +503,15 @@ export default function HojaRegistros() {
 
     const columns = [
         { key: "fecha_ingreso", label: "Fecha ingreso", sortable: true },
-        { key: "agencia", label: "Dealer", sortable: true },
-        { key: "no_orden", label: "No. Preorden", sortable: true },
         { key: "cliente", label: "Cliente", sortable: true },
-        { key: "diss", label: "DISS", sortable: true },
+        { key: "asistencia", label: "Asistencia" },
+        { key: "asesor", label: "Asesor", sortable: true },
         { key: "pauta", label: "Campaña" },
         { key: "citado", label: "Citado" },
         { key: "torre", label: "Torre" },
-        { key: "asesor", label: "Asesor", sortable: true },
         { key: "tipo_cita", label: "Tipo de servicio" },
         { key: "vin", label: "VIN" },
         { key: "medio_concertacion", label: "Medio concertación" },
-        { key: "asistencia", label: "Asistencia" },
     ];
 
     const required = useMemo(
@@ -1134,23 +1164,20 @@ export default function HojaRegistros() {
                                             {formatDate(row.fecha_ingreso)}
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-[#131E5C]">
-                                            {row.agencia || "—"}
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
-                                            {row.no_orden || "—"}
-                                        </td>
-
                                         <td className="whitespace-nowrap px-4 py-3">
                                             <div className="font-bold text-[#131E5C]">
                                                 {getClienteNombre(row)}
                                             </div>
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
-                                            {row.diss || "—"}
+                                        <td className="whitespace-nowrap px-4 py-3">
+                                            <BooleanButton row={row} field="asistencia" />
                                         </td>
+
+                                        <td className="whitespace-nowrap px-4 py-3">
+                                            <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
+                                        </td>
+
 
                                         <td className="max-w-[260px] px-4 py-3 text-[#131E5C]">
                                             <span className="line-clamp-2">{row.pauta || "—"}</span>
@@ -1162,10 +1189,6 @@ export default function HojaRegistros() {
 
                                         <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
                                             {row.torre || "—"}
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-4 py-3">
-                                            <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
                                         </td>
 
                                         <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
@@ -1180,9 +1203,6 @@ export default function HojaRegistros() {
                                             {row.medio_concertacion || "—"}
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-3">
-                                            <BooleanButton row={row} field="asistencia" />
-                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -1522,13 +1542,21 @@ export default function HojaRegistros() {
                         </Field>
 
                         <Field label="Modelo" icon={CarFront}>
-                            <input
-                                value={draft.modelo}
+                            <select
+                                value={draft.modelo || ""}
                                 onChange={(event) =>
                                     setDraft((prev) => ({ ...prev, modelo: event.target.value }))
                                 }
                                 className={[inputBase, inputOk].join(" ")}
-                            />
+                            >
+                                <option value="">Selecciona...</option>
+
+                                {MODELOS.map((tipo) => (
+                                    <option key={tipo} value={tipo}>
+                                        {tipo}
+                                    </option>
+                                ))}
+                            </select>
                         </Field>
 
                         <Field label="Medio concertación" icon={UserCheck}>
@@ -1602,17 +1630,15 @@ export default function HojaRegistros() {
                             </label>
                         </Field>
 
-                        <div className="md:col-span-3">
-                            <Field label="Campaña" icon={MessageSquareText}>
-                                <textarea
-                                    value={draft.pauta}
-                                    onChange={(event) =>
-                                        setDraft((prev) => ({ ...prev, pauta: event.target.value }))
-                                    }
-                                    className={[inputBase, inputOk, "min-h-[90px]"].join(" ")}
-                                />
-                            </Field>
-                        </div>
+                        <Field label="Campaña" icon={MessageSquareText}>
+                            <input
+                                value={draft.pauta}
+                                onChange={(event) =>
+                                    setDraft((prev) => ({ ...prev, pauta: event.target.value }))
+                                }
+                                className={[inputBase, inputOk].join(" ")}
+                            />
+                        </Field>
 
                         <div className="md:col-span-3">
                             <Field label="Declaración textual del cliente" icon={MessageSquareText}>

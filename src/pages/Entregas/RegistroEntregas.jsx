@@ -723,6 +723,7 @@ export default function RegistroEntregas() {
         "Robust",
         "Extreme",
         "Cross Sport",
+        "Goal",
     ];
 
     const COLORES = [
@@ -804,6 +805,7 @@ export default function RegistroEntregas() {
         "Sergio Ivan Quintana Martinez",
         "Sergio Rene Delgado Sarmiento",
         "Yoseth Ruiz Castellanos",
+        "Ruben Romero",
     ];
 
     const MODELOS = [

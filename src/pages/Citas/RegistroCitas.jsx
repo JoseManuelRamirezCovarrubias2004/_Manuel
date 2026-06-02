@@ -713,11 +713,12 @@ export default function RegistroCitas() {
         "Miguel Capitanachi Paredes", "OLIMPIA VAZQUEZ MENDEZ", "Roberto Ramses Luna Fajardo",
         "Carlos Arturo Garces Vengas", "Edgar Omar Noguera Solis", "Javier Perez Meraz",
         "Luis Armando Almora Perez", "Mara Erubey Soto Villegas", "Sergio Ivan Quintana Martinez",
-        "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos", "JOSE ALBERTO SEDAS FLORES"
+        "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos", "José Alberto Sedas Flores",
+        "Maria Vanessa Jiménez Medina", "Juan Jesús Márquez Aquino", "Estefano Marlom Aparicio",
     ];
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
     const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter", "CRAFTER ELITE", "CRAFTER URBAN", "CRAFTER ELEMENTAL", "CRAFTER INSPIRE"];
-    const TIPO_CITA = ["Prueba de Manejo", "Tradicional", "Digital"];
+    const TIPO_CITA = ["Tradicional", "Digital", "Evento", "Remarketing"];
 
     const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
     const [sort, setSort] = useState({ key: "fecha_hora_cita", dir: "desc" });

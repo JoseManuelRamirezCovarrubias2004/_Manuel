@@ -12,6 +12,7 @@ import {
     X,
     LayoutTemplate,
     ChevronLeft,
+    ChevronRight,
     ChevronDown,
     Paperclip,
     FileText,
@@ -27,8 +28,10 @@ import { api } from "../../lib/apiPruebas";
 
 const BRAND_BLUE = "#131E5C";
 const QUICK_BUBBLES_KEY = "digitales_quick_bubbles_global";
-const CHAT_PAGE_SIZE = 20;
-const CHAT_UPDATES_LIMIT = 50;
+const CHAT_PAGE_SIZE = 24;
+const CHAT_UPDATES_LIMIT = 80;
+const CHAT_CACHE_LIMIT = 80;
+const PREFETCH_CHAT_LIMIT = 12;
 
 const DEALERS = [
     "VW Cordoba",
@@ -88,6 +91,51 @@ const PAUTAS_ORIGEN = [
     "Evento",
     "Otro",
 ];
+
+function normalizeCampanasMetaOptions(response) {
+    const rawItems = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.items)
+            ? response.items
+            : Array.isArray(response?.results)
+                ? response.results
+                : Array.isArray(response?.data)
+                    ? response.data
+                    : [];
+
+    const values = rawItems
+        .map((item) => {
+            if (typeof item === "string") return item;
+
+            return (
+                item?.value ||
+                item?.label ||
+                item?.pauta ||
+                item?.pauta_origen ||
+                item?.nombre ||
+                item?.name ||
+                item?.campana ||
+                item?.campaign_name ||
+                item?.campaign ||
+                item?.ad_name ||
+                ""
+            );
+        })
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+
+    const unique = [];
+    const seen = new Set();
+
+    for (const value of [...values, ...PAUTAS_ORIGEN]) {
+        const key = value.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(value);
+    }
+
+    return unique;
+}
 
 function renderOptionsConValorActual(options, currentValue) {
     const value = String(currentValue || "").trim();
@@ -262,7 +310,7 @@ function ChatListSkeleton({ rows = 8 }) {
 
 function MessagesSkeleton({ bubbles = 10 }) {
     return (
-        <div className="mx-auto max-w-3xl space-y-3">
+        <div className="mx-auto w-full max-w-5xl space-y-3">
             {Array.from({ length: bubbles }).map((_, index) => {
                 const mine = index % 2 === 0;
 
@@ -742,10 +790,10 @@ function MessageBubble({
 
     return (
         <div className={cls("flex w-full", mine ? "justify-end" : "justify-start")}>
-            <div className="group relative max-w-[78%]">
+            <div className="group relative max-w-[88%] sm:max-w-[82%] lg:max-w-[76%] xl:max-w-[72%]">
                 <div
                     className={cls(
-                        "rounded-2xl border px-4 py-2 shadow-sm",
+                        "rounded-2xl border px-4 py-2.5 shadow-sm transition-all duration-200 ease-out group-hover:shadow-md",
                         mine
                             ? "border-white/10 bg-[#131E5C] text-white"
                             : "border-black/10 bg-white text-[#131E5C]",
@@ -895,7 +943,7 @@ function MessageBubble({
                         </div>
                     ) : null}
 
-                    <div className="whitespace-pre-wrap text-sm font-semibold leading-relaxed">
+                    <div className="whitespace-pre-wrap text-[15px] font-semibold leading-relaxed md:text-base">
                         {shown}
                     </div>
 
@@ -979,6 +1027,8 @@ export default function DigitalesContacto() {
     const [mensajes, setMensajes] = useState([]);
     const [draftMsg, setDraftMsg] = useState("");
     const [mobileView, setMobileView] = useState("list");
+    const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(false);
+    const [pautasOptions, setPautasOptions] = useState(PAUTAS_ORIGEN);
 
     const [chatHasMore, setChatHasMore] = useState(false);
     const [loadingOlder, setLoadingOlder] = useState(false);
@@ -1032,6 +1082,8 @@ export default function DigitalesContacto() {
     const shouldStickToBottomRef = useRef(true);
     const chatRequestRef = useRef(0);
     const loadingOlderRef = useRef(false);
+    const mensajesCacheRef = useRef(new Map());
+    const prefetchedChatsRef = useRef(new Set());
 
     const templateMap = useMemo(() => {
         const map = new Map();
@@ -1126,6 +1178,60 @@ export default function DigitalesContacto() {
         return formatTemplateMarkerText(text, templateMap);
     }
 
+    function guardarChatEnCache(tel52, payload = {}) {
+        const key = normalizaTelefonoMx(tel52);
+        if (!key) return;
+
+        const actuales = Array.isArray(payload.mensajes) ? payload.mensajes : mensajesRef.current;
+        const normalizados = actuales.map(normalizeMessage).slice(-CHAT_CACHE_LIMIT);
+
+        mensajesCacheRef.current.set(key, {
+            prospecto: payload.prospecto || prospecto || null,
+            mensajes: normalizados,
+            paginacion: payload.paginacion || {},
+            updatedAt: Date.now(),
+        });
+    }
+
+    function pintarChatDesdeCache(tel52) {
+        const key = normalizaTelefonoMx(tel52);
+        const cached = mensajesCacheRef.current.get(key);
+
+        if (!cached) return false;
+
+        setProspecto(cached.prospecto || null);
+        setMensajes(cached.mensajes || []);
+        setChatHasMore(Boolean(cached.paginacion?.has_more));
+        setOldestMessageId(cached.paginacion?.oldest_id || cached.mensajes?.[0]?.id || null);
+        shouldStickToBottomRef.current = true;
+
+        requestAnimationFrame(() => {
+            endRef.current?.scrollIntoView({ behavior: "auto" });
+        });
+
+        return true;
+    }
+
+    async function prefetchChat(tel52) {
+        const target = normalizaTelefonoMx(tel52);
+        if (!target || target === activeTelRef.current) return;
+        if (mensajesCacheRef.current.has(target)) return;
+        if (prefetchedChatsRef.current.has(target)) return;
+
+        prefetchedChatsRef.current.add(target);
+
+        try {
+            const data = await api.digitalesContacto(target, {
+                limit: PREFETCH_CHAT_LIMIT,
+                mark_read: 0,
+            });
+
+            guardarChatEnCache(target, data);
+        } catch {
+            prefetchedChatsRef.current.delete(target);
+        }
+    }
+
     async function refreshChats() {
         const data = await api.digitalesChats();
 
@@ -1154,22 +1260,31 @@ export default function DigitalesContacto() {
         const requestId = chatRequestRef.current + 1;
         chatRequestRef.current = requestId;
 
-        setLoadingChat(true);
-        setProspecto(null);
-        setMensajes([]);
-        setChatHasMore(false);
-        setOldestMessageId(null);
+        const hadCache = pintarChatDesdeCache(target);
+
+        setLoadingChat(!hadCache);
+
+        if (!hadCache) {
+            setProspecto(null);
+            setMensajes([]);
+            setChatHasMore(false);
+            setOldestMessageId(null);
+        }
+
         shouldStickToBottomRef.current = true;
 
         try {
             const data = await api.digitalesContacto(target, {
                 limit: CHAT_PAGE_SIZE,
+                mark_read: 1,
             });
 
             if (chatRequestRef.current !== requestId) return;
 
             const items = (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage);
             const paginacion = data.paginacion || {};
+
+            guardarChatEnCache(target, data);
 
             setProspecto(data.prospecto || null);
             setMensajes(items);
@@ -1206,6 +1321,7 @@ export default function DigitalesContacto() {
 
         const data = await api.digitalesContacto(target, {
             limit: CHAT_PAGE_SIZE,
+            mark_read: forceBottom ? 1 : 0,
         });
 
         const incoming = (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage);
@@ -1402,7 +1518,7 @@ export default function DigitalesContacto() {
             ),
         );
 
-        await refreshChats().catch(() => { });
+        // La lista se refresca por polling. Aquí evitamos bloquear el cambio de chat.
     }
 
     function onPickEmoji(emojiObj) {
@@ -1826,6 +1942,28 @@ export default function DigitalesContacto() {
     }
 
     useEffect(() => {
+        let mounted = true;
+
+        (async () => {
+            try {
+                if (typeof api.digitalesCampanasMeta !== "function") return;
+
+                const response = await api.digitalesCampanasMeta(90);
+                if (!mounted) return;
+
+                setPautasOptions(normalizeCampanasMetaOptions(response));
+            } catch (error) {
+                console.error("No se pudieron cargar las pautas de Meta:", error);
+                if (mounted) setPautasOptions(PAUTAS_ORIGEN);
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    useEffect(() => {
         try {
             localStorage.setItem(QUICK_BUBBLES_KEY, JSON.stringify(quickBubbles));
         } catch {
@@ -1853,7 +1991,18 @@ export default function DigitalesContacto() {
 
     useEffect(() => {
         mensajesRef.current = mensajes;
-    }, [mensajes]);
+
+        if (activeTel && mensajes.length) {
+            guardarChatEnCache(activeTel, {
+                prospecto,
+                mensajes,
+                paginacion: {
+                    has_more: chatHasMore,
+                    oldest_id: oldestMessageId,
+                },
+            });
+        }
+    }, [mensajes, activeTel, prospecto, chatHasMore, oldestMessageId]);
 
     useEffect(() => {
         if (!shouldStickToBottomRef.current) return;
@@ -1988,16 +2137,20 @@ export default function DigitalesContacto() {
                 const prev = mensajesRef.current || [];
                 const last = prev[prev.length - 1];
 
-                if (!last?.created_at) {
+                const lastId = last?.id || last?.wa_message_id || "";
+                const lastCreatedAt = last?.created_at || "";
+
+                if (!lastId && !lastCreatedAt) {
                     timer = setTimeout(tick, 3500);
                     return;
                 }
 
                 const data = await api.digitalesContactoUpdates(
                     target,
-                    last.created_at,
+                    lastCreatedAt,
                     {
                         limit: CHAT_UPDATES_LIMIT,
+                        after_id: lastId,
                     },
                 );
 
@@ -2039,8 +2192,8 @@ export default function DigitalesContacto() {
     }, [isDirectChatMode]);
 
     return (
-        <div className="w-full">
-            <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
+        <div className="w-full min-w-0">
+            <div className="relative overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
                 <div
                     className="px-4 py-4 text-white sm:px-5"
                     style={{ backgroundColor: BRAND_BLUE }}
@@ -2082,188 +2235,383 @@ export default function DigitalesContacto() {
 
                 <div
                     className={cls(
-                        "grid h-[calc(100dvh-170px)] sm:h-[75vh]",
+                        "grid min-h-0 h-[calc(100dvh-118px)] overflow-hidden transition-[grid-template-columns] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
                         isDirectChatMode
                             ? "grid-cols-1"
-                            : activeTel
-                                ? "grid-cols-1 lg:grid-cols-[320px_1fr_280px]"
-                                : "grid-cols-1 lg:grid-cols-[320px_1fr]",
+                            : chatSidebarCollapsed
+                                ? "grid-cols-1 lg:grid-cols-[58px_minmax(0,1fr)]"
+                                : "grid-cols-1 lg:grid-cols-[310px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]"
                     )}
                 >
                     <aside
                         className={cls(
-                            "border-r border-black/10 bg-neutral-50",
+                            "min-h-0 border-r border-black/10 bg-neutral-50 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:flex lg:flex-col",
                             isDirectChatMode
                                 ? "hidden"
                                 : mobileView === "chat"
-                                    ? "hidden lg:block"
-                                    : "block",
+                                    ? "hidden lg:flex"
+                                    : "flex flex-col",
                         )}
                     >
-                        <div className="border-b border-black/10 bg-white p-4">
-                            <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-neutral-100 px-3 py-2">
-                                <Search className="h-4 w-4 text-[#131E5C]" />
-
-                                <input
-                                    value={q}
-                                    onChange={(event) => setQ(event.target.value)}
-                                    placeholder="Buscar prospecto, número, agencia…"
-                                    className="w-full bg-transparent text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400"
-                                />
+                        {chatSidebarCollapsed ? (
+                            <div className="hidden h-full flex-col items-center gap-3 bg-white py-3 lg:flex">
+                                <button
+                                    onClick={() => setChatSidebarCollapsed(false)}
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-white text-[#131E5C] shadow-sm transition hover:scale-105 hover:bg-neutral-50"
+                                    title="Expandir chats"
+                                    type="button"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </button>
+                                <div className="h-px w-8 bg-black/10" />
+                                <div className="rotate-90 whitespace-nowrap text-[11px] font-extrabold uppercase tracking-wider text-[#131E5C]/60">
+                                    Chats
+                                </div>
                             </div>
-                        </div>
-
-                        <div className="h-[calc(100dvh-270px)] overflow-auto sm:h-[calc(75vh-88px)]">
-                            {loadingList ? (
-                                <ChatListSkeleton rows={9} />
-                            ) : filteredChats.length ? (
-                                filteredChats.map((chat) => {
-                                    const isActive = chat.telefono === activeTel;
-
-                                    return (
+                        ) : (
+                            <>
+                                <div className="border-b border-black/10 bg-white p-3">
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <div className="text-xs font-extrabold uppercase tracking-wide text-[#131E5C]/60">Chats</div>
                                         <button
-                                            key={chat.id}
-                                            onClick={() => openChatByTel(chat.telefono)}
-                                            className={cls(
-                                                "w-full border-b border-black/5 px-4 py-3 text-left transition",
-                                                isActive
-                                                    ? "bg-white"
-                                                    : "bg-neutral-50 hover:bg-white",
-                                            )}
+                                            onClick={() => setChatSidebarCollapsed(true)}
+                                            className="hidden h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-[#131E5C] transition hover:bg-neutral-50 lg:inline-flex"
+                                            title="Contraer chats"
                                             type="button"
                                         >
-                                            <div className="flex items-center gap-3">
-                                                <div className="relative shrink-0">
-                                                    <Avatar name={chat.nombre} />
-                                                    <span
-                                                        className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white"
-                                                        style={{ backgroundColor: getStatusDotColor(chat.estado) }}
-                                                        title={chat.estado || "Sin respuesta"}
-                                                    />
-                                                </div>
-
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <div className="truncate text-sm font-extrabold text-[#131E5C]">
-                                                            {chat.nombre}
-                                                        </div>
-
-                                                        <div className="text-[11px] font-bold text-slate-400">
-                                                            {chat.last?.time || ""}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="mt-0.5 flex items-center justify-between gap-2">
-                                                        <div className="truncate text-xs font-semibold text-slate-500">
-                                                            {chat.last?.text || formateaTelUi(chat.telefono)}
-                                                        </div>
-
-                                                        {chat.unread > 0 ? (
-                                                            <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[11px] font-extrabold text-white">
-                                                                {chat.unread}
-                                                            </span>
-                                                        ) : null}
-                                                    </div>
-
-                                                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                                                        <span
-                                                            className={cls(
-                                                                "inline-flex items-center rounded-full border border-black/10 bg-white px-2 py-0.5 text-[11px] font-bold",
-                                                                chat.estado ? "text-slate-600" : "text-slate-400",
-                                                            )}
-                                                        >
-                                                            {chat.estado || "Sin estado"}
-                                                        </span>
-
-                                                        {chat.agencia ? (
-                                                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">
-                                                                <Building2 className="h-3.5 w-3.5" />
-                                                                {chat.agencia}
-                                                            </span>
-                                                        ) : null}
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <ChevronLeft className="h-4 w-4" />
                                         </button>
-                                    );
-                                })
-                            ) : (
-                                <div className="p-8 text-center">
-                                    <div className="text-sm font-extrabold text-[#131E5C]">
-                                        Sin historial aún
+                                    </div>
+                                    <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-neutral-100 px-3 py-2">
+                                        <Search className="h-4 w-4 text-[#131E5C]" />
+
+                                        <input
+                                            value={q}
+                                            onChange={(event) => setQ(event.target.value)}
+                                            placeholder="Buscar prospecto, número, agencia…"
+                                            className="w-full bg-transparent text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400"
+                                        />
                                     </div>
                                 </div>
-                            )}
-                        </div>
+
+                                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                                    {loadingList ? (
+                                        <ChatListSkeleton rows={9} />
+                                    ) : filteredChats.length ? (
+                                        filteredChats.map((chat) => {
+                                            const isActive = chat.telefono === activeTel;
+
+                                            return (
+                                                <button
+                                                    key={chat.id}
+                                                    onMouseEnter={() => prefetchChat(chat.telefono)}
+                                                    onFocus={() => prefetchChat(chat.telefono)}
+                                                    onClick={() => openChatByTel(chat.telefono)}
+                                                    className={cls(
+                                                        "w-full border-b border-black/5 px-4 py-3 text-left transition",
+                                                        isActive
+                                                            ? "bg-white"
+                                                            : "bg-neutral-50 hover:bg-white",
+                                                    )}
+                                                    type="button"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="relative shrink-0">
+                                                            <Avatar name={chat.nombre} />
+                                                            <span
+                                                                className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white"
+                                                                style={{ backgroundColor: getStatusDotColor(chat.estado) }}
+                                                                title={chat.estado || "Sin respuesta"}
+                                                            />
+                                                        </div>
+
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <div className="truncate text-sm font-extrabold text-[#131E5C]">
+                                                                    {chat.nombre}
+                                                                </div>
+
+                                                                <div className="text-[11px] font-bold text-slate-400">
+                                                                    {chat.last?.time || ""}
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="mt-0.5 flex items-center justify-between gap-2">
+                                                                <div className="truncate text-xs font-semibold text-slate-500">
+                                                                    {chat.last?.text || formateaTelUi(chat.telefono)}
+                                                                </div>
+
+                                                                {chat.unread > 0 ? (
+                                                                    <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[11px] font-extrabold text-white">
+                                                                        {chat.unread}
+                                                                    </span>
+                                                                ) : null}
+                                                            </div>
+
+                                                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                                <span
+                                                                    className={cls(
+                                                                        "inline-flex items-center rounded-full border border-black/10 bg-white px-2 py-0.5 text-[11px] font-bold",
+                                                                        chat.estado ? "text-slate-600" : "text-slate-400",
+                                                                    )}
+                                                                >
+                                                                    {chat.estado || "Sin estado"}
+                                                                </span>
+
+                                                                {chat.agencia ? (
+                                                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                                                                        <Building2 className="h-3.5 w-3.5" />
+                                                                        {chat.agencia}
+                                                                    </span>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="p-8 text-center">
+                                            <div className="text-sm font-extrabold text-[#131E5C]">
+                                                Sin historial aún
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </aside>
 
                     <section
                         className={cls(
-                            "relative flex min-h-0 flex-col bg-white",
+                            "relative flex min-h-0 flex-col bg-white transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
                             mobileView === "list" ? "hidden lg:flex" : "flex",
                         )}
                     >
-                        <div className="flex items-center justify-between gap-3 border-b border-black/10 bg-white px-4 py-3">
-                            <div className="flex min-w-0 items-center gap-3">
-                                <Avatar name={activeChat?.nombre || "Prospecto"} />
+                        <div className="border-b border-black/10 bg-white px-3 py-3 sm:px-4">
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                                        <Avatar name={activeChat?.nombre || "Prospecto"} />
 
-                                <div className="min-w-0">
-                                    <div className="truncate text-sm font-extrabold text-[#131E5C]">
-                                        {activeChat?.nombre || "Selecciona un chat"}
-                                    </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_.8fr_1fr_auto_auto]">
+                                                <input
+                                                    value={activeChat?.nombre || "Selecciona un chat" || quickEditDraft.nombre || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))
+                                                    }
+                                                    placeholder="Nombre"
+                                                    className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                />
 
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-slate-500">
-                                        <button
-                                            type="button"
-                                            onClick={copyTel}
-                                            className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition hover:bg-neutral-100"
-                                            title="Copiar número"
-                                        >
-                                            {copiedTel ? (
-                                                <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                            ) : (
-                                                <Copy className="h-3.5 w-3.5" />
-                                            )}
-                                            <span className={copiedTel ? "text-emerald-600 font-bold" : ""}>
-                                                {activeTel ? formateaTelUi(activeTel) : "—"}
-                                            </span>
-                                        </button>
+                                                <select
+                                                    value={quickEditDraft.auto_interes || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))
+                                                    }
+                                                    className="h-8 min-w-0 max-w-35 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                >
+                                                    {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
+                                                </select>
 
-                                        <span className="inline-flex items-center gap-1">
-                                            <Clock className="h-3.5 w-3.5" />
-                                            {loadingChat ? "Cargando..." : "Listo"}
-                                        </span>
+                                                <select
+                                                    value={quickEditDraft.estado || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))
+                                                    }
+                                                    className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                >
+                                                    {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
+                                                </select>
 
-                                        <span className="text-[11px] font-bold text-slate-500">
-                                            Registro: {fmtDT(prospecto?.creado)} · Primer contacto: {fmtDT(prospecto?.primer_contacto_at)} · Último contacto: {fmtDT(prospecto?.ultimo_contacto_at)}
-                                        </span>
+                                                <select
+                                                    value={quickEditDraft.canal_contacto || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))
+                                                    }
+                                                    className="h-8 min-w-0 max-w-30 rounded-lg border border-black/10 bg-white px-1 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                >
+                                                    {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
+                                                </select>
+
+                                                <select
+                                                    value={quickEditDraft.business || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, business: e.target.value }))
+                                                    }
+                                                    className="h-8 min-w-0 max-w-25 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                >
+                                                    {renderOptionsConValorActual(BUSINESS_OPTIONS, quickEditDraft.business)}
+                                                </select>
+
+                                                <select
+                                                    value={quickEditDraft.pauta || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))
+                                                    }
+                                                    className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                >
+                                                    {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta)}
+                                                </select>
+
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={saveQuickEdit}
+                                                        disabled={savingQuickEdit}
+                                                        className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                                        style={{ backgroundColor: BRAND_BLUE }}
+                                                        type="button"
+                                                        title="Guardar cambios"
+                                                    >
+                                                        <Save className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={abrirPlantillas}
+                                                        disabled={!activeTel}
+                                                        className={cls(
+                                                            "inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60",
+                                                        )}
+                                                        type="button"
+                                                        title="Enviar plantilla"
+                                                    >
+                                                        <LayoutTemplate className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500 sm:text-xs">
+                                                <button
+                                                    type="button"
+                                                    onClick={copyTel}
+                                                    className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 sm:px-1"
+                                                    title="Copiar número"
+                                                >
+                                                    {copiedTel ? (
+                                                        <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                                    ) : (
+                                                        <Copy className="h-3.5 w-3.5" />
+                                                    )}
+
+                                                    <span className={copiedTel ? "font-bold text-emerald-600" : ""}>
+                                                        {activeTel ? formateaTelUi(activeTel) : "—"}
+                                                    </span>
+                                                </button>
+
+                                                <span className="inline-flex items-center gap-1">
+                                                    <Clock className="h-3.5 w-3.5" />
+                                                    {loadingChat ? "Cargando..." : "Listo"}
+                                                </span>
+
+                                                <span className="hidden text-[11px] font-bold text-slate-500 xl:inline">
+                                                    Registro: {fmtDT(prospecto?.creado)} · Primer contacto: {fmtDT(prospecto?.primer_contacto_at)} · Último contacto: {fmtDT(prospecto?.ultimo_contacto_at)}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={abrirPlantillas}
-                                    disabled={!activeTel}
-                                    className={cls(
-                                        "inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-extrabold text-[#131E5C] hover:bg-neutral-50",
-                                        !activeTel ? "cursor-not-allowed opacity-60" : "",
-                                    )}
-                                    type="button"
-                                    title="Enviar plantilla"
-                                >
-                                    <LayoutTemplate className="h-4 w-4" />
-                                    Plantillas
-                                </button>
+                                {activeTel ? (
+                                    <details className="group rounded-2xl border border-black/10 bg-neutral-50 p-2 sm:p-3 lg:hidden">
+                                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-1 py-1">
+                                            <span className="text-xs font-extrabold uppercase tracking-wide text-[#131E5C]/70">
+                                                Datos del prospecto
+                                            </span>
+
+                                            <input
+                                                value={activeChat?.nombre || "Selecciona un chat" || quickEditDraft.nombre || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))
+                                                }
+                                                placeholder="Nombre"
+                                                className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            />
+
+                                            <select
+                                                value={quickEditDraft.auto_interes || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))
+                                                }
+                                                className="h-8 min-w-0 max-w-35 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
+                                            </select>
+
+                                            <select
+                                                value={quickEditDraft.estado || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))
+                                                }
+                                                className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
+                                            </select>
+
+                                            <select
+                                                value={quickEditDraft.canal_contacto || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))
+                                                }
+                                                className="h-8 min-w-0 max-w-30 rounded-lg border border-black/10 bg-white px-1 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
+                                            </select>
+
+                                            <select
+                                                value={quickEditDraft.business || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, business: e.target.value }))
+                                                }
+                                                className="h-8 min-w-0 max-w-25 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                {renderOptionsConValorActual(BUSINESS_OPTIONS, quickEditDraft.business)}
+                                            </select>
+
+                                            <select
+                                                value={quickEditDraft.pauta || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))
+                                                }
+                                                className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta)}
+                                            </select>
+
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={saveQuickEdit}
+                                                    disabled={savingQuickEdit}
+                                                    className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                                    style={{ backgroundColor: BRAND_BLUE }}
+                                                    type="button"
+                                                    title="Guardar cambios"
+                                                >
+                                                    <Save className="h-3.5 w-3.5" />
+                                                </button>
+                                                <button
+                                                    onClick={abrirPlantillas}
+                                                    disabled={!activeTel}
+                                                    className={cls(
+                                                        "inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60",
+                                                    )}
+                                                    type="button"
+                                                    title="Enviar plantilla"
+                                                >
+                                                    <LayoutTemplate className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                            <ChevronDown className="h-4 w-4 text-[#131E5C]/60 transition group-open:rotate-180" />
+                                        </summary>
+                                    </details>
+                                ) : null}
                             </div>
                         </div>
-
                         <div
                             ref={messagesScrollRef}
                             onScroll={onMessagesScroll}
-                            className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-50 via-white to-neutral-50 px-3 py-4 sm:px-4"
+                            className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-50 via-white to-slate-50 px-4 py-5 sm:px-6 lg:px-8"
                         >
-                            <div className="mx-auto max-w-3xl space-y-3">
+                            <div className="mx-auto w-full max-w-5xl space-y-3">
                                 {activeTel && !loadingChat ? (
                                     <div className="mb-3 flex justify-center">
                                         {loadingOlder ? (
@@ -2335,7 +2683,7 @@ export default function DigitalesContacto() {
                             onDragLeave={onDragLeaveComposer}
                             onDrop={onDropComposer}
                         >
-                            <div className="mx-auto max-w-3xl">
+                            <div className="mx-auto w-full max-w-5xl">
                                 {dragOver && activeTel ? (
                                     <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
                                         <div className="rounded-2xl border border-dashed border-[#131E5C]/40 bg-white px-6 py-4 shadow-lg">
@@ -2623,163 +2971,8 @@ export default function DigitalesContacto() {
                             </div>
                         </div>
                     </section>
-
-                    {/* ── Columna derecha: edición rápida del prospecto (siempre visible) ── */}
-                    {activeTel && !isDirectChatMode ? (
-                        <aside className="hidden lg:flex flex-col border-l border-black/10 bg-neutral-50">
-                            {/* Header */}
-                            <div
-                                className="flex items-center gap-2 px-4 py-3 border-b border-black/10"
-                                style={{ backgroundColor: BRAND_BLUE }}
-                            >
-                                <Pencil className="h-3.5 w-3.5 text-white/70" />
-                                <span className="text-xs font-extrabold uppercase tracking-wide text-white">
-                                    Datos del prospecto
-                                </span>
-                            </div>
-
-                            {/* Nombre del prospecto */}
-                            {prospecto?.nombre ? (
-                                <div className="border-b border-black/8 bg-white px-4 py-2.5">
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Prospecto</div>
-                                    <div className="mt-0.5 text-sm font-extrabold text-[#131E5C] truncate">{prospecto.nombre}</div>
-                                </div>
-                            ) : null}
-
-                            {/* Campos */}
-                            <div className="flex-1 overflow-y-auto px-3 py-3">
-                                <div className="grid gap-3">
-
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Nombre</label>
-                                        <input
-                                            value={quickEditDraft.nombre || ""}
-                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))}
-                                            placeholder="Nombre del prospecto"
-                                            className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">VW de sus sueños</label>
-                                        <div className="relative">
-                                            <select
-                                                value={quickEditDraft.auto_interes || ""}
-                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))}
-                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                            >
-                                                <option value="">Selecciona una opción</option>
-                                                {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
-                                            </select>
-                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
-                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Estado</label>
-                                        <div className="relative">
-                                            <select
-                                                value={quickEditDraft.estado || ""}
-                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))}
-                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                            >
-                                                <option value="">Sin estado</option>
-                                                {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
-                                            </select>
-                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
-                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Canal de contacto</label>
-                                        <div className="relative">
-                                            <select
-                                                value={quickEditDraft.canal_contacto || ""}
-                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))}
-                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                            >
-                                                <option value="">Sin canal</option>
-                                                {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
-                                            </select>
-                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
-                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Business</label>
-                                        <div className="relative">
-                                            <select
-                                                value={quickEditDraft.business || ""}
-                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, business: e.target.value }))}
-                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                            >
-                                                <option value="">Sin business</option>
-                                                {renderOptionsConValorActual(BUSINESS_OPTIONS, quickEditDraft.business)}
-                                            </select>
-                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
-                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Pauta de origen</label>
-                                        <div className="relative">
-                                            <select
-                                                value={quickEditDraft.pauta || ""}
-                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))}
-                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                            >
-                                                <option value="">Sin pauta</option>
-                                                {renderOptionsConValorActual(PAUTAS_ORIGEN, quickEditDraft.pauta)}
-                                            </select>
-                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
-                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Comentario adicional</label>
-                                        <textarea
-                                            value={quickEditDraft.comentarios || ""}
-                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, comentarios: e.target.value }))}
-                                            placeholder="Notas internas..."
-                                            rows={3}
-                                            className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none placeholder:text-slate-400 focus:border-[#131E5C]/40"
-                                        />
-                                    </div>
-
-                                </div>
-                            </div>
-
-                            {/* Botón guardar */}
-                            <div className="border-t border-black/10 bg-white px-3 py-3">
-                                <button
-                                    onClick={saveQuickEdit}
-                                    disabled={savingQuickEdit}
-                                    className={cls(
-                                        "w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-extrabold text-white",
-                                        savingQuickEdit ? "opacity-60 cursor-not-allowed" : "hover:opacity-90",
-                                    )}
-                                    style={{ backgroundColor: BRAND_BLUE }}
-                                    type="button"
-                                >
-                                    <Save className="h-3.5 w-3.5" />
-                                    {savingQuickEdit ? "Guardando..." : "Guardar cambios"}
-                                </button>
-                            </div>
-                        </aside>
-                    ) : null}
-
                 </div>
-            </div>
+            </div >
 
             <Modal
                 open={openTpl}
@@ -2932,6 +3125,6 @@ export default function DigitalesContacto() {
                     </div>
                 )}
             </Modal>
-        </div>
+        </div >
     );
 }
