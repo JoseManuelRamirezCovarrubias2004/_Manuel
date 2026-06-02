@@ -75,11 +75,13 @@ function Skeleton({ className = "" }) {
 function SkeletonRow() {
     return (
         <tr className="animate-pulse">
-            {[36, 28, 40, 28, 28, 64, 20].map((w, i) => (
-                <td key={i} className="px-4 py-3">
-                    <div className={`h-4 w-${w} rounded bg-slate-200/60`} />
-                </td>
-            ))}
+            <td className="px-4 py-3"><div className="h-4 w-36 rounded bg-slate-200/60" /></td>
+            <td className="px-4 py-3"><div className="h-4 w-28 rounded bg-slate-200/60" /></td>
+            <td className="px-4 py-3"><div className="h-4 w-40 rounded bg-slate-200/60" /></td>
+            <td className="px-4 py-3"><div className="h-4 w-28 rounded bg-slate-200/60" /></td>
+            <td className="px-4 py-3"><div className="h-4 w-28 rounded bg-slate-200/60" /></td>
+            <td className="px-4 py-3"><div className="h-4 w-64 rounded bg-slate-200/60" /></td>
+            <td className="px-4 py-3"><div className="h-4 w-20 rounded bg-slate-200/60" /></td>
         </tr>
     );
 }
@@ -259,14 +261,14 @@ function MobileCardList({ rows, loading, onEdit, onContext, onToggleAsistencia, 
 }
 
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 7); // 7:00 – 19:00
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
 const DAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 const TIPO_COLORS = {
-    "Prueba de Manejo": { bg: "bg-emerald-100", border: "border-emerald-400", text: "text-emerald-900", dot: "bg-emerald-500" },
+    "Prueba de Manejo": { bg: "bg-orange-100", border: "border-orange-400", text: "text-orange-900", dot: "bg-orange-500" },
     "Tradicional": { bg: "bg-blue-100", border: "border-blue-400", text: "text-blue-900", dot: "bg-blue-500" },
-    "Digital": { bg: "bg-violet-100", border: "border-violet-400", text: "text-violet-900", dot: "bg-violet-500" },
+    "Digital": { bg: "bg-green-100", border: "border-green-400", text: "text-green-900", dot: "bg-green-500" },
     default: { bg: "bg-slate-100", border: "border-slate-400", text: "text-slate-800", dot: "bg-slate-400" },
 };
 
@@ -276,7 +278,7 @@ function getColor(tipo) {
 
 function getWeekDates(referenceDate) {
     const d = new Date(referenceDate);
-    const day = d.getDay(); // 0=Dom
+    const day = d.getDay();
     const monday = new Date(d);
     monday.setDate(d.getDate() - ((day + 6) % 7));
     return Array.from({ length: 7 }, (_, i) => {
@@ -292,15 +294,25 @@ function isSameDay(d1, d2) {
         d1.getDate() === d2.getDate();
 }
 
-function AgendaView({ rows, loading, onEdit, onNewAtSlot }) {
+function AgendaView({ rows, loading, onEdit, onNewAtSlot, onToggleAsistencia, updatingInline }) {
     const [weekRef, setWeekRef] = useState(new Date());
-    const weekDates = useMemo(() => getWeekDates(weekRef), [weekRef]);
     const today = new Date();
+
+    const weekDates = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekRef);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d.setDate(diff));
+        return new Date(
+            monday.getFullYear(),
+            monday.getMonth(),
+            monday.getDate() + i
+        );
+    });
 
     const goNext = () => { const d = new Date(weekRef); d.setDate(d.getDate() + 7); setWeekRef(d); };
     const goPrev = () => { const d = new Date(weekRef); d.setDate(d.getDate() - 7); setWeekRef(d); };
     const goToday = () => setWeekRef(new Date());
-
 
     const citasByDayHour = useMemo(() => {
         const map = {};
@@ -329,13 +341,21 @@ function AgendaView({ rows, loading, onEdit, onNewAtSlot }) {
         return `${sm} de ${smth} – ${em} de ${emth} de ${yr}`;
     }, [weekDates]);
 
+    const handleToggleAsistencia = (e, cita) => {
+        e.stopPropagation();
+        if (onToggleAsistencia) onToggleAsistencia(cita);
+    };
+
     return (
         <div className="rounded-lg border border-black/10 bg-white overflow-hidden shadow-sm">
-
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-black/10">
                 <div>
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Semana</div>
                     <div className="text-sm font-extrabold text-[#131E5C]">{weekLabel}</div>
+                </div>
+                <div className="flex gap-2">
+                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 font-semibold">Tradicional</span>
+                    <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 font-semibold">Digital</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={goPrev} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
@@ -350,106 +370,118 @@ function AgendaView({ rows, loading, onEdit, onNewAtSlot }) {
                 </div>
             </div>
 
-
             <div className="overflow-auto">
                 <table className="min-w-full border-collapse" style={{ tableLayout: "fixed" }}>
                     <colgroup>
                         <col style={{ width: "64px" }} />
-                        {weekDates.map((_, i) => <col key={i} style={{ width: `calc((100% - 64px) / 7)` }} />)}
+                        {HOURS.map((_, i) => (
+                            <col key={i} style={{ width: `calc((100% - 64px) / ${HOURS.length})` }} />
+                        ))}
                     </colgroup>
 
                     <thead>
                         <tr>
-                            <th className="px-2 py-3 text-xs font-bold text-slate-400 bg-white border-b border-r border-black/10">Hora</th>
-                            {weekDates.map((d, i) => {
-                                const isToday = isSameDay(d, today);
-                                return (
-                                    <th key={i} className="px-2 py-3 text-center border-b border-r border-black/10 bg-white">
-                                        <div
-                                            className={`inline-flex flex-col items-center justify-center px-2 py-[2px] rounded-full ${isToday ? "bg-[#131E5C] text-white" : ""}`}
-                                        >
-                                            <div className={`text-[10px] font-semibold leading-none ${isToday ? "text-white/70" : "text-slate-400"}`}>
-                                                {DAYS_ES[d.getDay()]}
-                                            </div>
-                                            <div className={`text-xs font-bold leading-none ${isToday ? "text-white" : "text-[#131E5C]"}`}>
-                                                {d.getDate()}/{String(d.getMonth() + 1).padStart(2, "0")}
-                                            </div>
-                                        </div>
-                                    </th>
-                                );
-                            })}
+                            <th className="px-2 py-3 text-xs font-bold text-slate-400 bg-white border-b border-r border-black/10">Día</th>
+                            {HOURS.map((hour, i) => (
+                                <th key={i} className="px-2 py-3 text-center border-b border-r border-black/10 bg-white">
+                                    <div className="text-xs font-bold text-[#131E5C]">{String(hour).padStart(2, "0")}:00</div>
+                                </th>
+                            ))}
                         </tr>
                     </thead>
+
                     <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan={8} className="px-4 py-16 text-center text-[#131E5C]">
+                                <td colSpan={HOURS.length + 1} className="px-4 py-16 text-center text-[#131E5C]">
                                     <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                                     <span className="text-sm font-semibold">Cargando citas...</span>
                                 </td>
                             </tr>
                         ) : (
-                            HOURS.map((hour) => (
-                                <tr key={hour} className="group">
-                                    <td className="px-2 py-0 text-xs font-bold text-slate-400 border-r border-b border-black/10 align-top pt-2 bg-white" style={{ height: "72px" }}>
-                                        {String(hour).padStart(2, "0")}:00
-                                    </td>
-                                    {weekDates.map((d, di) => {
-                                        const dayKey = toYMDLocal(d);
-                                        const citas = citasByDayHour?.[dayKey]?.[hour] || [];
-                                        const isToday = isSameDay(d, today);
-                                        return (
-                                            <td
-                                                key={di}
-                                                className="border-r border-b border-black/10 align-top p-1 relative group/cell bg-white hover:bg-slate-50"
-                                                style={{ height: "72px", verticalAlign: "top" }}
-                                            >
-                                             
-                                                {citas.length === 0 && (
-                                                    <button
-                                                        onClick={() => onNewAtSlot(d, hour)}
-                                                        className="absolute top-1 right-1 h-6 w-6 rounded-full bg-[#131E5C]/10 text-[#131E5C] opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center hover:bg-[#131E5C] hover:text-white"
-                                                        title={`Nueva cita ${String(hour).padStart(2, "0")}:00`}
-                                                    >
-                                                        <Plus className="h-3.5 w-3.5" />
-                                                    </button>
-                                                )}
-                                                <div className="flex flex-col gap-0.5">
-                                                    {citas.map((cita) => {
-                                                        const dt = new Date(cita.fecha_hora_cita);
-                                                        const mins = String(dt.getMinutes()).padStart(2, "0");
-                                                        const color = getColor(cita.tipo_cita);
-                                                        return (
-                                                            <button
-                                                                key={cita.id}
-                                                                onClick={() => onEdit(cita)}
-                                                                className={`w-full text-left rounded px-1.5 py-0.5 border-l-2 text-xs font-semibold truncate ${color.bg} ${color.border} ${color.text} hover:opacity-80 transition`}
-                                                                title={`${cita?.cliente?.nombre || "—"} – ${cita.tipo_cita || ""}`}
-                                                            >
-                                                                <span className="font-bold">{String(hour).padStart(2, "0")}:{mins}</span>
-                                                                {" "}{cita?.cliente?.nombre || "Sin nombre"}
-                                                            </button>
-                                                        );
-                                                    })}
+                            weekDates
+                                .filter(d => d.getDay() !== 0)
+                                .map((d, di) => {
+                                    const isToday = isSameDay(d, today);
+                                    return (
+                                        <tr key={di} className="group">
+                                            <td className="px-2 py-0 text-xs font-bold text-slate-400 border-r border-b border-black/10 align-top pt-2 bg-white">
+                                                <div className={`inline-flex flex-col items-center justify-center px-2 py-[2px] rounded-full ${isToday ? "bg-[#131E5C] text-white" : ""}`}>
+                                                    <div className={`text-[10px] font-semibold leading-none ${isToday ? "text-white/70" : "text-slate-400"}`}>
+                                                        {DAYS_ES[d.getDay()]}
+                                                    </div>
+                                                    <div className={`text-xs font-bold leading-none ${isToday ? "text-white" : "text-[#131E5C]"}`}>
+                                                        {d.getDate()}/{String(d.getMonth() + 1).padStart(2, "0")}
+                                                    </div>
                                                 </div>
                                             </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))
+
+                                            {HOURS.map((hour, hi) => {
+                                                const dayKey = toYMDLocal(d);
+                                                const citas = citasByDayHour?.[dayKey]?.[hour] || [];
+
+                                                return (
+                                                    <td key={hi} className="border-r border-b border-black/10 align-top p-1 relative group/cell bg-white hover:bg-slate-50" style={{ minHeight: "72px", verticalAlign: "top" }}>
+                                                        {citas.length === 0 && (
+                                                            <button
+                                                                onClick={() => onNewAtSlot(d, hour)}
+                                                                className="absolute top-1 right-1 h-6 w-6 rounded-full bg-[#131E5C]/10 text-[#131E5C] opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center hover:bg-[#131E5C] hover:text-white"
+                                                                title={`Nueva cita ${String(hour).padStart(2, "0")}:00`}
+                                                            >
+                                                                <Plus className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        )}
+
+                                                        <div className="flex flex-col gap-2">
+                                                            {citas.map((cita) => {
+                                                                const dt = new Date(cita.fecha_hora_cita);
+                                                                const mins = String(dt.getMinutes()).padStart(2, "0");
+                                                                const color = getColor(cita.tipo_cita);
+                                                                const isUpdating = updatingInline?.[cita.id] || false;
+                                                                const nombreCliente = cita?.cliente?.nombre || "—";
+                                                                const telefono = cita?.cliente?.telefono || "—";
+                                                                const autoInteres = cita.auto_interes || "—";
+                                                                const asesorPiso = cita.asesor_piso || "—";
+                                                                const asesorDigital = cita.asesor_digital || "—";
+
+                                                                return (
+                                                                    <div key={cita.id} onClick={() => onEdit(cita)} className={`rounded-md p-2 text-left cursor-pointer hover:opacity-90 transition-all ${color.bg} ${color.border} border-l-4 shadow-sm`}>
+                                                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                                                            <span className="text-xs font-bold text-[#131E5C]">{String(hour).padStart(2, "0")}:{mins}</span>
+                                                                            <button
+                                                                                disabled={isUpdating}
+                                                                                onClick={(e) => handleToggleAsistencia(e, cita)}
+                                                                                className={[
+                                                                                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                                                                                    cita.asistencia ? "bg-emerald-200 text-emerald-800 border-emerald-300" : "bg-red-200 text-red-800 border-red-300",
+                                                                                    isUpdating ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
+                                                                                ].join(" ")}
+                                                                            >
+                                                                                {isUpdating ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
+                                                                                {cita.asistencia ? "✓ Sí" : "✗ No"}
+                                                                            </button>
+                                                                        </div>
+                                                                        <div className="text-sm font-extrabold text-[#131E5C] truncate">{nombreCliente}</div>
+                                                                        <div className="text-xs font-semibold text-slate-600 truncate">🚗 {autoInteres}</div>
+                                                                        <div className="text-[10px] text-slate-500 truncate flex items-center gap-1 mt-1"><Phone className="h-3 w-3" /> {telefono}</div>
+                                                                        <div className="text-[10px] text-slate-500 truncate mt-1"><span className="font-semibold">Digital:</span> {asesorDigital}</div>
+                                                                        <div className="text-[10px] text-slate-500 truncate"><span className="font-semibold">Piso:</span> {asesorPiso}</div>
+                                                                        {cita.comentarios && cita.comentarios !== "" && (
+                                                                            <div className="text-[10px] text-slate-400 italic truncate mt-1">💬 {cita.comentarios.substring(0, 50)}</div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    );
+                                })
                         )}
                     </tbody>
                 </table>
-            </div>
-
-
-            <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-t border-black/10 bg-slate-50">
-                {Object.entries(TIPO_COLORS).filter(([k]) => k !== "default").map(([tipo, color]) => (
-                    <div key={tipo} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-                        <span className={`h-2.5 w-2.5 rounded-full ${color.dot}`} />
-                        {tipo}
-                    </div>
-                ))}
             </div>
         </div>
     );
@@ -467,7 +499,6 @@ function Bar({ label, value, max, color, total }) {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
         >
-            {/* Tooltip */}
             {hovered && (
                 <div className="absolute left-1/2 -top-9 -translate-x-1/2 z-50 whitespace-nowrap rounded-lg bg-[#131E5C] px-3 py-1.5 text-xs font-bold text-white shadow-xl pointer-events-none">
                     {label ? <span className="mr-1">{label}:</span> : null}
@@ -476,10 +507,7 @@ function Bar({ label, value, max, color, total }) {
                 </div>
             )}
             <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                    className={`h-full rounded-full transition-all duration-500 ${color}`}
-                    style={{ width: `${pct}%`, opacity: hovered ? 1 : 0.85 }}
-                />
+                <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%`, opacity: hovered ? 1 : 0.85 }} />
             </div>
             <span className={`text-xs font-bold w-6 text-right transition-colors ${hovered ? "text-[#131E5C]" : "text-slate-500"}`}>
                 {value}
@@ -491,23 +519,10 @@ function Bar({ label, value, max, color, total }) {
 
 function ColBar({ dia, cnt, pct, hovered, onEnter, onLeave }) {
     return (
-        <div
-            className="flex-1 flex flex-col items-center gap-1 cursor-default"
-            onMouseEnter={onEnter}
-            onMouseLeave={onLeave}
-        >
-            <span className={`text-xs font-bold transition-colors ${hovered ? "text-[#131E5C]" : "text-transparent"}`}>
-                {cnt}
-            </span>
+        <div className="flex-1 flex flex-col items-center gap-1 cursor-default" onMouseEnter={onEnter} onMouseLeave={onLeave}>
+            <span className={`text-xs font-bold transition-colors ${hovered ? "text-[#131E5C]" : "text-transparent"}`}>{cnt}</span>
             <div className="relative w-full rounded-t-md bg-[#131E5C]/10 flex items-end" style={{ height: "72px" }}>
-                <div
-                    className="w-full rounded-t-md transition-all duration-500"
-                    style={{
-                        height: `${pct}%`,
-                        minHeight: cnt > 0 ? "4px" : "0",
-                        background: hovered ? "#131E5C" : "rgba(19,30,92,0.6)",
-                    }}
-                />
+                <div className="w-full rounded-t-md transition-all duration-500" style={{ height: `${pct}%`, minHeight: cnt > 0 ? "4px" : "0", background: hovered ? "#131E5C" : "rgba(19,30,92,0.6)" }} />
                 {hovered && cnt > 0 && (
                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#131E5C] px-2 py-1 text-xs font-bold text-white shadow-xl pointer-events-none z-50">
                         {cnt} cita{cnt !== 1 ? "s" : ""}
@@ -515,9 +530,7 @@ function ColBar({ dia, cnt, pct, hovered, onEnter, onLeave }) {
                     </div>
                 )}
             </div>
-            <span className={`text-xs font-semibold transition-colors ${hovered ? "text-[#131E5C] font-extrabold" : "text-slate-500"}`}>
-                {dia}
-            </span>
+            <span className={`text-xs font-semibold transition-colors ${hovered ? "text-[#131E5C] font-extrabold" : "text-slate-500"}`}>{dia}</span>
         </div>
     );
 }
@@ -526,17 +539,10 @@ function ColBar({ dia, cnt, pct, hovered, onEnter, onLeave }) {
 function KpiCard({ label, value, color, bg, detail }) {
     const [hovered, setHovered] = useState(false);
     return (
-        <div
-            className={`rounded-xl border border-black/10 ${bg} p-4 transition-all duration-200 cursor-default select-none`}
-            style={{ transform: hovered ? "translateY(-2px)" : "none", boxShadow: hovered ? "0 8px 24px rgba(19,30,92,0.12)" : "none" }}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-        >
+        <div className={`rounded-xl border border-black/10 ${bg} p-4 transition-all duration-200 cursor-default select-none`} style={{ transform: hovered ? "translateY(-2px)" : "none", boxShadow: hovered ? "0 8px 24px rgba(19,30,92,0.12)" : "none" }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
             <div className="text-xs font-bold text-slate-500 mb-1">{label}</div>
             <div className={`text-3xl font-extrabold ${color}`}>{value}</div>
-            {hovered && detail ? (
-                <div className="mt-2 text-xs font-semibold text-slate-400 animate-pulse">{detail}</div>
-            ) : null}
+            {hovered && detail ? <div className="mt-2 text-xs font-semibold text-slate-400 animate-pulse">{detail}</div> : null}
         </div>
     );
 }
@@ -589,8 +595,6 @@ function GraficosView({ rows }) {
 
     return (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-
-            {/* KPIs */}
             <div className="xl:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3">
                 <KpiCard label="Total citas" value={stats.total} color="text-[#131E5C]" bg="bg-[#131E5C]/5" detail="Total de citas registradas con los filtros activos" />
                 <KpiCard label="Asistieron" value={stats.asistieron} color="text-emerald-700" bg="bg-emerald-50" detail={`${stats.pctAsist}% de tasa de asistencia`} />
@@ -598,11 +602,8 @@ function GraficosView({ rows }) {
                 <KpiCard label="% Asistencia" value={`${stats.pctAsist}%`} color="text-blue-700" bg="bg-blue-50" detail={`${stats.asistieron} de ${stats.total} citas`} />
             </div>
 
-            {/* Por tipo de cita */}
             <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
-                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2">
-                    <LayoutList className="h-4 w-4" /> Por tipo de cita
-                </div>
+                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><LayoutList className="h-4 w-4" /> Por tipo de cita</div>
                 <div className="space-y-1">
                     {Object.entries(stats.porTipo).sort((a, b) => b[1] - a[1]).map(([tipo, cnt]) => {
                         const color = getColor(tipo);
@@ -623,17 +624,12 @@ function GraficosView({ rows }) {
                 </div>
             </div>
 
-            {/* Por agencia */}
             <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
-                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2">
-                    <Building2 className="h-4 w-4" /> Por dealer
-                </div>
+                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><Building2 className="h-4 w-4" /> Por dealer</div>
                 <div className="space-y-1">
                     {topAgencias.map(([agencia, cnt], i) => (
                         <div key={agencia}>
-                            <div className="flex items-center justify-between px-2 mb-0.5">
-                                <span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{agencia}</span>
-                            </div>
+                            <div className="flex items-center justify-between px-2 mb-0.5"><span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{agencia}</span></div>
                             <Bar label={agencia} value={cnt} max={maxAgencia} color={AGENCIA_COLORS[i % AGENCIA_COLORS.length]} total={stats.total} />
                         </div>
                     ))}
@@ -641,40 +637,22 @@ function GraficosView({ rows }) {
                 </div>
             </div>
 
-            {/* Por día de la semana */}
             <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
-                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4" /> Por día de la semana
-                </div>
+                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Por día de la semana</div>
                 <div className="flex items-end gap-2 mt-2" style={{ height: "110px" }}>
                     {Object.entries(stats.porDia).map(([dia, cnt]) => {
                         const pct = maxDia > 0 ? (cnt / maxDia) * 100 : 0;
-                        return (
-                            <ColBar
-                                key={dia}
-                                dia={dia}
-                                cnt={cnt}
-                                pct={pct}
-                                hovered={hoveredDia === dia}
-                                onEnter={() => setHoveredDia(dia)}
-                                onLeave={() => setHoveredDia(null)}
-                            />
-                        );
+                        return <ColBar key={dia} dia={dia} cnt={cnt} pct={pct} hovered={hoveredDia === dia} onEnter={() => setHoveredDia(dia)} onLeave={() => setHoveredDia(null)} />;
                     })}
                 </div>
             </div>
 
-            {/* Por asesor digital */}
             <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-2">
-                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2">
-                    <UserMinus className="h-4 w-4" /> Por asesor digital (top 8)
-                </div>
+                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><UserMinus className="h-4 w-4" /> Por asesor digital (top 8)</div>
                 <div className="space-y-1">
                     {topAsesores.map(([asesor, cnt], i) => (
                         <div key={asesor}>
-                            <div className="flex items-center justify-between px-2 mb-0.5">
-                                <span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{asesor}</span>
-                            </div>
+                            <div className="flex items-center justify-between px-2 mb-0.5"><span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{asesor}</span></div>
                             <Bar label={asesor} value={cnt} max={maxAsesor} color={ASESOR_COLORS[i % ASESOR_COLORS.length]} total={stats.total} />
                         </div>
                     ))}
@@ -682,17 +660,12 @@ function GraficosView({ rows }) {
                 </div>
             </div>
 
-            {/* Por fuente */}
             <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
-                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2">
-                    <UserSearch className="h-4 w-4" /> Por fuente de prospección
-                </div>
+                <div className="text-sm font-extrabold text-[#131E5C] mb-3 flex items-center gap-2"><UserSearch className="h-4 w-4" /> Por fuente de prospección</div>
                 <div className="space-y-1">
                     {topFuentes.map(([fuente, cnt], i) => (
                         <div key={fuente}>
-                            <div className="flex items-center justify-between px-2 mb-0.5">
-                                <span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{fuente}</span>
-                            </div>
+                            <div className="flex items-center justify-between px-2 mb-0.5"><span className="text-xs font-semibold text-slate-600 truncate max-w-[75%]">{fuente}</span></div>
                             <Bar label={fuente} value={cnt} max={maxFuente} color={FUENTE_COLORS[i % FUENTE_COLORS.length]} total={stats.total} />
                         </div>
                     ))}
@@ -716,10 +689,10 @@ export default function RegistroCitas() {
     const userAgencia = String(user?.agencia || "").trim();
 
     const [citas, setCitas] = useState([]);
-    const [vista, setVista] = useState("tabla"); // "tabla" | "agenda" | "graficos"
+    const [vista, setVista] = useState("tabla");
 
     const DEALERS = useMemo(() => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"], []);
-    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen"];
+    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "Candy Denisse Marquez Cortes", "IA Vagen"];
     const ASESORES = [
         "AURA MARLIZETH FERNANDEZ LOPEZ", "Bianca Isabel Chavez Alarcon", "ERENDIRA SANTOS COYOTZI",
         "IRENE DEL CARMEN GUIZA LOPEZ", "MARCOS RAUL DIAZ RAMOS", "MARIO ALBERTO LOPEZ RAMOS",
@@ -740,7 +713,7 @@ export default function RegistroCitas() {
         "Miguel Capitanachi Paredes", "OLIMPIA VAZQUEZ MENDEZ", "Roberto Ramses Luna Fajardo",
         "Carlos Arturo Garces Vengas", "Edgar Omar Noguera Solis", "Javier Perez Meraz",
         "Luis Armando Almora Perez", "Mara Erubey Soto Villegas", "Sergio Ivan Quintana Martinez",
-        "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos",
+        "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos", "JOSE ALBERTO SEDAS FLORES"
     ];
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
     const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter", "CRAFTER ELITE", "CRAFTER URBAN", "CRAFTER ELEMENTAL", "CRAFTER INSPIRE"];
@@ -938,7 +911,6 @@ export default function RegistroCitas() {
     const resetFilters = () => setFilters({ q: "", agencia: "Todos", asesorDigital: "Todos", rangoDesde: "", rangoHasta: "" });
     const setHoy = () => { const hoy = toYMDLocal(new Date()); setFilters((p) => ({ ...p, rangoDesde: hoy, rangoHasta: hoy })); };
 
-
     const ViewToggle = () => (
         <div className="flex items-center rounded-lg border border-[#131E5C]/30 overflow-hidden">
             {[
@@ -946,18 +918,8 @@ export default function RegistroCitas() {
                 { key: "tabla", label: "Tabla", Icon: Table2 },
                 { key: "graficos", label: "Gráficos", Icon: BarChart3 },
             ].map(({ key, label, Icon }) => (
-                <button
-                    key={key}
-                    onClick={() => setVista(key)}
-                    className={[
-                        "inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition",
-                        vista === key
-                            ? "bg-[#131E5C] text-white"
-                            : "bg-white text-[#131E5C] hover:bg-[#131E5C]/10",
-                    ].join(" ")}
-                >
-                    <Icon className="h-3.5 w-3.5" />
-                    {label}
+                <button key={key} onClick={() => setVista(key)} className={["inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition", vista === key ? "bg-[#131E5C] text-white" : "bg-white text-[#131E5C] hover:bg-[#131E5C]/10"].join(" ")}>
+                    <Icon className="h-3.5 w-3.5" /> {label}
                 </button>
             ))}
         </div>
@@ -965,28 +927,18 @@ export default function RegistroCitas() {
 
     return (
         <div className="w-full">
-
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Citas</h2>
-                    {!isAdmin && userAgencia ? (
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
-                            Agencia asignada: <span className="text-[#131E5C]">{userAgencia}</span>
-                        </p>
-                    ) : null}
+                    {!isAdmin && userAgencia ? <p className="mt-1 text-xs font-semibold text-slate-500">Agencia asignada: <span className="text-[#131E5C]">{userAgencia}</span></p> : null}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <ViewToggle />
-                    <button
-                        onClick={() => openCreate()}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm bg-[#131E5C] hover:bg-[#131E5C]/80 text-white shadow-sm"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Nueva Cita
+                    <button onClick={() => openCreate()} className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm bg-[#131E5C] hover:bg-[#131E5C]/80 text-white shadow-sm">
+                        <Plus className="h-4 w-4" /> Nueva Cita
                     </button>
                 </div>
             </div>
-
 
             <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                 <div className="grid gap-3 md:grid-cols-12">
@@ -994,43 +946,30 @@ export default function RegistroCitas() {
                         <FilterBlock label="Búsqueda">
                             <div className="flex items-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2">
                                 <Search className="h-4 w-4 text-[#131E5C]" />
-                                <input
-                                    value={filters.q}
-                                    onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
-                                    placeholder="Buscar por dealer, cliente, teléfono…"
-                                    className="w-full text-sm text-[#131E5C] outline-none placeholder:text-[#131E5C]"
-                                />
-                                {filters.q ? (
-                                    <button onClick={() => setFilters((p) => ({ ...p, q: "" }))} className="rounded-lg p-1 bg-white text-[#131E5C] hover:bg-white/80 hover:text-red-500" aria-label="Limpiar búsqueda">
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                ) : null}
+                                <input value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="Buscar por dealer, cliente, teléfono…" className="w-full text-sm text-[#131E5C] outline-none placeholder:text-[#131E5C]" />
+                                {filters.q ? <button onClick={() => setFilters((p) => ({ ...p, q: "" }))} className="rounded-lg p-1 bg-white text-[#131E5C] hover:bg-white/80 hover:text-red-500"><X className="h-4 w-4" /></button> : null}
                             </div>
                         </FilterBlock>
                     </div>
                     <div className="md:col-span-3">
                         <FilterBlock label="Dealer">
                             <select value={filters.agencia} onChange={(e) => setFilters((p) => ({ ...p, agencia: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none">
-                                {dealers.map((d) => <option key={d} value={d} className="bg-neutral-100 text-[#131E5C]">{d}</option>)}
+                                {dealers.map((d) => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </FilterBlock>
                     </div>
                     <div className="md:col-span-3">
                         <FilterBlock label="Asesor Digital">
                             <select value={filters.asesorDigital} onChange={(e) => setFilters((p) => ({ ...p, asesorDigital: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none">
-                                {asesoresDigitalesFiltro.map((a) => <option key={a} value={a} className="bg-neutral-100 text-[#131E5C]">{a}</option>)}
+                                {asesoresDigitalesFiltro.map((a) => <option key={a} value={a}>{a}</option>)}
                             </select>
                         </FilterBlock>
                     </div>
                     <div className="md:col-span-3">
                         <FilterBlock label="Acciones">
                             <div className="grid grid-cols-2 gap-2">
-                                <button onClick={setHoy} className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700">
-                                    <CalendarDays className="h-4 w-4" /> Hoy
-                                </button>
-                                <button onClick={resetFilters} className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] px-3 py-2 text-sm font-semibold bg-white text-[#131E5C] hover:text-white hover:bg-[#131E5C]">
-                                    <X className="h-4 w-4" /> Limpiar
-                                </button>
+                                <button onClick={setHoy} className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700"><CalendarDays className="h-4 w-4" /> Hoy</button>
+                                <button onClick={resetFilters} className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] px-3 py-2 text-sm font-semibold bg-white text-[#131E5C] hover:text-white hover:bg-[#131E5C]"><X className="h-4 w-4" /> Limpiar</button>
                             </div>
                         </FilterBlock>
                     </div>
@@ -1047,50 +986,38 @@ export default function RegistroCitas() {
                 </div>
             </div>
 
-
             {vista === "agenda" && (
                 <AgendaView
                     rows={sorted}
                     loading={loadingList}
                     onEdit={openEdit}
                     onNewAtSlot={(date, hour) => openCreate(date, hour)}
+                    onToggleAsistencia={toggleAsistenciaInline}
+                    updatingInline={updatingInline}
                 />
             )}
 
-
             {vista === "tabla" && (
                 <>
-
                     <MobileCardList rows={sorted} loading={loadingList} onEdit={openEdit} onContext={onRowContextMenu} onToggleAsistencia={toggleAsistenciaInline} updatingInline={updatingInline} />
-
-
                     <div className="hidden overflow-hidden rounded-lg shadow-lg bg-white/[0.03] lg:block">
                         <div className="overflow-auto">
                             <table className="min-w-full text-left text-sm">
                                 <thead className="font-vw-header text-xs bg-[#131E5C] text-white border border-black">
                                     <tr>
-                                        {[
-                                            { key: "fecha_hora_cita", label: "Fecha y Hora Cita" },
-                                            { key: "agencia", label: "Dealer" },
-                                        ].map(({ key, label }) => (
+                                        {[{ key: "fecha_hora_cita", label: "Fecha y Hora Cita" }, { key: "agencia", label: "Dealer" }].map(({ key, label }) => (
                                             <th key={key} className="px-4 py-3">
                                                 <button type="button" onClick={() => toggleSort(key)} className="inline-flex items-center gap-1 text-xs font-bold">
                                                     {label}
-                                                    <span className="opacity-60">
-                                                        {sort.key === key ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}
-                                                    </span>
+                                                    <span className="opacity-60">{sort.key === key ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}</span>
                                                 </button>
                                             </th>
                                         ))}
-                                        {["Cliente", "Auto interés", "Asesor Digital", "Asesor Piso", "Tipo Cita", "Comentarios", "¿Asistió?"].map((h) => (
-                                            <th key={h} className="px-4 py-3 text-xs font-bold">{h}</th>
-                                        ))}
+                                        {["Cliente", "Auto interés", "Asesor Digital", "Asesor Piso", "Tipo Cita", "Comentarios", "¿Asistió?"].map((h) => <th key={h} className="px-4 py-3 text-xs font-bold">{h}</th>)}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-black/30">
-                                    {loadingList ? (
-                                        Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
-                                    ) : (
+                                    {loadingList ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />) : (
                                         <>
                                             {sorted.map((row) => {
                                                 const isUpdating = !!updatingInline[row.id];
@@ -1105,11 +1032,7 @@ export default function RegistroCitas() {
                                                         <td className="px-4 py-3 text-[#131E5C]">{row.tipo_cita || "—"}</td>
                                                         <td className="px-4 py-3 text-[#131E5C]"><span className="line-clamp-2">{row.comentarios || "—"}</span></td>
                                                         <td className="px-4 py-3 text-[#131E5C]">
-                                                            <button disabled={isUpdating} onClick={(e) => { e.stopPropagation(); toggleAsistenciaInline(row); }}
-                                                                className={["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold",
-                                                                    row.asistencia ? "bg-emerald-200 text-emerald-800 border-emerald-300" : "bg-red-200 text-red-800 border-red-300",
-                                                                    isUpdating ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"].join(" ")}
-                                                            >
+                                                            <button disabled={isUpdating} onClick={(e) => { e.stopPropagation(); toggleAsistenciaInline(row); }} className={["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold", row.asistencia ? "bg-emerald-200 text-emerald-800 border-emerald-300" : "bg-red-200 text-red-800 border-red-300", isUpdating ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"].join(" ")}>
                                                                 {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                                                                 {row.asistencia ? "Sí" : "No"}
                                                             </button>
@@ -1117,9 +1040,7 @@ export default function RegistroCitas() {
                                                     </tr>
                                                 );
                                             })}
-                                            {sorted.length === 0 && (
-                                                <tr><td colSpan={9} className="px-4 py-10 text-center text-[#131E5C]">No hay resultados con esos filtros.</td></tr>
-                                            )}
+                                            {sorted.length === 0 && <tr><td colSpan={9} className="px-4 py-10 text-center text-[#131E5C]">No hay resultados con esos filtros.</td></tr>}
                                         </>
                                     )}
                                 </tbody>
@@ -1130,28 +1051,17 @@ export default function RegistroCitas() {
                 </>
             )}
 
+            {vista === "graficos" && <GraficosView rows={sorted} />}
 
-            {vista === "graficos" && (
-                <GraficosView rows={sorted} />
-            )}
-
-
-            <Modal
-                open={openModal}
-                title={mode === "create" ? "Nueva Cita" : `Editar Cita • ${draft?.id}`}
-                onClose={closeModal}
-                footer={
-                    <>
-                        <button onClick={closeModal} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-red-400 px-4 py-2 text-sm font-semibold text-white/90 hover:text-white hover:bg-red-600 disabled:opacity-60">
-                            <X className="h-4 w-4" /> Cancelar
-                        </button>
-                        <button onClick={save} disabled={saving || loadingDetail || telInvalid || (draft?.cliente_telefono ? !telIsOk : false)} className="inline-flex items-center justify-center gap-2 rounded-lg px-4 bg-[#131E5C]/85 py-2 text-sm font-bold text-white/90 hover:bg-[#131E5C] hover:text-white disabled:opacity-60">
-                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                            {saving ? "Guardando..." : "Guardar cambios"}
-                        </button>
-                    </>
-                }
-            >
+            <Modal open={openModal} title={mode === "create" ? "Nueva Cita" : `Editar Cita • ${draft?.id}`} onClose={closeModal} footer={
+                <>
+                    <button onClick={closeModal} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-red-400 px-4 py-2 text-sm font-semibold text-white/90 hover:text-white hover:bg-red-600 disabled:opacity-60"><X className="h-4 w-4" /> Cancelar</button>
+                    <button onClick={save} disabled={saving || loadingDetail || telInvalid || (draft?.cliente_telefono ? !telIsOk : false)} className="inline-flex items-center justify-center gap-2 rounded-lg px-4 bg-[#131E5C]/85 py-2 text-sm font-bold text-white/90 hover:bg-[#131E5C] hover:text-white disabled:opacity-60">
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        {saving ? "Guardando..." : "Guardar cambios"}
+                    </button>
+                </>
+            }>
                 {loadingDetail ? <ModalSkeleton /> : !draft ? null : (
                     <div className="grid gap-3 md:grid-cols-3">
                         <div className="md:col-span-3">
@@ -1172,13 +1082,9 @@ export default function RegistroCitas() {
                             <input value={draft.cliente_nombre} onChange={(e) => setDraft((p) => ({ ...p, cliente_nombre: e.target.value }))} className={[inputBase, inputOk].join(" ")} placeholder="Nombre completo" />
                         </Field>
                         <Field label="Teléfono" icon={Phone}>
-                            <input maxLength={12} value={draft.cliente_telefono}
-                                onChange={(e) => setDraft((p) => ({ ...p, cliente_telefono: e.target.value.replace(/\D/g, "").slice(0, 12) }))}
-                                disabled={mode === "edit" || telIsNormalized}
-                                className={[inputBase, (isInvalid("cliente_telefono") || telInvalid) ? inputBad : inputOk, (mode === "edit" || telIsNormalized) ? "opacity-75 cursor-not-allowed" : ""].join(" ")}
-                            />
-                            {isInvalid("cliente_telefono") ? <div className="mt-2 text-xs font-bold text-red-600">Teléfono es requerido.</div> : null}
-                            {!isInvalid("cliente_telefono") && telError ? <div className="mt-2 text-xs font-bold text-red-600">{telError}</div> : null}
+                            <input maxLength={12} value={draft.cliente_telefono} onChange={(e) => setDraft((p) => ({ ...p, cliente_telefono: e.target.value.replace(/\D/g, "").slice(0, 12) }))} disabled={mode === "edit" || telIsNormalized} className={[inputBase, (isInvalid("cliente_telefono") || telInvalid) ? inputBad : inputOk, (mode === "edit" || telIsNormalized) ? "opacity-75 cursor-not-allowed" : ""].join(" ")} />
+                            {isInvalid("cliente_telefono") && <div className="mt-2 text-xs font-bold text-red-600">Teléfono es requerido.</div>}
+                            {!isInvalid("cliente_telefono") && telError && <div className="mt-2 text-xs font-bold text-red-600">{telError}</div>}
                         </Field>
                         <Field label="VW de sus sueños" icon={CarFront}>
                             <select value={draft.auto_interes || ""} onChange={(e) => setDraft((p) => ({ ...p, auto_interes: e.target.value }))} className={[inputBase, inputOk].join(" ")}>
@@ -1188,7 +1094,7 @@ export default function RegistroCitas() {
                         </Field>
                         <Field label="Fecha y Hora de cita" icon={CalendarDays}>
                             <input type="datetime-local" value={draft.fecha_hora_cita} onChange={(e) => setDraft((p) => ({ ...p, fecha_hora_cita: e.target.value }))} className={[inputBase, isInvalid("fecha_hora_cita") ? inputBad : inputOk].join(" ")} />
-                            {isInvalid("fecha_hora_cita") ? <div className="mt-2 text-xs font-bold text-red-600">Fecha y hora es requerido.</div> : null}
+                            {isInvalid("fecha_hora_cita") && <div className="mt-2 text-xs font-bold text-red-600">Fecha y hora es requerido.</div>}
                         </Field>
                         <Field label="Fuente de Prospección" icon={UserSearch}>
                             <select value={draft.fuente_prospeccion || ""} onChange={(e) => setDraft((p) => ({ ...p, fuente_prospeccion: e.target.value }))} className={[inputBase, inputOk].join(" ")}>

@@ -7,11 +7,11 @@ export default function ComercialIndex() {
     const { hasAnyPermission } = useAuth();
 
     useEffect(() => {
-        if (hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_VENTAS"])) {
+        if (hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_VENTAS", "CRM_CALIDAD"])) {
             navigate("/usados/avaluos", { replace: true });
             return;
         }
-        if (hasAnyPermission(["CRM_VENTAS"])) {
+        if (hasAnyPermission(["CRM_VENTAS", "CRM_CALIDAD"])) {
             navigate("/usados/ventas_cruzadas", { replace: true });
             return;
         }

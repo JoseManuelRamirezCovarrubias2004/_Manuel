@@ -1,3 +1,4 @@
+// src/pages/Digitaltes/DigitalesContacto.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -14,16 +15,20 @@ import {
     ChevronDown,
     Paperclip,
     FileText,
-    MessageSquarePlus,
-    Zap,
     Pencil,
     Trash2,
     Plus,
+    Copy,
+    Check,
+    Save,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
 
 const BRAND_BLUE = "#131E5C";
+const QUICK_BUBBLES_KEY = "digitales_quick_bubbles_global";
+const CHAT_PAGE_SIZE = 20;
+const CHAT_UPDATES_LIMIT = 50;
 
 const DEALERS = [
     "VW Cordoba",
@@ -42,37 +47,50 @@ const CANALES = [
     "Llamada Entrante",
 ];
 
+const ESTADOS_PROSPECTO = [
+    "Nuevo",
+    "Contactado",
+    "Seguimiento",
+    "Lead Calificado",
+    "Cita",
+    "Venta",
+    "Descalificado",
+    "Sin respuesta",
+];
+
+const BUSINESS_OPTIONS = [
+    "VW",
+    "Chirey",
+    "JAECOO",
+    "Autos Usados",
+    "Servicios Financieros",
+];
+
+const PAUTAS_ORIGEN = [
+    "Facebook Ads",
+    "Google Ads",
+    "Instagram Ads",
+    "Orgánico",
+    "Referido",
+    "WhatsApp",
+    "Evento",
+    "Otro",
+];
+
+/** Devuelve el color del punto de estado según el estado del prospecto */
+function getStatusDotColor(estado) {
+    const value = String(estado || "").toLowerCase();
+    if (value === "descalificado") return "#3B82F6"; // azul
+    if (value === "sin respuesta" || value === "sin_respuesta" || value === "") return "#EF4444"; // rojo
+    return "#22C55E"; // verde — respondió / tiene estado activo
+}
+
 function cls(...items) {
     return items.filter(Boolean).join(" ");
 }
 
-function Avatar({ name = "?" }) {
-    const initials = String(name || "?")
-        .split(" ")
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((item) => item[0]?.toUpperCase())
-        .join("");
-
-    return (
-        <div className="flex h-11 w-11 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm">
-            <span className="text-sm font-extrabold text-[#131E5C]">
-                {initials || "?"}
-            </span>
-        </div>
-    );
-}
-
-function prettyStatus(status) {
-    const value = String(status || "").toLowerCase();
-
-    if (value === "sent") return "enviado";
-    if (value === "delivered") return "entregado";
-    if (value === "read") return "leído";
-    if (value === "failed") return "falló";
-    if (value === "received") return "";
-
-    return value || "—";
+function safeLower(value) {
+    return String(value || "").toLowerCase();
 }
 
 function normalizaTelefonoMx(tel) {
@@ -99,8 +117,255 @@ function formateaTelUi(tel52) {
     return `+${digits}`;
 }
 
-function safeLower(value) {
-    return String(value || "").toLowerCase();
+function prettyStatus(status) {
+    const value = String(status || "").toLowerCase();
+
+    if (value === "accepted") return "aceptado";
+    if (value === "sent") return "enviado";
+    if (value === "delivered") return "entregado";
+    if (value === "read") return "leído";
+    if (value === "failed") return "falló";
+    if (value === "received") return "";
+
+    return value || "—";
+}
+
+function getMessageKey(message) {
+    return String(message?.wa_message_id || message?.id || "");
+}
+
+function getMessageTimeValue(message) {
+    const value = message?.created_at || message?.local_created_at || "";
+    const time = new Date(value).getTime();
+
+    if (Number.isNaN(time)) return 0;
+
+    return time;
+}
+
+function mergeMessages(oldMessages, newMessages) {
+    const map = new Map();
+
+    for (const message of oldMessages || []) {
+        const key = getMessageKey(message);
+        if (key) map.set(key, message);
+    }
+
+    for (const message of newMessages || []) {
+        const key = getMessageKey(message);
+        if (key) map.set(key, message);
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+        const da = getMessageTimeValue(a);
+        const db = getMessageTimeValue(b);
+
+        if (da !== db) return da - db;
+
+        return Number(a.id || 0) - Number(b.id || 0);
+    });
+}
+
+function isNearBottom(element, threshold = 180) {
+    if (!element) return true;
+
+    return element.scrollHeight - element.scrollTop - element.clientHeight < threshold;
+}
+
+function Avatar({ name = "?" }) {
+    const initials = String(name || "?")
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((item) => item[0]?.toUpperCase())
+        .join("");
+
+    return (
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm">
+            <span className="text-sm font-extrabold text-[#131E5C]">
+                {initials || "?"}
+            </span>
+        </div>
+    );
+}
+
+function Sk({ className = "" }) {
+    return <div className={cls("animate-pulse rounded-md bg-slate-200", className)} />;
+}
+
+function ChatListSkeleton({ rows = 8 }) {
+    return (
+        <div className="p-2">
+            {Array.from({ length: rows }).map((_, index) => (
+                <div
+                    key={index}
+                    className="w-full border-b border-black/5 bg-neutral-50 px-4 py-3 text-left"
+                >
+                    <div className="flex items-center gap-3">
+                        <Sk className="h-11 w-11 rounded-full" />
+
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                                <Sk className="h-4 w-40 rounded" />
+                                <Sk className="h-3 w-12 rounded" />
+                            </div>
+
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                                <Sk className="h-3 w-56 rounded" />
+                                <Sk className="h-5 w-6 rounded-full" />
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <Sk className="h-5 w-24 rounded-full" />
+                                <Sk className="h-4 w-28 rounded" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function MessagesSkeleton({ bubbles = 10 }) {
+    return (
+        <div className="mx-auto max-w-3xl space-y-3">
+            {Array.from({ length: bubbles }).map((_, index) => {
+                const mine = index % 2 === 0;
+
+                return (
+                    <div
+                        key={index}
+                        className={cls("flex w-full", mine ? "justify-end" : "justify-start")}
+                    >
+                        <div
+                            className={cls(
+                                "max-w-[78%] rounded-2xl border px-4 py-3 shadow-sm",
+                                mine
+                                    ? "border-white/10 bg-[#131E5C]/10"
+                                    : "border-black/10 bg-white",
+                            )}
+                        >
+                            <Sk className="h-3 w-52 rounded" />
+                            <Sk className="mt-2 h-3 w-64 rounded" />
+
+                            <div className="mt-3 flex items-center justify-end gap-2">
+                                <Sk className="h-3 w-10 rounded" />
+                                {mine ? <Sk className="h-3 w-16 rounded" /> : null}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function Modal({ open, title, onClose, children, footer }) {
+    if (!open) return null;
+
+    return (
+        <div className="fixed inset-0 z-[80]">
+            <div
+                className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+                onClick={onClose}
+            />
+
+            <div className="absolute inset-0 flex items-end justify-center p-3 sm:items-center">
+                <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl">
+                    <div
+                        className="flex items-center justify-between gap-3 px-5 py-4"
+                        style={{ backgroundColor: BRAND_BLUE }}
+                    >
+                        <div className="min-w-0">
+                            <div className="truncate text-base font-extrabold text-white">
+                                {title}
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={onClose}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white hover:bg-white/15"
+                            aria-label="Cerrar"
+                            type="button"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
+
+                    <div className="max-h-[72vh] overflow-auto p-5">
+                        {children}
+                    </div>
+
+                    {footer ? (
+                        <div className="flex flex-col gap-2 border-t border-black/10 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-end">
+                            {footer}
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function fileKind(file) {
+    const mime = String(file?.type || "");
+
+    if (mime.startsWith("image/")) return "image";
+    if (mime.startsWith("video/")) return "video";
+    if (mime.startsWith("audio/")) return "audio";
+
+    return "file";
+}
+
+function shortName(name = "") {
+    const value = String(name || "");
+
+    if (value.length <= 22) return value;
+
+    return `${value.slice(0, 12)}…${value.slice(-8)}`;
+}
+
+function humanBytes(size) {
+    const bytes = Number(size || 0);
+
+    if (!bytes) return "0 B";
+
+    const units = ["B", "KB", "MB", "GB"];
+    let value = bytes;
+    let index = 0;
+
+    while (value >= 1024 && index < units.length - 1) {
+        value /= 1024;
+        index += 1;
+    }
+
+    return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function extractFilesFromDataTransfer(dataTransfer) {
+    if (!dataTransfer) return [];
+
+    const list = dataTransfer.files ? Array.from(dataTransfer.files) : [];
+
+    if (list.length) {
+        return list.filter((file) => file && typeof file.size === "number");
+    }
+
+    const items = dataTransfer.items ? Array.from(dataTransfer.items) : [];
+    const output = [];
+
+    for (const item of items) {
+        if (item.kind === "file") {
+            const file = item.getAsFile?.();
+
+            if (file && typeof file.size === "number") {
+                output.push(file);
+            }
+        }
+    }
+
+    return output;
 }
 
 function inferAttachmentKind(attachment = {}) {
@@ -183,182 +448,6 @@ function normalizeMessage(message = {}) {
         attachments: normalizeMessageAttachments(message),
         is_ai: Boolean(message.is_ai || message?.raw?.openai_model),
     };
-}
-
-function Modal({ open, title, onClose, children, footer }) {
-    if (!open) return null;
-
-    return (
-        <div className="fixed inset-0 z-[80]">
-            <div
-                className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
-                onClick={onClose}
-            />
-
-            <div className="absolute inset-0 flex items-end justify-center p-3 sm:items-center">
-                <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl">
-                    <div
-                        className="flex items-center justify-between gap-3 px-5 py-4"
-                        style={{ backgroundColor: BRAND_BLUE }}
-                    >
-                        <div className="min-w-0">
-                            <div className="truncate text-base font-extrabold text-white">
-                                {title}
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={onClose}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white hover:bg-white/15"
-                            aria-label="Cerrar"
-                            type="button"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
-                    </div>
-
-                    <div className="max-h-[72vh] overflow-auto p-5">
-                        {children}
-                    </div>
-
-                    {footer ? (
-                        <div className="flex flex-col gap-2 border-t border-black/10 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-end">
-                            {footer}
-                        </div>
-                    ) : null}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function Sk({ className = "" }) {
-    return <div className={cls("animate-pulse rounded-md bg-slate-200", className)} />;
-}
-
-function ChatListSkeleton({ rows = 8 }) {
-    return (
-        <div className="p-2">
-            {Array.from({ length: rows }).map((_, index) => (
-                <div
-                    key={index}
-                    className="w-full border-b border-black/5 bg-neutral-50 px-4 py-3 text-left"
-                >
-                    <div className="flex items-center gap-3">
-                        <Sk className="h-11 w-11 rounded-full" />
-
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                                <Sk className="h-4 w-40 rounded" />
-                                <Sk className="h-3 w-12 rounded" />
-                            </div>
-
-                            <div className="mt-2 flex items-center justify-between gap-2">
-                                <Sk className="h-3 w-56 rounded" />
-                                <Sk className="h-5 w-6 rounded-full" />
-                            </div>
-
-                            <div className="mt-3 flex flex-wrap items-center gap-2">
-                                <Sk className="h-5 w-24 rounded-full" />
-                                <Sk className="h-4 w-28 rounded" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function MessagesSkeleton({ bubbles = 10 }) {
-    return (
-        <div className="mx-auto max-w-3xl space-y-3">
-            {Array.from({ length: bubbles }).map((_, index) => {
-                const mine = index % 2 === 0;
-
-                return (
-                    <div
-                        key={index}
-                        className={cls("flex w-full", mine ? "justify-end" : "justify-start")}
-                    >
-                        <div
-                            className={cls(
-                                "max-w-[78%] rounded-2xl border px-4 py-3 shadow-sm",
-                                mine
-                                    ? "border-white/10 bg-[#131E5C]/10"
-                                    : "border-black/10 bg-white",
-                            )}
-                        >
-                            <Sk className="h-3 w-52 rounded" />
-                            <Sk className="mt-2 h-3 w-64 rounded" />
-
-                            <div className="mt-3 flex items-center justify-end gap-2">
-                                <Sk className="h-3 w-10 rounded" />
-                                {mine ? <Sk className="h-3 w-16 rounded" /> : null}
-                            </div>
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
-}
-
-function fileKind(file) {
-    const mime = String(file?.type || "");
-
-    if (mime.startsWith("image/")) return "image";
-    if (mime.startsWith("video/")) return "video";
-    if (mime.startsWith("audio/")) return "audio";
-
-    return "file";
-}
-
-function shortName(name = "") {
-    const value = String(name || "");
-
-    if (value.length <= 22) return value;
-
-    return `${value.slice(0, 12)}…${value.slice(-8)}`;
-}
-
-function humanBytes(size) {
-    const bytes = Number(size || 0);
-
-    if (!bytes) return "0 B";
-
-    const units = ["B", "KB", "MB", "GB"];
-    let value = bytes;
-    let index = 0;
-
-    while (value >= 1024 && index < units.length - 1) {
-        value /= 1024;
-        index += 1;
-    }
-
-    return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
-}
-
-function extractFilesFromDataTransfer(dataTransfer) {
-    if (!dataTransfer) return [];
-
-    const list = dataTransfer.files ? Array.from(dataTransfer.files) : [];
-    if (list.length) return list.filter((file) => file && typeof file.size === "number");
-
-    const items = dataTransfer.items ? Array.from(dataTransfer.items) : [];
-    const output = [];
-
-    for (const item of items) {
-        if (item.kind === "file") {
-            const file = item.getAsFile?.();
-
-            if (file && typeof file.size === "number") {
-                output.push(file);
-            }
-        }
-    }
-
-    return output;
 }
 
 function getTemplateComponentType(component = {}) {
@@ -486,10 +575,7 @@ function getFieldOptions(field) {
         return DEALERS;
     }
 
-    if (
-        label.includes("canal") ||
-        key.includes("canal")
-    ) {
+    if (label.includes("canal") || key.includes("canal")) {
         return CANALES;
     }
 
@@ -536,17 +622,11 @@ function getDefaultValueForTemplateField(field, context) {
         return context.modelo || "";
     }
 
-    if (
-        label.includes("canal") ||
-        key.includes("canal")
-    ) {
+    if (label.includes("canal") || key.includes("canal")) {
         return context.canal || "";
     }
 
-    if (
-        label.includes("tema") ||
-        key.includes("tema")
-    ) {
+    if (label.includes("tema") || key.includes("tema")) {
         return context.tema || "";
     }
 
@@ -629,7 +709,7 @@ function MessageBubble({
 
     return (
         <div className={cls("flex w-full", mine ? "justify-end" : "justify-start")}>
-            <div className="relative max-w-[78%] group">
+            <div className="group relative max-w-[78%]">
                 <div
                     className={cls(
                         "rounded-2xl border px-4 py-2 shadow-sm",
@@ -812,37 +892,35 @@ function MessageBubble({
                     </div>
                 </div>
 
-                {mine && (onEdit || onDelete) && (
-                    <div className="absolute -right-8 top-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {onEdit && (
+                {mine && (onEdit || onDelete) ? (
+                    <div className="absolute -right-8 top-0 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        {onEdit ? (
                             <button
                                 onClick={onEdit}
-                                className="h-7 w-7 rounded-full border border-black/10 bg-white text-slate-500 hover:bg-neutral-100 hover:text-[#131E5C] flex items-center justify-center"
+                                className="flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white text-slate-500 hover:bg-neutral-100 hover:text-[#131E5C]"
                                 title="Editar"
                                 type="button"
                             >
                                 <Pencil className="h-3.5 w-3.5" />
                             </button>
-                        )}
-                        {onDelete && (
+                        ) : null}
+
+                        {onDelete ? (
                             <button
                                 onClick={onDelete}
-                                className="h-7 w-7 rounded-full border border-black/10 bg-white text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 flex items-center justify-center"
+                                className="flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                                 title="Eliminar"
                                 type="button"
                             >
                                 <Trash2 className="h-3.5 w-3.5" />
                             </button>
-                        )}
+                        ) : null}
                     </div>
-                )}
+                ) : null}
             </div>
         </div>
     );
 }
-
-
-const QUICK_BUBBLES_KEY = "digitales_quick_bubbles_global";
 
 export default function DigitalesContacto() {
     const navigate = useNavigate();
@@ -850,8 +928,10 @@ export default function DigitalesContacto() {
     const [params] = useSearchParams();
 
     const telParam = params.get("tel") || "";
-    const tel = useMemo(() => normalizaTelefonoMx(telParam), [telParam]);
     const directParam = params.get("direct") || "";
+
+    const tel = useMemo(() => normalizaTelefonoMx(telParam), [telParam]);
+
     const isDirectChatMode = useMemo(
         () => Boolean(tel && directParam === "1"),
         [tel, directParam],
@@ -867,6 +947,10 @@ export default function DigitalesContacto() {
     const [draftMsg, setDraftMsg] = useState("");
     const [mobileView, setMobileView] = useState("list");
 
+    const [chatHasMore, setChatHasMore] = useState(false);
+    const [loadingOlder, setLoadingOlder] = useState(false);
+    const [oldestMessageId, setOldestMessageId] = useState(null);
+
     const [openTpl, setOpenTpl] = useState(false);
     const [tplSelected, setTplSelected] = useState(null);
     const [tplDraft, setTplDraft] = useState({});
@@ -879,87 +963,32 @@ export default function DigitalesContacto() {
     const [dragOver, setDragOver] = useState(false);
     const [editingMsgId, setEditingMsgId] = useState(null);
 
-
     const [quickBubbles, setQuickBubbles] = useState(() => {
         try {
             const saved = localStorage.getItem(QUICK_BUBBLES_KEY);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    return parsed;
-                }
-            }
-            return [];
-        } catch (e) {
-            console.error("Error cargando burbujas iniciales:", e);
+            if (!saved) return [];
+
+            const parsed = JSON.parse(saved);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
             return [];
         }
     });
+
     const [showAddBubble, setShowAddBubble] = useState(false);
     const [newBubbleText, setNewBubbleText] = useState("");
     const [newBubbleTitle, setNewBubbleTitle] = useState("");
 
+    // Edición rápida del prospecto
+    const [showQuickEdit, setShowQuickEdit] = useState(false);
+    const [quickEditDraft, setQuickEditDraft] = useState({});
+    const [savingQuickEdit, setSavingQuickEdit] = useState(false);
 
-    useEffect(() => {
-        try {
-            localStorage.setItem(QUICK_BUBBLES_KEY, JSON.stringify(quickBubbles));
-        } catch (e) {
-            console.error("Error guardando burbujas:", e);
-        }
-    }, [quickBubbles]);
-
-    function addQuickBubble() {
-        const text = newBubbleText.trim();
-        if (!text) return;
-
-        const newBubble = {
-            id: crypto.randomUUID(),
-            title: newBubbleTitle.trim() || text.slice(0, 25),
-            text: text,
-            createdAt: new Date().toISOString(),
-        };
-
-        setQuickBubbles(prev => [...prev, newBubble]);
-        setNewBubbleText("");
-        setNewBubbleTitle("");
-        setShowAddBubble(false);
-    }
-
-    function deleteQuickBubble(id) {
-        setQuickBubbles(prev => prev.filter(bubble => bubble.id !== id));
-    }
-
-    async function sendQuickBubble(text) {
-        if (!activeTel || !text.trim()) return;
-
-        const optimisticId = crypto.randomUUID();
-
-        setMensajes(prev => [
-            ...prev,
-            {
-                id: optimisticId,
-                mine: true,
-                text: text.trim(),
-                time: "Ahora",
-                status: "sent",
-                attachments: [],
-            },
-        ]);
-
-        try {
-            await api.digitalesEnviarMensaje({
-                to: activeTel,
-                text: text.trim(),
-            });
-
-            await refreshActiveChat(activeTel);
-        } catch (error) {
-            alert(`Falló: ${error.message}`);
-            await refreshActiveChat(activeTel).catch(() => { });
-        }
-    }
+    // Feedback de copia de teléfono
+    const [copiedTel, setCopiedTel] = useState(false);
 
     const endRef = useRef(null);
+    const messagesScrollRef = useRef(null);
     const activeTelRef = useRef("");
     const mensajesRef = useRef([]);
     const didInitFromQuery = useRef(false);
@@ -967,18 +996,71 @@ export default function DigitalesContacto() {
     const fileInputRef = useRef(null);
     const inputRef = useRef(null);
     const dragDepthRef = useRef(0);
+    const shouldStickToBottomRef = useRef(true);
+    const chatRequestRef = useRef(0);
+    const loadingOlderRef = useRef(false);
 
     const templateMap = useMemo(() => {
         const map = new Map();
 
         for (const template of templatesDisponibles || []) {
-            if (template?.key) {
-                map.set(template.key, template);
-            }
+            if (template?.key) map.set(template.key, template);
         }
 
         return map;
     }, [templatesDisponibles]);
+
+    const activeChat = useMemo(() => {
+        if (!activeTel) return null;
+
+        const fromList = chats.find((chat) => chat.telefono === activeTel);
+
+        if (fromList) return fromList;
+
+        return {
+            id: activeTel,
+            telefono: activeTel,
+            nombre: prospecto?.nombre || "Prospecto",
+            agencia: prospecto?.agencia || "",
+            linea: prospecto?.business || "",
+            estado: prospecto?.estado || "",
+            unread: 0,
+            last: {
+                text: "",
+                time: "",
+            },
+        };
+    }, [activeTel, chats, prospecto]);
+
+    const filteredChats = useMemo(() => {
+        const query = q.trim().toLowerCase();
+
+        return chats.filter((chat) => {
+            if (!query) return true;
+
+            return (
+                safeLower(chat.nombre).includes(query) ||
+                safeLower(chat.telefono).includes(query) ||
+                safeLower(chat.agencia).includes(query) ||
+                safeLower(chat.linea).includes(query) ||
+                safeLower(chat.estado).includes(query) ||
+                safeLower(chat.last?.text).includes(query)
+            );
+        });
+    }, [chats, q]);
+
+    const composerHint = useMemo(() => {
+        if (!activeTel) return "Selecciona un chat para escribir…";
+        if (editingMsgId) return "Editando mensaje… (Enter para guardar)";
+
+        return "Escribe un mensaje…";
+    }, [activeTel, editingMsgId]);
+
+    const templatePreview = useMemo(() => {
+        if (!tplSelected) return "";
+
+        return buildTemplatePreviewText(tplSelected, tplDraft);
+    }, [tplSelected, tplDraft]);
 
     function fmtDT(iso) {
         if (!iso) return "—";
@@ -996,7 +1078,7 @@ export default function DigitalesContacto() {
     }
 
     function cleanupPreviews(list) {
-        for (const attachment of list) {
+        for (const attachment of list || []) {
             if (attachment?.previewUrl?.startsWith("blob:")) {
                 try {
                     URL.revokeObjectURL(attachment.previewUrl);
@@ -1009,24 +1091,6 @@ export default function DigitalesContacto() {
 
     function renderTextForBubble(text) {
         return formatTemplateMarkerText(text, templateMap);
-    }
-
-    async function cargarPlantillas() {
-        try {
-            setLoadingTemplates(true);
-            setTemplatesError("");
-
-            const response = await api.digitalesPlantillas();
-            const items = Array.isArray(response?.items) ? response.items : [];
-
-            setTemplatesDisponibles(items);
-        } catch (error) {
-            console.error(error);
-            setTemplatesDisponibles([]);
-            setTemplatesError(error?.message || "No se pudieron cargar las plantillas.");
-        } finally {
-            setLoadingTemplates(false);
-        }
     }
 
     async function refreshChats() {
@@ -1049,23 +1113,159 @@ export default function DigitalesContacto() {
         setChats(normalized);
     }
 
-    async function refreshActiveChat(tel52) {
+    async function cargarChatInicial(tel52) {
+        const target = normalizaTelefonoMx(tel52);
+
+        if (!target) return;
+
+        const requestId = chatRequestRef.current + 1;
+        chatRequestRef.current = requestId;
+
+        setLoadingChat(true);
+        setProspecto(null);
+        setMensajes([]);
+        setChatHasMore(false);
+        setOldestMessageId(null);
+        shouldStickToBottomRef.current = true;
+
+        try {
+            const data = await api.digitalesContacto(target, {
+                limit: CHAT_PAGE_SIZE,
+            });
+
+            if (chatRequestRef.current !== requestId) return;
+
+            const items = (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage);
+            const paginacion = data.paginacion || {};
+
+            setProspecto(data.prospecto || null);
+            setMensajes(items);
+            setChatHasMore(Boolean(paginacion.has_more));
+            setOldestMessageId(paginacion.oldest_id || items[0]?.id || null);
+
+            if (!isDirectChatMode) {
+                await refreshChats().catch(() => { });
+            }
+
+            requestAnimationFrame(() => {
+                endRef.current?.scrollIntoView({ behavior: "auto" });
+            });
+        } catch (error) {
+            console.error("Error cargando chat:", error);
+
+            if (chatRequestRef.current !== requestId) return;
+
+            setProspecto(null);
+            setMensajes([]);
+            setChatHasMore(false);
+            setOldestMessageId(null);
+        } finally {
+            if (chatRequestRef.current === requestId) {
+                setLoadingChat(false);
+            }
+        }
+    }
+
+    async function refreshActiveChat(tel52, { forceBottom = false } = {}) {
         const target = tel52 || activeTel;
 
         if (!target) return;
 
         const data = await api.digitalesContacto(target, {
-            limit: 80,
-            days: 3,
+            limit: CHAT_PAGE_SIZE,
         });
 
+        const incoming = (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage);
+        const paginacion = data.paginacion || {};
+
         setProspecto(data.prospecto || null);
-        setMensajes(
-            (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage),
-        );
+
+        setMensajes((prev) => {
+            const withoutLocalPending = prev.filter((message) => !message.local_pending);
+            return mergeMessages(withoutLocalPending, incoming);
+        });
+
+        setOldestMessageId((prev) => prev || paginacion.oldest_id || incoming[0]?.id || null);
+        setChatHasMore((prev) => prev || Boolean(paginacion.has_more));
+
+        if (forceBottom) {
+            shouldStickToBottomRef.current = true;
+        }
 
         if (!isDirectChatMode) {
             await refreshChats().catch(() => { });
+        }
+    }
+
+    async function cargarMensajesAnteriores() {
+        if (!activeTel) return;
+        if (!chatHasMore) return;
+        if (!oldestMessageId) return;
+        if (loadingOlderRef.current) return;
+
+        const container = messagesScrollRef.current;
+        const previousScrollHeight = container?.scrollHeight || 0;
+        const previousScrollTop = container?.scrollTop || 0;
+
+        try {
+            loadingOlderRef.current = true;
+            setLoadingOlder(true);
+
+            const data = await api.digitalesContacto(activeTel, {
+                limit: CHAT_PAGE_SIZE,
+                before_id: oldestMessageId,
+            });
+
+            const older = (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage);
+            const paginacion = data.paginacion || {};
+
+            if (older.length) {
+                setMensajes((prev) => mergeMessages(older, prev));
+                setOldestMessageId(paginacion.oldest_id || older[0]?.id || oldestMessageId);
+            }
+
+            setChatHasMore(Boolean(paginacion.has_more));
+
+            requestAnimationFrame(() => {
+                const current = messagesScrollRef.current;
+                if (!current) return;
+
+                const newScrollHeight = current.scrollHeight;
+                current.scrollTop = newScrollHeight - previousScrollHeight + previousScrollTop;
+            });
+        } catch (error) {
+            console.error("Error cargando mensajes anteriores:", error);
+        } finally {
+            loadingOlderRef.current = false;
+            setLoadingOlder(false);
+        }
+    }
+
+    function onMessagesScroll(event) {
+        const element = event.currentTarget;
+
+        shouldStickToBottomRef.current = isNearBottom(element);
+
+        if (element.scrollTop <= 120) {
+            cargarMensajesAnteriores();
+        }
+    }
+
+    async function cargarPlantillas() {
+        try {
+            setLoadingTemplates(true);
+            setTemplatesError("");
+
+            const response = await api.digitalesPlantillas();
+            const items = Array.isArray(response?.items) ? response.items : [];
+
+            setTemplatesDisponibles(items);
+        } catch (error) {
+            console.error(error);
+            setTemplatesDisponibles([]);
+            setTemplatesError(error?.message || "No se pudieron cargar las plantillas.");
+        } finally {
+            setLoadingTemplates(false);
         }
     }
 
@@ -1311,6 +1511,62 @@ export default function DigitalesContacto() {
         setTplDraft(draft);
     }
 
+    function addQuickBubble() {
+        const text = newBubbleText.trim();
+
+        if (!text) return;
+
+        const newBubble = {
+            id: crypto.randomUUID(),
+            title: newBubbleTitle.trim() || text.slice(0, 25),
+            text,
+            createdAt: new Date().toISOString(),
+        };
+
+        setQuickBubbles((prev) => [...prev, newBubble]);
+        setNewBubbleText("");
+        setNewBubbleTitle("");
+        setShowAddBubble(false);
+    }
+
+    function deleteQuickBubble(id) {
+        setQuickBubbles((prev) => prev.filter((bubble) => bubble.id !== id));
+    }
+
+    async function sendQuickBubble(text) {
+        if (!activeTel || !text.trim()) return;
+
+        const optimisticId = crypto.randomUUID();
+
+        shouldStickToBottomRef.current = true;
+
+        setMensajes((prev) => [
+            ...prev,
+            {
+                id: optimisticId,
+                local_pending: true,
+                local_created_at: new Date().toISOString(),
+                mine: true,
+                text: text.trim(),
+                time: "Ahora",
+                status: "sent",
+                attachments: [],
+            },
+        ]);
+
+        try {
+            await api.digitalesEnviarMensaje({
+                to: activeTel,
+                text: text.trim(),
+            });
+
+            await refreshActiveChat(activeTel, { forceBottom: true });
+        } catch (error) {
+            alert(`Falló: ${error.message}`);
+            await refreshActiveChat(activeTel).catch(() => { });
+        }
+    }
+
     async function enviarMensaje() {
         if (!activeTel) return;
 
@@ -1354,7 +1610,7 @@ export default function DigitalesContacto() {
                     text,
                 });
 
-                await refreshActiveChat(activeTel);
+                await refreshActiveChat(activeTel, { forceBottom: true });
             } catch (error) {
                 alert(`Falló edición: ${error.message}`);
                 await refreshActiveChat(activeTel).catch(() => { });
@@ -1365,10 +1621,14 @@ export default function DigitalesContacto() {
 
         const optimisticId = crypto.randomUUID();
 
+        shouldStickToBottomRef.current = true;
+
         setMensajes((prev) => [
             ...prev,
             {
                 id: optimisticId,
+                local_pending: true,
+                local_created_at: new Date().toISOString(),
                 mine: true,
                 text: hasText ? text : "Adjunto",
                 time: "Ahora",
@@ -1399,7 +1659,7 @@ export default function DigitalesContacto() {
                 });
             }
 
-            await refreshActiveChat(activeTel);
+            await refreshActiveChat(activeTel, { forceBottom: true });
         } catch (error) {
             alert(`Falló: ${error.message}`);
             await refreshActiveChat(activeTel).catch(() => { });
@@ -1424,10 +1684,14 @@ export default function DigitalesContacto() {
         const textoPreview = buildTemplatePreviewText(tplSelected, tplDraft);
         const components = buildDynamicTemplateComponents(tplSelected, tplDraft);
 
+        shouldStickToBottomRef.current = true;
+
         setMensajes((prev) => [
             ...prev,
             {
                 id: crypto.randomUUID(),
+                local_pending: true,
+                local_created_at: new Date().toISOString(),
                 mine: true,
                 text: textoPreview || `Plantilla: ${tplSelected.key}`,
                 time: "Ahora",
@@ -1445,10 +1709,54 @@ export default function DigitalesContacto() {
             });
 
             setOpenTpl(false);
-            await refreshActiveChat(activeTel);
+            await refreshActiveChat(activeTel, { forceBottom: true });
         } catch (error) {
             alert(`Falló plantilla: ${error.message}`);
             await refreshActiveChat(activeTel).catch(() => { });
+        }
+    }
+
+    function copyTel() {
+        if (!activeTel) return;
+        const display = formateaTelUi(activeTel);
+        navigator.clipboard?.writeText(display).then(() => {
+            setCopiedTel(true);
+            setTimeout(() => setCopiedTel(false), 2000);
+        }).catch(() => { });
+    }
+
+    function openQuickEdit() {
+        setQuickEditDraft({
+            nombre: prospecto?.nombre || "",
+            auto_interes: prospecto?.auto_interes || "",
+            estado: prospecto?.estado || "",
+            canal_contacto: prospecto?.canal_contacto || "",
+            business: prospecto?.business || "",
+            pauta_origen: prospecto?.pauta_origen || "",
+            comentario: prospecto?.comentario || "",
+        });
+        setShowQuickEdit(true);
+    }
+
+    async function saveQuickEdit() {
+        if (!prospecto?.id || !activeTel) return;
+        setSavingQuickEdit(true);
+        try {
+            await api.digitalesPatchProspecto(prospecto.id, {
+                nombre: quickEditDraft.nombre,
+                auto_interes: quickEditDraft.auto_interes,
+                estado: quickEditDraft.estado,
+                canal_contacto: quickEditDraft.canal_contacto,
+                business: quickEditDraft.business,
+                pauta_origen: quickEditDraft.pauta_origen,
+                comentario: quickEditDraft.comentario,
+            });
+            await refreshActiveChat(activeTel);
+            setShowQuickEdit(false);
+        } catch (error) {
+            alert(`No se pudo guardar: ${error.message}`);
+        } finally {
+            setSavingQuickEdit(false);
         }
     }
 
@@ -1470,9 +1778,7 @@ export default function DigitalesContacto() {
         );
 
         try {
-            if (typeof api.digitalesEliminarMensaje !== "function") {
-                alert("Falta implementar api.digitalesEliminarMensaje en tu lib/apiPruebas.");
-            } else {
+            if (typeof api.digitalesEliminarMensaje === "function") {
                 await api.digitalesEliminarMensaje({
                     to: activeTel,
                     message_id: id,
@@ -1487,18 +1793,42 @@ export default function DigitalesContacto() {
     }
 
     useEffect(() => {
-        endRef.current?.scrollIntoView({
-            behavior: "smooth",
-        });
-    }, [mensajes.length, activeTel]);
+        try {
+            localStorage.setItem(QUICK_BUBBLES_KEY, JSON.stringify(quickBubbles));
+        } catch {
+            // sin acción
+        }
+    }, [quickBubbles]);
 
     useEffect(() => {
         activeTelRef.current = activeTel;
     }, [activeTel]);
 
+    // Sincronizar el draft de edición rápida cada vez que carga un nuevo prospecto
+    useEffect(() => {
+        if (!prospecto) return;
+        setQuickEditDraft({
+            nombre: prospecto.nombre || "",
+            auto_interes: prospecto.auto_interes || "",
+            estado: prospecto.estado || "",
+            canal_contacto: prospecto.canal_contacto || "",
+            business: prospecto.business || "",
+            pauta_origen: prospecto.pauta_origen || "",
+            comentario: prospecto.comentario || "",
+        });
+    }, [prospecto]);
+
     useEffect(() => {
         mensajesRef.current = mensajes;
     }, [mensajes]);
+
+    useEffect(() => {
+        if (!shouldStickToBottomRef.current) return;
+
+        endRef.current?.scrollIntoView({
+            behavior: "smooth",
+        });
+    }, [mensajes.length, activeTel]);
 
     useEffect(() => {
         return () => cleanupPreviews(attachments);
@@ -1526,7 +1856,7 @@ export default function DigitalesContacto() {
             if (!telefonoMensaje) return;
 
             if (telefonoMensaje === activeTelRef.current) {
-                await refreshActiveChat(telefonoMensaje).catch(() => { });
+                await refreshActiveChat(telefonoMensaje, { forceBottom: true }).catch(() => { });
                 return;
             }
 
@@ -1575,16 +1905,20 @@ export default function DigitalesContacto() {
             didInitFromQuery.current = true;
             setActiveTel(tel);
             setMobileView("chat");
+
             const lastChat = localStorage.getItem("last_active_chat");
+
             if (lastChat && lastChat !== tel) {
                 localStorage.setItem("last_active_chat", tel);
             }
+
             return;
         }
 
         if (!tel && !activeTel && chats.length) {
             const lastChat = localStorage.getItem("last_active_chat");
-            if (lastChat && chats.some(c => c.telefono === lastChat)) {
+
+            if (lastChat && chats.some((chat) => chat.telefono === lastChat)) {
                 setActiveTel(lastChat);
             } else {
                 setActiveTel(chats[0].telefono);
@@ -1593,48 +1927,15 @@ export default function DigitalesContacto() {
     }, [tel, chats, activeTel]);
 
     useEffect(() => {
-        let ignore = false;
+        if (!activeTel) {
+            setProspecto(null);
+            setMensajes([]);
+            setChatHasMore(false);
+            setOldestMessageId(null);
+            return;
+        }
 
-        (async () => {
-            if (!activeTel) {
-                setProspecto(null);
-                setMensajes([]);
-                return;
-            }
-
-            try {
-                setLoadingChat(true);
-
-                const data = await api.digitalesContacto(activeTel, {
-                    limit: 80,
-                    days: 3,
-                });
-
-                if (ignore) return;
-
-                setProspecto(data.prospecto || null);
-                setMensajes(
-                    (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage),
-                );
-
-                if (!isDirectChatMode) {
-                    await refreshChats().catch(() => { });
-                }
-            } catch {
-                if (ignore) return;
-
-                setProspecto(null);
-                setMensajes([]);
-            } finally {
-                if (!ignore) {
-                    setLoadingChat(false);
-                }
-            }
-        })();
-
-        return () => {
-            ignore = true;
-        };
+        cargarChatInicial(activeTel);
     }, [activeTel, isDirectChatMode]);
 
     useEffect(() => {
@@ -1653,11 +1954,19 @@ export default function DigitalesContacto() {
 
                 const prev = mensajesRef.current || [];
                 const last = prev[prev.length - 1];
-                const after = last?.created_at ? last.created_at : "";
 
-                const data = await api.digitalesContactoUpdates(target, after, {
-                    days: 3,
-                });
+                if (!last?.created_at) {
+                    timer = setTimeout(tick, 3500);
+                    return;
+                }
+
+                const data = await api.digitalesContactoUpdates(
+                    target,
+                    last.created_at,
+                    {
+                        limit: CHAT_UPDATES_LIMIT,
+                    },
+                );
 
                 if (!alive) return;
 
@@ -1665,17 +1974,8 @@ export default function DigitalesContacto() {
                     .map(normalizeMessage);
 
                 if (incoming.length) {
-                    setMensajes((old) => {
-                        const seen = new Set(
-                            old.map((message) => message.wa_message_id || message.id),
-                        );
-
-                        const add = incoming.filter(
-                            (message) => !seen.has(message.wa_message_id || message.id),
-                        );
-
-                        return add.length ? [...old, ...add] : old;
-                    });
+                    shouldStickToBottomRef.current = isNearBottom(messagesScrollRef.current);
+                    setMensajes((old) => mergeMessages(old, incoming));
 
                     if (!isDirectChatMode) {
                         await refreshChats().catch(() => { });
@@ -1704,58 +2004,6 @@ export default function DigitalesContacto() {
             }
         };
     }, [isDirectChatMode]);
-
-    const activeChat = useMemo(() => {
-        if (!activeTel) return null;
-
-        const fromList = chats.find((chat) => chat.telefono === activeTel);
-
-        if (fromList) return fromList;
-
-        return {
-            id: activeTel,
-            telefono: activeTel,
-            nombre: prospecto?.nombre || "Prospecto",
-            agencia: prospecto?.agencia || "",
-            linea: prospecto?.business || "",
-            estado: prospecto?.estado || "",
-            unread: 0,
-            last: {
-                text: "",
-                time: "",
-            },
-        };
-    }, [activeTel, chats, prospecto]);
-
-    const filteredChats = useMemo(() => {
-        const query = q.trim().toLowerCase();
-
-        return chats.filter((chat) => {
-            if (!query) return true;
-
-            return (
-                safeLower(chat.nombre).includes(query) ||
-                safeLower(chat.telefono).includes(query) ||
-                safeLower(chat.agencia).includes(query) ||
-                safeLower(chat.linea).includes(query) ||
-                safeLower(chat.estado).includes(query) ||
-                safeLower(chat.last?.text).includes(query)
-            );
-        });
-    }, [chats, q]);
-
-    const composerHint = useMemo(() => {
-        if (!activeTel) return "Selecciona un chat para escribir…";
-        if (editingMsgId) return "Editando mensaje… (Enter para guardar)";
-
-        return "Escribe un mensaje…";
-    }, [activeTel, editingMsgId]);
-
-    const templatePreview = useMemo(() => {
-        if (!tplSelected) return "";
-
-        return buildTemplatePreviewText(tplSelected, tplDraft);
-    }, [tplSelected, tplDraft]);
 
     return (
         <div className="w-full">
@@ -1804,7 +2052,9 @@ export default function DigitalesContacto() {
                         "grid h-[calc(100dvh-170px)] sm:h-[75vh]",
                         isDirectChatMode
                             ? "grid-cols-1"
-                            : "grid-cols-1 lg:grid-cols-[360px_1fr]",
+                            : activeTel
+                                ? "grid-cols-1 lg:grid-cols-[320px_1fr_280px]"
+                                : "grid-cols-1 lg:grid-cols-[320px_1fr]",
                     )}
                 >
                     <aside
@@ -1850,7 +2100,14 @@ export default function DigitalesContacto() {
                                             type="button"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <Avatar name={chat.nombre} />
+                                                <div className="relative shrink-0">
+                                                    <Avatar name={chat.nombre} />
+                                                    <span
+                                                        className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white"
+                                                        style={{ backgroundColor: getStatusDotColor(chat.estado) }}
+                                                        title={chat.estado || "Sin respuesta"}
+                                                    />
+                                                </div>
 
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center justify-between gap-2">
@@ -1923,10 +2180,21 @@ export default function DigitalesContacto() {
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-slate-500">
-                                        <span className="inline-flex items-center gap-1">
-                                            <User className="h-3.5 w-3.5" />
-                                            {activeTel ? formateaTelUi(activeTel) : "—"}
-                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={copyTel}
+                                            className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition hover:bg-neutral-100"
+                                            title="Copiar número"
+                                        >
+                                            {copiedTel ? (
+                                                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                            ) : (
+                                                <Copy className="h-3.5 w-3.5" />
+                                            )}
+                                            <span className={copiedTel ? "text-emerald-600 font-bold" : ""}>
+                                                {activeTel ? formateaTelUi(activeTel) : "—"}
+                                            </span>
+                                        </button>
 
                                         <span className="inline-flex items-center gap-1">
                                             <Clock className="h-3.5 w-3.5" />
@@ -1957,8 +2225,34 @@ export default function DigitalesContacto() {
                             </div>
                         </div>
 
-                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-50 via-white to-neutral-50 px-3 py-4 sm:px-4">
+                        <div
+                            ref={messagesScrollRef}
+                            onScroll={onMessagesScroll}
+                            className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-50 via-white to-neutral-50 px-3 py-4 sm:px-4"
+                        >
                             <div className="mx-auto max-w-3xl space-y-3">
+                                {activeTel && !loadingChat ? (
+                                    <div className="mb-3 flex justify-center">
+                                        {loadingOlder ? (
+                                            <div className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-extrabold text-slate-500 shadow-sm">
+                                                Cargando mensajes anteriores...
+                                            </div>
+                                        ) : chatHasMore ? (
+                                            <button
+                                                onClick={cargarMensajesAnteriores}
+                                                className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-extrabold text-[#131E5C] shadow-sm hover:bg-neutral-50"
+                                                type="button"
+                                            >
+                                                Cargar mensajes anteriores
+                                            </button>
+                                        ) : mensajes.length > 0 ? (
+                                            <div className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-bold text-slate-400 shadow-sm">
+                                                Inicio de la conversación
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+
                                 {!activeTel ? (
                                     <div className="py-10 text-center font-semibold text-slate-500">
                                         Selecciona un chat del historial para ver la conversación.
@@ -1972,7 +2266,7 @@ export default function DigitalesContacto() {
                                 ) : (
                                     mensajes.map((message) => (
                                         <MessageBubble
-                                            key={message.id}
+                                            key={getMessageKey(message)}
                                             mine={Boolean(message.mine)}
                                             text={message.text}
                                             time={message.time || ""}
@@ -1980,8 +2274,16 @@ export default function DigitalesContacto() {
                                             attachments={message.attachments || []}
                                             isAi={Boolean(message.is_ai)}
                                             renderText={renderTextForBubble}
-                                            onEdit={() => startEditMessage(message)}
-                                            onDelete={() => deleteMessage(message)}
+                                            onEdit={
+                                                message.mine && message.editable !== false
+                                                    ? () => startEditMessage(message)
+                                                    : undefined
+                                            }
+                                            onDelete={
+                                                message.mine
+                                                    ? () => deleteMessage(message)
+                                                    : undefined
+                                            }
                                         />
                                     ))
                                 )}
@@ -2019,16 +2321,16 @@ export default function DigitalesContacto() {
                                     </div>
                                 ) : null}
 
-                                {/* ── ── */}
-                                {activeTel && (
+                                {activeTel ? (
                                     <div className="mb-3">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-extrabold text-[#131E5C]/60 uppercase tracking-wide">
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <span className="text-xs font-extrabold uppercase tracking-wide text-[#131E5C]/60">
                                                 Mensajes rápidos
                                             </span>
+
                                             <button
-                                                onClick={() => setShowAddBubble(!showAddBubble)}
-                                                className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#131E5C]/10 text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition"
+                                                onClick={() => setShowAddBubble((prev) => !prev)}
+                                                className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#131E5C]/10 text-[#131E5C] transition hover:bg-[#131E5C] hover:text-white"
                                                 title="Agregar mensaje rápido"
                                                 type="button"
                                             >
@@ -2036,21 +2338,23 @@ export default function DigitalesContacto() {
                                             </button>
                                         </div>
 
-                                        {showAddBubble && (
+                                        {showAddBubble ? (
                                             <div className="mb-3 rounded-xl border border-[#131E5C]/20 bg-neutral-50 p-3">
                                                 <input
                                                     value={newBubbleTitle}
-                                                    onChange={(e) => setNewBubbleTitle(e.target.value)}
+                                                    onChange={(event) => setNewBubbleTitle(event.target.value)}
                                                     placeholder="Título (opcional)"
                                                     className="mb-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400"
                                                 />
+
                                                 <textarea
                                                     value={newBubbleText}
-                                                    onChange={(e) => setNewBubbleText(e.target.value)}
+                                                    onChange={(event) => setNewBubbleText(event.target.value)}
                                                     placeholder="Escribe el mensaje que quieres guardar..."
                                                     rows={2}
                                                     className="mb-2 w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400"
                                                 />
+
                                                 <div className="flex justify-end gap-2">
                                                     <button
                                                         onClick={() => {
@@ -2063,12 +2367,15 @@ export default function DigitalesContacto() {
                                                     >
                                                         Cancelar
                                                     </button>
+
                                                     <button
                                                         onClick={addQuickBubble}
                                                         disabled={!newBubbleText.trim()}
                                                         className={cls(
                                                             "rounded-lg px-3 py-1.5 text-xs font-bold text-white",
-                                                            !newBubbleText.trim() ? "opacity-50 cursor-not-allowed" : "hover:opacity-90"
+                                                            !newBubbleText.trim()
+                                                                ? "cursor-not-allowed opacity-50"
+                                                                : "hover:opacity-90",
                                                         )}
                                                         style={{ backgroundColor: BRAND_BLUE }}
                                                         type="button"
@@ -2077,26 +2384,27 @@ export default function DigitalesContacto() {
                                                     </button>
                                                 </div>
                                             </div>
-                                        )}
+                                        ) : null}
 
-                                        {quickBubbles.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto pb-1">
+                                        {quickBubbles.length > 0 ? (
+                                            <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto pb-1">
                                                 {quickBubbles.map((bubble) => (
                                                     <div
                                                         key={bubble.id}
-                                                        className="group relative inline-flex max-w-[200px] items-center gap-1 rounded-full border border-[#131E5C]/20 bg-white shadow-sm hover:shadow-md transition-all"
+                                                        className="group relative inline-flex max-w-[200px] items-center gap-1 rounded-full border border-[#131E5C]/20 bg-white shadow-sm transition-all hover:shadow-md"
                                                     >
                                                         <button
                                                             onClick={() => sendQuickBubble(bubble.text)}
-                                                            className="flex-1 px-3 py-1.5 text-left text-xs font-semibold text-[#131E5C] hover:text-[#131E5C]/80 truncate"
+                                                            className="flex-1 truncate px-3 py-1.5 text-left text-xs font-semibold text-[#131E5C] hover:text-[#131E5C]/80"
                                                             title={bubble.text}
                                                             type="button"
                                                         >
                                                             {bubble.title}
                                                         </button>
+
                                                         <button
                                                             onClick={() => deleteQuickBubble(bubble.id)}
-                                                            className="invisible group-hover:visible absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white hover:bg-red-600 flex items-center justify-center"
+                                                            className="invisible absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 group-hover:visible"
                                                             title="Eliminar"
                                                             type="button"
                                                         >
@@ -2105,9 +2413,9 @@ export default function DigitalesContacto() {
                                                     </div>
                                                 ))}
                                             </div>
-                                        )}
+                                        ) : null}
                                     </div>
-                                )}
+                                ) : null}
 
                                 {attachments.length ? (
                                     <div className="mb-2 flex flex-wrap gap-2">
@@ -2258,6 +2566,7 @@ export default function DigitalesContacto() {
                                         type="button"
                                     >
                                         <Send className="h-4 w-4" />
+
                                         <span className="hidden sm:inline">
                                             {editingMsgId ? "Guardar" : "Enviar"}
                                         </span>
@@ -2281,6 +2590,162 @@ export default function DigitalesContacto() {
                             </div>
                         </div>
                     </section>
+
+                    {/* ── Columna derecha: edición rápida del prospecto (siempre visible) ── */}
+                    {activeTel && !isDirectChatMode ? (
+                        <aside className="hidden lg:flex flex-col border-l border-black/10 bg-neutral-50">
+                            {/* Header */}
+                            <div
+                                className="flex items-center gap-2 px-4 py-3 border-b border-black/10"
+                                style={{ backgroundColor: BRAND_BLUE }}
+                            >
+                                <Pencil className="h-3.5 w-3.5 text-white/70" />
+                                <span className="text-xs font-extrabold uppercase tracking-wide text-white">
+                                    Datos del prospecto
+                                </span>
+                            </div>
+
+                            {/* Nombre del prospecto */}
+                            {prospecto?.nombre ? (
+                                <div className="border-b border-black/8 bg-white px-4 py-2.5">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Prospecto</div>
+                                    <div className="mt-0.5 text-sm font-extrabold text-[#131E5C] truncate">{prospecto.nombre}</div>
+                                </div>
+                            ) : null}
+
+                            {/* Campos */}
+                            <div className="flex-1 overflow-y-auto px-3 py-3">
+                                <div className="grid gap-3">
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Nombre</label>
+                                        <input
+                                            value={quickEditDraft.nombre || ""}
+                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))}
+                                            placeholder="Nombre del prospecto"
+                                            className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">VW de sus sueños</label>
+                                        <input
+                                            value={quickEditDraft.auto_interes || ""}
+                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))}
+                                            placeholder="Modelo de interés"
+                                            className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Estado</label>
+                                        <div className="relative">
+                                            <select
+                                                value={quickEditDraft.estado || ""}
+                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))}
+                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                <option value="">Sin estado</option>
+                                                {ESTADOS_PROSPECTO.map((s) => (
+                                                    <option key={s} value={s}>{s}</option>
+                                                ))}
+                                            </select>
+                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Canal de contacto</label>
+                                        <div className="relative">
+                                            <select
+                                                value={quickEditDraft.canal_contacto || ""}
+                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))}
+                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                <option value="">Sin canal</option>
+                                                {CANALES.map((c) => (
+                                                    <option key={c} value={c}>{c}</option>
+                                                ))}
+                                            </select>
+                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Business</label>
+                                        <div className="relative">
+                                            <select
+                                                value={quickEditDraft.business || ""}
+                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, business: e.target.value }))}
+                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                <option value="">Sin business</option>
+                                                {BUSINESS_OPTIONS.map((b) => (
+                                                    <option key={b} value={b}>{b}</option>
+                                                ))}
+                                            </select>
+                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Pauta de origen</label>
+                                        <div className="relative">
+                                            <select
+                                                value={quickEditDraft.pauta_origen || ""}
+                                                onChange={(e) => setQuickEditDraft((p) => ({ ...p, pauta_origen: e.target.value }))}
+                                                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 pr-7 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                <option value="">Sin pauta</option>
+                                                {PAUTAS_ORIGEN.map((p) => (
+                                                    <option key={p} value={p}>{p}</option>
+                                                ))}
+                                            </select>
+                                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+                                                <ChevronDown className="h-3 w-3 text-[#131E5C]/50" />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[11px] font-extrabold text-[#131E5C]">Comentario adicional</label>
+                                        <textarea
+                                            value={quickEditDraft.comentario || ""}
+                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, comentario: e.target.value }))}
+                                            placeholder="Notas internas..."
+                                            rows={3}
+                                            className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none placeholder:text-slate-400 focus:border-[#131E5C]/40"
+                                        />
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            {/* Botón guardar */}
+                            <div className="border-t border-black/10 bg-white px-3 py-3">
+                                <button
+                                    onClick={saveQuickEdit}
+                                    disabled={savingQuickEdit}
+                                    className={cls(
+                                        "w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-extrabold text-white",
+                                        savingQuickEdit ? "opacity-60 cursor-not-allowed" : "hover:opacity-90",
+                                    )}
+                                    style={{ backgroundColor: BRAND_BLUE }}
+                                    type="button"
+                                >
+                                    <Save className="h-3.5 w-3.5" />
+                                    {savingQuickEdit ? "Guardando..." : "Guardar cambios"}
+                                </button>
+                            </div>
+                        </aside>
+                    ) : null}
+
                 </div>
             </div>
 

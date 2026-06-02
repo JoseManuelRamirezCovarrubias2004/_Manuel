@@ -1,7 +1,7 @@
 // src/pages/Calidad/CalidadTopNav.jsx
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BadgeCheck, ShieldCheck, Cog, ThumbsUp } from "lucide-react";
+import { BadgeCheck, ShieldCheck, Cog, ThumbsUp, UndoDot, ClipboardPenLine } from "lucide-react";
 import vwWhite from "../../assets/vw_white.png";
 import ryr from "../../assets/ryr.png";
 import { useAuth } from "../../auth/AuthContext";
@@ -18,26 +18,38 @@ export default function CalidadTopNav() {
                 label: "Reclamaciones",
                 href: "/calidad/reclamaciones",
                 icon: BadgeCheck,
-                show: hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
 
             {
                 label: "Safety Culture",
                 href: "/calidad/safety",
                 icon: ShieldCheck,
-                show: hasAnyPermission(["USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Experiencia de Entrega",
                 href: "/calidad/enc_satisfaccion",
                 icon: ThumbsUp,
-                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Experiencia de Servicio",
                 href: "/calidad/enc_servicio",
                 icon: Cog,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
+            },
+            {
+                label: "Retencion",
+                href: "/calidad/retencion",
+                icon: UndoDot,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
+            },
+            {
+                label: "Encuestas JD Power",
+                href: "/calidad/jdpower",
+                icon: ClipboardPenLine,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
         ];
 

@@ -7,15 +7,11 @@ export default function ComercialIndex() {
     const { hasAnyPermission } = useAuth();
 
     useEffect(() => {
-        // Preferencia de landing:
-        // 1) si tiene CRM_DIGITALES => prospectos
-        // 2) si tiene CRM_VENTAS => citas
-        // 3) si admin => prospectos
-        if (hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN"])) {
+        if (hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"])) {
             navigate("/comercial/prospectos", { replace: true });
             return;
         }
-        if (hasAnyPermission(["CRM_VENTAS"])) {
+        if (hasAnyPermission(["CRM_VENTAS", "CRM_CALIDAD"])) {
             navigate("/comercial/citas", { replace: true });
             return;
         }

@@ -27,20 +27,20 @@ import {
     CheckCircle2,
     Clock3,
     TableProperties,
-    CalendarRange,
     BarChart3,
+    Palette,
 } from "lucide-react";
 
 import { apiEntregas } from "../../lib/apiEntregas";
-
 import { createPortal } from "react-dom";
-
 import { useAuth } from "../../auth/AuthContext";
 
 import {
     ResponsiveContainer,
     BarChart,
     Bar,
+    LineChart,
+    Line,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -49,7 +49,8 @@ import {
     Pie,
     Cell,
     Legend,
-} from "recharts"; 
+} from "recharts";
+
 const BRAND_BLUE = "#131E5C";
 const HOURS = Array.from({ length: 13 }, (_, index) => `${String(index + 8).padStart(2, "0")}:00`);
 
@@ -77,7 +78,7 @@ function Skeleton({ className = "" }) {
 function SkeletonRow() {
     return (
         <tr className="animate-pulse">
-            {Array.from({ length: 11 }).map((_, i) => (
+            {Array.from({ length: 13 }).map((_, i) => (
                 <td key={i} className="px-4 py-3">
                     <div className="h-4 w-28 rounded bg-slate-200/60" />
                 </td>
@@ -89,12 +90,13 @@ function SkeletonRow() {
 function ModalSkeleton() {
     return (
         <div className="grid gap-3 md:grid-cols-2">
-            {Array.from({ length: 10 }).map((_, i) => (
+            {Array.from({ length: 12 }).map((_, i) => (
                 <div key={i} className="rounded-lg border border-white/10 bg-neutral-200/50 p-4">
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="mt-3 h-10 w-full rounded-lg" />
                 </div>
             ))}
+
             <div className="rounded-lg border border-white/10 bg-neutral-200/50 p-4 md:col-span-2">
                 <Skeleton className="h-4 w-40" />
                 <Skeleton className="mt-3 h-24 w-full rounded-lg" />
@@ -109,6 +111,7 @@ function Modal({ open, title, onClose, children, footer }) {
     return createPortal(
         <div className="fixed inset-0 z-[60]">
             <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" onClick={onClose} />
+
             <div className="absolute inset-0 flex items-end justify-center p-3 sm:items-center">
                 <div className="w-full max-w-6xl overflow-hidden rounded-lg border border-[#131E5C] bg-neutral-100 shadow-2xl">
                     <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ backgroundColor: BRAND_BLUE }}>
@@ -146,6 +149,7 @@ function Field({ label, icon: Icon, children }) {
                 {Icon ? <Icon className="h-4 w-4" /> : null}
                 <span>{label}</span>
             </div>
+
             {children}
         </div>
     );
@@ -153,16 +157,20 @@ function Field({ label, icon: Icon, children }) {
 
 function toDTLocal(isoOrNull) {
     if (!isoOrNull) return "";
+
     const s = String(isoOrNull);
 
     if (s.endsWith("Z")) {
         const d = new Date(s);
         if (Number.isNaN(d.getTime())) return "";
+
         const pad = (n) => String(n).padStart(2, "0");
+
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return s.slice(0, 16);
+
     return "";
 }
 
@@ -174,13 +182,17 @@ function fromDTLocalToISO(dtLocalOrEmpty) {
 function toYMDLocal(dateLike) {
     const d = new Date(dateLike);
     if (Number.isNaN(d.getTime())) return "";
+
     const pad = (n) => String(n).padStart(2, "0");
+
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function parseYMDLocal(ymd) {
     if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return new Date();
+
     const [year, month, day] = ymd.split("-").map(Number);
+
     return new Date(year, month - 1, day);
 }
 
@@ -199,8 +211,10 @@ function startOfWeekMonday(date) {
     const d = new Date(date);
     const jsDay = d.getDay();
     const deltaToMonday = (jsDay + 6) % 7;
+
     d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() - deltaToMonday);
+
     return d;
 }
 
@@ -226,15 +240,22 @@ function weekdayShortEs(dateObj) {
 
 function formatCardTime(dateLike) {
     if (!dateLike) return "—";
+
     const d = new Date(dateLike);
     if (Number.isNaN(d.getTime())) return "—";
-    return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+
+    return d.toLocaleTimeString("es-MX", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 }
 
 function formatDateTime(dateLike) {
     if (!dateLike) return "—";
+
     const d = new Date(dateLike);
     if (Number.isNaN(d.getTime())) return "—";
+
     return d.toLocaleString("es-MX", {
         day: "2-digit",
         month: "2-digit",
@@ -246,8 +267,10 @@ function formatDateTime(dateLike) {
 
 function getHourKey(dateLike) {
     if (!dateLike) return "";
+
     const d = new Date(dateLike);
     if (Number.isNaN(d.getTime())) return "";
+
     return `${String(d.getHours()).padStart(2, "0")}:00`;
 }
 
@@ -264,7 +287,11 @@ function ContextMenu({ ctxMenu, onDelete, onClose }) {
     if (!ctxMenu.open || !ctxMenu.row) return null;
 
     return createPortal(
-        <div className="fixed z-[9999]" style={{ left: ctxMenu.x, top: ctxMenu.y }} onClick={(e) => e.stopPropagation()}>
+        <div
+            className="fixed z-[9999]"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+            onClick={(e) => e.stopPropagation()}
+        >
             <div className="w-48 overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl">
                 <button
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
@@ -274,7 +301,10 @@ function ContextMenu({ ctxMenu, onDelete, onClose }) {
                     Eliminar
                 </button>
 
-                <button className="w-full px-4 py-2 text-left text-xs text-slate-500 hover:bg-slate-50" onClick={onClose}>
+                <button
+                    className="w-full px-4 py-2 text-left text-xs text-slate-500 hover:bg-slate-50"
+                    onClick={onClose}
+                >
                     Cerrar
                 </button>
             </div>
@@ -311,6 +341,7 @@ function StatusButton({ row, loading, onToggle, compact = false }) {
             ) : (
                 <Clock3 className="h-3.5 w-3.5" />
             )}
+
             {compact ? (entregada ? "Sí" : "No") : entregada ? "Entregada" : "Pendiente"}
         </button>
     );
@@ -321,6 +352,8 @@ function EntregaAgendaCard({ row, onEdit, onContext, onToggleEntrega, updatingIn
     const isUpdating = !!updatingInline[row.id];
     const nombreCliente = row?.cliente?.nombre || "Sin nombre";
     const telefonoCliente = row?.cliente?.telefono || "—";
+
+    const unidad = [row.modelo_version, row.version, row.color].filter(Boolean).join(" • ");
 
     return (
         <button
@@ -361,7 +394,7 @@ function EntregaAgendaCard({ row, onEdit, onContext, onToggleEntrega, updatingIn
                 <div className="mt-2 grid gap-1 text-[10px] font-semibold text-slate-600">
                     <div className="flex items-center gap-1.5">
                         <CarFront className="h-3.5 w-3.5 shrink-0 text-[#131E5C]" />
-                        <span className="truncate">{row.modelo_version || "Modelo sin capturar"}</span>
+                        <span className="truncate">{unidad || "Modelo sin capturar"}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -427,16 +460,20 @@ function AgendaMobileList({ rows, loading, onEdit, onContext, onToggleEntrega, u
     return (
         <div className="grid gap-4 lg:hidden">
             {grouped.map(([key, items]) => {
-                const title = key === "sin-fecha" ? "Sin fecha" : parseYMDLocal(key).toLocaleDateString("es-MX", {
-                    weekday: "long",
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                });
+                const title =
+                    key === "sin-fecha"
+                        ? "Sin fecha"
+                        : parseYMDLocal(key).toLocaleDateString("es-MX", {
+                            weekday: "long",
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric",
+                        });
 
                 return (
                     <section key={key} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                         <h3 className="mb-3 text-xs font-black uppercase tracking-wide text-[#131E5C]">{title}</h3>
+
                         <div className="grid gap-2 sm:grid-cols-2">
                             {items.map((row) => (
                                 <EntregaAgendaCard
@@ -484,6 +521,7 @@ function AgendaWeekView({
             const key = `${dayKey}|${hourKey}`;
 
             if (!map.has(key)) map.set(key, []);
+
             map.get(key).push(row);
         }
 
@@ -497,7 +535,9 @@ function AgendaWeekView({
     const outOfScheduleRows = useMemo(() => {
         return rows.filter((row) => {
             if (!row.fecha_hora_entrega) return true;
+
             const hour = getHourKey(row.fecha_hora_entrega);
+
             return !HOURS.includes(hour);
         });
     }, [rows]);
@@ -513,9 +553,7 @@ function AgendaWeekView({
             <div className="mb-3 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
                     <div className="text-xs font-semibold text-slate-500">Semana</div>
-                    <div className="truncate text-sm font-black text-[#131E5C]">
-                        {formatWeekTitle(weekStart, weekEnd)}
-                    </div>
+                    <div className="truncate text-sm font-black text-[#131E5C]">{formatWeekTitle(weekStart, weekEnd)}</div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -552,16 +590,18 @@ function AgendaWeekView({
                     <div className="min-w-[1320px]">
                         <div className="sticky top-0 z-20 grid border-b border-slate-200 bg-slate-50" style={gridStyle}>
                             <div className="px-3 py-3 text-xs font-bold text-slate-500">Hora</div>
+
                             {weekDays.map((day) => {
                                 const iso = toYMDLocal(day);
                                 const isToday = iso === todayIso;
 
                                 return (
                                     <div key={iso} className="border-l border-slate-200 px-3 py-3 text-center">
-                                        <div className={[
-                                            "mx-auto inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black",
-                                            isToday ? "bg-[#131E5C] text-white" : "text-[#131E5C]",
-                                        ].join(" ")}
+                                        <div
+                                            className={[
+                                                "mx-auto inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black",
+                                                isToday ? "bg-[#131E5C] text-white" : "text-[#131E5C]",
+                                            ].join(" ")}
                                         >
                                             <span>{weekdayShortEs(day)}</span>
                                             <span>{day.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit" })}</span>
@@ -591,7 +631,10 @@ function AgendaWeekView({
                                         const canCreateAt = `${dayKey}T${hour}`;
 
                                         return (
-                                            <div key={slotKey} className="group relative min-h-[116px] border-l border-slate-200 bg-white/80 p-1.5 transition hover:bg-slate-50">
+                                            <div
+                                                key={slotKey}
+                                                className="group relative min-h-[116px] border-l border-slate-200 bg-white/80 p-1.5 transition hover:bg-slate-50"
+                                            >
                                                 <button
                                                     type="button"
                                                     onClick={() => onCreateAt(canCreateAt)}
@@ -629,6 +672,7 @@ function AgendaWeekView({
                     <div className="mb-2 text-xs font-black uppercase tracking-wide text-amber-800">
                         Entregas sin hora o fuera del rango 08:00 - 20:00
                     </div>
+
                     <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                         {outOfScheduleRows.map((row) => (
                             <EntregaAgendaCard
@@ -654,6 +698,7 @@ export default function RegistroEntregas() {
     const isAdmin = useMemo(() => {
         const permisos = user?.permisos || [];
         const rol = String(user?.rol || "").trim().toLowerCase();
+
         return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
     }, [user]);
 
@@ -665,6 +710,39 @@ export default function RegistroEntregas() {
         () => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"],
         []
     );
+
+    const VERSIONES = [
+        "Trendline",
+        "Comfortline",
+        "Highline",
+        "Sportline",
+        "GLI",
+        "GTI",
+        "R",
+        "Peak Edition",
+        "Robust",
+        "Extreme",
+        "Cross Sport",
+    ];
+
+    const COLORES = [
+        "Blanco Candy",
+        "Blanco Puro",
+        "Plata Reflex",
+        "Plata Pirita",
+        "Plata Sirius",
+        "Gris Platino",
+        "Gris Carbon Steel",
+        "Gris Franela",
+        "Negro Ninja",
+        "Negro Profundo",
+        "Azul Rising",
+        "Azul Monterrey",
+        "Rojo Wild Cherry",
+        "Rojo Kings",
+        "Amarillo Kurkuma",
+        "Verde Vibrante",
+    ];
 
     const ASESORES = [
         "AURA MARLIZETH FERNANDEZ LOPEZ",
@@ -752,13 +830,6 @@ export default function RegistroEntregas() {
     const [currentWeekDate, setCurrentWeekDate] = useState(new Date());
     const [sort, setSort] = useState({ key: "fecha_hora_entrega", dir: "desc" });
 
-    function toggleSort(key) {
-        setSort((prev) => {
-            if (prev.key !== key) return { key, dir: "asc" };
-            return { key, dir: prev.dir === "asc" ? "desc" : "asc" };
-        });
-    }
-
     const [filters, setFilters] = useState({
         q: "",
         agencia: "Todos",
@@ -774,6 +845,7 @@ export default function RegistroEntregas() {
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [saving, setSaving] = useState(false);
     const [updatingInline, setUpdatingInline] = useState({});
+    const [touchedSave, setTouchedSave] = useState(false);
 
     const REQUIRED = useMemo(
         () => ({
@@ -783,15 +855,15 @@ export default function RegistroEntregas() {
         []
     );
 
-    const [touchedSave, setTouchedSave] = useState(false);
-
     const missing = useMemo(() => {
         if (!draft) return [];
+
         const faltantes = [];
 
         for (const key of Object.keys(REQUIRED)) {
             const v = draft[key];
             const isEmpty = v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+
             if (isEmpty) faltantes.push(key);
         }
 
@@ -812,20 +884,32 @@ export default function RegistroEntregas() {
 
         if (telDigits.length < 10) return "Número incompleto (mínimo 10 dígitos)";
         if (telDigits.length === 11) return "Número incorrecto (11 dígitos no válido)";
+
         if (telDigits.length === 12 && !telDigits.startsWith("52")) {
             return "Número inválido: si tiene 12 dígitos debe iniciar con 52";
         }
+
         if (telDigits.length > 12) return "Número incorrecto (máximo 12 dígitos)";
+
         return "Número inválido";
     }, [openModal, draft, telDigits]);
 
     const telInvalid = !!telError;
+
     const inputBase = "w-full rounded-lg border shadow-lg px-3 py-2 text-sm text-[#131E5C] font-semibold outline-none";
     const inputOk = "border-black/10 bg-neutral-100";
     const inputBad = "border-red-500 bg-red-50";
 
+    function toggleSort(key) {
+        setSort((prev) => {
+            if (prev.key !== key) return { key, dir: "asc" };
+            return { key, dir: prev.dir === "asc" ? "desc" : "asc" };
+        });
+    }
+
     useEffect(() => {
         const onGlobal = () => setCtxMenu((prev) => ({ ...prev, open: false, row: null }));
+
         window.addEventListener("click", onGlobal);
         window.addEventListener("scroll", onGlobal, true);
         window.addEventListener("resize", onGlobal);
@@ -840,11 +924,18 @@ export default function RegistroEntregas() {
     const onRowContextMenu = (e, row) => {
         e.preventDefault();
         e.stopPropagation();
-        setCtxMenu({ open: true, x: e.clientX, y: e.clientY, row });
+
+        setCtxMenu({
+            open: true,
+            x: e.clientX,
+            y: e.clientY,
+            row,
+        });
     };
 
     const refreshList = async () => {
         setLoadingList(true);
+
         try {
             const data = await apiEntregas.list();
             setEntregas(Array.isArray(data) ? data : []);
@@ -863,7 +954,9 @@ export default function RegistroEntregas() {
     const dealers = useMemo(() => {
         const set = new Set((entregas || []).map((item) => normalizeStr(item.agencia)).filter(Boolean));
         const all = ["Todos", ...Array.from(set)];
+
         if (!isAdmin && userAgencia) return ["Todos", userAgencia];
+
         return all;
     }, [entregas, isAdmin, userAgencia]);
 
@@ -872,6 +965,7 @@ export default function RegistroEntregas() {
 
         const desdeInt = ymdToInt(filters.rangoDesde);
         const hastaInt = ymdToInt(filters.rangoHasta);
+
         const minInt = desdeInt ?? null;
         const maxInt = hastaInt ?? null;
 
@@ -888,20 +982,24 @@ export default function RegistroEntregas() {
                 telCliente.toLowerCase().includes(q) ||
                 normalizeStr(item.vin).toLowerCase().includes(q) ||
                 normalizeStr(item.modelo_version).toLowerCase().includes(q) ||
+                normalizeStr(item.version).toLowerCase().includes(q) ||
+                normalizeStr(item.color).toLowerCase().includes(q) ||
                 normalizeStr(item.asesor_ventas).toLowerCase().includes(q) ||
                 normalizeStr(item.preparada_por).toLowerCase().includes(q) ||
                 normalizeStr(item.id_cliente_sf_nadin).toLowerCase().includes(q) ||
                 normalizeStr(item.id_cliente_sf_dms).toLowerCase().includes(q) ||
                 normalizeStr(item.comentarios).toLowerCase().includes(q);
 
-            const matchAgencia =
-                filters.agencia === "Todos" || normalizeStr(item.agencia) === normalizeStr(filters.agencia);
+            const matchAgencia = filters.agencia === "Todos" || normalizeStr(item.agencia) === normalizeStr(filters.agencia);
 
             let matchRango = true;
+
             if (minInt !== null || maxInt !== null) {
                 const ymdEntrega = item.fecha_hora_entrega ? toYMDLocal(item.fecha_hora_entrega) : "";
                 const ymdInt = ymdToInt(ymdEntrega);
+
                 if (!ymdInt) return false;
+
                 if (minInt !== null && ymdInt < minInt) matchRango = false;
                 if (maxInt !== null && ymdInt > maxInt) matchRango = false;
             }
@@ -913,6 +1011,7 @@ export default function RegistroEntregas() {
     const sorted = useMemo(() => {
         const data = [...filtered];
         const { key, dir } = sort || {};
+
         if (!key) return data;
 
         const mult = dir === "asc" ? 1 : -1;
@@ -921,6 +1020,7 @@ export default function RegistroEntregas() {
             if (key === "fecha_hora_entrega") {
                 const ta = a.fecha_hora_entrega ? new Date(a.fecha_hora_entrega).getTime() : 0;
                 const tb = b.fecha_hora_entrega ? new Date(b.fecha_hora_entrega).getTime() : 0;
+
                 return (ta - tb) * mult;
             }
 
@@ -929,6 +1029,7 @@ export default function RegistroEntregas() {
 
             if (va < vb) return -1 * mult;
             if (va > vb) return 1 * mult;
+
             return 0;
         });
     }, [filtered, sort]);
@@ -936,30 +1037,28 @@ export default function RegistroEntregas() {
     const agendaRows = useMemo(() => {
         const weekStart = startOfWeekMonday(currentWeekDate);
         const weekEnd = addDays(weekStart, 5);
+
         const minInt = ymdToInt(toYMDLocal(weekStart));
         const maxInt = ymdToInt(toYMDLocal(weekEnd));
 
         return [...filtered]
             .filter((row) => {
                 if (!row.fecha_hora_entrega) return true;
+
                 const ymd = toYMDLocal(row.fecha_hora_entrega);
                 const ymdInt = ymdToInt(ymd);
+
                 if (!ymdInt) return false;
+
                 return ymdInt >= minInt && ymdInt <= maxInt;
             })
             .sort((a, b) => {
                 const ta = a.fecha_hora_entrega ? new Date(a.fecha_hora_entrega).getTime() : 0;
                 const tb = b.fecha_hora_entrega ? new Date(b.fecha_hora_entrega).getTime() : 0;
+
                 return ta - tb;
             });
     }, [filtered, currentWeekDate]);
-
-    const stats = useMemo(() => {
-        const entregadas = filtered.filter((row) => entregaFisicaActiva(row.entrega_reportada)).length;
-        const pendientes = filtered.length - entregadas;
-
-        return { total: filtered.length, entregadas, pendientes };
-    }, [filtered]);
 
     const openCreate = (fechaHoraDefault = "") => {
         setTouchedSave(false);
@@ -977,6 +1076,9 @@ export default function RegistroEntregas() {
 
             vin: "",
             modelo_version: "",
+            version: "",
+            color: "",
+
             fecha_hora_entrega: fechaHoraDefault,
             entrega_reportada: false,
             asesor_ventas: "",
@@ -1016,6 +1118,9 @@ export default function RegistroEntregas() {
 
                 vin: item.vin || "",
                 modelo_version: item.modelo_version || "",
+                version: item.version || "",
+                color: item.color || "",
+
                 fecha_hora_entrega: toDTLocal(item.fecha_hora_entrega),
                 entrega_reportada: entregaFisicaActiva(item.entrega_reportada),
                 asesor_ventas: item.asesor_ventas || "",
@@ -1035,6 +1140,7 @@ export default function RegistroEntregas() {
 
     const closeModal = () => {
         if (saving) return;
+
         setOpenModal(false);
         setDraft(null);
     };
@@ -1052,6 +1158,7 @@ export default function RegistroEntregas() {
 
         try {
             await apiEntregas.remove(row.id);
+
             setEntregas((prev) => prev.filter((item) => item.id !== row.id));
             setCtxMenu({ open: false, x: 0, y: 0, row: null });
         } catch (error) {
@@ -1064,10 +1171,12 @@ export default function RegistroEntregas() {
         if (!draft || saving) return;
 
         setTouchedSave(true);
+
         if (missing.length) return;
         if (!telIsOk) return;
 
         setSaving(true);
+
         try {
             const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : userAgencia;
 
@@ -1081,6 +1190,9 @@ export default function RegistroEntregas() {
 
                 vin: draft.vin || "",
                 modelo_version: draft.modelo_version || "",
+                version: draft.version || "",
+                color: draft.color || "",
+
                 fecha_hora_entrega: fromDTLocalToISO(draft.fecha_hora_entrega),
                 entrega_reportada: !!draft.entrega_reportada,
                 asesor_ventas: draft.asesor_ventas || "",
@@ -1118,11 +1230,7 @@ export default function RegistroEntregas() {
         const prev = entregaFisicaActiva(row.entrega_reportada);
         const next = !prev;
 
-        setEntregas((prevRows) =>
-            prevRows.map((item) =>
-                item.id === id ? { ...item, entrega_reportada: next } : item
-            )
-        );
+        setEntregas((prevRows) => prevRows.map((item) => (item.id === id ? { ...item, entrega_reportada: next } : item)));
 
         setUpdatingInline((prevState) => ({ ...prevState, [id]: true }));
 
@@ -1130,11 +1238,9 @@ export default function RegistroEntregas() {
             await apiEntregas.patch(id, { entrega_reportada: next });
         } catch (error) {
             console.error(error);
-            setEntregas((prevRows) =>
-                prevRows.map((item) =>
-                    item.id === id ? { ...item, entrega_reportada: prev } : item
-                )
-            );
+
+            setEntregas((prevRows) => prevRows.map((item) => (item.id === id ? { ...item, entrega_reportada: prev } : item)));
+
             alert("No se pudo actualizar la entrega reportada (revisa backend).");
         } finally {
             setUpdatingInline((prevState) => {
@@ -1146,29 +1252,44 @@ export default function RegistroEntregas() {
     };
 
     const resetFilters = () => {
-        setFilters({ q: "", agencia: "Todos", rangoDesde: "", rangoHasta: "" });
+        setFilters({
+            q: "",
+            agencia: "Todos",
+            rangoDesde: "",
+            rangoHasta: "",
+        });
+
         setCurrentWeekDate(new Date());
     };
 
     const setHoy = () => {
         const hoy = toYMDLocal(new Date());
+
         setCurrentWeekDate(new Date());
-        setFilters((prev) => ({ ...prev, rangoDesde: hoy, rangoHasta: hoy }));
+        setFilters((prev) => ({
+            ...prev,
+            rangoDesde: hoy,
+            rangoHasta: hoy,
+        }));
     };
 
     const onChangeDateFilter = (key, value) => {
         setFilters((prev) => ({ ...prev, [key]: value }));
+
         if (value) setCurrentWeekDate(parseYMDLocal(value));
     };
 
-   const entregasPorDealer = Object.values(
+    const entregasPorDealer = Object.values(
         sorted.reduce((acc, item) => {
             const dealer = item.agencia || "Sin dealer";
+
             if (!acc[dealer]) acc[dealer] = { dealer, total: 0 };
+
             acc[dealer].total += 1;
+
             return acc;
         }, {})
-    );
+    ).sort((a, b) => b.total - a.total);
 
     const entregadas = sorted.filter((row) => entregaFisicaActiva(row.entrega_reportada)).length;
     const noEntregadas = sorted.length - entregadas;
@@ -1181,12 +1302,72 @@ export default function RegistroEntregas() {
     const entregasPorAsesor = Object.values(
         sorted.reduce((acc, item) => {
             const asesor = item.asesor_ventas || "Sin asesor";
+
             if (!acc[asesor]) acc[asesor] = { asesor, total: 0 };
+
             acc[asesor].total += 1;
+
             return acc;
         }, {})
     ).sort((a, b) => b.total - a.total);
 
+    const entregasPorVersion = Object.values(
+        sorted.reduce((acc, item) => {
+            const version = item.version || "Sin versión";
+
+            if (!acc[version]) acc[version] = { version, total: 0 };
+
+            acc[version].total += 1;
+
+            return acc;
+        }, {})
+    ).sort((a, b) => b.total - a.total);
+
+    const entregasPorColor = Object.values(
+        sorted.reduce((acc, item) => {
+            const color = item.color || "Sin color";
+
+            if (!acc[color]) acc[color] = { color, total: 0 };
+
+            acc[color].total += 1;
+
+            return acc;
+        }, {})
+    ).sort((a, b) => b.total - a.total);
+    const entregasPorDia = Object.values(
+        sorted.reduce((acc, item) => {
+            let fechaKey;
+            let fechaDisplay;
+
+            if (item.fecha_hora_entrega) {
+                const date = new Date(item.fecha_hora_entrega);
+
+                fechaKey = date.toISOString().split("T")[0];
+                fechaDisplay = date.toLocaleDateString("es-MX");
+            } else {
+                fechaKey = "9999-99-99";
+                fechaDisplay = "Sin fecha";
+            }
+
+            if (!acc[fechaKey]) {
+                acc[fechaKey] = {
+                    fecha: fechaDisplay,
+                    total: 0,
+                    ordenKey: fechaKey,
+                };
+            }
+
+            acc[fechaKey].total += 1;
+
+            return acc;
+        }, {})
+    )
+        .sort((a, b) => {
+            if (a.ordenKey < b.ordenKey) return -1;
+            if (a.ordenKey > b.ordenKey) return 1;
+            return 0;
+        })
+        .map(({ fecha, total }) => ({ fecha, total }));
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -1227,18 +1408,17 @@ export default function RegistroEntregas() {
                             <TableProperties className="h-4 w-4" />
                             Tabla
                         </button>
+
                         <button
-                                type="button"
-                                onClick={() => setViewMode("graficas")}
-                                className={[
-                                    "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-black transition",
-                                    viewMode === "graficas"
-                                        ? "bg-[#131E5C] text-white"
-                                        : "text-[#131E5C] hover:bg-slate-50",
-                                ].join(" ")}
-                            >
-                                <BarChart3 className="h-4 w-4" />
-                                Gráficas
+                            type="button"
+                            onClick={() => setViewMode("graficas")}
+                            className={[
+                                "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-black transition",
+                                viewMode === "graficas" ? "bg-[#131E5C] text-white" : "text-[#131E5C] hover:bg-slate-50",
+                            ].join(" ")}
+                        >
+                            <BarChart3 className="h-4 w-4" />
+                            Gráficas
                         </button>
                     </div>
 
@@ -1258,12 +1438,14 @@ export default function RegistroEntregas() {
                         <FilterBlock label="Búsqueda">
                             <div className="flex items-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2">
                                 <Search className="h-4 w-4 text-[#131E5C]" />
+
                                 <input
                                     value={filters.q}
                                     onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
-                                    placeholder="Buscar por dealer, cliente, teléfono, VIN, modelo, asesor…"
+                                    placeholder="Buscar por dealer, cliente, teléfono, VIN, modelo, versión, color, asesor…"
                                     className="w-full text-sm text-[#131E5C] outline-none placeholder:text-[#131E5C]"
                                 />
+
                                 {filters.q ? (
                                     <button
                                         onClick={() => setFilters((prev) => ({ ...prev, q: "" }))}
@@ -1380,7 +1562,11 @@ export default function RegistroEntregas() {
                                             Fecha y Hora Entrega
                                             <span className="opacity-60">
                                                 {sort.key === "fecha_hora_entrega" ? (
-                                                    sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />
+                                                    sort.dir === "asc" ? (
+                                                        <ChevronUp className="h-4" />
+                                                    ) : (
+                                                        <ChevronDown className="h-4" />
+                                                    )
                                                 ) : (
                                                     <ArrowUpDown className="h-4" />
                                                 )}
@@ -1397,7 +1583,11 @@ export default function RegistroEntregas() {
                                             Dealer
                                             <span className="opacity-60">
                                                 {sort.key === "agencia" ? (
-                                                    sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />
+                                                    sort.dir === "asc" ? (
+                                                        <ChevronUp className="h-4" />
+                                                    ) : (
+                                                        <ChevronDown className="h-4" />
+                                                    )
                                                 ) : (
                                                     <ArrowUpDown className="h-4" />
                                                 )}
@@ -1407,7 +1597,70 @@ export default function RegistroEntregas() {
 
                                     <th className="px-4 py-3">Cliente</th>
                                     <th className="px-4 py-3">Chasis</th>
-                                    <th className="px-4 py-3">Modelo/Versión</th>
+
+                                    <th className="px-4 py-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleSort("modelo_version")}
+                                            className="inline-flex items-center gap-1 text-xs font-bold"
+                                        >
+                                            Modelo
+                                            <span className="opacity-60">
+                                                {sort.key === "modelo_version" ? (
+                                                    sort.dir === "asc" ? (
+                                                        <ChevronUp className="h-4" />
+                                                    ) : (
+                                                        <ChevronDown className="h-4" />
+                                                    )
+                                                ) : (
+                                                    <ArrowUpDown className="h-4" />
+                                                )}
+                                            </span>
+                                        </button>
+                                    </th>
+
+                                    <th className="px-4 py-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleSort("version")}
+                                            className="inline-flex items-center gap-1 text-xs font-bold"
+                                        >
+                                            Versión
+                                            <span className="opacity-60">
+                                                {sort.key === "version" ? (
+                                                    sort.dir === "asc" ? (
+                                                        <ChevronUp className="h-4" />
+                                                    ) : (
+                                                        <ChevronDown className="h-4" />
+                                                    )
+                                                ) : (
+                                                    <ArrowUpDown className="h-4" />
+                                                )}
+                                            </span>
+                                        </button>
+                                    </th>
+
+                                    <th className="px-4 py-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleSort("color")}
+                                            className="inline-flex items-center gap-1 text-xs font-bold"
+                                        >
+                                            Color
+                                            <span className="opacity-60">
+                                                {sort.key === "color" ? (
+                                                    sort.dir === "asc" ? (
+                                                        <ChevronUp className="h-4" />
+                                                    ) : (
+                                                        <ChevronDown className="h-4" />
+                                                    )
+                                                ) : (
+                                                    <ArrowUpDown className="h-4" />
+                                                )}
+                                            </span>
+                                        </button>
+                                    </th>
+
                                     <th className="px-4 py-3">Asesor Ventas</th>
                                     <th className="px-4 py-3">Entrega Física</th>
                                     <th className="px-4 py-3">Preparada por</th>
@@ -1446,6 +1699,8 @@ export default function RegistroEntregas() {
                                                     <td className="px-4 py-3 text-[#131E5C]">{nombreCliente}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.vin || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.modelo_version || "—"}</td>
+                                                    <td className="px-4 py-3 text-[#131E5C]">{row.version || "—"}</td>
+                                                    <td className="px-4 py-3 text-[#131E5C]">{row.color || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.asesor_ventas || "—"}</td>
 
                                                     <td className="px-4 py-3 text-[#131E5C]">
@@ -1459,6 +1714,7 @@ export default function RegistroEntregas() {
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.preparada_por || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.id_cliente_sf_nadin || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.id_cliente_sf_dms || "—"}</td>
+
                                                     <td className="px-4 py-3 text-[#131E5C]">
                                                         <span className="line-clamp-2">{row.comentarios || "—"}</span>
                                                     </td>
@@ -1468,7 +1724,7 @@ export default function RegistroEntregas() {
 
                                         {sorted.length === 0 ? (
                                             <tr>
-                                                <td colSpan={11} className="px-4 py-10 text-center text-[#131E5C]">
+                                                <td colSpan={13} className="px-4 py-10 text-center text-[#131E5C]">
                                                     No hay resultados con esos filtros.
                                                 </td>
                                             </tr>
@@ -1479,210 +1735,289 @@ export default function RegistroEntregas() {
                         </table>
                     </div>
                 </div>
-            ) : null} 
+            ) : null}
 
             {viewMode === "graficas" ? (
+                <div className="space-y-6">
+                    <div className="grid gap-4 md:grid-cols-3">
+                        <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
+                            <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">Total Entregas</p>
+                            <h2 className="mt-2 text-3xl font-black text-[#051DF2] drop-shadow-sm">{sorted.length}</h2>
+                        </div>
 
-    <div className="space-y-6">
+                        <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
+                            <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">Entregadas</p>
+                            <h2 className="mt-2 text-3xl font-black text-[#0570F2] drop-shadow-sm">{entregadas}</h2>
+                        </div>
 
-        {/* KPIs - efecto brillo deslavado con azules vibrantes */}
+                        <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
+                            <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">No Entregadas</p>
+                            <h2 className="mt-2 text-3xl font-black text-[#051DF2] drop-shadow-sm">{noEntregadas}</h2>
+                        </div>
+                    </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-6 xl:grid-cols-2">
+                        <div className="h-[420px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
+                            <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
+                                Entregas por Dealer
+                            </h2>
 
-            <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
-                <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">
-                    Total Entregas
-                </p>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={entregasPorDealer} margin={{ top: 20, right: 20, left: 0, bottom: 40 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.12} />
+                                    <XAxis
+                                        dataKey="dealer"
+                                        angle={-10}
+                                        textAnchor="end"
+                                        interval={0}
+                                        tick={{
+                                            fill: "#051DF2",
+                                            fontSize: 11,
+                                            fontWeight: 500,
+                                            fillOpacity: 0.65,
+                                        }}
+                                    />
+                                    <YAxis tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            borderRadius: "12px",
+                                            border: "1px solid #0570F2",
+                                            backgroundColor: "rgba(255,255,255,0.96)",
+                                            backdropFilter: "blur(8px)",
+                                            boxShadow: "0 8px 24px rgba(5,29,242,0.12)",
+                                            fontSize: "12px",
+                                            color: "#051DF2",
+                                            fontWeight: 500,
+                                        }}
+                                    />
+                                    <Bar dataKey="total" fill="#0570F2" radius={[8, 8, 0, 0]} fillOpacity={0.75} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
 
-                <h2 className="mt-2 text-3xl font-black text-[#051DF2] drop-shadow-sm">
-                    {sorted.length}
-                </h2>
-            </div>
+                        <div className="h-[500px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
+                            <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
+                                Entregadas / No Entregadas
+                            </h2>
 
-            <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
-                <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">
-                    Entregadas
-                </p>
+                            <ResponsiveContainer width="100%" height="90%">
+                                <PieChart>
+                                    <Pie
+                                        data={entregasEstado}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        outerRadius={100}
+                                        label
+                                        labelLine={{
+                                            stroke: "#0570F2",
+                                            strokeWidth: 1.5,
+                                            strokeOpacity: 0.35,
+                                        }}
+                                    >
+                                        <Cell fill="#0570F2" fillOpacity={0.75} />
+                                        <Cell fill="#051DF2" fillOpacity={0.7} />
+                                    </Pie>
 
-                <h2 className="mt-2 text-3xl font-black text-[#0570F2] drop-shadow-sm">
-                    {entregadas}
-                </h2>
-            </div>
+                                    <Tooltip
+                                        contentStyle={{
+                                            borderRadius: "12px",
+                                            border: "1px solid #0570F2",
+                                            backgroundColor: "rgba(255,255,255,0.96)",
+                                            backdropFilter: "blur(8px)",
+                                            fontSize: "12px",
+                                            color: "#051DF2",
+                                        }}
+                                    />
 
-            <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
-                <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">
-                    No Entregadas
-                </p>
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        height={36}
+                                        wrapperStyle={{
+                                            fontSize: "12px",
+                                            fontWeight: 500,
+                                            color: "#051DF2",
+                                            opacity: 0.7,
+                                        }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
 
-                <h2 className="mt-2 text-3xl font-black text-[#051DF2] drop-shadow-sm">
-                    {noEntregadas}
-                </h2>
-            </div>
+                    <div className="grid gap-6 xl:grid-cols-2">
+                        <div className="h-[460px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
+                            <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
+                                Entregas por Versión
+                            </h2>
 
-        </div>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={entregasPorVersion} margin={{ top: 20, right: 20, left: 0, bottom: 55 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.12} />
+                                    <XAxis
+                                        dataKey="version"
+                                        angle={-18}
+                                        textAnchor="end"
+                                        interval={0}
+                                        tick={{
+                                            fill: "#051DF2",
+                                            fontSize: 11,
+                                            fontWeight: 500,
+                                            fillOpacity: 0.65,
+                                        }}
+                                    />
+                                    <YAxis tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            borderRadius: "12px",
+                                            border: "1px solid #0570F2",
+                                            backgroundColor: "rgba(255,255,255,0.96)",
+                                            backdropFilter: "blur(8px)",
+                                            fontSize: "12px",
+                                            color: "#051DF2",
+                                        }}
+                                    />
+                                    <Bar dataKey="total" fill="#0570F2" radius={[8, 8, 0, 0]} fillOpacity={0.75} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
 
-        {/* GRAFICAS */}
+                        <div className="h-[460px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
+                            <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
+                                Entregas por Color
+                            </h2>
 
-        <div className="grid gap-6 xl:grid-cols-2">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={entregasPorColor} margin={{ top: 20, right: 20, left: 0, bottom: 65 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.12} />
+                                    <XAxis
+                                        dataKey="color"
+                                        angle={-22}
+                                        textAnchor="end"
+                                        interval={0}
+                                        tick={{
+                                            fill: "#051DF2",
+                                            fontSize: 11,
+                                            fontWeight: 500,
+                                            fillOpacity: 0.65,
+                                        }}
+                                    />
+                                    <YAxis tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            borderRadius: "12px",
+                                            border: "1px solid #0570F2",
+                                            backgroundColor: "rgba(255,255,255,0.96)",
+                                            backdropFilter: "blur(8px)",
+                                            fontSize: "12px",
+                                            color: "#051DF2",
+                                        }}
+                                    />
+                                    <Bar dataKey="total" fill="#0570F2" radius={[8, 8, 0, 0]} fillOpacity={0.75} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
 
-            {/* DEALERS */}
+                    <div className="h-[700px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
+                        <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
+                            Entregas por Asesor
+                        </h2>
 
-            <div className="h-[420px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">          
-                <h2 className="mb-4 text-base font-semibold tracking-wide text-[#051DF2] border-l-4 border-[#0570F2] pl-3 drop-shadow-sm">
-                    Entregas por Dealer
-                </h2>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                                layout="vertical"
+                                data={entregasPorAsesor.slice(0, 10)}
+                                margin={{
+                                    top: 20,
+                                    right: 30,
+                                    left: 80,
+                                    bottom: 20,
+                                }}
+                                barCategoryGap={16}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.1} />
+                                <XAxis type="number" tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }} />
+                                <YAxis
+                                    type="category"
+                                    dataKey="asesor"
+                                    width={160}
+                                    tick={{
+                                        fill: "#051DF2",
+                                        fontSize: 11,
+                                        fillOpacity: 0.65,
+                                    }}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        borderRadius: "12px",
+                                        border: "1px solid #0570F2",
+                                        backgroundColor: "rgba(255,255,255,0.96)",
+                                        backdropFilter: "blur(8px)",
+                                        fontSize: "12px",
+                                        color: "#051DF2",
+                                    }}
+                                />
+                                <Bar dataKey="total" fill="#0570F2" radius={[0, 8, 8, 0]} fillOpacity={0.7} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
 
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                        data={entregasPorDealer}
-                        margin={{
-                            top: 20,
-                            right: 20,
-                            left: 0,
-                            bottom: 40,
-                        }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.12} />
-                        <XAxis
-                            dataKey="dealer"
-                            angle={-10}
-                            textAnchor="end"
-                            interval={0}
-                            tick={{
-                                fill: "#051DF2",
-                                fontSize: 11,
-                                fontWeight: 500,
-                                fillOpacity: 0.65,
-                            }}
-                        />
-                        <YAxis
-                            tick={{
-                                fill: "#051DF2",
-                                fontSize: 11,
-                                fillOpacity: 0.65,
-                            }}
-                        />
-                        <Tooltip
-                            contentStyle={{
-                                borderRadius: "12px",
-                                border: "1px solid #0570F2",
-                                backgroundColor: "rgba(255,255,255,0.96)",
-                                backdropFilter: "blur(8px)",
-                                boxShadow: "0 8px 24px rgba(5,29,242,0.12)",
-                                fontSize: "12px",
-                                color: "#051DF2",
-                                fontWeight: 500,
-                            }}
-                        />
-                        <Bar
-                            dataKey="total"
-                            fill="#0570F2"
-                            radius={[8, 8, 0, 0]}
-                            fillOpacity={0.75}
-                        />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
+                    <div className="h-[500px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
+                        <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
+                            Entregas por Día
+                        </h2>
 
-            {/* ESTATUS */}
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart
+                                data={entregasPorDia}
+                                margin={{
+                                    top: 20,
+                                    right: 30,
+                                    left: 0,
+                                    bottom: 20,
+                                }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.1} />
+                                <XAxis
+                                    dataKey="fecha"
+                                    tick={{
+                                        fill: "#051DF2",
+                                        fontSize: 11,
+                                        fillOpacity: 0.7,
+                                    }}
+                                />
+                                <YAxis
+                                    tick={{
+                                        fill: "#051DF2",
+                                        fontSize: 11,
+                                        fillOpacity: 0.7,
+                                    }}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        borderRadius: "12px",
+                                        border: "1px solid #0570F2",
+                                        backgroundColor: "rgba(255,255,255,0.96)",
+                                        backdropFilter: "blur(8px)",
+                                        fontSize: "12px",
+                                        color: "#051DF2",
+                                    }}
+                                />
+                                <Legend />
+                                <Line
+                                    type="monotone"
+                                    dataKey="total"
+                                    stroke="#0570F2"
+                                    strokeWidth={3}
+                                    dot={{ r: 5 }}
+                                    activeDot={{ r: 7 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            ) : null}
 
-            <div className="h-[500px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
-                <h2 className="mb-4 text-base font-semibold tracking-wide text-[#051DF2] border-l-4 border-[#0570F2] pl-3 drop-shadow-sm">
-                    Entregadas / No Entregadas
-                </h2>
-
-                <ResponsiveContainer width="100%" height="90%">
-                    <PieChart>
-                        <Pie
-                            data={entregasEstado}
-                            dataKey="value"
-                            nameKey="name"
-                            outerRadius={100}
-                            label
-                            labelLine={{ stroke: "#0570F2", strokeWidth: 1.5, strokeOpacity: 0.35 }}
-                        >
-                            <Cell fill="#0570F2" fillOpacity={0.75} />
-                            <Cell fill="#051DF2" fillOpacity={0.7} />
-                        </Pie>
-                        <Tooltip
-                            contentStyle={{
-                                borderRadius: "12px",
-                                border: "1px solid #0570F2",
-                                backgroundColor: "rgba(255,255,255,0.96)",
-                                backdropFilter: "blur(8px)",
-                                fontSize: "12px",
-                                color: "#051DF2",
-                            }}
-                        />
-                        <Legend
-                            verticalAlign="bottom"
-                            height={36}
-                            wrapperStyle={{
-                                fontSize: "12px",
-                                fontWeight: 500,
-                                color: "#051DF2",
-                                opacity: 0.7,
-                            }}
-                        />
-                    </PieChart>
-                </ResponsiveContainer>
-            </div>
-
-        </div>
-
-        {/* ASESORES */}
-
-        <div className="h-[700px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">              
-            <h2 className="mb-4 text-base font-semibold tracking-wide text-[#051DF2] border-l-4 border-[#0570F2] pl-3 drop-shadow-sm">
-                Entregas por Asesor
-            </h2>
-
-            <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                    layout="vertical"
-                    data={entregasPorAsesor.slice(0, 10)}
-                    margin={{
-                        top: 20,
-                        right: 30,
-                        left: 80,
-                        bottom: 20,
-                    }}
-                    barCategoryGap={16}
-                >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.1} />
-                    <XAxis 
-                        type="number" 
-                        tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }}
-                    />
-                    <YAxis
-                        type="category"
-                        dataKey="asesor"
-                        width={160}
-                        tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }}
-                    />
-                    <Tooltip
-                        contentStyle={{
-                            borderRadius: "12px",
-                            border: "1px solid #0570F2",
-                            backgroundColor: "rgba(255,255,255,0.96)",
-                            backdropFilter: "blur(8px)",
-                            fontSize: "12px",
-                            color: "#051DF2",
-                        }}
-                    />
-                    <Bar
-                        dataKey="total"
-                        fill="#0570F2"
-                        radius={[0, 8, 8, 0]}
-                        fillOpacity={0.7}
-                    />
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
-
-    </div>
-
-) : null}
             <ContextMenu
                 ctxMenu={ctxMenu}
                 onDelete={async (row) => {
@@ -1732,6 +2067,7 @@ export default function RegistroEntregas() {
                                 <option value="" disabled>
                                     Selecciona un dealer...
                                 </option>
+
                                 {(isAdmin ? DEALERS : userAgencia ? [userAgencia] : DEALERS).map((dealer) => (
                                     <option key={dealer} value={dealer}>
                                         {dealer}
@@ -1791,7 +2127,7 @@ export default function RegistroEntregas() {
                             />
                         </Field>
 
-                        <Field label="Modelo / Versión" icon={CarFront}>
+                        <Field label="Modelo" icon={CarFront}>
                             <select
                                 value={draft.modelo_version || ""}
                                 onChange={(e) => setDraft((prev) => ({ ...prev, modelo_version: e.target.value }))}
@@ -1800,9 +2136,42 @@ export default function RegistroEntregas() {
                                 <option value="" disabled>
                                     Selecciona un modelo...
                                 </option>
+
                                 {MODELOS.map((modelo) => (
                                     <option key={modelo} value={modelo}>
                                         {modelo}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+
+                        <Field label="Versión" icon={CarFront}>
+                            <select
+                                value={draft.version || ""}
+                                onChange={(e) => setDraft((prev) => ({ ...prev, version: e.target.value }))}
+                                className={[inputBase, inputOk].join(" ")}
+                            >
+                                <option value="">Selecciona una versión...</option>
+
+                                {VERSIONES.map((version) => (
+                                    <option key={version} value={version}>
+                                        {version}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+
+                        <Field label="Color" icon={Palette}>
+                            <select
+                                value={draft.color || ""}
+                                onChange={(e) => setDraft((prev) => ({ ...prev, color: e.target.value }))}
+                                className={[inputBase, inputOk].join(" ")}
+                            >
+                                <option value="">Selecciona un color...</option>
+
+                                {COLORES.map((color) => (
+                                    <option key={color} value={color}>
+                                        {color}
                                     </option>
                                 ))}
                             </select>
@@ -1815,6 +2184,7 @@ export default function RegistroEntregas() {
                                 onChange={(e) => setDraft((prev) => ({ ...prev, fecha_hora_entrega: e.target.value }))}
                                 className={[inputBase, isInvalid("fecha_hora_entrega") ? inputBad : inputOk].join(" ")}
                             />
+
                             {isInvalid("fecha_hora_entrega") ? (
                                 <div className="mt-2 text-xs font-bold text-red-600">Fecha y hora de entrega es requerido.</div>
                             ) : null}
@@ -1845,6 +2215,7 @@ export default function RegistroEntregas() {
                                 <option value="" disabled>
                                     Selecciona un asesor...
                                 </option>
+
                                 {ASESORES.map((asesor) => (
                                     <option key={asesor} value={asesor}>
                                         {asesor}

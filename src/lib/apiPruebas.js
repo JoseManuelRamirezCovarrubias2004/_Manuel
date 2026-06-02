@@ -48,8 +48,10 @@ function getAuthObject() {
   try {
     const raw = localStorage.getItem("auth");
     if (!raw) return null;
+
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
+
     return parsed;
   } catch {
     return null;
@@ -58,6 +60,7 @@ function getAuthObject() {
 
 function getStoredUserObject() {
   const auth = getAuthObject();
+
   if (auth?.user && typeof auth.user === "object") {
     return auth.user;
   }
@@ -78,7 +81,7 @@ function getStoredUserObject() {
 
       return parsed;
     } catch {
-      // seguir
+      // seguir buscando
     }
   }
 
@@ -153,8 +156,8 @@ async function http(path, { method = "GET", body, headers } = {}) {
   };
 
   if (isFormData(body)) {
-    if (finalHeaders["Content-Type"]) delete finalHeaders["Content-Type"];
-    if (finalHeaders["content-type"]) delete finalHeaders["content-type"];
+    delete finalHeaders["Content-Type"];
+    delete finalHeaders["content-type"];
   }
 
   const res = await fetch(`${API}${path}`, {
@@ -172,11 +175,12 @@ async function http(path, { method = "GET", body, headers } = {}) {
 
   const ct = res.headers.get("content-type") || "";
   if (ct.includes("application/json")) return res.json();
+
   return res.text();
 }
 
 export const api = {
-  // ------------------ DIGITALES (PROSPECTOS) ------------------
+  // ------------------ DIGITALES / PROSPECTOS ------------------
   digitalesListProspectos: () => http("/digitales/api/prospectos/"),
 
   digitalesGetProspecto: (id) => http(`/digitales/api/prospectos/${id}/`),
@@ -202,14 +206,19 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  digitalesDeleteProspecto: (id) =>
+    http(`/digitales/api/prospectos/${id}/`, {
+      method: "DELETE",
+    }),
+
   digitalesGenerarResumen: (id) =>
     http(`/digitales/api/prospectos/${id}/generar-resumen/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     }),
 
-  digitalesDeleteProspecto: (id) =>
-    http(`/digitales/api/prospectos/${id}/`, { method: "DELETE" }),
+  digitalesCampanasMeta: (days = 30) =>
+    http(`/digitales/api/campanas-meta/?days=${encodeURIComponent(days)}`),
 
   // ------------------ WHATSAPP UI ------------------
   digitalesChats: () => {
@@ -231,32 +240,39 @@ export const api = {
       body: JSON.stringify(withRequestContext({ tel })),
     }),
 
-  digitalesContacto: (tel, { limit = 80, days = 3 } = {}) => {
-    const numero = getWhatsAppNumberFromSources();
-    const usuario = getCrmUsername();
+  digitalesContacto: (
+    tel,
+    { limit = 20, before_id = "", usuario = "", numero_asesor = "" } = {},
+  ) => {
+    const numero = numero_asesor || getWhatsAppNumberFromSources();
+    const user = usuario || getCrmUsername();
 
     return http(
       `/digitales/contacto/${buildQuery({
         tel,
         limit,
-        days,
+        before_id,
         numero_asesor: numero,
-        usuario,
+        usuario: user,
       })}`,
     );
   },
 
-  digitalesContactoUpdates: (tel, after, { days = 3 } = {}) => {
-    const numero = getWhatsAppNumberFromSources();
-    const usuario = getCrmUsername();
+  digitalesContactoUpdates: (
+    tel,
+    after = "",
+    { limit = 50, usuario = "", numero_asesor = "" } = {},
+  ) => {
+    const numero = numero_asesor || getWhatsAppNumberFromSources();
+    const user = usuario || getCrmUsername();
 
     return http(
       `/digitales/contacto/updates/${buildQuery({
         tel,
-        after: after || "",
-        days,
+        after,
+        limit,
         numero_asesor: numero,
-        usuario,
+        usuario: user,
       })}`,
     );
   },
@@ -291,13 +307,17 @@ export const api = {
     const fd = new FormData();
 
     fd.append("to", String(to || "").trim());
-    if (text) fd.append("text", String(text));
+
+    if (text) {
+      fd.append("text", String(text));
+    }
 
     appendContextToFormData(fd);
 
     const arr = Array.isArray(files) ? files : Array.from(files || []);
-    arr.forEach((f) => {
-      if (f) fd.append("files", f);
+
+    arr.forEach((file) => {
+      if (file) fd.append("files", file);
     });
 
     return http("/digitales/mensajes/enviar-media/", {
@@ -319,7 +339,4 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(withRequestContext({ to, message_id })),
     }),
-
-  digitalesCampanasMeta: (days = 30) =>
-    http(`/digitales/api/campanas-meta/?days=${encodeURIComponent(days)}`),
 };

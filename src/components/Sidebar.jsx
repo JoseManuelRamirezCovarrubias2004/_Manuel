@@ -117,21 +117,21 @@ export default function Sidebar() {
                 to: "/calidad",
                 label: "Gestion de Calidad",
                 icon: BadgeCheck,
-                show: hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
 
             {
                 to: "/timeforaction",
                 label: "TimeForAction",
                 icon: Zap,
-                show: hasAnyPermission(["USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
 
             {
                 to: "/comercial",
                 label: "Gestion Comercial",
                 icon: HandCoins,
-                show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
 
             {
@@ -145,34 +145,37 @@ export default function Sidebar() {
                 to: "/usados",
                 label: "Autos Usados",
                 icon: Car,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_VENTAS", "CRM_DIGITALES"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_VENTAS", "CRM_DIGITALES", "CRM_CALIDAD"]),
             },
             // long drive / credito
             {
                 to: "/financieros",
                 label: "Servicios Financieros",
                 icon: TrendingUp,
-                show: hasAnyPermission(["CRM_FINANCIEROS", "USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["CRM_FINANCIEROS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             // encuestas
             {
                 to: "/postventa",
                 label: "PostVenta",
                 icon: ClipboardCheck,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
-            {
-                to: "/administrativos",
-                label: "Reclutamiento y Seleccion",
-                icon: UserSearch,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH"]),
-            },
+            
+           {
+            to: "/administrativos",
+            label: "Reclutamiento y Seleccion",
+            icon: UserSearch,
+            show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]),
+        },
+
             {
                 to: "/qr",
                 label: "QR",
                 icon: QrCode,
                 show: hasAnyPermission(["USUARIOS_ADMIN"]),
             },
+            
             {
                 to: "/configuracion",
                 label: "Configuración",
@@ -252,23 +255,55 @@ export default function Sidebar() {
                             Tu cuenta no tiene módulos asignados. Pide al administrador que te asigne un rol.
                         </div>
                     ) : null}
-
                     <div className="mt-2 flex flex-col gap-1">
-                        {links.map(({ to, label, icon: Icon }) => (
-                            <NavLink
-                                key={to}
-                                to={to}
-                                className={linkClass}
-                                title={!showText && !isMobile ? label : undefined}
-                                onClick={() => {
-                                    if (isMobile) setMobileOpen(false);
-                                }}
-                            >
-                                <Icon size={18} className="shrink-0" />
-                                <FadeSlide show={showText} className="text-sm">
-                                    {label}
-                                </FadeSlide>
-                            </NavLink>
+                        {links.map((item) => (
+                            <div key={item.label}>
+                                {!item.children ? (
+                                    <NavLink
+                                        to={item.to}
+                                        className={linkClass}
+                                        title={!showText && !isMobile ? item.label : undefined}
+                                        onClick={() => {
+                                            if (isMobile) setMobileOpen(false);
+                                        }}
+                                    >
+                                        <item.icon size={18} className="shrink-0" />
+
+                                        <FadeSlide show={showText} className="text-sm">
+                                            {item.label}
+                                        </FadeSlide>
+                                    </NavLink>
+                                ) : (
+                                    <div>
+                                        {/* MENU PRINCIPAL */}
+                                        <div className="flex items-center gap-3 rounded-xl bg-[#10216B] px-4 py-3 text-white">
+                                            <item.icon size={18} className="shrink-0" />
+
+                                            <FadeSlide show={showText} className="text-sm">
+                                                {item.label}
+                                            </FadeSlide>
+                                        </div>
+
+                                        {/* SUBMENU */}
+                                        <div className="ml-6 mt-1 flex flex-col gap-1">
+                                            {item.children.map((child) => (
+                                                <NavLink
+                                                    key={child.to}
+                                                    to={child.to}
+                                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                                                    onClick={() => {
+                                                        if (isMobile) setMobileOpen(false);
+                                                    }}
+                                                >
+                                                    <div className="h-2 w-2 rounded-full bg-[#10216B]" />
+
+                                                    <span>{child.label}</span>
+                                                </NavLink>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         ))}
                     </div>
                 </nav>
@@ -372,7 +407,6 @@ export default function Sidebar() {
                                 <X size={18} />
                             </button>
                         </div>
-
                         <SidebarContent isMobile />
                     </div>
                 </div>
