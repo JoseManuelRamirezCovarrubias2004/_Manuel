@@ -80,4 +80,22 @@ async function http(path, { method = "GET", body, headers } = {}) {
 export const apiEncuestas = {
   list: () => http("/api/encuestas/satisfaccion/"),
   get: (id) => http(`/api/encuestas/satisfaccion/${id}/`),
+
+  crearSatisfaccion: (data) =>
+    http("/api/public/encuestas/satisfaccion/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    }),
+
+  crearServicio: (data) =>
+    http("/api/public/encuestas/servicio/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    }),
 };

@@ -1,5 +1,5 @@
 // src/pages/Digitaltes/DigitalesContacto.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import {
     ArrowLeft,
@@ -172,6 +172,52 @@ function cls(...items) {
 
 function safeLower(value) {
     return String(value || "").toLowerCase();
+}
+
+function normalizeText(value) {
+    return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+}
+
+function normalizeProspectoToChat(p) {
+    return {
+        id: `prospecto-${p.id || p.telefono}`,
+        prospectoId: p.id,
+        telefono: normalizaTelefonoMx(p.telefono || ""),
+        nombre: p.nombre || "Prospecto",
+        agencia: p.agencia || "",
+        linea: p.business || "",
+        estado: p.estado || "",
+        unread: 0,
+        last: {
+            text: p.comentarios || "Sin historial reciente",
+            time: "",
+        },
+        isOnlyProspecto: true,
+    };
+}
+
+function mergeChatsConProspectos(chats, prospectos) {
+    const map = new Map();
+
+    for (const chat of chats || []) {
+        if (chat.telefono) map.set(chat.telefono, chat);
+    }
+
+    for (const prospecto of prospectos || []) {
+        const chat = normalizeProspectoToChat(prospecto);
+        if (!chat.telefono) continue;
+
+        if (!map.has(chat.telefono)) {
+            map.set(chat.telefono, chat);
+        }
+    }
+
+    return Array.from(map.values());
 }
 
 function normalizaTelefonoMx(tel) {
@@ -1022,6 +1068,8 @@ export default function DigitalesContacto() {
     const [loadingList, setLoadingList] = useState(false);
     const [loadingChat, setLoadingChat] = useState(false);
     const [chats, setChats] = useState([]);
+    const [prospectosIndex, setProspectosIndex] = useState([]);
+    const deferredQ = useDeferredValue(q);
     const [activeTel, setActiveTel] = useState("");
     const [prospecto, setProspecto] = useState(null);
     const [mensajes, setMensajes] = useState([]);
@@ -1118,21 +1166,33 @@ export default function DigitalesContacto() {
     }, [activeTel, chats, prospecto]);
 
     const filteredChats = useMemo(() => {
-        const query = q.trim().toLowerCase();
+        const query = normalizeText(deferredQ);
+        const queryPhone = normalizaTelefonoMx(deferredQ);
 
-        return chats.filter((chat) => {
+        const base = query
+            ? mergeChatsConProspectos(chats, prospectosIndex)
+            : chats;
+
+        return base.filter((chat) => {
             if (!query) return true;
 
+            const nombre = normalizeText(chat.nombre);
+            const telefono = normalizaTelefonoMx(chat.telefono);
+            const agencia = normalizeText(chat.agencia);
+            const linea = normalizeText(chat.linea);
+            const estado = normalizeText(chat.estado);
+            const ultimoTexto = normalizeText(chat.last?.text);
+
             return (
-                safeLower(chat.nombre).includes(query) ||
-                safeLower(chat.telefono).includes(query) ||
-                safeLower(chat.agencia).includes(query) ||
-                safeLower(chat.linea).includes(query) ||
-                safeLower(chat.estado).includes(query) ||
-                safeLower(chat.last?.text).includes(query)
+                nombre.includes(query) ||
+                telefono.includes(queryPhone || query) ||
+                agencia.includes(query) ||
+                linea.includes(query) ||
+                estado.includes(query) ||
+                ultimoTexto.includes(query)
             );
         });
-    }, [chats, q]);
+    }, [chats, prospectosIndex, deferredQ]);
 
     const composerHint = useMemo(() => {
         if (!activeTel) return "Selecciona un chat para escribir…";
@@ -2119,6 +2179,32 @@ export default function DigitalesContacto() {
 
         cargarChatInicial(activeTel);
     }, [activeTel, isDirectChatMode]);
+
+    useEffect(() => {
+        let ignore = false;
+
+        if (isDirectChatMode) return;
+
+        (async () => {
+            try {
+                const data = await api.digitalesListProspectos();
+
+                if (ignore) return;
+
+                setProspectosIndex(Array.isArray(data) ? data : []);
+            } catch (error) {
+                console.error("Error cargando índice de prospectos:", error);
+
+                if (!ignore) {
+                    setProspectosIndex([]);
+                }
+            }
+        })();
+
+        return () => {
+            ignore = true;
+        };
+    }, [isDirectChatMode]);
 
     useEffect(() => {
         let alive = true;
