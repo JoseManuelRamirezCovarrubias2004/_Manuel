@@ -1,417 +1,73 @@
-// src/pages/puestos/datos/funcionesPuestos.js
+export const PUESTOS = [
+    { id: 1, nombre: "Asesor de ventas nuevos", categoria: "Ventas", dependeDe: "Gerente de Ventas" },
+    { id: 2, nombre: "Asesor de ventas seminuevos", categoria: "Ventas", dependeDe: "Gerente de Ventas" },
+    { id: 3, nombre: "Asistente de ventas", categoria: "Ventas", dependeDe: "Gerente de Ventas" },
+    { id: 4, nombre: "Servicios Financieros", categoria: "Ventas", dependeDe: "Gerente de Ventas" },
+    { id: 5, nombre: "Coordinador de AFASA", categoria: "Ventas", dependeDe: "Gerente de Ventas" },
+    { id: 6, nombre: "Preparador", categoria: "Postventa", dependeDe: "Gerente de Postventa" },
+    { id: 7, nombre: "Lavador", categoria: "Operaciones", dependeDe: "Jefe de Taller" },
+    { id: 8, nombre: "Cajera", categoria: "Administración", dependeDe: "Gerente General" },
+    { id: 9, nombre: "Auxiliar contable", categoria: "Administración", dependeDe: "Contador General" },
+    { id: 10, nombre: "Contador General", categoria: "Administración", dependeDe: "Gerente General" },
+    { id: 11, nombre: "Gerente de ventas", categoria: "Ventas", dependeDe: "Gerente General" },
+    { id: 12, nombre: "Gerente de Servicio", categoria: "Servicio", dependeDe: "Gerente General" },
+    { id: 13, nombre: "Gerente de refacciones", categoria: "Refacciones", dependeDe: "Gerente General" },
+    { id: 14, nombre: "Gerente de postventa", categoria: "Postventa", dependeDe: "Gerente General" },
+    { id: 15, nombre: "Gerente de HYP", categoria: "HYP", dependeDe: "Gerente General" },
+    { id: 16, nombre: "Asesor de HYP", categoria: "HYP", dependeDe: "Gerente de HYP" },
+    { id: 17, nombre: "Técnico Hojalatero", categoria: "Postventa", dependeDe: "Gerente de Postventa" },
+    { id: 18, nombre: "Técnico pintor", categoria: "Postventa", dependeDe: "Gerente de Postventa" },
+    { id: 19, nombre: "Técnico mecanico", categoria: "Servicio", dependeDe: "Jefe de Taller" },
+    { id: 20, nombre: "Asesor de servicio", categoria: "Servicio", dependeDe: "Gerente de Servicio" },
+    { id: 21, nombre: "Asistente de servicio", categoria: "Servicio", dependeDe: "Gerente de Servicio" },
+    { id: 22, nombre: "Administrador de garantía", categoria: "Servicio", dependeDe: "Gerente de Servicio" },
+    { id: 23, nombre: "Jefe de taller", categoria: "Servicio", dependeDe: "Gerente de Servicio" },
+    { id: 24, nombre: "Técnico Master", categoria: "Servicio", dependeDe: "Gerente de Servicio" },
+    { id: 25, nombre: "Asesor de refacciones mostrador taller", categoria: "Refacciones", dependeDe: "Gerente de Refacciones" },
+    { id: 26, nombre: "Asesor de refacciones mostrador publico", categoria: "Refacciones", dependeDe: "Gerente de Refacciones" },
+    { id: 27, nombre: "Asesor de refacciones promotoria NORA", categoria: "Refacciones", dependeDe: "Gerente de Refacciones" },
+    { id: 28, nombre: "Encargado de almacen", categoria: "Refacciones", dependeDe: "Gerente de Refacciones" },
+    { id: 29, nombre: "Asesor de ventas digitales", categoria: "Ventas", dependeDe: "Gerente de Ventas" },
+    { id: 30, nombre: "Coordinador de ventas digitales", categoria: "Ventas", dependeDe: "Gerente de Ventas" },
+    { id: 31, nombre: "Auditor interno", categoria: "Administración", dependeDe: "Gerente General" },
+    { id: 32, nombre: "Contador Fiscal", categoria: "Administración", dependeDe: "Contador General" },
+    { id: 33, nombre: "Gerente General", categoria: "Administración", dependeDe: "Dirección" },
+    { id: 34, nombre: "Gerente de marketing", categoria: "Marketing", dependeDe: "Gerente General" },
+    { id: 35, nombre: "Consultor de procesos", categoria: "Marketing", dependeDe: "Gerente de Marketing" },
+    { id: 36, nombre: "Coordinador de marketing", categoria: "Marketing", dependeDe: "Gerente de Marketing" },
+    { id: 37, nombre: "Hostess", categoria: "Operaciones", dependeDe: "Gerente General" },
+    { id: 38, nombre: "Contact Center", categoria: "Operaciones", dependeDe: "Gerente de Ventas" },
+    { id: 39, nombre: "Trasladista", categoria: "Operaciones", dependeDe: "Gerente de Servicio" },
+    { id: 40, nombre: "Valuador de seminuevos", categoria: "Ventas", dependeDe: "Gerente de Ventas" },
+    { id: 41, nombre: "Control de calidad", categoria: "Calidad", dependeDe: "Gerente de Calidad" },
+    { id: 42, nombre: "Afanador", categoria: "Operaciones", dependeDe: "Gerente General" },
+    { id: 43, nombre: "Vigilancia", categoria: "Operaciones", dependeDe: "Gerente General" },
+    { id: 44, nombre: "Oficial de cumplimiento", categoria: "Administración", dependeDe: "Gerente General" },
+    { id: 45, nombre: "Especialista de entregas", categoria: "Ventas", dependeDe: "Gerente de Ventas" },
+    { id: 46, nombre: "Desarrollo organizacional", categoria: "Recursos Humanos", dependeDe: "Gerente General" },
+    { id: 47, nombre: "Gerente de calidad", categoria: "Calidad", dependeDe: "Gerente General" },
+    { id: 48, nombre: "Gerente de postventa grupo", categoria: "Postventa", dependeDe: "Dirección" },
+    { id: 49, nombre: "Credito y cobranza divisional", categoria: "Finanzas", dependeDe: "Dirección" },
+    { id: 50, nombre: "Sistemas", categoria: "Sistemas", dependeDe: "Gerente General" },
+    { id: 51, nombre: "Contador General de fondos y valores", categoria: "Administración", dependeDe: "Contador General" },
+    { id: 52, nombre: "Desarrollo organizacional grupo", categoria: "Recursos Humanos", dependeDe: "Dirección" },
+    { id: 53, nombre: "Recursos humanos divisional", categoria: "Recursos Humanos", dependeDe: "Dirección" },
+    { id: 54, nombre: "Analista de datos y programación", categoria: "Sistemas", dependeDe: "Sistemas" },
+    { id: 55, nombre: "Auxiliar de diseño y producción", categoria: "Marketing", dependeDe: "Coordinador de Marketing" },
+];
 
-export const FUNCIONES_POR_PUESTO = {
-    // ==================== VENTAS ====================
-    "Asesor de Ventas Nuevos": {
-        funciones: [
-            {
-                nombre: "Atención al cliente en sala de ventas",
-                subactividades: [
-                    "Recibir al cliente de manera cordial y profesional",
-                    "Identificar necesidades y preferencias del cliente",
-                    "Presentar las opciones de vehículos disponibles",
-                    "Resolver dudas sobre características y precios"
-                ]
-            },
-            {
-                nombre: "Pruebas de manejo",
-                subactividades: [
-                    "Verificar licencia de conducir del cliente",
-                    "Explicar la ruta y características del vehículo",
-                    "Acompañar durante la prueba de manejo",
-                    "Resolver dudas técnicas durante el recorrido"
-                ]
-            },
-            {
-                nombre: "Negociación y cierre de ventas",
-                subactividades: [
-                    "Presentar opciones de financiamiento",
-                    "Negociar precios y promociones",
-                    "Cerrar la venta de manera efectiva",
-                    "Gestionar documentación de compra"
-                ]
-            },
-            {
-                nombre: "Seguimiento post-venta",
-                subactividades: [
-                    "Contactar al cliente después de la entrega",
-                    "Resolver dudas sobre el funcionamiento del vehículo",
-                    "Gestionar agendamiento de primer servicio",
-                    "Mantener relación para futuras ventas"
-                ]
-            }
-        ]
-    },
-
-    "Asesor de Ventas Seminuevos": {
-        funciones: [
-            {
-                nombre: "Atención a clientes de seminuevos",
-                subactividades: [
-                    "Recibir y asesorar a clientes interesados en seminuevos",
-                    "Presentar inventario disponible de vehículos usados",
-                    "Explicar beneficios de la certificación de seminuevos"
-                ]
-            },
-            {
-                nombre: "Valuación de vehículos",
-                subactividades: [
-                    "Inspeccionar condiciones del vehículo",
-                    "Investigar precios de mercado",
-                    "Determinar valor comercial del vehículo",
-                    "Documentar condiciones y kilometraje"
-                ]
-            },
-            {
-                nombre: "Negociación y cierre",
-                subactividades: [
-                    "Negociar precio final con el cliente",
-                    "Gestionar financiamiento para seminuevos",
-                    "Coordinar entrega del vehículo",
-                    "Realizar trámites de transferencia"
-                ]
-            }
-        ]
-    },
-
-    "Gerente de Ventas": {
-        funciones: [
-            {
-                nombre: "Liderazgo del equipo de ventas",
-                subactividades: [
-                    "Supervisar el desempeño de los asesores",
-                    "Realizar reuniones de seguimiento diarias",
-                    "Motivar al equipo para alcanzar metas",
-                    "Resolver conflictos internos"
-                ]
-            },
-            {
-                nombre: "Planificación estratégica",
-                subactividades: [
-                    "Establecer metas mensuales y anuales",
-                    "Desarrollar estrategias de venta",
-                    "Analizar mercado y competencia",
-                    "Ajustar tácticas según resultados"
-                ]
-            },
-            {
-                nombre: "Gestión de inventario",
-                subactividades: [
-                    "Monitorear rotación de vehículos",
-                    "Coordinar pedidos a planta",
-                    "Gestionar vehículos de demostración",
-                    "Controlar stock por modelo y color"
-                ]
-            },
-            {
-                nombre: "Capacitación y desarrollo",
-                subactividades: [
-                    "Identificar necesidades de capacitación",
-                    "Coordinar entrenamientos internos",
-                    "Evaluar progreso del equipo",
-                    "Implementar mejoras continuas"
-                ]
-            }
-        ]
-    },
-
-    // ==================== SERVICIO ====================
-    "Asesor de Servicio": {
-        funciones: [
-            {
-                nombre: "Recepción de vehículos",
-                subactividades: [
-                    "Recibir al cliente de manera cordial",
-                    "Registrar datos del vehículo y cliente",
-                    "Identificar necesidades de servicio",
-                    "Generar orden de reparación"
-                ]
-            },
-            {
-                nombre: "Diagnóstico y cotización",
-                subactividades: [
-                    "Realizar diagnóstico inicial",
-                    "Cotizar reparaciones necesarias",
-                    "Explicar al cliente los trabajos requeridos",
-                    "Obtener autorización del cliente"
-                ]
-            },
-            {
-                nombre: "Seguimiento de reparaciones",
-                subactividades: [
-                    "Monitorear avance de reparaciones",
-                    "Comunicar novedades al cliente",
-                    "Coordinar con taller para cumplir tiempos",
-                    "Verificar calidad del trabajo"
-                ]
-            },
-            {
-                nombre: "Entrega de vehículo",
-                subactividades: [
-                    "Revisar vehículo antes de la entrega",
-                    "Explicar trabajos realizados al cliente",
-                    "Entregar factura y documentación",
-                    "Resolver dudas finales del cliente"
-                ]
-            }
-        ]
-    },
-
-    "Técnico Mecánico": {
-        funciones: [
-            {
-                nombre: "Diagnóstico de fallas",
-                subactividades: [
-                    "Conectar equipo de diagnóstico computarizado",
-                    "Interpretar códigos de error",
-                    "Realizar pruebas mecánicas",
-                    "Identificar causa raíz de fallas"
-                ]
-            },
-            {
-                nombre: "Reparación y mantenimiento",
-                subactividades: [
-                    "Realizar reparaciones según manual técnico",
-                    "Cambiar piezas desgastadas o dañadas",
-                    "Realizar mantenimientos preventivos",
-                    "Probar sistemas reparados"
-                ]
-            },
-            {
-                nombre: "Control de calidad",
-                subactividades: [
-                    "Verificar que la reparación sea correcta",
-                    "Realizar pruebas de funcionamiento",
-                    "Documentar trabajos realizados",
-                    "Asegurar cumplimiento de estándares"
-                ]
-            },
-            {
-                nombre: "Mantenimiento de área de trabajo",
-                subactividades: [
-                    "Mantener orden y limpieza en el taller",
-                    "Cuidar herramientas y equipo",
-                    "Reportar equipo en mal estado",
-                    "Cumplir normas de seguridad"
-                ]
-            }
-        ]
-    },
-
-    "Jefe de Taller": {
-        funciones: [
-            {
-                nombre: "Supervisión de operaciones",
-                subactividades: [
-                    "Coordinar actividades diarias del taller",
-                    "Asignar trabajos a técnicos según especialidad",
-                    "Supervisar cumplimiento de tiempos",
-                    "Resolver problemas operativos"
-                ]
-            },
-            {
-                nombre: "Control de calidad",
-                subactividades: [
-                    "Inspeccionar trabajos terminados",
-                    "Identificar áreas de mejora",
-                    "Implementar medidas correctivas",
-                    "Reducir reparaciones repetidas"
-                ]
-            },
-            {
-                nombre: "Gestión de recursos",
-                subactividades: [
-                    "Controlar herramientas y equipo",
-                    "Gestionar inventario de consumibles",
-                    "Coordinar mantenimiento de equipo",
-                    "Optimizar uso de recursos"
-                ]
-            },
-            {
-                nombre: "Capacitación del equipo",
-                subactividades: [
-                    "Identificar necesidades de capacitación",
-                    "Coordinar entrenamientos técnicos",
-                    "Evaluar competencias del personal",
-                    "Promover mejora continua"
-                ]
-            }
-        ]
-    },
-
-    // ==================== ADMINISTRACIÓN ====================
-    "Contador General": {
-        funciones: [
-            {
-                nombre: "Registro contable",
-                subactividades: [
-                    "Registrar operaciones diarias",
-                    "Clasificar ingresos y egresos",
-                    "Mantener libros contables actualizados",
-                    "Conciliar cuentas bancarias"
-                ]
-            },
-            {
-                nombre: "Elaboración de estados financieros",
-                subactividades: [
-                    "Preparar balance general mensual",
-                    "Elaborar estado de resultados",
-                    "Generar reportes de flujo de efectivo",
-                    "Presentar informes a dirección"
-                ]
-            },
-            {
-                nombre: "Cumplimiento fiscal",
-                subactividades: [
-                    "Calcular impuestos mensuales",
-                    "Preparar declaraciones fiscales",
-                    "Gestionar obligaciones ante el SAT",
-                    "Mantener documentación fiscal en orden"
-                ]
-            },
-            {
-                nombre: "Auditoría y control interno",
-                subactividades: [
-                    "Realizar auditorías internas periódicas",
-                    "Detectar irregularidades contables",
-                    "Implementar controles internos",
-                    "Coordinar auditorías externas"
-                ]
-            }
-        ]
-    },
-
-    "Auxiliar Contable": {
-        funciones: [
-            {
-                nombre: "Registro de facturas",
-                subactividades: [
-                    "Capturar facturas de proveedores",
-                    "Verificar datos fiscales",
-                    "Clasificar por tipo de gasto",
-                    "Archivar documentos contables"
-                ]
-            },
-            {
-                nombre: "Conciliaciones bancarias",
-                subactividades: [
-                    "Descargar estados de cuenta",
-                    "Conciliar movimientos bancarios",
-                    "Identificar diferencias",
-                    "Reportar inconsistencias"
-                ]
-            },
-            {
-                nombre: "Apoyo en elaboración de reportes",
-                subactividades: [
-                    "Recopilar información para reportes",
-                    "Preparar cédulas de trabajo",
-                    "Actualizar bases de datos contables",
-                    "Apoyar en cierres mensuales"
-                ]
-            }
-        ]
-    },
-
-    // ==================== OPERACIONES ====================
-    "Lavador": {
-        funciones: [
-            {
-                nombre: "Lavado exterior de vehículos",
-                subactividades: [
-                    "Preparar materiales y productos de limpieza",
-                    "Aplicar productos de manera adecuada",
-                    "Secar y pulir superficies",
-                    "Verificar calidad del lavado"
-                ]
-            },
-            {
-                nombre: "Limpieza interior de vehículos",
-                subactividades: [
-                    "Aspirar tapetes y asientos",
-                    "Limpiar tablero y consola",
-                    "Aplicar aromatizantes",
-                    "Dejar el vehículo impecable"
-                ]
-            },
-            {
-                nombre: "Mantenimiento de área de trabajo",
-                subactividades: [
-                    "Organizar productos de limpieza",
-                    "Mantener orden en el área",
-                    "Reportar faltantes de insumos",
-                    "Cuidar equipo y herramientas"
-                ]
-            }
-        ]
-    },
-
-    // ==================== RECURSOS HUMANOS ====================
-    "Recursos Humanos": {
-        funciones: [
-            {
-                nombre: "Reclutamiento y selección",
-                subactividades: [
-                    "Publicar vacantes en plataformas",
-                    "Filtrar currículums recibidos",
-                    "Coordinar entrevistas con candidatos",
-                    "Realizar evaluaciones psicométricas"
-                ]
-            },
-            {
-                nombre: "Administración de personal",
-                subactividades: [
-                    "Gestionar altas y bajas en el IMSS",
-                    "Calcular nómina mensual",
-                    "Administrar vacaciones y permisos",
-                    "Mantener expedientes actualizados"
-                ]
-            },
-            {
-                nombre: "Capacitación y desarrollo",
-                subactividades: [
-                    "Identificar necesidades de capacitación",
-                    "Coordinar cursos internos",
-                    "Evaluar efectividad de capacitaciones",
-                    "Llevar registro de entrenamientos"
-                ]
-            },
-            {
-                nombre: "Relaciones laborales",
-                subactividades: [
-                    "Atender quejas del personal",
-                    "Resolver conflictos laborales",
-                    "Aplicar políticas internas",
-                    "Gestionar despidos y liquidaciones"
-                ]
-            }
-        ]
-    }
-};
-
-// Función para obtener funciones de un puesto
-export const obtenerFunciones = (nombrePuesto) => {
-    return FUNCIONES_POR_PUESTO[nombrePuesto] || {
-        funciones: [
-            {
-                nombre: "Cumplir con las responsabilidades del puesto",
-                subactividades: [
-                    "Realizar las actividades asignadas por el jefe inmediato",
-                    "Cumplir con los horarios establecidos",
-                    "Mantener comunicación efectiva con el equipo",
-                    "Reportar avances y novedades oportunamente",
-                    "Participar en capacitaciones y reuniones"
-                ]
-            },
-            {
-                nombre: "Atención y servicio",
-                subactividades: [
-                    "Brindar atención de calidad a clientes internos y externos",
-                    "Resolver dudas y quejas de manera profesional",
-                    "Mantener una actitud positiva y colaborativa",
-                    "Cumplir con las políticas de la empresa"
-                ]
-            }
-        ]
-    };
-};
+export const CATEGORIAS = [
+    "Todos",
+    "Ventas",
+    "Servicio",
+    "Refacciones",
+    "Postventa",
+    "HYP",
+    "Administración",
+    "Operaciones",
+    "Marketing",
+    "Calidad",
+    "Sistemas",
+    "Recursos Humanos",
+    "Finanzas"
+];

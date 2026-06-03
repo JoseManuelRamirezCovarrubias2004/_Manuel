@@ -130,6 +130,8 @@ function limpiarCandidato(candidato = {}) {
     fuente: candidato.fuente || "",
     estatus: candidato.estatus || "Nuevo",
 
+    cv: candidato.cv || "",
+
     fecha_entrevista_do: normalizarFecha(candidato.fecha_entrevista_do),
     fecha_entrevista_gerente: normalizarFecha(
       candidato.fecha_entrevista_gerente,

@@ -78,8 +78,49 @@ function formatDate(value) { if (!value) return "—"; const baseValue = typeof 
 function toInputDate(value) { if (!value) return ""; if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value; const date = new Date(value); if (Number.isNaN(date.getTime())) return ""; return date.toISOString().slice(0, 10); }
 function getSortValue(row, key) { if (key === "id_vacante") return Number(row.id_vacante || 0); if (key === "candidatos") return normalizarCandidatos(row).length; return normalizarTexto(row?.[key]); }
 function crearIdTemporal() { if (window.crypto?.randomUUID) return window.crypto.randomUUID(); return `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
-function crearCandidatoBase({ puesto = "", fuente = "" } = {}) { return { id_temporal: crearIdTemporal(), nombre: "", sexo: "", telefono: "", correo: "", ubicacion: "", puesto_postulado: puesto, fuente, estatus: "Nuevo", fecha_entrevista_do: "", fecha_entrevista_gerente: "", fecha_respuesta_gerente: "", fecha_alta_khor: "", fecha_realizacion_khor: "", fecha_entrega_resultados_khor: "", tipo_validacion_socioeconomica: "No aplica", fecha_solicitud_estudio_socioeconomico: "", fecha_entrega_reporte_socioeconomico: "", fecha_solicitud_referencias_laborales: "", fecha_entrega_referencias_laborales: "", fecha_solicitud_alta: "", fecha_respuesta_alta: "", fecha_ingreso: "", comentarios: "" }; }
-function normalizarCandidatos(row) { if (Array.isArray(row?.candidatos)) return row.candidatos; if (Array.isArray(row?.candidatos_vacante)) return row.candidatos_vacante; return []; }
+function crearCandidatoBase({ puesto = "", fuente = "" } = {}) {
+    return {
+        id_temporal: crearIdTemporal(),
+
+        nombre: "",
+        sexo: "",
+        telefono: "",
+        correo: "",
+        ubicacion: "",
+
+        puesto_postulado: puesto,
+        fuente,
+
+        estatus: "Nuevo",
+
+        // CV
+        cv_nombre: "",
+        cv_archivo: null,
+
+        fecha_entrevista_do: "",
+        fecha_entrevista_gerente: "",
+        fecha_respuesta_gerente: "",
+
+        fecha_alta_khor: "",
+        fecha_realizacion_khor: "",
+        fecha_entrega_resultados_khor: "",
+
+        tipo_validacion_socioeconomica: "No aplica",
+
+        fecha_solicitud_estudio_socioeconomico: "",
+        fecha_entrega_reporte_socioeconomico: "",
+
+        fecha_solicitud_referencias_laborales: "",
+        fecha_entrega_referencias_laborales: "",
+
+        fecha_solicitud_alta: "",
+        fecha_respuesta_alta: "",
+
+        fecha_ingreso: "",
+
+        comentarios: "",
+    };
+}function normalizarCandidatos(row) { if (Array.isArray(row?.candidatos)) return row.candidatos; if (Array.isArray(row?.candidatos_vacante)) return row.candidatos_vacante; return []; }
 function normalizarVacanteDesdeApi(row) { return { ...row, candidatos: normalizarCandidatos(row).map((candidato) => ({ ...crearCandidatoBase({ puesto: row?.puesto || "", fuente: row?.fuente_reclutamiento || "" }), ...candidato, id_temporal: candidato.id_temporal || candidato.id || crearIdTemporal(), puesto_postulado: candidato.puesto_postulado || candidato.puesto || row?.puesto || "", fuente: candidato.fuente || row?.fuente_reclutamiento || "", tipo_validacion_socioeconomica: candidato.tipo_validacion_socioeconomica || "No aplica", estatus: candidato.estatus || "Nuevo" })), }; }
 function stagesVisibles(candidato) { return DATE_STAGES.filter((stage) => { if (!stage.onlyWhen) return true; return candidato.tipo_validacion_socioeconomica === stage.onlyWhen; }); }
 function obtenerProgresoCandidato(candidato) { const visibles = stagesVisibles(candidato); const completas = visibles.filter((stage) => Boolean(candidato[stage.key])); if (!visibles.length) return 0; return Math.round((completas.length / visibles.length) * 100); }
@@ -1061,6 +1102,52 @@ export default function VacantesView() {
                                                                             {ESTATUS_CANDIDATO.map(e => <option key={e} value={e}>{e}</option>)}
                                                                         </select>
                                                                     </label>
+                                                                </div>
+                                                            </div>
+                                                            {/* CV DEL CANDIDATO */}
+                                                            <div className="rounded-xl border border-black/5 bg-white p-3 shadow-sm">
+                                                                <div className="mb-2 flex items-center gap-2 text-sm font-black text-[#131E5C]">
+                                                                    <FileText className="h-3 w-3" />
+                                                                    Currículum Vitae
+                                                                </div>
+
+                                                                <p className="mb-3 text-[11px] font-semibold text-slate-500">
+                                                                    Adjunta el CV del candidato en formato PDF.
+                                                                </p>
+
+                                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                                                    <input
+                                                                        type="file"
+                                                                        accept=".pdf"
+                                                                        onChange={(e) => {
+                                                                            const archivo = e.target.files?.[0];
+
+                                                                            if (!archivo) return;
+
+                                                                            actualizarCandidato(
+                                                                                index,
+                                                                                "cv_nombre",
+                                                                                archivo.name
+                                                                            );
+
+                                                                            actualizarCandidato(
+                                                                                index,
+                                                                                "cv_archivo",
+                                                                                archivo
+                                                                            );
+                                                                        }}
+                                                                        className="block w-full text-sm text-slate-600
+                                                                        file:mr-4 file:rounded-lg file:border-0
+                                                                        file:bg-[#131E5C] file:px-4 file:py-2
+                                                                        file:text-sm file:font-bold
+                                                                        file:text-white hover:file:bg-[#0f174a]"
+                                                                    />
+
+                                                                    {candidato.cv_nombre && (
+                                                                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                                                                            ✓ {candidato.cv_nombre}
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                             </div>
 

@@ -4,7 +4,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { PUESTOS, CATEGORIAS } from "./Datos/PuestosData";
 import { obtenerDescriptivo } from "./Datos/descriptivosPuestos";
-import { obtenerFunciones } from "./Datos/funcionesPuesto";
 import { obtenerPuestoCompleto } from "./Datos/puestosCompletos";
 
 const ListaPuestosView = () => {
