@@ -285,7 +285,7 @@ export default function RegistroLong() {
     const isAdmin = useMemo(() => {
         const permisos = user?.permisos || [];
         const rol = String(user?.rol || "").trim().toLowerCase();
-        return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
+        return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("CRM_VENTAS") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
     }, [user]);
 
     const userAgencia = String(user?.agencia || "").trim();

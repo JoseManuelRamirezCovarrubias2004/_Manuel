@@ -350,10 +350,30 @@ export default function RegistroCredito() {
     }, [rol, permisos]);
 
     const canAccessCredito = useMemo(() => {
-        return isAdmin || permisos.includes("CRM_FINANCIEROS");
+        return isAdmin || permisos.includes("CRM_FINANCIEROS") || permisos.includes("CRM_VENTAS");
     }, [isAdmin, permisos]);
 
-    const userAgencia = String(user?.agencia || "").trim();
+    const userAgencias = useMemo(() => {
+        return String(user?.agencia || "")
+            .split("|")
+            .map((agencia) => normalizeStr(agencia))
+            .filter(Boolean);
+    }, [user?.agencia]);
+
+    const userAgencia = userAgencias[0] || "";
+
+    const userTieneAgencia = useCallback(
+        (agenciaRegistro) => {
+            const agencia = normalizeStr(agenciaRegistro);
+            if (!agencia) return false;
+
+            return userAgencias.some(
+                (agenciaUsuario) =>
+                    agenciaUsuario.toLowerCase() === agencia.toLowerCase()
+            );
+        },
+        [userAgencias]
+    );
 
     const [solicitudes, setSolicitudes] = useState([]);
     const [inlineDrafts, setInlineDrafts] = useState({});
@@ -651,9 +671,11 @@ export default function RegistroCredito() {
     const dealers = useMemo(() => {
         const set = new Set((solicitudes || []).map((c) => normalizeStr(c.agencia)).filter(Boolean));
         const all = ["Todos", ...Array.from(set)];
-        if (!isAdmin && userAgencia) return ["Todos", userAgencia];
+        if (!isAdmin && userAgencias.length > 0) {
+            return ["Todos", ...userAgencias];
+        }
         return all;
-    }, [solicitudes, isAdmin, userAgencia]);
+    }, [solicitudes, isAdmin, userAgencias]);
 
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
@@ -664,8 +686,7 @@ export default function RegistroCredito() {
         const maxInt = hastaInt ?? null;
 
         return (solicitudes || []).filter((c) => {
-            if (!isAdmin && userAgencia && normalizeStr(c.agencia) !== normalizeStr(userAgencia)) return false;
-
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) return false;
             const nombreCliente = normalizeStr(c?.cliente?.nombre);
             const telCliente = normalizeStr(c?.cliente?.telefono);
 
@@ -696,7 +717,7 @@ export default function RegistroCredito() {
 
             return matchQ && matchAgencia && matchRango;
         });
-    }, [solicitudes, filters, isAdmin, userAgencia]);
+    }, [solicitudes, filters, isAdmin, userAgencias, userTieneAgencia]);
 
     const sorted = useMemo(() => {
         const data = [...filtered];
@@ -731,7 +752,7 @@ export default function RegistroCredito() {
         setTouchedSave(false);
         setMode("create");
 
-        const agenciaDefault = isAdmin ? "" : userAgencia;
+        const agenciaDefault = isAdmin ? "" : userAgencias[0] || "";
 
         setDraft({
             id: null,
@@ -767,7 +788,7 @@ export default function RegistroCredito() {
 
             const c = await apiCredito.get(row.id);
 
-            if (!isAdmin && userAgencia && normalizeStr(c.agencia) !== normalizeStr(userAgencia)) {
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) {
                 alert("No tienes permisos para ver registros de otra agencia.");
                 setOpenModal(false);
                 return;
@@ -811,7 +832,7 @@ export default function RegistroCredito() {
     const eliminarSolicitud = async (row) => {
         if (!row?.id) return;
 
-        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) {
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para eliminar registros de otra agencia.");
             return;
         }
@@ -839,7 +860,7 @@ export default function RegistroCredito() {
 
         setSaving(true);
         try {
-            const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : userAgencia;
+            const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : normalizeStr(draft.agencia || userAgencia);
 
             const payload = {
                 agencia: agenciaFinal,
@@ -876,7 +897,7 @@ export default function RegistroCredito() {
         const id = row?.id;
         if (!id) return;
 
-        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) {
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para modificar registros de otra agencia.");
             return;
         }
@@ -947,7 +968,7 @@ export default function RegistroCredito() {
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Solicitudes de Credito</h2>
                     {!isAdmin && userAgencia ? (
                         <p className="mt-1 text-xs font-semibold text-slate-500">
-                            Agencia asignada: <span className="text-[#131E5C]">{userAgencia}</span>
+                            Agencia asignada:{" "}<span className="text-[#131E5C]">{userAgencias.join(", ")}</span>
                         </p>
                     ) : null}
                 </div>
@@ -1251,15 +1272,22 @@ export default function RegistroCredito() {
                                 <select
                                     value={draft.agencia || ""}
                                     onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))}
-                                    disabled={!isAdmin}
-                                    className={[inputBase, inputOk, !isAdmin ? "opacity-75 cursor-not-allowed" : ""].join(" ")}
+                                    disabled={!isAdmin && userAgencias.length <= 1}
+                                    className={[
+                                        inputBase,
+                                        inputOk,
+                                        !isAdmin && userAgencias.length <= 1
+                                            ? "opacity-75 cursor-not-allowed"
+                                            : "",
+                                    ].join(" ")}
                                 >
                                     <option value="" disabled>
                                         Selecciona un dealer...
                                     </option>
-                                    {(isAdmin ? DEALERS : userAgencia ? [userAgencia] : DEALERS).map((d) => (
-                                        <option key={d} value={d}>
-                                            {d}
+
+                                    {(isAdmin ? DEALERS : userAgencias).map((dealer) => (
+                                        <option key={dealer} value={dealer}>
+                                            {dealer}
                                         </option>
                                     ))}
                                 </select>

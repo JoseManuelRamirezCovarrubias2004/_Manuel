@@ -209,7 +209,7 @@ export const router = createBrowserRouter(
                                 {
                                     path: "campanas_meta",
                                     element: (
-                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]}>
+                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]}>
                                             <CampanasMeta />
                                         </RequirePermission>
                                     ),
@@ -218,7 +218,7 @@ export const router = createBrowserRouter(
                                 {
                                     path: "prospectos",
                                     element: (
-                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]}>
+                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS",]}>
                                             <DigitalesLayout />
                                         </RequirePermission>
                                     ),
@@ -380,10 +380,6 @@ export const router = createBrowserRouter(
                                             index: true,
                                             element: <RegistroAvaluos />,
                                         },
-                                        {
-                                            path: "contacto",
-                                            element: <DigitalesContacto />,
-                                        },
                                     ],
                                 },
 
@@ -433,7 +429,7 @@ export const router = createBrowserRouter(
                                     path: "credito",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "CRM_FINANCIEROS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
+                                            anyOf={["CRM_DIGITALES", "CRM_FINANCIEROS", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
                                         >
                                             <CreditoLayout />
                                         </RequirePermission>

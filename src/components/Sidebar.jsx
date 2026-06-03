@@ -152,7 +152,7 @@ export default function Sidebar() {
                 to: "/financieros",
                 label: "Servicios Financieros",
                 icon: TrendingUp,
-                show: hasAnyPermission(["CRM_FINANCIEROS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
+                show: hasAnyPermission(["CRM_FINANCIEROS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]),
             },
             // encuestas
             {
@@ -161,13 +161,13 @@ export default function Sidebar() {
                 icon: ClipboardCheck,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
-            
-           {
-            to: "/administrativos",
-            label: "Reclutamiento y Seleccion",
-            icon: UserSearch,
-            show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]),
-        },
+
+            {
+                to: "/administrativos",
+                label: "Reclutamiento y Seleccion",
+                icon: UserSearch,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]),
+            },
 
             {
                 to: "/qr",
@@ -175,7 +175,7 @@ export default function Sidebar() {
                 icon: QrCode,
                 show: hasAnyPermission(["USUARIOS_ADMIN"]),
             },
-            
+
             {
                 to: "/configuracion",
                 label: "Configuración",
