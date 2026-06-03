@@ -745,7 +745,7 @@ export default function RegistroPruebaManejo() {
     const [registros, setRegistros] = useState([]);
 
     // ─── VISTA ACTIVA: "lista" | "agenda" | "graficas" ───
-    const [vistaActiva, setVistaActiva] = useState("lista");
+    const [vistaActiva, setVistaActiva] = useState("tabla");
 
     const DEALERS = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"];
     const ASESORES = [
@@ -861,7 +861,7 @@ export default function RegistroPruebaManejo() {
 
     // Auto-refresh cada 60s cuando está en gráficas o agenda
     useEffect(() => {
-        if (vistaActiva === "lista") return;
+        if (vistaActiva === "tabla") return;
         const interval = setInterval(() => { refreshList(); }, 60_000);
         return () => clearInterval(interval);
     }, [vistaActiva]);
@@ -1041,7 +1041,7 @@ export default function RegistroPruebaManejo() {
                 <div className="min-w-0">
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Pruebas de Manejo</h2>
                     <p className="text-sm text-slate-400">
-                        {vistaActiva === "lista" && "Doble clic para editar la información."}
+                        {vistaActiva === "tabla" && "Doble clic para editar la información."}
                         {vistaActiva === "agenda" && "Visualiza las pruebas en el calendario."}
                         {vistaActiva === "graficas" && "Estadísticas en tiempo real · Se actualiza cada 60 s."}
                     </p>
@@ -1084,7 +1084,7 @@ export default function RegistroPruebaManejo() {
             </div>
 
             {/* ─── Filtros (solo en vista lista) ─── */}
-            {vistaActiva === "lista" && (
+            {vistaActiva === "tabla" && (
                 <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <div className="grid gap-3 md:grid-cols-12">
                         <div className="md:col-span-6">
@@ -1126,7 +1126,7 @@ export default function RegistroPruebaManejo() {
             )}
 
             {/* ═══ VISTA LISTA ═══ */}
-            {vistaActiva === "lista" && (
+            {vistaActiva === "tabla" && (
                 <>
                     {/* Desktop */}
                     <div className="hidden overflow-hidden rounded-lg shadow-lg bg-white/[0.03] lg:block">
