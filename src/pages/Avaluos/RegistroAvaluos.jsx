@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import {
     Plus,
     Search,
@@ -615,6 +615,7 @@ export default function RegistroAvaluos() {
     const fileInputRef = useRef(null);
     const draftRef = useRef(null);
 
+    // ── permisos y agencias (igual que RegistroCredito) ──────────────────────
     const isAdmin = useMemo(() => {
         const permisos = user?.permisos || [];
         const rol = String(user?.rol || "").trim().toLowerCase();
@@ -626,7 +627,28 @@ export default function RegistroAvaluos() {
         );
     }, [user]);
 
-    const userAgencia = String(user?.agencia || "").trim();
+    // Array de agencias del usuario (soporta múltiples separadas por "|")
+    const userAgencias = useMemo(() => {
+        return String(user?.agencia || "")
+            .split("|")
+            .map((a) => normalizeStr(a))
+            .filter(Boolean);
+    }, [user?.agencia]);
+
+    const userAgencia = userAgencias[0] || "";
+
+    // Helper: ¿el registro pertenece a alguna agencia del usuario?
+    const userTieneAgencia = useCallback(
+        (agenciaRegistro) => {
+            const agencia = normalizeStr(agenciaRegistro);
+            if (!agencia) return false;
+            return userAgencias.some(
+                (a) => a.toLowerCase() === agencia.toLowerCase()
+            );
+        },
+        [userAgencias]
+    );
+    // ─────────────────────────────────────────────────────────────────────────
 
     const [avaluos, setAvaluos] = useState([]);
     const [ctxMenu, setCtxMenu] = useState({
@@ -923,30 +945,29 @@ export default function RegistroAvaluos() {
         refreshList();
     }, []);
 
+    // ── dealers: solo muestra las agencias del usuario (igual que RegistroCredito) ──
     const dealers = useMemo(() => {
         const set = new Set(
             (avaluos || []).map((item) => normalizeStr(item.agencia)).filter(Boolean)
         );
-        const lista = ["Todos", ...Array.from(set)];
+        const all = ["Todos", ...Array.from(set)];
 
-        if (!isAdmin && userAgencia) {
-            return ["Todos", userAgencia];
+        if (!isAdmin && userAgencias.length > 0) {
+            return ["Todos", ...userAgencias];
         }
 
-        return lista;
-    }, [avaluos, isAdmin, userAgencia]);
+        return all;
+    }, [avaluos, isAdmin, userAgencias]);
 
+    // ── filtered: excluye registros de otras agencias para no-admins ───────────
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
         const desdeInt = ymdToInt(filters.rangoDesde);
         const hastaInt = ymdToInt(filters.rangoHasta);
 
         return (avaluos || []).filter((item) => {
-            if (
-                !isAdmin &&
-                userAgencia &&
-                normalizeStr(item.agencia) !== normalizeStr(userAgencia)
-            ) {
+            // Restricción por agencia del usuario
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(item.agencia)) {
                 return false;
             }
 
@@ -991,7 +1012,7 @@ export default function RegistroAvaluos() {
 
             return matchQ && matchAgencia && matchRango;
         });
-    }, [avaluos, filters, isAdmin, userAgencia]);
+    }, [avaluos, filters, isAdmin, userAgencias, userTieneAgencia]);
 
     const sorted = useMemo(() => {
         const data = [...filtered];
@@ -1033,7 +1054,8 @@ export default function RegistroAvaluos() {
         setTouchedSave(false);
         setMode("create");
 
-        const agenciaDefault = isAdmin ? "" : userAgencia;
+        // Agencia por defecto: primera del usuario si no es admin
+        const agenciaDefault = isAdmin ? "" : userAgencias[0] || "";
 
         setDraft({
             id: null,
@@ -1080,11 +1102,8 @@ export default function RegistroAvaluos() {
 
             const item = await apiAvaluos.get(row.id);
 
-            if (
-                !isAdmin &&
-                userAgencia &&
-                normalizeStr(item.agencia) !== normalizeStr(userAgencia)
-            ) {
+            // Verificar que el usuario tenga acceso a la agencia del registro
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(item.agencia)) {
                 alert("No tienes permisos para ver registros de otra agencia.");
                 setOpenModal(false);
                 return;
@@ -1093,7 +1112,7 @@ export default function RegistroAvaluos() {
             setDraft({
                 id: item.id,
                 cliente_id: item?.cliente?.id_cliente ?? null,
-                agencia: item.agencia || (isAdmin ? "" : userAgencia),
+                agencia: item.agencia || (isAdmin ? "" : userAgencias[0] || ""),
                 cliente_nombre: item?.cliente?.nombre || "",
                 cliente_telefono: item?.cliente?.telefono || "",
                 cliente_correo: item?.cliente?.correo || "",
@@ -1187,11 +1206,8 @@ export default function RegistroAvaluos() {
     const eliminarAvaluo = async (row) => {
         if (!row?.id) return;
 
-        if (
-            !isAdmin &&
-            userAgencia &&
-            normalizeStr(row.agencia) !== normalizeStr(userAgencia)
-        ) {
+        // Verificar permisos por agencia
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para eliminar registros de otra agencia.");
             return;
         }
@@ -1272,7 +1288,10 @@ export default function RegistroAvaluos() {
         setSaving(true);
 
         try {
-            const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : userAgencia;
+            // Agencia final: si no es admin, se usa la primera agencia del usuario
+            const agenciaFinal = isAdmin
+                ? normalizeStr(draft.agencia || "")
+                : normalizeStr(draft.agencia || userAgencias[0] || "");
 
             const payload = {
                 agencia: agenciaFinal,
@@ -1357,7 +1376,7 @@ export default function RegistroAvaluos() {
                     {!isAdmin && userAgencia ? (
                         <p className="mt-1 text-xs font-semibold text-slate-500">
                             Agencia asignada:{" "}
-                            <span className="text-[#131E5C]">{userAgencia}</span>
+                            <span className="text-[#131E5C]">{userAgencias.join(", ")}</span>
                         </p>
                     ) : null}
                 </div>
@@ -1765,23 +1784,23 @@ export default function RegistroAvaluos() {
                                 onChange={(e) =>
                                     setDraft((prev) => ({ ...prev, agencia: e.target.value }))
                                 }
-                                disabled={!isAdmin}
+                                disabled={!isAdmin && userAgencias.length <= 1}
                                 className={[
                                     inputBase,
                                     inputOk,
-                                    !isAdmin ? "cursor-not-allowed opacity-75" : "",
+                                    !isAdmin && userAgencias.length <= 1
+                                        ? "cursor-not-allowed opacity-75"
+                                        : "",
                                 ].join(" ")}
                             >
                                 <option value="" disabled>
                                     Selecciona un dealer...
                                 </option>
-                                {(isAdmin ? DEALERS : userAgencia ? [userAgencia] : DEALERS).map(
-                                    (dealer) => (
-                                        <option key={dealer} value={dealer}>
-                                            {dealer}
-                                        </option>
-                                    )
-                                )}
+                                {(isAdmin ? DEALERS : userAgencias).map((dealer) => (
+                                    <option key={dealer} value={dealer}>
+                                        {dealer}
+                                    </option>
+                                ))}
                             </select>
                         </Field>
 
@@ -2112,9 +2131,10 @@ export default function RegistroAvaluos() {
                                     className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[#131E5C]/25 bg-[#131E5C]/5 px-4 py-6 text-center text-[#131E5C] transition hover:bg-[#131E5C]/10 sm:flex-row sm:text-left"
                                 >
                                     <UploadCloud className="h-6 w-6" />
-                                    <div className="min-w-0">                                        <div className="text-sm font-extrabold">
-                                        Agregar fotos, videos o archivos
-                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-extrabold">
+                                            Agregar fotos, videos o archivos
+                                        </div>
                                         <div className="text-xs font-semibold text-slate-500">
                                             Puedes seleccionar varios archivos al mismo tiempo. Límite sugerido: 50 MB por archivo.
                                         </div>
@@ -2144,13 +2164,14 @@ export default function RegistroAvaluos() {
                                         <div className="mb-2 text-sm font-extrabold text-[#131E5C]">
                                             Evidencias guardadas
                                         </div>
-                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">                                            {draft.evidencias_existentes.map((item) => (
-                                            <EvidenceCard
-                                                key={`existente-${item.id}`}
-                                                item={item}
-                                                onRemove={() => removeEvidenciaExistente(item.id)}
-                                            />
-                                        ))}
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                                            {draft.evidencias_existentes.map((item) => (
+                                                <EvidenceCard
+                                                    key={`existente-${item.id}`}
+                                                    item={item}
+                                                    onRemove={() => removeEvidenciaExistente(item.id)}
+                                                />
+                                            ))}
                                         </div>
                                     </div>
                                 ) : null}
@@ -2160,13 +2181,14 @@ export default function RegistroAvaluos() {
                                         <div className="mb-2 text-sm font-extrabold text-[#131E5C]">
                                             Evidencias nuevas
                                         </div>
-                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">                                            {draft.evidencias_nuevas.map((item) => (
-                                            <EvidenceCard
-                                                key={item._tmpId}
-                                                item={item}
-                                                onRemove={() => removeNuevaEvidencia(item._tmpId)}
-                                            />
-                                        ))}
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                                            {draft.evidencias_nuevas.map((item) => (
+                                                <EvidenceCard
+                                                    key={item._tmpId}
+                                                    item={item}
+                                                    onRemove={() => removeNuevaEvidencia(item._tmpId)}
+                                                />
+                                            ))}
                                         </div>
                                     </div>
                                 ) : null}

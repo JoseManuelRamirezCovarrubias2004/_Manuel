@@ -1,5 +1,5 @@
 // src/pages/Entregas/RegistroEntregas.jsx
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback  } from "react";
 import {
     Plus,
     Search,
@@ -702,7 +702,25 @@ export default function RegistroEntregas() {
         return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
     }, [user]);
 
-    const userAgencia = String(user?.agencia || "").trim();
+    const userAgencias = useMemo(() => {
+        return String(user?.agencia || "")
+            .split("|")
+            .map((a) => a.trim())
+            .filter(Boolean);
+    }, [user?.agencia]);
+
+    const userAgencia = userAgencias[0] || "";
+
+    const userTieneAgencia = useCallback(
+        (agenciaRegistro) => {
+            const agencia = String(agenciaRegistro || "").trim();
+            if (!agencia) return false;
+            return userAgencias.some(
+                (a) => a.toLowerCase() === agencia.toLowerCase()
+            );
+        },
+        [userAgencias]
+    );
 
     const [entregas, setEntregas] = useState([]);
 
@@ -957,10 +975,10 @@ export default function RegistroEntregas() {
         const set = new Set((entregas || []).map((item) => normalizeStr(item.agencia)).filter(Boolean));
         const all = ["Todos", ...Array.from(set)];
 
-        if (!isAdmin && userAgencia) return ["Todos", userAgencia];
+        if (!isAdmin && userAgencias.length > 0) return ["Todos", ...userAgencias];
 
         return all;
-    }, [entregas, isAdmin, userAgencia]);
+    }, [entregas, isAdmin, userAgencias]);
 
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
@@ -972,7 +990,7 @@ export default function RegistroEntregas() {
         const maxInt = hastaInt ?? null;
 
         return (entregas || []).filter((item) => {
-            if (!isAdmin && userAgencia && normalizeStr(item.agencia) !== normalizeStr(userAgencia)) return false;
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(item.agencia)) return false;
 
             const nombreCliente = normalizeStr(item?.cliente?.nombre);
             const telCliente = normalizeStr(item?.cliente?.telefono);
@@ -1104,7 +1122,7 @@ export default function RegistroEntregas() {
 
             const item = await apiEntregas.get(row.id);
 
-            if (!isAdmin && userAgencia && normalizeStr(item.agencia) !== normalizeStr(userAgencia)) {
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(item.agencia)) {
                 alert("No tienes permisos para ver registros de otra agencia.");
                 setOpenModal(false);
                 return;
@@ -1150,7 +1168,7 @@ export default function RegistroEntregas() {
     const eliminarEntrega = async (row) => {
         if (!row?.id) return;
 
-        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) {
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para eliminar registros de otra agencia.");
             return;
         }
@@ -1224,7 +1242,7 @@ export default function RegistroEntregas() {
         const id = row?.id;
         if (!id) return;
 
-        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) {
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para modificar registros de otra agencia.");
             return;
         }
@@ -2070,7 +2088,7 @@ export default function RegistroEntregas() {
                                     Selecciona un dealer...
                                 </option>
 
-                                {(isAdmin ? DEALERS : userAgencia ? [userAgencia] : DEALERS).map((dealer) => (
+                                {(isAdmin ? DEALERS : userAgencias.length > 0 ? userAgencias : DEALERS).map((dealer) => (
                                     <option key={dealer} value={dealer}>
                                         {dealer}
                                     </option>

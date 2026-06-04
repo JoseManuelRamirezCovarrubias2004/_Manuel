@@ -1,5 +1,5 @@
 //src/pages/Digitales/DigitalesProspectos.jsx
-import { useMemo, useState, useEffect, useDeferredValue } from "react";
+import { useMemo, useState, useEffect, useDeferredValue, useCallback } from "react";
 import {
     Plus,
     Search,
@@ -878,6 +878,24 @@ export default function DigitalesProspectos() {
         );
     }, [user]);
 
+    const userAgencias = useMemo(() => {
+    return String(user?.agencia || "")
+        .split("|")
+        .map((a) => a.trim())
+        .filter(Boolean);
+}, [user?.agencia]);
+
+const userTieneAgencia = useCallback(
+    (agenciaRegistro) => {
+        const agencia = String(agenciaRegistro || "").trim();
+        if (!agencia) return false;
+        return userAgencias.some(
+            (a) => a.toLowerCase() === agencia.toLowerCase()
+        );
+    },
+    [userAgencias]
+);
+
     const numeroUsuarioSesion = useMemo(() => getNumeroUsuarioSesion(user), [user]);
 
     const contextoDigitalSesion = useMemo(() => {
@@ -1172,9 +1190,12 @@ export default function DigitalesProspectos() {
     }, [isAdmin, numeroUsuarioSesion, ready]);
 
     const dealers = useMemo(() => {
-        const d = new Set(cases.map((c) => c.agencia).filter(Boolean));
-        return ["Todos", ...Array.from(d)];
-    }, [cases]);
+    const d = new Set(cases.map((c) => c.agencia).filter(Boolean));
+    if (!isAdmin && userAgencias.length > 0) {
+        return ["Todos", ...userAgencias];
+    }
+    return ["Todos", ...Array.from(d)];
+}, [cases, isAdmin, userAgencias]);
 
     const estados = useMemo(() => {
         const s = new Set(cases.map((c) => c.estado).filter(Boolean));
@@ -1201,6 +1222,8 @@ export default function DigitalesProspectos() {
 
         return cases.filter((c) => {
             const nombre = `${c.cliente_nombre || ""} ${c.cliente_apellidos || ""}`.trim();
+
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) return false;
 
             if (filtroNumeroActivo) {
                 const matchAsesorDigital =
@@ -2385,7 +2408,7 @@ export default function DigitalesProspectos() {
                             <select
                                 value={draft.agencia || ""}
                                 onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))}
-                                disabled={!isAdmin && !!contextoDigitalSesion}
+                                disabled={!isAdmin && userAgencias.length <= 1}
                                 className={[
                                     inputBase,
                                     isInvalid("agencia") ? inputBad : inputOk,
@@ -2393,9 +2416,9 @@ export default function DigitalesProspectos() {
                                 ].join(" ")}
                             >
                                 <option value="" disabled>Selecciona un dealer...</option>
-                                {DEALERS.map((d) => (
-                                    <option key={d} value={d}>{d}</option>
-                                ))}
+                        {(isAdmin ? DEALERS : userAgencias.length > 0 ? userAgencias : DEALERS).map((d) => (
+                            <option key={d} value={d}>{d}</option>
+                        ))}
                             </select>
                         </Field>
 
