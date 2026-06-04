@@ -1,12 +1,14 @@
 // src/pages/PostVenta/PostVentaTopNav.jsx
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Globe, CalendarDays, Building2, createLucideIcon, MessageCircle, CreditCard, CarFront, CircleDollarSign, Cog, ThumbsUp, Package, DoorOpen } from "lucide-react";
+import { Globe, CalendarDays, Building2, createLucideIcon, MessageCircle, CreditCard, CarFront, CircleDollarSign, Cog, ThumbsUp, Package, DoorOpen, Wrench } from "lucide-react";
 import vwWhite from "../../assets/vw_white.png";
 import ryr from "../../assets/ryr.png";
 import refaccion from "../../assets/engine.svg";
 import { steeringWheel } from "@lucide/lab";
 import { useAuth } from "../../auth/AuthContext";
+import { Icon } from 'lucide-react';
+import { toolbox } from '@lucide/lab';
 
 const BRAND_BLUE = "#131E5C";
 const SteeringWheelLab = createLucideIcon("SteeringWheelLab", steeringWheel);
@@ -32,13 +34,12 @@ export default function PostVentaTopNav() {
                 icon: DoorOpen,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
-
             {
-    label: "Encuestas WhatsApp",
-    href: "/encuesta_whats/envio_satisfaccion",
-    icon: MessageCircle,
-    show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"]),
-},
+                label: "Administrativo Taller",
+                href: "/postventa/taller",
+                icon: Wrench,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
+            },
         ];
 
 

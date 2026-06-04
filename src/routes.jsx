@@ -75,6 +75,8 @@ import RegistroServicio from "./pages/Servicio/RegistroServicio";
 
 import RegistroPiezas from "./pages/PedidoPiezas/RegistroPiezas";
 import HojaIngresos from "./pages/HojaIngresos/HojaIngresos";
+import Taller from "./pages/Taller/Taller";
+
 import Safety from "./pages/SafetyCulture/Safety";
 
 import Reclutamiento from "./pages/Reclutamiento/Reclutamiento";
@@ -487,6 +489,14 @@ export const router = createBrowserRouter(
                                     element: (
                                         <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
                                             <HojaIngresos />
+                                        </RequirePermission>
+                                    ),
+                                },
+                                {
+                                    path: "taller",
+                                    element: (
+                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
+                                            <Taller />
                                         </RequirePermission>
                                     ),
                                 },
