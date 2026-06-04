@@ -35,7 +35,7 @@ export default function PostVentaTopNav() {
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
             {
-                label: "Administrativo Taller",
+                label: "Panel Taller",
                 href: "/postventa/taller",
                 icon: Wrench,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
