@@ -231,9 +231,21 @@ function normalizeTask(task, listsMap = {}) {
             titulo,
             done: Boolean(s.done ?? s.completada ?? false),
             completada: Boolean(s.done ?? s.completada ?? false),
+            start_date: s.start_date ?? null,
+            due_date: s.due_date ?? null,
           };
         })
       : [],
+      evidencias: Array.isArray(task.evidencias)
+    ? task.evidencias.map((e) => ({
+        id: Number(e.id),
+        tipo: e.tipo,
+        comentario: e.comentario || "",
+        archivo_url: e.archivo_url || "",
+        creado_en: e.creado_en,
+        subido_por: e.subido_por || null,
+    }))
+    : [],
 
     report: task.reporte
       ? {
@@ -532,6 +544,7 @@ export const apiClickup = {
         done: Boolean(s.done ?? s.completada ?? false),
       }))
     : [];
+    
 }
 
     const data = await http(

@@ -1,5 +1,5 @@
 // src/pages/PruebasManejo/RegistroPruebaManejo.jsx
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import {
     Plus, Search, X, Save, User, CarFront, CalendarDays, ArrowUpDown,
     ChevronDown, ChevronUp, Trash2, Loader2, Phone, Mail, UserStar,
@@ -18,7 +18,6 @@ import { useAuth } from "../../auth/AuthContext";
 const BRAND_BLUE = "#131E5C";
 const API_BASE = import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com";
 
-// ─── Paleta de colores para gráficas ───────────────────────────────────────
 const CHART_COLORS = [
     "#131E5C", "#2563EB", "#0EA5E9", "#06B6D4", "#10B981",
     "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6",
@@ -109,7 +108,6 @@ function FilterBlock({ label, children }) {
     );
 }
 
-// ─── Fechas ────────────────────────────────────────────────────────────────
 function toDTLocal(isoOrNull) {
     if (!isoOrNull) return "";
     const s = String(isoOrNull);
@@ -140,19 +138,15 @@ function ymdToInt(ymd) {
     return Number(ymd.replaceAll("-", ""));
 }
 
-// ─── Context Menu ──────────────────────────────────────────────────────────
 function ContextMenu({ ctxMenu, onDelete, onClose }) {
     if (!ctxMenu.open || !ctxMenu.row) return null;
     return createPortal(
         <div className="fixed z-[9999]" style={{ left: ctxMenu.x, top: ctxMenu.y }} onClick={(e) => e.stopPropagation()}>
             <div className="w-48 overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl">
                 <button className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50" onClick={() => onDelete(ctxMenu.row)}>
-                    <Trash2 className="h-4 w-4" />
-                    Eliminar
+                    <Trash2 className="h-4 w-4" />Eliminar
                 </button>
-                <button className="w-full px-4 py-2 text-left text-xs text-slate-500 hover:bg-slate-50" onClick={onClose}>
-                    Cerrar
-                </button>
+                <button className="w-full px-4 py-2 text-left text-xs text-slate-500 hover:bg-slate-50" onClick={onClose}>Cerrar</button>
             </div>
         </div>,
         document.body
@@ -182,7 +176,6 @@ function guessIsImageFromName(name = "") {
     return [".jpg", ".jpeg", ".png", ".webp", ".gif"].some((ext) => n.endsWith(ext));
 }
 
-// ─── Evidencias Uploader ───────────────────────────────────────────────────
 function EvidenciasUploader({ evidencias = [], onSubir, onEliminar, disabled }) {
     const inputPickRef = useRef(null);
     const inputCamRef = useRef(null);
@@ -208,7 +201,6 @@ function EvidenciasUploader({ evidencias = [], onSubir, onEliminar, disabled }) 
                 onChange={(e) => { const f = Array.from(e.target.files || []); e.target.value = ""; if (!f.length) return; onSubir?.(f); }} />
             <input ref={inputCamRef} type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={(e) => { const f = Array.from(e.target.files || []); e.target.value = ""; if (!f.length) return; onSubir?.(f); }} />
-
             <div className="grid gap-2 sm:grid-cols-2">
                 <button type="button" onClick={() => inputCamRef.current?.click()} disabled={disabled}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-black/10 bg-white shadow-lg px-4 py-3 text-sm font-semibold text-[#131E5C] hover:bg-neutral-50 disabled:opacity-60">
@@ -219,7 +211,6 @@ function EvidenciasUploader({ evidencias = [], onSubir, onEliminar, disabled }) 
                     <UploadCloud className="h-4 w-4" /> Adjuntar archivos
                 </button>
             </div>
-
             {(!evidencias || evidencias.length === 0) ? (
                 <div className="rounded-lg border border-black/10 bg-neutral-100 p-4 text-sm text-slate-500">Sin evidencias.</div>
             ) : (
@@ -281,9 +272,6 @@ function EvidenciasUploader({ evidencias = [], onSubir, onEliminar, disabled }) 
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ─── VISTA AGENDA ──────────────────────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════
 const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -307,7 +295,6 @@ function AgendaView({ registros, onEditRow }) {
 
     const registrosPorFecha = useMemo(() => getRegistrosPorFecha(registros), [registros]);
 
-    // ─── Calcular días del calendario ───
     const calDays = useMemo(() => {
         const firstDay = new Date(calYear, calMonth, 1).getDay();
         const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -339,7 +326,6 @@ function AgendaView({ registros, onEditRow }) {
         });
     }, [selectedDay, registrosPorFecha]);
 
-    // Próximas 7 días
     const proximasCitas = useMemo(() => {
         const result = [];
         for (let i = 0; i < 7; i++) {
@@ -354,29 +340,17 @@ function AgendaView({ registros, onEditRow }) {
 
     return (
         <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
-            {/* ─── Calendario ─── */}
             <div className="rounded-xl border border-black/10 bg-white shadow-sm overflow-hidden">
-                {/* Header mes */}
                 <div className="flex items-center justify-between px-4 py-3" style={{ backgroundColor: BRAND_BLUE }}>
-                    <button onClick={prevMonth} className="rounded-lg p-1.5 text-white hover:bg-white/15">
-                        <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <span className="text-sm font-extrabold text-white">
-                        {MESES[calMonth]} {calYear}
-                    </span>
-                    <button onClick={nextMonth} className="rounded-lg p-1.5 text-white hover:bg-white/15">
-                        <ChevronRight className="h-4 w-4" />
-                    </button>
+                    <button onClick={prevMonth} className="rounded-lg p-1.5 text-white hover:bg-white/15"><ChevronLeft className="h-4 w-4" /></button>
+                    <span className="text-sm font-extrabold text-white">{MESES[calMonth]} {calYear}</span>
+                    <button onClick={nextMonth} className="rounded-lg p-1.5 text-white hover:bg-white/15"><ChevronRight className="h-4 w-4" /></button>
                 </div>
-
-                {/* Días semana */}
                 <div className="grid grid-cols-7 border-b border-black/10">
                     {DIAS_SEMANA.map(d => (
                         <div key={d} className="py-2 text-center text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">{d}</div>
                     ))}
                 </div>
-
-                {/* Celdas */}
                 <div className="grid grid-cols-7">
                     {calDays.map((ymd, idx) => {
                         if (!ymd) return <div key={`empty-${idx}`} className="aspect-square" />;
@@ -386,26 +360,15 @@ function AgendaView({ registros, onEditRow }) {
                         const day = parseInt(ymd.split("-")[2], 10);
                         return (
                             <button key={ymd} onClick={() => setSelectedDay(ymd)}
-                                className={[
-                                    "relative flex flex-col items-center justify-center aspect-square text-xs font-bold transition-colors",
-                                    isSelected ? "bg-[#131E5C] text-white rounded-lg" :
-                                        isToday ? "text-blue-600" : "text-slate-700 hover:bg-slate-50",
-                                ].join(" ")}>
+                                className={["relative flex flex-col items-center justify-center aspect-square text-xs font-bold transition-colors", isSelected ? "bg-[#131E5C] text-white rounded-lg" : isToday ? "text-blue-600" : "text-slate-700 hover:bg-slate-50"].join(" ")}>
                                 <span>{day}</span>
                                 {count > 0 && (
-                                    <span className={[
-                                        "absolute bottom-1 left-1/2 -translate-x-1/2 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-extrabold",
-                                        isSelected ? "bg-white text-[#131E5C]" : "bg-[#131E5C] text-white",
-                                    ].join(" ")}>
-                                        {count}
-                                    </span>
+                                    <span className={["absolute bottom-1 left-1/2 -translate-x-1/2 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-extrabold", isSelected ? "bg-white text-[#131E5C]" : "bg-[#131E5C] text-white"].join(" ")}>{count}</span>
                                 )}
                             </button>
                         );
                     })}
                 </div>
-
-                {/* Resumen semana */}
                 <div className="border-t border-black/10 p-3">
                     <div className="text-xs font-extrabold text-slate-500 mb-2 uppercase tracking-wide">Próximos 7 días</div>
                     {proximasCitas.length === 0 ? (
@@ -413,22 +376,15 @@ function AgendaView({ registros, onEditRow }) {
                     ) : (
                         <div className="space-y-1">
                             {proximasCitas.map(({ ymd, citas, d }) => (
-                                <button key={ymd} onClick={() => setSelectedDay(ymd)}
-                                    className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 hover:bg-slate-50">
-                                    <span className="text-xs font-semibold text-slate-600">
-                                        {DIAS_SEMANA[d.getDay()]} {d.getDate()} {MESES[d.getMonth()].slice(0, 3)}
-                                    </span>
-                                    <span className="rounded-full bg-[#131E5C] px-2 py-0.5 text-[10px] font-extrabold text-white">
-                                        {citas.length} cita{citas.length > 1 ? "s" : ""}
-                                    </span>
+                                <button key={ymd} onClick={() => setSelectedDay(ymd)} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 hover:bg-slate-50">
+                                    <span className="text-xs font-semibold text-slate-600">{DIAS_SEMANA[d.getDay()]} {d.getDate()} {MESES[d.getMonth()].slice(0, 3)}</span>
+                                    <span className="rounded-full bg-[#131E5C] px-2 py-0.5 text-[10px] font-extrabold text-white">{citas.length} cita{citas.length > 1 ? "s" : ""}</span>
                                 </button>
                             ))}
                         </div>
                     )}
                 </div>
             </div>
-
-            {/* ─── Lista del día seleccionado ─── */}
             <div>
                 <div className="mb-3 flex items-center gap-2">
                     <CalendarRange className="h-4 w-4 text-[#131E5C]" />
@@ -439,11 +395,8 @@ function AgendaView({ registros, onEditRow }) {
                             return `${DIAS_SEMANA[fecha.getDay()]}, ${d} de ${MESES[m - 1]} ${y}`;
                         })() : "Selecciona un día"}
                     </span>
-                    <span className="ml-auto rounded-full bg-[#131E5C]/10 px-3 py-1 text-xs font-bold text-[#131E5C]">
-                        {citasDelDia.length} prueba{citasDelDia.length !== 1 ? "s" : ""}
-                    </span>
+                    <span className="ml-auto rounded-full bg-[#131E5C]/10 px-3 py-1 text-xs font-bold text-[#131E5C]">{citasDelDia.length} prueba{citasDelDia.length !== 1 ? "s" : ""}</span>
                 </div>
-
                 {citasDelDia.length === 0 ? (
                     <div className="rounded-xl border border-black/10 bg-white p-10 text-center">
                         <CalendarDays className="mx-auto mb-3 h-10 w-10 text-slate-300" />
@@ -456,33 +409,22 @@ function AgendaView({ registros, onEditRow }) {
                             const clienteNombre = row?.cliente?.nombre || "—";
                             const clienteTel = row?.cliente?.telefono || "—";
                             return (
-                                <button key={row.id} onClick={() => onEditRow(row)}
-                                    className="w-full text-left rounded-xl border border-black/10 bg-white p-4 shadow-sm hover:shadow-md hover:border-[#131E5C]/30 transition-all">
+                                <button key={row.id} onClick={() => onEditRow(row)} className="w-full text-left rounded-xl border border-black/10 bg-white p-4 shadow-sm hover:shadow-md hover:border-[#131E5C]/30 transition-all">
                                     <div className="flex items-start gap-3">
-                                        {/* Hora */}
                                         <div className="flex-shrink-0 rounded-lg bg-[#131E5C] px-3 py-2 text-center">
-                                            <div className="flex items-center gap-1 text-white">
-                                                <Clock className="h-3 w-3" />
-                                                <span className="text-xs font-extrabold">{hora}</span>
-                                            </div>
+                                            <div className="flex items-center gap-1 text-white"><Clock className="h-3 w-3" /><span className="text-xs font-extrabold">{hora}</span></div>
                                         </div>
-                                        {/* Info */}
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
                                                 <span className="truncate text-sm font-extrabold text-[#131E5C]">{clienteNombre}</span>
-                                                {row.asistencia
-                                                    ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-500" />
-                                                    : <Circle className="h-4 w-4 flex-shrink-0 text-slate-300" />
-                                                }
+                                                {row.asistencia ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-500" /> : <Circle className="h-4 w-4 flex-shrink-0 text-slate-300" />}
                                             </div>
                                             <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
                                                 <span>{row.agencia || "—"}</span>
                                                 <span>{clienteTel}</span>
                                                 <span>{row.auto_interes || "—"}</span>
                                             </div>
-                                            {row.asesor_piso && (
-                                                <div className="mt-1 text-xs text-slate-400">Asesor: {row.asesor_piso}</div>
-                                            )}
+                                            {row.asesor_piso && <div className="mt-1 text-xs text-slate-400">Asesor: {row.asesor_piso}</div>}
                                         </div>
                                         <div className="flex-shrink-0 text-xs font-semibold text-[#131E5C] opacity-60">Editar →</div>
                                     </div>
@@ -496,18 +438,13 @@ function AgendaView({ registros, onEditRow }) {
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ─── VISTA GRÁFICAS ────────────────────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════
 const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
         <div className="rounded-xl border border-black/10 bg-white px-4 py-3 shadow-xl">
             <div className="text-xs font-extrabold text-[#131E5C] mb-1">{label}</div>
             {payload.map((p, i) => (
-                <div key={i} className="text-xs text-slate-600">
-                    <span className="font-bold" style={{ color: p.color }}>{p.value}</span> prueba{p.value !== 1 ? "s" : ""}
-                </div>
+                <div key={i} className="text-xs text-slate-600"><span className="font-bold" style={{ color: p.color }}>{p.value}</span> prueba{p.value !== 1 ? "s" : ""}</div>
             ))}
         </div>
     );
@@ -538,71 +475,41 @@ function StatCard({ label, value, icon: Icon, color = BRAND_BLUE }) {
 }
 
 function GraficasView({ registros }) {
-    // ─── Datos por dealer ───
     const porDealer = useMemo(() => {
         const mapa = {};
-        for (const r of registros) {
-            const k = r.agencia || "Sin dealer";
-            mapa[k] = (mapa[k] || 0) + 1;
-        }
-        return Object.entries(mapa)
-            .map(([name, value]) => ({ name, value }))
-            .sort((a, b) => b.value - a.value);
+        for (const r of registros) { const k = r.agencia || "Sin dealer"; mapa[k] = (mapa[k] || 0) + 1; }
+        return Object.entries(mapa).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
     }, [registros]);
 
-    // ─── Datos por modelo ───
     const porModelo = useMemo(() => {
         const mapa = {};
-        for (const r of registros) {
-            const k = r.auto_interes || "Sin modelo";
-            mapa[k] = (mapa[k] || 0) + 1;
-        }
-        return Object.entries(mapa)
-            .map(([name, value]) => ({ name, value }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 10);
+        for (const r of registros) { const k = r.auto_interes || "Sin modelo"; mapa[k] = (mapa[k] || 0) + 1; }
+        return Object.entries(mapa).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 10);
     }, [registros]);
 
-    // ─── Datos por asesor (top 10) ───
     const porAsesor = useMemo(() => {
         const mapa = {};
-        for (const r of registros) {
-            const k = r.asesor_piso || "Sin asesor";
-            mapa[k] = (mapa[k] || 0) + 1;
-        }
-        return Object.entries(mapa)
-            .map(([name, value]) => ({ name: name.split(" ").slice(0, 2).join(" "), fullName: name, value }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 10);
+        for (const r of registros) { const k = r.asesor_piso || "Sin asesor"; mapa[k] = (mapa[k] || 0) + 1; }
+        return Object.entries(mapa).map(([name, value]) => ({ name: name.split(" ").slice(0, 2).join(" "), fullName: name, value })).sort((a, b) => b.value - a.value).slice(0, 10);
     }, [registros]);
 
-    // ─── Asistencia ───
     const asistenciaData = useMemo(() => {
         let asistieron = 0, noAsistieron = 0;
-        for (const r of registros) {
-            if (r.asistencia) asistieron++; else noAsistieron++;
-        }
-        return [
-            { name: "Asistieron", value: asistieron },
-            { name: "No asistieron", value: noAsistieron },
-        ];
+        for (const r of registros) { if (r.asistencia) asistieron++; else noAsistieron++; }
+        return [{ name: "Asistieron", value: asistieron }, { name: "No asistieron", value: noAsistieron }];
     }, [registros]);
 
-    // ─── Pruebas últimos 14 días ───
     const porDia = useMemo(() => {
-        const dias = [];
-        const mapa = {};
+        const dias = []; const mapa = {};
         for (const r of registros) {
             if (!r.fecha_hora_cita) continue;
             const ymd = toYMDLocal(r.fecha_hora_cita);
             if (ymd) mapa[ymd] = (mapa[ymd] || 0) + 1;
         }
         for (let i = 13; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
+            const d = new Date(); d.setDate(d.getDate() - i);
             const ymd = toYMDLocal(d);
-            const label = `${d.getDate()}/${d.getMonth() + 1}`;
-            dias.push({ name: label, value: mapa[ymd] || 0, ymd });
+            dias.push({ name: `${d.getDate()}/${d.getMonth() + 1}`, value: mapa[ymd] || 0, ymd });
         }
         return dias;
     }, [registros]);
@@ -612,15 +519,12 @@ function GraficasView({ registros }) {
 
     return (
         <div className="space-y-5">
-            {/* ─── Stats rápidos ─── */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard label="Total pruebas" value={registros.length} icon={CarFront} color="#131E5C" />
                 <StatCard label="Asistencias" value={totalAsistieron} icon={CheckCircle2} color="#10B981" />
                 <StatCard label="% Asistencia" value={`${pctAsistencia}%`} icon={BarChart3} color="#2563EB" />
                 <StatCard label="Dealers activos" value={new Set(registros.map(r => r.agencia).filter(Boolean)).size} icon={Building2} color="#F59E0B" />
             </div>
-
-            {/* ─── Pruebas últimos 14 días ─── */}
             <div className="rounded-xl border border-black/10 bg-white p-5 shadow-sm">
                 <div className="mb-4 text-sm font-extrabold text-[#131E5C]">Pruebas por día (últimos 14 días)</div>
                 <ResponsiveContainer width="100%" height={200}>
@@ -633,40 +537,28 @@ function GraficasView({ registros }) {
                     </BarChart>
                 </ResponsiveContainer>
             </div>
-
             <div className="grid gap-4 lg:grid-cols-2">
-                {/* ─── Por dealer ─── */}
                 <div className="rounded-xl border border-black/10 bg-white p-5 shadow-sm">
                     <div className="mb-4 text-sm font-extrabold text-[#131E5C]">Pruebas por Dealer</div>
-                    {porDealer.length === 0 ? (
-                        <div className="py-8 text-center text-sm text-slate-400">Sin datos.</div>
-                    ) : (
+                    {porDealer.length === 0 ? <div className="py-8 text-center text-sm text-slate-400">Sin datos.</div> : (
                         <ResponsiveContainer width="100%" height={220}>
                             <BarChart data={porDealer} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
                                 <XAxis type="number" tick={{ fontSize: 11, fill: "#64748b" }} allowDecimals={false} />
                                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#64748b" }} width={100} />
                                 <Tooltip content={<CustomTooltip />} />
-                                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                                    {porDealer.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                                </Bar>
+                                <Bar dataKey="value" radius={[0, 4, 4, 0]}>{porDealer.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}</Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     )}
                 </div>
-
-                {/* ─── Asistencia Pie ─── */}
                 <div className="rounded-xl border border-black/10 bg-white p-5 shadow-sm">
                     <div className="mb-4 text-sm font-extrabold text-[#131E5C]">Tasa de Asistencia</div>
-                    {registros.length === 0 ? (
-                        <div className="py-8 text-center text-sm text-slate-400">Sin datos.</div>
-                    ) : (
+                    {registros.length === 0 ? <div className="py-8 text-center text-sm text-slate-400">Sin datos.</div> : (
                         <ResponsiveContainer width="100%" height={220}>
                             <PieChart>
-                                <Pie data={asistenciaData} cx="50%" cy="50%" innerRadius={55} outerRadius={85}
-                                    dataKey="value" paddingAngle={3}>
-                                    <Cell fill="#10B981" />
-                                    <Cell fill="#E5E7EB" />
+                                <Pie data={asistenciaData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3}>
+                                    <Cell fill="#10B981" /><Cell fill="#E5E7EB" />
                                 </Pie>
                                 <Tooltip content={<CustomPieTooltip />} />
                                 <Legend formatter={(val) => <span className="text-xs font-semibold text-slate-600">{val}</span>} />
@@ -674,33 +566,23 @@ function GraficasView({ registros }) {
                         </ResponsiveContainer>
                     )}
                 </div>
-
-                {/* ─── Por modelo ─── */}
                 <div className="rounded-xl border border-black/10 bg-white p-5 shadow-sm">
                     <div className="mb-4 text-sm font-extrabold text-[#131E5C]">Pruebas por Modelo (Top 10)</div>
-                    {porModelo.length === 0 ? (
-                        <div className="py-8 text-center text-sm text-slate-400">Sin datos.</div>
-                    ) : (
+                    {porModelo.length === 0 ? <div className="py-8 text-center text-sm text-slate-400">Sin datos.</div> : (
                         <ResponsiveContainer width="100%" height={260}>
                             <BarChart data={porModelo} margin={{ top: 5, right: 10, left: -20, bottom: 30 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#64748b" }} angle={-35} textAnchor="end" interval={0} />
                                 <YAxis tick={{ fontSize: 11, fill: "#64748b" }} allowDecimals={false} />
                                 <Tooltip content={<CustomTooltip />} />
-                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                    {porModelo.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                                </Bar>
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>{porModelo.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}</Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     )}
                 </div>
-
-                {/* ─── Por asesor ─── */}
                 <div className="rounded-xl border border-black/10 bg-white p-5 shadow-sm">
                     <div className="mb-4 text-sm font-extrabold text-[#131E5C]">Pruebas por Asesor (Top 10)</div>
-                    {porAsesor.length === 0 ? (
-                        <div className="py-8 text-center text-sm text-slate-400">Sin datos.</div>
-                    ) : (
+                    {porAsesor.length === 0 ? <div className="py-8 text-center text-sm text-slate-400">Sin datos.</div> : (
                         <ResponsiveContainer width="100%" height={260}>
                             <BarChart data={porAsesor} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
@@ -716,9 +598,7 @@ function GraficasView({ registros }) {
                                         </div>
                                     );
                                 }} />
-                                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                                    {porAsesor.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                                </Bar>
+                                <Bar dataKey="value" radius={[0, 4, 4, 0]}>{porAsesor.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}</Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     )}
@@ -734,17 +614,44 @@ function GraficasView({ registros }) {
 export default function RegistroPruebaManejo() {
     const { user } = useAuth();
 
-    const isAdmin = useMemo(() => {
-        const permisos = user?.permisos || [];
-        const rol = String(user?.rol || "").trim().toLowerCase();
-        return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
-    }, [user]);
+    // ── Igual que RegistroCredito ─────────────────────────────────────────
+    const permisos = user?.permisos || [];
+    const rol = String(user?.rol || "").trim().toLowerCase();
 
-    const userAgencia = String(user?.agencia || "").trim();
+    const isAdmin = useMemo(() => {
+        return (
+            rol === "administrador" ||
+            permisos.includes("ALL") ||
+            permisos.includes("USUARIOS_ADMIN") ||
+            permisos.includes("CRM_DIGITALES")
+        );
+    }, [rol, permisos]);
+
+    // Array de agencias separadas por "|"
+    const userAgencias = useMemo(() => {
+        return String(user?.agencia || "")
+            .split("|")
+            .map((a) => normalizeStr(a))
+            .filter(Boolean);
+    }, [user?.agencia]);
+
+    const userAgencia = userAgencias[0] || "";
+
+    // Verifica si el usuario pertenece a una agencia concreta
+    const userTieneAgencia = useCallback(
+        (agenciaRegistro) => {
+            const agencia = normalizeStr(agenciaRegistro);
+            if (!agencia) return false;
+            return userAgencias.some(
+                (agenciaUsuario) =>
+                    agenciaUsuario.toLowerCase() === agencia.toLowerCase()
+            );
+        },
+        [userAgencias]
+    );
+    // ─────────────────────────────────────────────────────────────────────
 
     const [registros, setRegistros] = useState([]);
-
-    // ─── VISTA ACTIVA: "lista" | "agenda" | "graficas" ───
     const [vistaActiva, setVistaActiva] = useState("tabla");
 
     const DEALERS = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"];
@@ -769,7 +676,6 @@ export default function RegistroPruebaManejo() {
         "Javier Perez Meraz", "Luis Armando Almora Perez", "Mara Erubey Soto Villegas",
         "Sergio Ivan Quintana Martinez", "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos",
     ];
-
     const VEHICULOS = [
         "Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun",
         "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo",
@@ -845,7 +751,8 @@ export default function RegistroPruebaManejo() {
 
     const onRowContextMenu = (e, row) => { e.preventDefault(); e.stopPropagation(); setCtxMenu({ open: true, x: e.clientX, y: e.clientY, row }); };
 
-    const refreshList = async () => {
+    // ── refreshList sin filtros de agencia al backend (igual que RegistroCredito) ──
+    const refreshList = useCallback(async () => {
         setLoadingList(true);
         try {
             const data = await apiPruebaManejo.list();
@@ -855,35 +762,51 @@ export default function RegistroPruebaManejo() {
         } finally {
             setLoadingList(false);
         }
-    };
+    }, []);
 
-    useEffect(() => { refreshList(); }, []);
+    useEffect(() => { refreshList(); }, [refreshList]);
 
-    // Auto-refresh cada 60s cuando está en gráficas o agenda
     useEffect(() => {
         if (vistaActiva === "tabla") return;
         const interval = setInterval(() => { refreshList(); }, 60_000);
         return () => clearInterval(interval);
-    }, [vistaActiva]);
+    }, [vistaActiva, refreshList]);
 
+    // ── Dealers en filtros limitado a agencias del usuario (igual que RegistroCredito) ──
     const dealers = useMemo(() => {
         const set = new Set((registros || []).map((r) => normalizeStr(r.agencia)).filter(Boolean));
-        if (!isAdmin && userAgencia) return ["Todos", userAgencia];
+        if (!isAdmin && userAgencias.length > 0) {
+            return ["Todos", ...userAgencias];
+        }
         return ["Todos", ...Array.from(set)];
-    }, [registros, isAdmin, userAgencia]);
+    }, [registros, isAdmin, userAgencias]);
 
+    // ── filtered respeta multi-agencia (igual que RegistroCredito) ──
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
         const desdeInt = ymdToInt(filters.rangoDesde);
         const hastaInt = ymdToInt(filters.rangoHasta);
 
         return (registros || []).filter((r) => {
-            if (!isAdmin && userAgencia && normalizeStr(r.agencia) !== normalizeStr(userAgencia)) return false;
+            // Bloquear registros de agencias ajenas
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(r.agencia)) return false;
+
             const clienteNombre = normalizeStr(r?.cliente?.nombre);
             const clienteTel = normalizeStr(r?.cliente?.telefono);
             const clienteCorreo = normalizeStr(r?.cliente?.correo);
-            const matchQ = !q || normalizeStr(r.agencia).toLowerCase().includes(q) || clienteNombre.toLowerCase().includes(q) || clienteTel.toLowerCase().includes(q) || clienteCorreo.toLowerCase().includes(q) || normalizeStr(r.auto_interes).toLowerCase().includes(q) || normalizeStr(r.asesor_piso).toLowerCase().includes(q) || normalizeStr(r.num_serie).toLowerCase().includes(q) || normalizeStr(r.folio_salida).toLowerCase().includes(q) || normalizeStr(r.comentarios_cliente).toLowerCase().includes(q);
+            const matchQ = !q ||
+                normalizeStr(r.agencia).toLowerCase().includes(q) ||
+                clienteNombre.toLowerCase().includes(q) ||
+                clienteTel.toLowerCase().includes(q) ||
+                clienteCorreo.toLowerCase().includes(q) ||
+                normalizeStr(r.auto_interes).toLowerCase().includes(q) ||
+                normalizeStr(r.asesor_piso).toLowerCase().includes(q) ||
+                normalizeStr(r.num_serie).toLowerCase().includes(q) ||
+                normalizeStr(r.folio_salida).toLowerCase().includes(q) ||
+                normalizeStr(r.comentarios_cliente).toLowerCase().includes(q);
+
             const matchAgencia = filters.agencia === "Todos" || normalizeStr(r.agencia) === normalizeStr(filters.agencia);
+
             let matchRango = true;
             if (desdeInt !== null || hastaInt !== null) {
                 const ymd = r.fecha_hora_cita ? toYMDLocal(r.fecha_hora_cita) : "";
@@ -894,7 +817,7 @@ export default function RegistroPruebaManejo() {
             }
             return matchQ && matchAgencia && matchRango;
         });
-    }, [registros, filters, isAdmin, userAgencia]);
+    }, [registros, filters, isAdmin, userAgencias, userTieneAgencia]);
 
     const sorted = useMemo(() => {
         const data = [...filtered];
@@ -916,7 +839,8 @@ export default function RegistroPruebaManejo() {
     const openCreate = () => {
         setTouchedSave(false); setMode("create");
         setDraft({
-            id: null, agencia: isAdmin ? "" : userAgencia,
+            id: null,
+            agencia: isAdmin ? "" : userAgencias[0] || "",
             nombre: "", telefono: "", correo: "",
             auto_interes: "", fecha_hora_cita: "", asistencia: false,
             num_serie: "", asesor_piso: "", folio_salida: "", comentarios_cliente: "",
@@ -930,12 +854,16 @@ export default function RegistroPruebaManejo() {
         try {
             setTouchedSave(false); setMode("edit"); setLoadingDetail(true); setOpenModal(true);
             const c = await apiPruebaManejo.get(row.id);
-            if (!isAdmin && userAgencia && normalizeStr(c.agencia) !== normalizeStr(userAgencia)) {
+
+            // Verificar permiso de agencia (igual que RegistroCredito)
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) {
                 alert("No tienes permisos para ver registros de otra agencia.");
                 setOpenModal(false); return;
             }
+
             setDraft({
-                id: c.id, agencia: c.agencia || (isAdmin ? "" : userAgencia),
+                id: c.id,
+                agencia: c.agencia || (isAdmin ? "" : userAgencias[0] || ""),
                 nombre: c?.cliente?.nombre || "", telefono: c?.cliente?.telefono || "", correo: c?.cliente?.correo || "",
                 auto_interes: c.auto_interes || "", fecha_hora_cita: toDTLocal(c.fecha_hora_cita), asistencia: !!c.asistencia,
                 num_serie: c.num_serie || "", asesor_piso: c.asesor_piso || "", folio_salida: c.folio_salida || "",
@@ -952,9 +880,12 @@ export default function RegistroPruebaManejo() {
 
     const eliminarRegistro = async (row) => {
         if (!row?.id) return;
-        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) {
+
+        // Verificar permiso de agencia antes de eliminar (igual que RegistroCredito)
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para eliminar registros de otra agencia."); return;
         }
+
         const clienteNombre = row?.cliente?.nombre || row?.cliente?.telefono || "esta prueba";
         if (!confirm(`¿Eliminar la prueba de manejo de ${clienteNombre}? Esta acción no se puede deshacer.`)) return;
         try {
@@ -970,7 +901,7 @@ export default function RegistroPruebaManejo() {
         if (missing.length || !telIsOk || telInvalid) return;
         setSaving(true);
         try {
-            const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : userAgencia;
+            const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : normalizeStr(draft.agencia || userAgencias[0] || "");
             const payload = {
                 agencia: agenciaFinal, nombre: draft.nombre || "",
                 telefono: normalizeStr(draft.telefono), correo: draft.correo || "",
@@ -995,7 +926,7 @@ export default function RegistroPruebaManejo() {
     const [updatingInline, setUpdatingInline] = useState({});
     const toggleAsistenciaInline = async (row) => {
         const id = row?.id; if (!id) return;
-        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) { alert("Sin permisos."); return; }
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) { alert("Sin permisos."); return; }
         const prev = !!row.asistencia;
         setRegistros((p) => p.map((c) => (c.id === id ? { ...c, asistencia: !prev } : c)));
         setUpdatingInline((p) => ({ ...p, [id]: true }));
@@ -1027,16 +958,24 @@ export default function RegistroPruebaManejo() {
     const resetFilters = () => setFilters({ q: "", agencia: "Todos", rangoDesde: "", rangoHasta: "" });
     const setHoy = () => { const hoy = toYMDLocal(new Date()); setFilters((p) => ({ ...p, rangoDesde: hoy, rangoHasta: hoy })); };
 
-    // ─── Botones de vista ───
     const VISTAS = [
         { key: "tabla", label: "Tabla", icon: LayoutList },
         { key: "agenda", label: "Agenda", icon: CalendarRange },
         { key: "graficas", label: "Gráficas", icon: BarChart3 },
     ];
 
+    if (!isAdmin && userAgencias.length === 0) {
+        return (
+            <div className="w-full">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-semibold text-amber-800">
+                    No se ha asignado una sucursal a tu usuario. Contacta al administrador.
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="w-full">
-            {/* ─── Header ─── */}
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Pruebas de Manejo</h2>
@@ -1045,45 +984,28 @@ export default function RegistroPruebaManejo() {
                         {vistaActiva === "agenda" && "Visualiza las pruebas en el calendario."}
                         {vistaActiva === "graficas" && "Estadísticas en tiempo real · Se actualiza cada 60 s."}
                     </p>
-                    {!isAdmin && userAgencia ? (
+                    {!isAdmin && userAgencias.length > 0 ? (
                         <p className="mt-1 text-xs font-semibold text-slate-500">
-                            Agencia asignada: <span className="text-[#131E5C]">{userAgencia}</span>
+                            Agencia asignada: <span className="text-[#131E5C]">{userAgencias.join(", ")}</span>
                         </p>
                     ) : null}
                 </div>
-
-                {/* Botones de vista + Nueva Prueba */}
                 <div className="flex items-center gap-2 flex-wrap">
-                    {/* Toggle vistas */}
                     <div className="flex items-center rounded-lg border border-[#131E5C]/20 bg-white overflow-hidden shadow-sm">
                         {VISTAS.map(({ key, label, icon: Icon }) => (
-                            <button
-                                key={key}
-                                onClick={() => setVistaActiva(key)}
-                                className={[
-                                    "inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors",
-                                    vistaActiva === key
-                                        ? "bg-[#131E5C] text-white"
-                                        : "text-[#131E5C] hover:bg-[#131E5C]/5",
-                                ].join(" ")}
-                            >
+                            <button key={key} onClick={() => setVistaActiva(key)}
+                                className={["inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors", vistaActiva === key ? "bg-[#131E5C] text-white" : "text-[#131E5C] hover:bg-[#131E5C]/5"].join(" ")}>
                                 <Icon className="h-3.5 w-3.5" />
                                 <span className="hidden sm:inline">{label}</span>
                             </button>
                         ))}
                     </div>
-
-                    <button
-                        onClick={openCreate}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm bg-[#131E5C] hover:bg-[#131E5C]/80 text-white shadow-sm"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Nueva Prueba
+                    <button onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm bg-[#131E5C] hover:bg-[#131E5C]/80 text-white shadow-sm">
+                        <Plus className="h-4 w-4" />Nueva Prueba
                     </button>
                 </div>
             </div>
 
-            {/* ─── Filtros (solo en vista lista) ─── */}
             {vistaActiva === "tabla" && (
                 <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <div className="grid gap-3 md:grid-cols-12">
@@ -1112,23 +1034,17 @@ export default function RegistroPruebaManejo() {
                             </FilterBlock>
                         </div>
                         <div className="md:col-span-6">
-                            <FilterBlock label="Desde">
-                                <input type="date" value={filters.rangoDesde} onChange={(e) => setFilters((p) => ({ ...p, rangoDesde: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none" />
-                            </FilterBlock>
+                            <FilterBlock label="Desde"><input type="date" value={filters.rangoDesde} onChange={(e) => setFilters((p) => ({ ...p, rangoDesde: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none" /></FilterBlock>
                         </div>
                         <div className="md:col-span-6">
-                            <FilterBlock label="Hasta">
-                                <input type="date" value={filters.rangoHasta} onChange={(e) => setFilters((p) => ({ ...p, rangoHasta: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none" />
-                            </FilterBlock>
+                            <FilterBlock label="Hasta"><input type="date" value={filters.rangoHasta} onChange={(e) => setFilters((p) => ({ ...p, rangoHasta: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none" /></FilterBlock>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ═══ VISTA LISTA ═══ */}
             {vistaActiva === "tabla" && (
                 <>
-                    {/* Desktop */}
                     <div className="hidden overflow-hidden rounded-lg shadow-lg bg-white/[0.03] lg:block">
                         <div className="overflow-auto">
                             <table className="min-w-full text-left text-sm">
@@ -1180,8 +1096,6 @@ export default function RegistroPruebaManejo() {
                             <ContextMenu ctxMenu={ctxMenu} onDelete={async (row) => { await eliminarRegistro(row); setCtxMenu({ open: false, x: 0, y: 0, row: null }); }} onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })} />
                         </div>
                     </div>
-
-                    {/* Mobile */}
                     <div className="grid gap-3 lg:hidden">
                         {loadingList ? (
                             <>{Array.from({ length: 6 }).map((_, i) => (
@@ -1216,33 +1130,26 @@ export default function RegistroPruebaManejo() {
                 </>
             )}
 
-            {/* ═══ VISTA AGENDA ═══ */}
             {vistaActiva === "agenda" && (
                 <div>
                     {loadingList ? (
-                        <div className="flex items-center justify-center py-20 text-[#131E5C]">
-                            <Loader2 className="h-8 w-8 animate-spin" />
-                        </div>
+                        <div className="flex items-center justify-center py-20 text-[#131E5C]"><Loader2 className="h-8 w-8 animate-spin" /></div>
                     ) : (
-                        <AgendaView registros={registros} onEditRow={openEdit} />
+                        <AgendaView registros={sorted} onEditRow={openEdit} />
                     )}
                 </div>
             )}
 
-            {/* ═══ VISTA GRÁFICAS ═══ */}
             {vistaActiva === "graficas" && (
                 <div>
                     {loadingList ? (
-                        <div className="flex items-center justify-center py-20 text-[#131E5C]">
-                            <Loader2 className="h-8 w-8 animate-spin" />
-                        </div>
+                        <div className="flex items-center justify-center py-20 text-[#131E5C]"><Loader2 className="h-8 w-8 animate-spin" /></div>
                     ) : (
-                        <GraficasView registros={registros} />
+                        <GraficasView registros={sorted} />
                     )}
                 </div>
             )}
 
-            {/* ─── MODAL ─── */}
             <Modal open={openModal} title={mode === "create" ? "Nueva Prueba de Manejo" : `Editar • ${draft?.id}`} onClose={closeModal}
                 footer={
                     <>
@@ -1256,9 +1163,15 @@ export default function RegistroPruebaManejo() {
                 {loadingDetail ? <ModalSkeleton /> : !draft ? null : (
                     <div className="grid gap-3 md:grid-cols-3">
                         <Field label="Dealer" icon={Building2}>
-                            <select value={draft.agencia || ""} onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))} disabled={!isAdmin} className={[inputBase, inputOk, !isAdmin ? "opacity-75 cursor-not-allowed" : ""].join(" ")}>
+                            <select
+                                value={draft.agencia || ""}
+                                onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))}
+                                disabled={!isAdmin && userAgencias.length <= 1}
+                                className={[inputBase, inputOk, !isAdmin && userAgencias.length <= 1 ? "opacity-75 cursor-not-allowed" : ""].join(" ")}
+                            >
                                 <option value="" disabled>Selecciona un dealer...</option>
-                                {(isAdmin ? DEALERS : (userAgencia ? [userAgencia] : DEALERS)).map((d) => (<option key={d} value={d}>{d}</option>))}
+                                {/* Admin ve TODOS los dealers; usuario solo ve sus agencias */}
+                                {(isAdmin ? DEALERS : userAgencias).map((d) => (<option key={d} value={d}>{d}</option>))}
                             </select>
                         </Field>
                         <Field label="Prospecto" icon={User}>

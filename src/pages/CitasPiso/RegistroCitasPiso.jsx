@@ -1,5 +1,5 @@
 // src/pages/CitasPiso/RegistroCitasPiso.jsx
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
     Plus,
     Search,
@@ -199,7 +199,28 @@ export default function RegistroCitasPiso() {
         return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
     }, [user]);
 
-    const userAgencia = String(user?.agencia || "").trim();
+    // ── Multi-agencia (igual que RegistroCredito) ──────────────────────────────
+    const userAgencias = useMemo(() => {
+        return String(user?.agencia || "")
+            .split("|")
+            .map((agencia) => normalizeStr(agencia))
+            .filter(Boolean);
+    }, [user?.agencia]);
+
+    const userAgencia = userAgencias[0] || "";
+
+    const userTieneAgencia = useCallback(
+        (agenciaRegistro) => {
+            const agencia = normalizeStr(agenciaRegistro);
+            if (!agencia) return false;
+            return userAgencias.some(
+                (agenciaUsuario) =>
+                    agenciaUsuario.toLowerCase() === agencia.toLowerCase()
+            );
+        },
+        [userAgencias]
+    );
+    // ──────────────────────────────────────────────────────────────────────────
 
     const [registros, setRegistros] = useState([]);
 
@@ -423,13 +444,16 @@ export default function RegistroCitasPiso() {
         refreshList();
     }, []);
 
-    // dealers como CrmCases: si no es admin, solo su agencia
+    // ── Dealers: igual que RegistroCredito ────────────────────────────────────
     const dealers = useMemo(() => {
         const set = new Set((registros || []).map((r) => normalizeStr(r.agencia)).filter(Boolean));
         const all = ["Todos", ...Array.from(set)];
-        if (!isAdmin && userAgencia) return ["Todos", userAgencia];
+        if (!isAdmin && userAgencias.length > 0) {
+            return ["Todos", ...userAgencias];
+        }
         return all;
-    }, [registros, isAdmin, userAgencia]);
+    }, [registros, isAdmin, userAgencias]);
+    // ──────────────────────────────────────────────────────────────────────────
 
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
@@ -440,13 +464,12 @@ export default function RegistroCitasPiso() {
         const maxInt = hastaInt ?? null;
 
         return (registros || []).filter((r) => {
-            // regla agencia por sesión
-            if (!isAdmin && userAgencia && normalizeStr(r.agencia) !== normalizeStr(userAgencia)) return false;
+            // ── Filtro por agencia del usuario (multi-agencia) ─────────────────
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(r.agencia)) return false;
 
             const nombreCliente = normalizeStr(r?.cliente?.nombre);
             const telCliente = normalizeStr(r?.cliente?.telefono);
 
-            // Estado_ingreso NO se usa aquí
             const matchQ =
                 !q ||
                 normalizeStr(r.agencia).toLowerCase().includes(q) ||
@@ -470,7 +493,7 @@ export default function RegistroCitasPiso() {
 
             return matchQ && matchAgencia && matchRango;
         });
-    }, [registros, filters, isAdmin, userAgencia]);
+    }, [registros, filters, isAdmin, userAgencias, userTieneAgencia]);
 
     const sorted = useMemo(() => {
         const data = [...filtered];
@@ -496,7 +519,7 @@ export default function RegistroCitasPiso() {
         setTouchedSave(false);
         setMode("create");
 
-        const agenciaDefault = isAdmin ? "" : userAgencia;
+        const agenciaDefault = isAdmin ? "" : userAgencias[0] || "";
 
         setDraft({
             id: null,
@@ -528,7 +551,8 @@ export default function RegistroCitasPiso() {
 
             const r = await apiCitasPiso.get(row.id);
 
-            if (!isAdmin && userAgencia && normalizeStr(r.agencia) !== normalizeStr(userAgencia)) {
+            // ── Validación multi-agencia ───────────────────────────────────────
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(r.agencia)) {
                 alert("No tienes permisos para ver registros de otra agencia.");
                 setOpenModal(false);
                 return;
@@ -538,7 +562,7 @@ export default function RegistroCitasPiso() {
                 id: r.id,
                 cliente_id: r?.cliente?.id_cliente ?? null,
 
-                agencia: r.agencia || (isAdmin ? "" : userAgencia),
+                agencia: r.agencia || (isAdmin ? "" : userAgencias[0] || ""),
                 cliente_nombre: r?.cliente?.nombre || "",
                 cliente_telefono: r?.cliente?.telefono || "",
 
@@ -568,7 +592,8 @@ export default function RegistroCitasPiso() {
     const eliminarRegistro = async (row) => {
         if (!row?.id) return;
 
-        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) {
+        // ── Validación multi-agencia ───────────────────────────────────────────
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para eliminar registros de otra agencia.");
             return;
         }
@@ -641,6 +666,7 @@ export default function RegistroCitasPiso() {
             });
         }
     };
+
     const updateFolioInline = async (row, nextValue) => {
         const id = row?.id;
         if (!id) return;
@@ -667,6 +693,7 @@ export default function RegistroCitasPiso() {
             });
         }
     };
+
     const save = async () => {
         if (!draft || saving) return;
         if (!telIsOk) return;
@@ -675,9 +702,10 @@ export default function RegistroCitasPiso() {
 
         setSaving(true);
         try {
-            const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : userAgencia;
+            const agenciaFinal = isAdmin
+                ? normalizeStr(draft.agencia || "")
+                : normalizeStr(draft.agencia || userAgencias[0] || "");
 
-            // ✅ Solo los campos que necesitas en el modal (y solo esos al back)
             const payload = {
                 agencia: agenciaFinal,
 
@@ -725,7 +753,7 @@ export default function RegistroCitasPiso() {
                     <p className="text-sm text-slate-400">Doble clic para editar.</p>
                     {!isAdmin && userAgencia ? (
                         <p className="mt-1 text-xs font-semibold text-slate-500">
-                            Agencia asignada: <span className="text-[#131E5C]">{userAgencia}</span>
+                            Agencia asignada: <span className="text-[#131E5C]">{userAgencias.join(", ")}</span>
                         </p>
                     ) : null}
                 </div>
@@ -827,7 +855,6 @@ export default function RegistroCitasPiso() {
                     </div>
                 </div>
             </div>
-            {/* =============================================================== */}
 
             {/* Desktop */}
             <div className="hidden overflow-hidden rounded-lg shadow-lg bg-white/[0.03] lg:block">
@@ -925,7 +952,7 @@ export default function RegistroCitasPiso() {
                                                             !!updatingInline[row.id] ? "opacity-70 cursor-not-allowed" : "focus:ring-2 focus:ring-[#131E5C]/25",
                                                         ].join(" ")}
                                                         onKeyDown={(e) => {
-                                                            if (e.key === "Enter") e.currentTarget.blur(); // guarda con Enter
+                                                            if (e.key === "Enter") e.currentTarget.blur();
                                                             if (e.key === "Escape") {
                                                                 e.currentTarget.value = row.folio || "";
                                                                 e.currentTarget.blur();
@@ -933,7 +960,6 @@ export default function RegistroCitasPiso() {
                                                         }}
                                                         onBlur={(e) => {
                                                             const value = e.currentTarget.value;
-                                                            // solo pega al backend si cambió
                                                             if ((value || "") !== (row.folio || "")) updateFolioInline(row, value);
                                                         }}
                                                     />
@@ -985,7 +1011,7 @@ export default function RegistroCitasPiso() {
 
                                     {sorted.length === 0 ? (
                                         <tr>
-                                            <td colSpan={7} className="px-4 py-10 text-center text-[#131E5C]">
+                                            <td colSpan={8} className="px-4 py-10 text-center text-[#131E5C]">
                                                 No hay resultados con esos filtros.
                                             </td>
                                         </tr>
@@ -1104,13 +1130,17 @@ export default function RegistroCitasPiso() {
                             <select
                                 value={draft.agencia || ""}
                                 onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))}
-                                disabled={!isAdmin}
-                                className={[inputBase, inputOk, !isAdmin ? "opacity-75 cursor-not-allowed" : ""].join(" ")}
+                                disabled={!isAdmin && userAgencias.length <= 1}
+                                className={[
+                                    inputBase,
+                                    inputOk,
+                                    !isAdmin && userAgencias.length <= 1 ? "opacity-75 cursor-not-allowed" : "",
+                                ].join(" ")}
                             >
                                 <option value="" disabled>
                                     Selecciona un dealer...
                                 </option>
-                                {(isAdmin ? DEALERS : userAgencia ? [userAgencia] : DEALERS).map((d) => (
+                                {(isAdmin ? DEALERS : userAgencias).map((d) => (
                                     <option key={d} value={d}>
                                         {d}
                                     </option>
@@ -1216,7 +1246,8 @@ export default function RegistroCitasPiso() {
                                 ))}
                             </select>
                         </Field>
-                        <Field label="Folio" icon={UserSearch /* o el icono que quieras */}>
+
+                        <Field label="Folio" icon={UserSearch}>
                             <input
                                 value={draft.folio || ""}
                                 onChange={(e) => setDraft((p) => ({ ...p, folio: e.target.value }))}
@@ -1224,6 +1255,7 @@ export default function RegistroCitasPiso() {
                                 placeholder="A12B9981"
                             />
                         </Field>
+
                         <Field label="Be Back" icon={UserCheck}>
                             <label className="flex items-center gap-3 text-sm font-semibold text-[#131E5C]">
                                 <input

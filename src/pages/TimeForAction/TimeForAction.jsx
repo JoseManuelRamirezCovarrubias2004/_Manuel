@@ -614,6 +614,7 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     const [assigneeSearch,setAssigneeSearch]=useState("");
     const [assigneeResults,setAssigneeResults]=useState([]);
     const [searchingAssignees,setSearchingAssignees]=useState(false);
+    const [evidenciasExistentes, setEvidenciasExistentes] = useState([]);
 
     const toInputDate = (val) => {
         if (!val) return "";
@@ -645,7 +646,8 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
             start_date: toInputDate(s.start_date || s.fecha_inicio || s.startDate || s.fechaInicio || s.inicio || ""),
             due_date:   toInputDate(s.due_date   || s.fecha_fin   || s.dueDate   || s.fechaFin   || s.fin   || ""),
         })):[]);
-        setEvidencias([]);
+        setEvidencias([]);  // los File nuevos siguen vacíos, correcto
+        setEvidenciasExistentes(Array.isArray(task?.evidencias) ? task.evidencias : []);
         setAssignedUsers(Array.isArray(task?.asignados)?task.asignados.map(a=>({id:a.user_id,name:a.name,email:a.email})):[]);
     },[open,task,lists]);
 
@@ -809,31 +811,58 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
 
                     <div className="border-t border-black/[0.06]"/>
 
-                    <section>
-                        <div className="mb-3 text-xs font-extrabold uppercase tracking-widest text-black/35">Evidencias</div>
-                        <div className="rounded-xl border border-dashed border-black/20 bg-slate-50 p-4 text-center">
-                            <Paperclip className="mx-auto mb-2 h-7 w-7 text-black/30"/>
-                            <label className="cursor-pointer text-sm font-extrabold text-[#131E5C] hover:underline">Seleccionar archivos
-                                <input type="file" multiple accept=".png,.jpg,.jpeg,.pdf,.mp4,.mov,.webm,.mp3,.wav,.m4a" className="hidden" onChange={e=>setEvidencias(p=>[...p,...Array.from(e.target.files||[])])}/>
-                            </label>
-                            <p className="mt-1 text-xs text-black/40">Imágenes, PDF, video y audio</p>
-                        </div>
-                        {evidencias.length>0&&(
-                            <div className="mt-3 grid gap-2">
-                                <div className="text-xs font-extrabold text-black/50">{evidencias.length} archivo(s)</div>
-                                {evidencias.map((f,i)=>(
-                                    <div key={i} className="flex items-center justify-between gap-3 rounded-xl border border-black/10 bg-white px-3 py-2">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <span className="text-lg">{f.type.startsWith("image/")?"🖼️":f.type==="application/pdf"?"📄":f.type.startsWith("video/")?"🎬":f.type.startsWith("audio/")?"🎵":"📎"}</span>
-                                            <span className="text-xs font-semibold text-black/70 truncate">{f.name}</span>
-                                        </div>
-                                        <button onClick={()=>setEvidencias(p=>p.filter((_,j)=>j!==i))} className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100"><X className="h-3.5 w-3.5"/></button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
+                   <section>
+    <div className="mb-3 text-xs font-extrabold uppercase tracking-widest text-black/35">Evidencias</div>
+
+    {/* Archivos ya guardados */}
+    {evidenciasExistentes.length > 0 && (
+        <div className="mb-3 grid gap-2">
+            <div className="text-xs font-extrabold text-black/50">Archivos guardados ({evidenciasExistentes.length})</div>
+            {evidenciasExistentes.map((ev) => (
+                <div key={ev.id} className="flex items-center justify-between gap-3 rounded-xl border border-black/10 bg-white px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Paperclip className="h-4 w-4 text-black/40 shrink-0"/>
+                        <span className="text-xs font-semibold text-black/70 truncate">
+                            {ev.archivo_url ? ev.archivo_url.split("/").pop() : "Archivo"}
+                        </span>
+                        {ev.comentario && <span className="text-xs text-black/40">— {ev.comentario}</span>}
+                    </div>
+                    {ev.archivo_url && (
+                        <a href={ev.archivo_url} target="_blank" rel="noopener noreferrer"
+                            className="shrink-0 rounded-lg border border-black/10 bg-slate-50 px-2 py-1 text-xs font-extrabold text-[#131E5C] hover:bg-slate-100">
+                            Ver
+                        </a>
+                    )}
                 </div>
+            ))}
+        </div>
+    )}
+
+    {/* Subir nuevos archivos */}
+    <div className="rounded-xl border border-dashed border-black/20 bg-slate-50 p-4 text-center">
+        <Paperclip className="mx-auto mb-2 h-7 w-7 text-black/30"/>
+        <label className="cursor-pointer text-sm font-extrabold text-[#131E5C] hover:underline">Seleccionar archivos
+            <input type="file" multiple accept=".png,.jpg,.jpeg,.pdf,.mp4,.mov,.webm,.mp3,.wav,.m4a" className="hidden" onChange={e=>setEvidencias(p=>[...p,...Array.from(e.target.files||[])])}/>
+        </label>
+        <p className="mt-1 text-xs text-black/40">Imágenes, PDF, video y audio</p>
+    </div>
+    {evidencias.length > 0 && (
+        <div className="mt-3 grid gap-2">
+            <div className="text-xs font-extrabold text-black/50">{evidencias.length} archivo(s) nuevos</div>
+            {evidencias.map((f,i) => (
+                <div key={i} className="flex items-center justify-between gap-3 rounded-xl border border-black/10 bg-white px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-lg">{f.type.startsWith("image/")?"🖼️":f.type==="application/pdf"?"📄":f.type.startsWith("video/")?"🎬":f.type.startsWith("audio/")?"🎵":"📎"}</span>
+                        <span className="text-xs font-semibold text-black/70 truncate">{f.name}</span>
+                    </div>
+                    <button onClick={()=>setEvidencias(p=>p.filter((_,j)=>j!==i))} className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100"><X className="h-3.5 w-3.5"/></button>
+                </div>
+            ))}
+        </div>
+    )}
+</section>
+                </div>
+                
 
                 <div className="flex items-center justify-end gap-2 border-t border-black/[0.07] bg-slate-50/80 px-5 py-3.5 shrink-0">
                     <button onClick={onClose} className="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-extrabold text-black/70 hover:bg-slate-50">Cancelar</button>
