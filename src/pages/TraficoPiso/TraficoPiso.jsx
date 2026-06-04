@@ -1,5 +1,5 @@
 // src/pages/TraficoPiso/TraficoPiso.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
     ArrowUpDown,
@@ -352,7 +352,6 @@ function GraficosView({ rows }) {
 }
 
 // ==================== COMPONENTE AGENDA ====================
-// ==================== COMPONENTE AGENDA ====================
 function AgendaTraficoPiso({ rows, loading, onEdit, onNewAtSlot }) {
     const [weekRef, setWeekRef] = useState(new Date());
 
@@ -403,7 +402,6 @@ function AgendaTraficoPiso({ rows, loading, onEdit, onNewAtSlot }) {
 
     return (
         <div className="rounded-lg border border-black/10 bg-white overflow-hidden shadow-sm">
-            {/* Header */}
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-black/10">
                 <div>
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Semana de tráfico</div>
@@ -425,7 +423,6 @@ function AgendaTraficoPiso({ rows, loading, onEdit, onNewAtSlot }) {
                 </div>
             </div>
 
-            {/* Tabla */}
             <div className="overflow-auto">
                 <table className="min-w-full border-collapse" style={{ tableLayout: "fixed" }}>
                     <colgroup>
@@ -533,24 +530,43 @@ function AgendaTraficoPiso({ rows, loading, onEdit, onNewAtSlot }) {
 export default function TraficoPiso() {
     const { user, loading: authLoading } = useAuth();
 
-    // Detectar si es administrador
+    // ── CAMBIO 1: soporte multi-agencia (igual que RegistroCredito) ──────────
     const isAdmin = useMemo(() => {
         const permisos = user?.permisos || [];
         const rol = String(user?.rol || "").trim().toLowerCase();
         return rol === "administrador" || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
     }, [user]);
 
-    const userAgencia = useMemo(() => {
-        const agencia = user?.agencia || "";
-        return agencia.trim();
-    }, [user]);
+    // Array de agencias del usuario separadas por "|"
+    const userAgencias = useMemo(() => {
+        return String(user?.agencia || "")
+            .split("|")
+            .map((a) => normalizeStr(a))
+            .filter(Boolean);
+    }, [user?.agencia]);
+
+    // Primera agencia (para compatibilidad con lógica existente)
+    const userAgencia = userAgencias[0] || "";
+
+    // Verifica si el usuario pertenece a una agencia concreta
+    const userTieneAgencia = useCallback(
+        (agenciaRegistro) => {
+            const agencia = normalizeStr(agenciaRegistro);
+            if (!agencia) return false;
+            return userAgencias.some(
+                (a) => a.toLowerCase() === agencia.toLowerCase()
+            );
+        },
+        [userAgencias]
+    );
+    // ─────────────────────────────────────────────────────────────────────────
 
     const [registros, setRegistros] = useState([]);
     const [resumen, setResumen] = useState(null);
     const [vista, setVista] = useState("agenda");
     const [beBackMap, setBeBackMap] = useState({});
     const [updatingBeBack, setUpdatingBeBack] = useState({});
-    const [filters, setFilters] = useState({ q: "", tipoPersona: "Todos", tiempoCompra: "Todos", rangoDesde: "", rangoHasta: "" });
+    const [filters, setFilters] = useState({ q: "", agencia: "Todos", tipoPersona: "Todos", tiempoCompra: "Todos", rangoDesde: "", rangoHasta: "" });
     const [sort, setSort] = useState({ key: "creado_en", dir: "desc" });
     const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
     const [openModal, setOpenModal] = useState(false);
@@ -593,7 +609,7 @@ export default function TraficoPiso() {
     function updateField(name, value) { setDraft((prev) => ({ ...(prev || INITIAL_FORM), [name]: value })); }
     function toggleSort(key) { setSort((prev) => prev.key !== key ? { key, dir: "asc" } : { key, dir: prev.dir === "asc" ? "desc" : "asc" }); }
 
-    // Cargar datos - ADMIN ve todo, USUARIO ve solo su sucursal
+    // ── CAMBIO 2: cargarDatos soporta múltiples agencias ─────────────────────
     async function cargarDatos(params = {}) {
         try {
             setLoadingList(true);
@@ -601,7 +617,8 @@ export default function TraficoPiso() {
 
             const paramsConFiltro = { ...params };
 
-            // 🔥 SOLO filtrar si NO es administrador
+            // Si NO es admin y tiene agencias asignadas, filtrar por la primera
+            // (el filtro en `filtered` se encarga de las demás en el cliente)
             if (!isAdmin && userAgencia) {
                 paramsConFiltro.agencia = userAgencia;
             }
@@ -632,6 +649,7 @@ export default function TraficoPiso() {
             setRegistros([]);
         } finally { setLoadingList(false); }
     }
+    // ─────────────────────────────────────────────────────────────────────────
 
     useEffect(() => {
         if (!authLoading) {
@@ -661,7 +679,6 @@ export default function TraficoPiso() {
         setOk("");
         setTouchedSave(false);
         setMode("create");
-        // Admin: puede elegir dealer, Usuario: dealer pre-cargado
         setDraft({ ...INITIAL_FORM, agencia: isAdmin ? "" : userAgencia });
         setOpenModal(true);
     }
@@ -671,6 +688,14 @@ export default function TraficoPiso() {
         try {
             setError(""); setOk(""); setTouchedSave(false); setMode("edit"); setOpenModal(true); setLoadingDetail(true);
             const item = await apiTraficoPiso.get(row.id_trafico);
+
+            // Verificar que el usuario tenga acceso a la agencia del registro
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(item.agencia)) {
+                alert("No tienes permisos para ver registros de otra agencia.");
+                setOpenModal(false);
+                return;
+            }
+
             setDraft({ ...INITIAL_FORM, ...item, presupuesto_estimado: item.presupuesto_estimado === null || item.presupuesto_estimado === undefined ? "" : String(parseInt(item.presupuesto_estimado || 0, 10) || ""), enganche_presupuestado: item.enganche_presupuestado === null || item.enganche_presupuestado === undefined ? "" : String(parseInt(item.enganche_presupuestado || 0, 10) || ""), mensualidades_presupuestadas: item.mensualidades_presupuestadas ? String(item.mensualidades_presupuestadas) : "", edad: item.edad === null || item.edad === undefined ? "" : String(item.edad), cantidad_hijos: item.cantidad_hijos === null || item.cantidad_hijos === undefined ? "0" : String(item.cantidad_hijos), pasatiempos: Array.isArray(item.pasatiempos) ? item.pasatiempos : [], deja_auto_cuenta: !!item.deja_auto_cuenta, comprueba_ingresos: !!item.comprueba_ingresos });
         } catch (err) { console.error(err); setError(err.message || "No se pudo abrir el registro."); setOpenModal(false); } finally { setLoadingDetail(false); }
     }
@@ -692,23 +717,35 @@ export default function TraficoPiso() {
 
     async function eliminar(row) {
         if (!row?.id_trafico) return;
+
+        // Verificar permiso de agencia antes de eliminar
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
+            alert("No tienes permisos para eliminar registros de otra agencia.");
+            return;
+        }
+
         const confirmar = window.confirm(`¿Eliminar el registro de ${row.nombre_prospecto || "este prospecto"}?`);
         if (!confirmar) return;
         try { setError(""); setOk(""); await apiTraficoPiso.remove(row.id_trafico); await cargarDatos(); setOk("Registro eliminado correctamente."); } catch (err) { console.error(err); setError(err.message || "No se pudo eliminar el registro."); } finally { setCtxMenu({ open: false, x: 0, y: 0, row: null }); }
     }
 
     function onRowContextMenu(e, row) { e.preventDefault(); e.stopPropagation(); setCtxMenu({ open: true, x: e.clientX, y: e.clientY, row }); }
-    function resetFilters() { setFilters({ q: "", tipoPersona: "Todos", tiempoCompra: "Todos", rangoDesde: "", rangoHasta: "" }); }
+    function resetFilters() { setFilters({ q: "", agencia: "Todos", tipoPersona: "Todos", tiempoCompra: "Todos", rangoDesde: "", rangoHasta: "" }); }
     function setHoy() { const hoy = toYMDLocal(new Date()); setFilters((prev) => ({ ...prev, rangoDesde: hoy, rangoHasta: hoy })); }
     function handleNewAtSlot(date, hour) { openCreate(); }
 
+    // ── CAMBIO 3: filtered respeta multi-agencia + nuevo filtro de dealer ────
     const filtered = useMemo(() => {
         const q = normalizeStr(filters.q).toLowerCase();
         const desdeInt = ymdToInt(filters.rangoDesde);
         const hastaInt = ymdToInt(filters.rangoHasta);
         return (registros || []).filter((item) => {
+            // Bloquear registros de agencias ajenas (usuarios no-admin con múltiples agencias)
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(item.agencia)) return false;
+
             const searchable = [item.agencia, item.nombre_prospecto, item.telefono, item.email, item.asesor_ventas, item.motivo_ingreso, item.tipo_persona, item.tiempo_compra, item.auto_suenos, item.forma_capitalizacion, item.perfil_profesional, item.estado_civil, item.comentarios].map((v) => normalizeStr(v).toLowerCase()).join(" ");
             const matchQ = !q || searchable.includes(q);
+            const matchAgencia = filters.agencia === "Todos" || normalizeStr(item.agencia) === normalizeStr(filters.agencia);
             const matchTipo = filters.tipoPersona === "Todos" || item.tipo_persona === filters.tipoPersona;
             const matchTiempo = filters.tiempoCompra === "Todos" || item.tiempo_compra === filters.tiempoCompra;
             let matchRango = true;
@@ -719,9 +756,21 @@ export default function TraficoPiso() {
                 if (desdeInt !== null && ymdInt < desdeInt) matchRango = false;
                 if (hastaInt !== null && ymdInt > hastaInt) matchRango = false;
             }
-            return matchQ && matchTipo && matchTiempo && matchRango;
+            return matchQ && matchAgencia && matchTipo && matchTiempo && matchRango;
         });
-    }, [registros, filters]);
+    }, [registros, filters, isAdmin, userAgencias, userTieneAgencia]);
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── CAMBIO 4: dealers en filtros limitado a agencias del usuario ─────────
+    const dealersDisponibles = useMemo(() => {
+        if (!isAdmin && userAgencias.length > 0) {
+            return ["Todos", ...userAgencias];
+        }
+        // Admin: construir lista única de agencias presentes en los registros
+        const set = new Set((registros || []).map((r) => normalizeStr(r.agencia)).filter(Boolean));
+        return ["Todos", ...Array.from(set)];
+    }, [registros, isAdmin, userAgencias]);
+    // ─────────────────────────────────────────────────────────────────────────
 
     const sorted = useMemo(() => {
         const data = [...filtered];
@@ -753,7 +802,7 @@ export default function TraficoPiso() {
         return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-[#131E5C]" /></div>;
     }
 
-    if (!isAdmin && !userAgencia) {
+    if (!isAdmin && userAgencias.length === 0) {
         return <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center"><p className="text-amber-800 font-semibold">⚠️ No se ha asignado una sucursal a tu usuario. Contacta al administrador.</p></div>;
     }
 
@@ -764,9 +813,9 @@ export default function TraficoPiso() {
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Tráfico de piso</h2>
                     <p className="text-sm text-slate-400">
                         Control de prospectos que ingresan físicamente a la agencia.
-                        {!isAdmin && userAgencia && (
+                        {!isAdmin && userAgencias.length > 0 && (
                             <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[#131E5C]/10 px-2 py-0.5 text-xs font-bold text-[#131E5C]">
-                                <Building2 className="h-3 w-3" /> {userAgencia}
+                                <Building2 className="h-3 w-3" /> {userAgencias.join(", ")}
                             </span>
                         )}
                     </p>
@@ -783,7 +832,7 @@ export default function TraficoPiso() {
             {(vista === "tabla" || vista === "graficos") && (
                 <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <div className="grid gap-3 md:grid-cols-12">
-                        <div className="md:col-span-5">
+                        <div className="md:col-span-4">
                             <FilterBlock label="Búsqueda">
                                 <div className="flex items-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2">
                                     <Search className="h-4 w-4 text-[#131E5C]" />
@@ -792,6 +841,23 @@ export default function TraficoPiso() {
                                 </div>
                             </FilterBlock>
                         </div>
+
+                        {/* ── CAMBIO 5: filtro de dealer visible (igual a RegistroCredito) ── */}
+                        <div className="md:col-span-2">
+                            <FilterBlock label="Dealer">
+                                <select
+                                    value={filters.agencia}
+                                    onChange={(e) => setFilters((p) => ({ ...p, agencia: e.target.value }))}
+                                    className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+                                >
+                                    {dealersDisponibles.map((d) => (
+                                        <option key={d} value={d}>{d}</option>
+                                    ))}
+                                </select>
+                            </FilterBlock>
+                        </div>
+                        {/* ──────────────────────────────────────────────────────────────── */}
+
                         <div className="md:col-span-2">
                             <FilterBlock label="Tipo persona">
                                 <select value={filters.tipoPersona} onChange={(e) => setFilters((p) => ({ ...p, tipoPersona: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none">
@@ -800,7 +866,7 @@ export default function TraficoPiso() {
                                 </select>
                             </FilterBlock>
                         </div>
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-1">
                             <FilterBlock label="Tiempo compra">
                                 <select value={filters.tiempoCompra} onChange={(e) => setFilters((p) => ({ ...p, tiempoCompra: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none">
                                     <option value="Todos">Todos</option>
@@ -913,10 +979,16 @@ export default function TraficoPiso() {
                         <Section title="Datos generales" icon={User}>
                             <div className="grid gap-3 md:grid-cols-3">
                                 <Field label="Dealer" icon={Building2} required invalid={isInvalid("agencia")}>
-                                    <Select value={draft.agencia} invalid={isInvalid("agencia")} onChange={(e) => updateField("agencia", e.target.value)}>
+                                    <Select
+                                        value={draft.agencia}
+                                        invalid={isInvalid("agencia")}
+                                        onChange={(e) => updateField("agencia", e.target.value)}
+                                        disabled={!isAdmin && userAgencias.length <= 1}
+                                        className={!isAdmin && userAgencias.length <= 1 ? "cursor-not-allowed opacity-75" : ""}
+                                    >
                                         <option value="">Seleccionar dealer...</option>
-                                        {/* Admin ve TODOS los dealers, usuario ve SOLO su dealer */}
-                                        {(isAdmin ? DEALERS : [userAgencia]).map((dealer) => (
+                                        {/* Admin ve TODOS los dealers, usuario ve SOLO sus agencias */}
+                                        {(isAdmin ? DEALERS : userAgencias).map((dealer) => (
                                             <option key={dealer} value={dealer}>{dealer}</option>
                                         ))}
                                     </Select>

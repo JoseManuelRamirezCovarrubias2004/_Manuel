@@ -1,5 +1,5 @@
 // src/pages/Citas/RegistroCitas.jsx
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import {
     Plus,
     Search,
@@ -680,13 +680,39 @@ function GraficosView({ rows }) {
 export default function RegistroCitas() {
     const { user } = useAuth();
 
-    const isAdmin = useMemo(() => {
-        const permisos = user?.permisos || [];
-        const rol = String(user?.rol || "").trim().toLowerCase();
-        return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
-    }, [user]);
+    const permisos = user?.permisos || [];
+    const rol = String(user?.rol || "").trim().toLowerCase();
 
-    const userAgencia = String(user?.agencia || "").trim();
+    const isAdmin = useMemo(() => {
+        return (
+            rol === "administrador" ||
+            permisos.includes("ALL") ||
+            permisos.includes("USUARIOS_ADMIN") ||
+            permisos.includes("CRM_DIGITALES")
+        );
+    }, [rol, permisos]);
+
+    // ── Multi-agencia: split por "|" igual que RegistroCredito ──────────────
+    const userAgencias = useMemo(() => {
+        return String(user?.agencia || "")
+            .split("|")
+            .map((a) => normalizeStr(a))
+            .filter(Boolean);
+    }, [user?.agencia]);
+
+    const userAgencia = userAgencias[0] || "";
+
+    const userTieneAgencia = useCallback(
+        (agenciaRegistro) => {
+            const agencia = normalizeStr(agenciaRegistro);
+            if (!agencia) return false;
+            return userAgencias.some(
+                (ua) => ua.toLowerCase() === agencia.toLowerCase()
+            );
+        },
+        [userAgencias]
+    );
+    // ────────────────────────────────────────────────────────────────────────
 
     const [citas, setCitas] = useState([]);
     const [vista, setVista] = useState("tabla");
@@ -777,34 +803,37 @@ export default function RegistroCitas() {
 
     const onRowContextMenu = (e, row) => { e.preventDefault(); e.stopPropagation(); setCtxMenu({ open: true, x: e.clientX, y: e.clientY, row }); };
 
-    const refreshList = async () => {
+    const refreshList = useCallback(async () => {
         setLoadingList(true);
         try {
             const data = await apiCitas.list();
             setCitas(Array.isArray(data) ? data : []);
         } catch (e) { console.error(e); setCitas([]); }
         finally { setLoadingList(false); }
-    };
+    }, []);
 
-    useEffect(() => { refreshList(); }, []);
+    useEffect(() => { refreshList(); }, [refreshList]);
 
+    // ── Dealers: solo las agencias del usuario si no es admin ────────────────
     const dealers = useMemo(() => {
         const set = new Set((citas || []).map((c) => normalizeStr(c.agencia)).filter(Boolean));
-        if (!isAdmin && userAgencia) return ["Todos", userAgencia];
+        if (!isAdmin && userAgencias.length > 0) return ["Todos", ...userAgencias];
         return ["Todos", ...Array.from(set)];
-    }, [citas, isAdmin, userAgencia]);
+    }, [citas, isAdmin, userAgencias]);
+    // ────────────────────────────────────────────────────────────────────────
 
     const asesoresDigitalesFiltro = useMemo(() => {
         const set = new Set([...ASESORES_DIGITALES.map((a) => normalizeStr(a)), ...(citas || []).map((c) => normalizeStr(c.asesor_digital))].filter(Boolean));
         return ["Todos", ...Array.from(set)];
     }, [citas]);
 
+    // ── Filtrado: usar userTieneAgencia para soporte multi-agencia ───────────
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
         const desdeInt = ymdToInt(filters.rangoDesde);
         const hastaInt = ymdToInt(filters.rangoHasta);
         return (citas || []).filter((c) => {
-            if (!isAdmin && userAgencia && normalizeStr(c.agencia) !== normalizeStr(userAgencia)) return false;
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) return false;
             const nombreCliente = normalizeStr(c?.cliente?.nombre);
             const telCliente = normalizeStr(c?.cliente?.telefono);
             const matchQ = !q || [c.agencia, nombreCliente, telCliente, c.auto_interes, c.tipo_cita, c.fuente_prospeccion, c.asesor_digital, c.asesor_piso, c.comentarios].some((v) => normalizeStr(v).toLowerCase().includes(q));
@@ -819,7 +848,8 @@ export default function RegistroCitas() {
             }
             return matchQ && matchAgencia && matchAsesorDigital && matchRango;
         });
-    }, [citas, filters, isAdmin, userAgencia]);
+    }, [citas, filters, isAdmin, userAgencias, userTieneAgencia]);
+    // ────────────────────────────────────────────────────────────────────────
 
     const sorted = useMemo(() => {
         const data = [...filtered];
@@ -841,7 +871,7 @@ export default function RegistroCitas() {
     const openCreate = (dateOverride, hourOverride) => {
         setTouchedSave(false);
         setMode("create");
-        const agenciaDefault = isAdmin ? "" : userAgencia;
+        const agenciaDefault = isAdmin ? "" : userAgencias[0] || "";
 
         let fechaDefault = "";
         if (dateOverride) {
@@ -860,9 +890,11 @@ export default function RegistroCitas() {
         try {
             setTouchedSave(false); setMode("edit"); setLoadingDetail(true); setOpenModal(true);
             const c = await apiCitas.get(row.id);
-            if (!isAdmin && userAgencia && normalizeStr(c.agencia) !== normalizeStr(userAgencia)) {
+            // ── Validación multi-agencia ─────────────────────────────────────
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) {
                 alert("No tienes permisos para ver registros de otra agencia."); setOpenModal(false); return;
             }
+            // ────────────────────────────────────────────────────────────────
             setDraft({ id: c.id, cliente_id: c?.cliente?.id_cliente ?? null, agencia: c.agencia || (isAdmin ? "" : userAgencia), cliente_nombre: c?.cliente?.nombre || "", cliente_telefono: c?.cliente?.telefono || "", auto_interes: c.auto_interes || "", fecha_hora_cita: toDTLocal(c.fecha_hora_cita), asistencia: !!c.asistencia, tipo_cita: c.tipo_cita || "", fuente_prospeccion: c.fuente_prospeccion || "", asesor_digital: c.asesor_digital || "", asesor_piso: c.asesor_piso || "", comentarios: c.comentarios || "" });
         } catch (e) { console.error(e); alert("No se pudo abrir la cita (revisa consola)."); setOpenModal(false); }
         finally { setLoadingDetail(false); }
@@ -872,7 +904,11 @@ export default function RegistroCitas() {
 
     const eliminarCita = async (row) => {
         if (!row?.id) return;
-        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) { alert("No tienes permisos para eliminar registros de otra agencia."); return; }
+        // ── Validación multi-agencia ─────────────────────────────────────────
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
+            alert("No tienes permisos para eliminar registros de otra agencia."); return;
+        }
+        // ────────────────────────────────────────────────────────────────────
         const ok = confirm(`¿Eliminar la cita de ${row?.cliente?.nombre || row?.cliente?.telefono || "cliente"}?`);
         if (!ok) return;
         try {
@@ -889,7 +925,7 @@ export default function RegistroCitas() {
         if (missing.length) return;
         setSaving(true);
         try {
-            const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : userAgencia;
+            const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : normalizeStr(draft.agencia || userAgencia);
             const payload = { agencia: agenciaFinal, ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}), nombre: draft.cliente_nombre || "", telefono: normalizeStr(draft.cliente_telefono), auto_interes: draft.auto_interes || "", fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita), asistencia: !!draft.asistencia, tipo_cita: draft.tipo_cita || "", fuente_prospeccion: draft.fuente_prospeccion || "", asesor_digital: draft.asesor_digital || "", asesor_piso: draft.asesor_piso || "", comentarios: draft.comentarios || "" };
             if (mode === "create") await apiCitas.create(payload);
             else await apiCitas.update(draft.id, payload);
@@ -900,7 +936,11 @@ export default function RegistroCitas() {
 
     const toggleAsistenciaInline = async (row) => {
         const id = row?.id; if (!id) return;
-        if (!isAdmin && userAgencia && normalizeStr(row.agencia) !== normalizeStr(userAgencia)) { alert("No tienes permisos para modificar registros de otra agencia."); return; }
+        // ── Validación multi-agencia ─────────────────────────────────────────
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
+            alert("No tienes permisos para modificar registros de otra agencia."); return;
+        }
+        // ────────────────────────────────────────────────────────────────────
         const prev = !!row.asistencia;
         setCitas((p) => p.map((c) => (c.id === id ? { ...c, asistencia: !prev } : c)));
         setUpdatingInline((p) => ({ ...p, [id]: true }));
@@ -931,7 +971,12 @@ export default function RegistroCitas() {
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Citas</h2>
-                    {!isAdmin && userAgencia ? <p className="mt-1 text-xs font-semibold text-slate-500">Agencia asignada: <span className="text-[#131E5C]">{userAgencia}</span></p> : null}
+                    {/* ── Mostrar todas las agencias del usuario ── */}
+                    {!isAdmin && userAgencias.length > 0 ? (
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                            Agencia asignada: <span className="text-[#131E5C]">{userAgencias.join(", ")}</span>
+                        </p>
+                    ) : null}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <ViewToggle />
@@ -1074,9 +1119,10 @@ export default function RegistroCitas() {
                             </Field>
                         </div>
                         <Field label="Dealer" icon={Building2}>
-                            <select value={draft.agencia || ""} onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))} disabled={!isAdmin} className={[inputBase, inputOk, !isAdmin ? "opacity-75 cursor-not-allowed" : ""].join(" ")}>
+                            {/* ── Dealer select: opciones según agencias del usuario ── */}
+                            <select value={draft.agencia || ""} onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))} disabled={!isAdmin && userAgencias.length <= 1} className={[inputBase, inputOk, !isAdmin && userAgencias.length <= 1 ? "opacity-75 cursor-not-allowed" : ""].join(" ")}>
                                 <option value="" disabled>Selecciona un dealer...</option>
-                                {(isAdmin ? DEALERS : userAgencia ? [userAgencia] : DEALERS).map((d) => <option key={d} value={d}>{d}</option>)}
+                                {(isAdmin ? DEALERS : userAgencias).map((d) => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </Field>
                         <Field label="Nombre del cliente" icon={User}>
