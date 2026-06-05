@@ -3,6 +3,9 @@ import React from "react";
 import { createBrowserRouter } from "react-router-dom";
 import EncuestasWhats from './pages/EncuestasWhats/EncuestasWhats';
 
+import CatalogoPreciosLayout from "./pages/CatalogoPrecios/CatalogoPreciosLayout";
+import CatalogoPreciosIndex from "./pages/CatalogoPrecios/CatalogoPreciosIndex";
+
 import TimeForActionLayout from "./pages/TimeForAction/TimeForActionLayout";
 import TimeForAction from "./pages/TimeForAction/TimeForAction";
 
@@ -547,6 +550,21 @@ export const router = createBrowserRouter(
                                 {
                                     index: true,
                                     element: <TimeForAction />,
+                                },
+                            ],
+                        },
+
+                        {
+                            path: "catalogo_precios",
+                            element: (
+                                <RequirePermission anyOf={["USUARIOS_ADMIN"]}>
+                                    <CatalogoPreciosLayout />
+                                </RequirePermission>
+                            ),
+                            children: [
+                                {
+                                    index: true,
+                                    element: <CatalogoPreciosIndex />,
                                 },
                             ],
                         },

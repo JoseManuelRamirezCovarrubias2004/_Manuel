@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     allowedHosts: ["ryrcorp.vercel.app"],
     hmr: {
-      overlay: false  // ← Agrega esta línea para desactivar el overlay de errores
+      overlay: false  
     }
   },
 });

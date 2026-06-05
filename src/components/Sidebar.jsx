@@ -17,6 +17,7 @@ import {
     Car,
     TrendingUp,
     ClipboardCheck,
+      Tag,
     QrCode,
     UserSearch,
 } from "lucide-react";
@@ -167,6 +168,13 @@ export default function Sidebar() {
                 label: "Reclutamiento y Seleccion",
                 icon: UserSearch,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]),
+            },
+
+            {
+                to: "/catalogo_precios",
+                label: "Catálogo Precios",
+                icon: Tag,
+                show: hasAnyPermission(["USUARIOS_ADMIN"]),
             },
 
             {
