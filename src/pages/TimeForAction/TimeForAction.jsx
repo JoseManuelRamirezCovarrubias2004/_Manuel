@@ -594,7 +594,7 @@ function TeamsModal({ open, onClose, onCreated }) {
     );
 }
 
-function PdfThumb({ url }) {
+function PdfThumb({ url, file }) {
     const canvasRef = useRef(null);
     const [status, setStatus] = useState("loading");
 
@@ -604,7 +604,7 @@ function PdfThumb({ url }) {
 
         async function render() {
             try {
-                // Cargar PDF.js si no está
+                // Cargar PDF.js si no está disponible
                 if (!window.pdfjsLib) {
                     await new Promise((resolve, reject) => {
                         const s = document.createElement("script");
@@ -619,20 +619,36 @@ function PdfThumb({ url }) {
 
                 if (cancelled) return;
 
-                // Intentar fetch con varios métodos
                 let arrayBuffer = null;
 
-                try {
-                    const authRaw = localStorage.getItem("auth") || "{}";
-                    const authData = JSON.parse(authRaw);
-                    const token = authData?.token || authData?.access_token || authData?.accessToken || "";
-                    const r = await fetch(url, {
-                        mode: "cors",
-                        credentials: "include",
-                        headers: token ? { "Authorization": `Bearer ${token}` } : {},
+                if (file instanceof File) {
+                    // ── Archivo nuevo: leer directamente con FileReader ──
+                    arrayBuffer = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.onerror = reject;
+                        reader.readAsArrayBuffer(file);
                     });
-                    if (r.ok) arrayBuffer = await r.arrayBuffer();
-                } catch { /* silenciar */ }
+                } else if (url) {
+                    // ── Archivo guardado: fetch con token ──
+                    try {
+                        const authRaw = localStorage.getItem("auth") || "{}";
+                        const authData = JSON.parse(authRaw);
+                        const token =
+                            authData?.token ||
+                            authData?.access_token ||
+                            authData?.accessToken ||
+                            "";
+                        const r = await fetch(url, {
+                            mode: "cors",
+                            credentials: "include",
+                            headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        });
+                        if (r.ok) arrayBuffer = await r.arrayBuffer();
+                    } catch {
+                        /* silenciar */
+                    }
+                }
 
                 if (cancelled) return;
 
@@ -654,7 +670,7 @@ function PdfThumb({ url }) {
                 const scale = 90 / viewport.height;
                 const scaled = page.getViewport({ scale });
 
-                canvas.width  = scaled.width;
+                canvas.width = scaled.width;
                 canvas.height = scaled.height;
 
                 await page.render({
@@ -670,35 +686,39 @@ function PdfThumb({ url }) {
         }
 
         render();
-        return () => { cancelled = true; };
-    }, [url]);
+        return () => {
+            cancelled = true;
+        };
+    }, [url, file]);
 
-    if (status === "error") return (
-        <div className="flex flex-col items-center gap-1">
-            <span className="text-3xl">📄</span>
-            <span className="text-[10px] font-black text-red-500 uppercase tracking-wider">PDF</span>
-        </div>
-    );
+    if (status === "error")
+        return (
+            <div className="flex flex-col items-center gap-1">
+                <span className="text-3xl">📄</span>
+                <span className="text-[10px] font-black text-red-500 uppercase tracking-wider">PDF</span>
+            </div>
+        );
 
-    return (
-        <div className="relative w-full h-full flex items-center justify-center bg-white">
-            {status === "loading" && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-100">
-                    <span className="text-2xl animate-pulse">📄</span>
-                    <span className="text-[9px] text-black/30 font-semibold">Cargando...</span>
-                </div>
-            )}
-            <canvas
-                ref={canvasRef}
-                style={{
-                    display: status === "done" ? "block" : "none",
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                }}
-            />
-        </div>
-    );
+   return (
+            <div className="relative w-full h-full flex items-center justify-center bg-white overflow-hidden">
+                {status === "loading" && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-100">
+                        <span className="text-2xl animate-pulse">📄</span>
+                        <span className="text-[9px] text-black/30 font-semibold">Cargando...</span>
+                    </div>
+                )}
+                <canvas
+                    ref={canvasRef}
+                    style={{
+                        display: status === "done" ? "block" : "none",
+                        maxWidth: "100%",
+                        maxHeight: "100%",
+                        width: "auto",
+                        height: "auto",
+                    }}
+                />
+            </div>
+        );
 }
 /* TASK MODAL*/
 function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
@@ -1000,17 +1020,19 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
                             <div className="w-full h-24 bg-slate-100 flex items-center justify-center overflow-hidden relative">
                                 {isImg ? (
                                     <img
-                                        src={URL.createObjectURL(f)}
-                                        alt={f.name}
-                                        className="w-full h-full object-cover"
-                                        onLoad={e => URL.revokeObjectURL(e.target.src)}
-                                    />
-                                ) : (
-                                    <div className="flex flex-col items-center gap-1">
-                                        <span className="text-3xl">{emoji}</span>
-                                        <span className={`text-[10px] font-black uppercase tracking-wider ${labelColor}`}>{labelText}</span>
-                                    </div>
-                                )}
+                                src={URL.createObjectURL(f)}
+                                alt={f.name}
+                                className="w-full h-full object-cover"
+                                onLoad={e => URL.revokeObjectURL(e.target.src)}
+                            />
+                        ) : isPdf ? (
+                            <PdfThumb file={f} />
+                        ) : (
+                            <div className="flex flex-col items-center gap-1">
+                                <span className="text-3xl">{emoji}</span>
+                                <span className={`text-[10px] font-black uppercase tracking-wider ${labelColor}`}>{labelText}</span>
+                            </div>
+                        )}
                                 <span className="absolute top-1.5 left-1.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider">
                                     Nuevo
                                 </span>
