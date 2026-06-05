@@ -1,6 +1,7 @@
 //src/pages/PedidoPiezas/RegistroPiezas.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useAuth } from "../../auth/AuthContext";
 import {
     Plus,
     Search,
@@ -475,6 +476,32 @@ export default function AdministradorPedidosPiezas() {
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
 
+    const { user } = useAuth();
+    const permisos = user?.permisos || [];
+    const rol = String(user?.rol || "").trim().toLowerCase();
+
+    const isAdmin = useMemo(() => {
+    return (
+        rol === "administrador" ||
+        permisos.includes("ALL") ||
+        permisos.includes("USUARIOS_ADMIN")
+    );
+}, [rol, permisos]);
+
+const userAgencias = useMemo(() => {
+    return String(user?.agencia || "")
+        .split("|")
+        .map((a) => a.trim())
+        .filter(Boolean);
+}, [user?.agencia]);
+
+const userTieneAgencia = useCallback((agenciaRegistro) => {
+    if (isAdmin) return true;
+    if (userAgencias.length === 0) return true;
+    const agencia = String(agenciaRegistro ?? "").trim().toLowerCase();
+    return userAgencias.some((ua) => ua.toLowerCase() === agencia);
+}, [isAdmin, userAgencias]);
+
     async function loadPedidos() {
         try {
             setLoading(true);
@@ -519,11 +546,13 @@ export default function AdministradorPedidosPiezas() {
     }, [pieceSearch]);
 
     const filteredOrders = useMemo(() => {
-        const q = normalizeText(filters.q);
+    const q = normalizeText(filters.q);
 
-        return pedidos.filter((order) => {
-            const matchesDealer =
-                filters.dealer === "Todos" || order.dealer === filters.dealer;
+    return pedidos.filter((order) => {
+        if (!userTieneAgencia(order.dealer)) return false;
+
+        const matchesDealer =
+            filters.dealer === "Todos" || order.dealer === filters.dealer;
 
             const matchesStatus =
                 filters.estatus === "Todos" || order.estatus === filters.estatus;
@@ -557,7 +586,7 @@ export default function AdministradorPedidosPiezas() {
             creadoEn: "",
             fechaPedido: todayYmd(),
             fechaProgramadaLlegada: todayYmd(),
-            dealer: DEALERS[0],
+            dealer: isAdmin ? DEALERS[0] : (userAgencias[0] || DEALERS[0]),
             nombreCliente: "",
             ordenServicio: "",
             ticketSar: "",
@@ -795,7 +824,7 @@ export default function AdministradorPedidosPiezas() {
                             className={inputBase}
                         >
                             <option value="Todos">Todos</option>
-                            {DEALERS.map((dealer) => (
+                            {(isAdmin ? DEALERS : userAgencias).map((dealer) => (
                                 <option key={dealer} value={dealer}>
                                     {dealer}
                                 </option>
@@ -1065,18 +1094,19 @@ export default function AdministradorPedidosPiezas() {
 
                             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                                 <Field label="Dealer" error={errors.dealer}>
-                                    <select
-                                        value={draft.dealer}
-                                        onChange={(e) => updateDraftField("dealer", e.target.value)}
-                                        className={inputBase}
-                                    >
-                                        {DEALERS.map((dealer) => (
-                                            <option key={dealer} value={dealer}>
-                                                {dealer}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </Field>
+                            <select
+                                value={draft.dealer}
+                                onChange={(e) => updateDraftField("dealer", e.target.value)}
+                                disabled={!isAdmin && userAgencias.length <= 1}
+                                className={cn(inputBase, !isAdmin && userAgencias.length <= 1 ? "opacity-75 cursor-not-allowed" : "")}
+                            >
+                                {(isAdmin ? DEALERS : userAgencias).map((dealer) => (
+                                    <option key={dealer} value={dealer}>
+                                        {dealer}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
 
                                 <Field label="Número de pedido" error={errors.numeroPedido}>
                                     <input

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, useDeferredValue } from "react";
+import { useEffect, useMemo, useState, useDeferredValue, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useAuth } from "../../auth/AuthContext";
 import {
     ArrowUpDown,
     BriefcaseBusiness,
@@ -179,6 +180,36 @@ export default function VacantesView() {
     const [expandedCandidate, setExpandedCandidate] = useState(null);
     const [menuContextual, setMenuContextual] = useState(null);
 
+    const { user } = useAuth();
+const permisos = user?.permisos || [];
+const rol = String(user?.rol || "").trim().toLowerCase();
+
+const isAdmin = useMemo(() => {
+    return (
+        rol === "administrador" ||
+        permisos.includes("ALL") ||
+        permisos.includes("USUARIOS_ADMIN")
+    );
+}, [rol, permisos]);
+
+const userAgencias = useMemo(() => {
+    return String(user?.agencia || "")
+        .split("|")
+        .map((a) => a.trim())
+        .filter(Boolean);
+}, [user?.agencia]);
+
+const userTieneAgencia = useCallback(
+    (dealerRegistro) => {
+        const dealer = String(dealerRegistro || "").trim();
+        if (!dealer) return false;
+        return userAgencias.some(
+            (a) => a.toLowerCase() === dealer.toLowerCase()
+        );
+    },
+    [userAgencias]
+);
+
     const inputBase = "w-full rounded-lg border px-3 py-2.5 text-sm font-semibold text-[#131E5C] outline-none transition";
     const inputOk = "border-black/10 bg-neutral-100 focus:border-[#131E5C] focus:ring-2 focus:ring-[#131E5C]/15";
     const inputBad = "border-red-500 bg-red-50 focus:border-red-500 focus:ring-2 focus:ring-red-200";
@@ -198,7 +229,9 @@ export default function VacantesView() {
     const puestosOptions = useMemo(() => ["Todos", ...PUESTOS], []);
     const fuentesOptions = useMemo(() => ["Todos", ...FUENTES_RECLUTAMIENTO], []);
 
-    const filtered = useMemo(() => { const q = normalizarTexto(deferredQ); return vacantes.filter((item) => { const candidatos = normalizarCandidatos(item); const textoBusqueda = normalizarTexto([item.id_vacante, item.estatus, item.puesto, item.dealer, item.fuente_reclutamiento, item.solicitado_por, item.fecha_publicacion, item.fecha_cierre, ...candidatos.flatMap((candidato) => [candidato.nombre, candidato.sexo, candidato.telefono, candidato.correo, candidato.ubicacion, candidato.puesto_postulado, candidato.fuente, candidato.estatus])].join(" ")); const matchQ = !q || textoBusqueda.includes(q); const matchEstatus = filters.estatus === "Todos" || item.estatus === filters.estatus; const matchDealer = filters.dealer === "Todos" || item.dealer === filters.dealer; const matchPuesto = filters.puesto === "Todos" || item.puesto === filters.puesto; const matchFuente = filters.fuente === "Todos" || item.fuente_reclutamiento === filters.fuente || candidatos.some((candidato) => candidato.fuente === filters.fuente); return matchQ && matchEstatus && matchDealer && matchPuesto && matchFuente; }); }, [vacantes, deferredQ, filters]);
+    const filtered = useMemo(() => { const q = normalizarTexto(deferredQ); return vacantes.filter((item) => {
+    if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(item.dealer)) return false;
+    const candidatos = normalizarCandidatos(item); const textoBusqueda = normalizarTexto([item.id_vacante, item.estatus, item.puesto, item.dealer, item.fuente_reclutamiento, item.solicitado_por, item.fecha_publicacion, item.fecha_cierre, ...candidatos.flatMap((candidato) => [candidato.nombre, candidato.sexo, candidato.telefono, candidato.correo, candidato.ubicacion, candidato.puesto_postulado, candidato.fuente, candidato.estatus])].join(" ")); const matchQ = !q || textoBusqueda.includes(q); const matchEstatus = filters.estatus === "Todos" || item.estatus === filters.estatus; const matchDealer = filters.dealer === "Todos" || item.dealer === filters.dealer; const matchPuesto = filters.puesto === "Todos" || item.puesto === filters.puesto; const matchFuente = filters.fuente === "Todos" || item.fuente_reclutamiento === filters.fuente || candidatos.some((candidato) => candidato.fuente === filters.fuente); return matchQ && matchEstatus && matchDealer && matchPuesto && matchFuente; }); }, [vacantes, deferredQ, filters]);
 
     const sorted = useMemo(() => { const data = [...filtered]; const dir = sort.dir === "asc" ? 1 : -1; data.sort((a, b) => { const va = getSortValue(a, sort.key); const vb = getSortValue(b, sort.key); if (va < vb) return -1 * dir; if (va > vb) return 1 * dir; return 0; }); return data; }, [filtered, sort]);
 
@@ -206,7 +239,7 @@ export default function VacantesView() {
     function updateFilter(key, value) { setFilters((prev) => ({ ...prev, [key]: value })); }
     function resetFilters() { setFilters(INITIAL_FILTERS); }
     function updateDraftField(key, value) { setDraft((prev) => ({ ...prev, [key]: value })); }
-    function openCreate() { setMode("create"); setTouchedSave(false); setActiveTab("vacante"); setExpandedCandidate(null); setMenuContextual(null); setDraft({ id_vacante: "Automático", estatus: "Publicada", puesto: "", dealer: "", fuente_reclutamiento: "", solicitado_por: "", fecha_publicacion: "", fecha_cierre: "", candidatos: [] }); setOpenModal(true); }
+    function openCreate() { setMode("create"); setTouchedSave(false); setActiveTab("vacante"); setExpandedCandidate(null); setMenuContextual(null); setDraft({ id_vacante: "Automático", estatus: "Publicada", puesto: "", dealer: isAdmin ? "" : (userAgencias[0] || ""), fuente_reclutamiento: "", solicitado_por: "", fecha_publicacion: "", fecha_cierre: "", candidatos: [] }); setOpenModal(true); }
     function openEdit(row) { const normalizada = normalizarVacanteDesdeApi(row); setMode("edit"); setTouchedSave(false); setActiveTab("candidatos"); setExpandedCandidate(normalizarCandidatos(normalizada)[0]?.id_temporal || null); setMenuContextual(null); setDraft(normalizada); setOpenModal(true); }
     function closeModal() { if (saving) return; setOpenModal(false); setDraft(null); }
     function abrirMenuContextual(event, row) { event.preventDefault(); event.stopPropagation(); setMenuContextual({ x: event.clientX, y: event.clientY, row }); }
@@ -305,20 +338,15 @@ export default function VacantesView() {
                            <label className={filterLabelCls}>Dealer</label>
    
                            <select
-                               value={filters.dealer}
-                               onChange={(event) =>
-                                   updateFilter("dealer", event.target.value)
-                               }
-                               className={filterControlCls}
-                           >
-                               <option value="Todos">Todos</option>
-   
-                               {DEALERS_VW.map((dealer) => (
-                                   <option key={dealer} value={dealer}>
-                                       {dealer}
-                                   </option>
-                               ))}
-                           </select>
+                                value={filters.dealer}
+                                onChange={(event) => updateFilter("dealer", event.target.value)}
+                                className={filterControlCls}
+                            >
+                                <option value="Todos">Todos</option>
+                                {(isAdmin ? DEALERS_VW : userAgencias).map((dealer) => (
+                                    <option key={dealer} value={dealer}>{dealer}</option>
+                                ))}
+                            </select>
                        </div>
    
                        <div className="xl:col-span-2">
@@ -822,25 +850,22 @@ export default function VacantesView() {
                                    </Field>
    
                                    <Field label="Dealer" icon={Building2}>
-                                       <select
-                                           value={draft.dealer || ""}
-                                           onChange={(event) =>
-                                               updateDraftField("dealer", event.target.value)
-                                           }
-                                           className={cls(
-                                               inputBase,
-                                               isInvalid("dealer") ? inputBad : inputOk
-                                           )}
-                                       >
-                                           <option value="">Selecciona un dealer...</option>
-   
-                                           {DEALERS_VW.map((dealer) => (
-                                               <option key={dealer} value={dealer}>
-                                                   {dealer}
-                                               </option>
-                                           ))}
-                                       </select>
-                                   </Field>
+                                        <select
+                                            value={draft.dealer || ""}
+                                            onChange={(event) => updateDraftField("dealer", event.target.value)}
+                                            disabled={!isAdmin && userAgencias.length <= 1}
+                                            className={cls(
+                                                inputBase,
+                                                isInvalid("dealer") ? inputBad : inputOk,
+                                                !isAdmin && userAgencias.length <= 1 ? "opacity-75 cursor-not-allowed" : ""
+                                            )}
+                                        >
+                                            <option value="">Selecciona un dealer...</option>
+                                            {(isAdmin ? DEALERS_VW : userAgencias).map((dealer) => (
+                                                <option key={dealer} value={dealer}>{dealer}</option>
+                                            ))}
+                                        </select>
+                                    </Field>
    
                                    <div className="md:col-span-2">
                                        <Field label="Puesto" icon={BriefcaseBusiness}>

@@ -460,7 +460,14 @@ export default function HojaRegistros() {
         );
     }, [user]);
 
-    const userAgencia = String(user?.agencia || "").trim();
+    const userAgencias = useMemo(() => {
+    return String(user?.agencia || "")
+        .split("|")
+        .map((a) => a.trim())
+        .filter(Boolean);
+}, [user?.agencia]);
+
+const userAgencia = userAgencias[0] || "";
 
     const [rows, setRows] = useState([]);
     const [loadingList, setLoadingList] = useState(false);
@@ -596,7 +603,7 @@ export default function HojaRegistros() {
     }, []);
 
     const dealers = useMemo(() => {
-        if (!isAdmin && userAgencia) return ["Todos", userAgencia];
+        if (!isAdmin && userAgencias.length > 0) return ["Todos", ...userAgencias];
 
         const set = new Set(
             (rows || []).map((row) => normalizeStr(row.agencia)).filter(Boolean)
@@ -623,9 +630,9 @@ export default function HojaRegistros() {
         const hastaInt = ymdToInt(filters.hasta);
 
         return (rows || []).filter((row) => {
-            if (!isAdmin && userAgencia) {
-                if (normalizeStr(row.agencia) !== normalizeStr(userAgencia)) return false;
-            }
+            if (!isAdmin && userAgencias.length > 0) {
+            if (!userAgencias.some((ua) => normalizeStr(ua) === normalizeStr(row.agencia))) return false;
+           }
 
             const matchAgencia =
                 filters.agencia === "Todos" ||
@@ -748,8 +755,8 @@ export default function HojaRegistros() {
         try {
             const data = await apiHojaIngresos.get(row.id);
 
-            if (!isAdmin && userAgencia) {
-                if (normalizeStr(data.agencia) !== normalizeStr(userAgencia)) {
+            if (!isAdmin && userAgencias.length > 0) {
+                if (!userAgencias.some((ua) => normalizeStr(ua) === normalizeStr(data.agencia))) {
                     alert("No tienes permisos para editar registros de otra agencia.");
                     setOpenModal(false);
                     return;
@@ -877,8 +884,8 @@ export default function HojaRegistros() {
     async function eliminar(row) {
         if (!row?.id) return;
 
-        if (!isAdmin && userAgencia) {
-            if (normalizeStr(row.agencia) !== normalizeStr(userAgencia)) {
+        if (!isAdmin && userAgencias.length > 0) {
+            if (!userAgencias.some((ua) => normalizeStr(ua) === normalizeStr(row.agencia))) {
                 alert("No tienes permisos para eliminar registros de otra agencia.");
                 return;
             }
@@ -980,7 +987,7 @@ export default function HojaRegistros() {
                     {!isAdmin && userAgencia ? (
                         <p className="mt-1 text-xs font-semibold text-slate-500">
                             Agencia asignada:{" "}
-                            <span className="text-[#131E5C]">{userAgencia}</span>
+                            <span className="text-[#131E5C]">{userAgencias.join(", ")}</span>
                         </p>
                     ) : null}
                 </div>
@@ -1335,7 +1342,7 @@ export default function HojaRegistros() {
                                     Selecciona un dealer...
                                 </option>
 
-                                {(isAdmin ? DEALERS : userAgencia ? [userAgencia] : DEALERS).map(
+                                {(isAdmin ? DEALERS : userAgencias.length > 0 ? userAgencias : DEALERS).map(
                                     (dealer) => (
                                         <option key={dealer} value={dealer}>
                                             {dealer}
