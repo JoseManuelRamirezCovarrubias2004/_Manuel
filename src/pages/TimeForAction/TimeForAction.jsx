@@ -594,6 +594,112 @@ function TeamsModal({ open, onClose, onCreated }) {
     );
 }
 
+function PdfThumb({ url }) {
+    const canvasRef = useRef(null);
+    const [status, setStatus] = useState("loading");
+
+    useEffect(() => {
+        let cancelled = false;
+        setStatus("loading");
+
+        async function render() {
+            try {
+                // Cargar PDF.js si no está
+                if (!window.pdfjsLib) {
+                    await new Promise((resolve, reject) => {
+                        const s = document.createElement("script");
+                        s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+                        s.onload = resolve;
+                        s.onerror = reject;
+                        document.head.appendChild(s);
+                    });
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+                        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+                }
+
+                if (cancelled) return;
+
+                // Intentar fetch con varios métodos
+                let arrayBuffer = null;
+
+                try {
+                    const authRaw = localStorage.getItem("auth") || "{}";
+                    const authData = JSON.parse(authRaw);
+                    const token = authData?.token || authData?.access_token || authData?.accessToken || "";
+                    const r = await fetch(url, {
+                        mode: "cors",
+                        credentials: "include",
+                        headers: token ? { "Authorization": `Bearer ${token}` } : {},
+                    });
+                    if (r.ok) arrayBuffer = await r.arrayBuffer();
+                } catch { /* silenciar */ }
+
+                if (cancelled) return;
+
+                if (!arrayBuffer) {
+                    setStatus("error");
+                    return;
+                }
+
+                const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                if (cancelled) return;
+
+                const page = await pdf.getPage(1);
+                if (cancelled) return;
+
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+
+                const viewport = page.getViewport({ scale: 1 });
+                const scale = 90 / viewport.height;
+                const scaled = page.getViewport({ scale });
+
+                canvas.width  = scaled.width;
+                canvas.height = scaled.height;
+
+                await page.render({
+                    canvasContext: canvas.getContext("2d"),
+                    viewport: scaled,
+                }).promise;
+
+                if (!cancelled) setStatus("done");
+            } catch (e) {
+                console.warn("[PdfThumb]", e);
+                if (!cancelled) setStatus("error");
+            }
+        }
+
+        render();
+        return () => { cancelled = true; };
+    }, [url]);
+
+    if (status === "error") return (
+        <div className="flex flex-col items-center gap-1">
+            <span className="text-3xl">📄</span>
+            <span className="text-[10px] font-black text-red-500 uppercase tracking-wider">PDF</span>
+        </div>
+    );
+
+    return (
+        <div className="relative w-full h-full flex items-center justify-center bg-white">
+            {status === "loading" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-100">
+                    <span className="text-2xl animate-pulse">📄</span>
+                    <span className="text-[9px] text-black/30 font-semibold">Cargando...</span>
+                </div>
+            )}
+            <canvas
+                ref={canvasRef}
+                style={{
+                    display: status === "done" ? "block" : "none",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                }}
+            />
+        </div>
+    );
+}
 /* TASK MODAL*/
 function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     const [title,setTitle]=useState("");
@@ -816,25 +922,53 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
 
     {/* Archivos ya guardados */}
     {evidenciasExistentes.length > 0 && (
-        <div className="mb-3 grid gap-2">
-            <div className="text-xs font-extrabold text-black/50">Archivos guardados ({evidenciasExistentes.length})</div>
-            {evidenciasExistentes.map((ev) => (
-                <div key={ev.id} className="flex items-center justify-between gap-3 rounded-xl border border-black/10 bg-white px-3 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <Paperclip className="h-4 w-4 text-black/40 shrink-0"/>
-                        <span className="text-xs font-semibold text-black/70 truncate">
-                            {ev.archivo_url ? ev.archivo_url.split("/").pop() : "Archivo"}
-                        </span>
-                        {ev.comentario && <span className="text-xs text-black/40">— {ev.comentario}</span>}
-                    </div>
-                    {ev.archivo_url && (
-                        <a href={ev.archivo_url} target="_blank" rel="noopener noreferrer"
-                            className="shrink-0 rounded-lg border border-black/10 bg-slate-50 px-2 py-1 text-xs font-extrabold text-[#131E5C] hover:bg-slate-100">
-                            Ver
-                        </a>
-                    )}
-                </div>
-            ))}
+        <div className="mb-3">
+            <div className="text-xs font-extrabold text-black/50 mb-2">Archivos guardados ({evidenciasExistentes.length})</div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {evidenciasExistentes.map((ev) => {
+                    const url = ev.proxy_url || ev.archivo_url || "";
+                    const name = url.split("/").pop() || "Archivo";
+                    const isImg   = /\.(png|jpg|jpeg|webp|gif)$/i.test(url);
+                    const isPdf   = /\.pdf$/i.test(url);
+                    const isVideo = /\.(mp4|mov|webm)$/i.test(url);
+                    const isAudio = /\.(mp3|wav|m4a)$/i.test(url);
+                    return (
+                        <div key={ev.id} className="rounded-xl border border-black/10 bg-white overflow-hidden flex flex-col">
+                            <div className="w-full h-24 bg-slate-100 flex items-center justify-center overflow-hidden">
+                                {isImg ? (
+                                    <img src={url} alt={name} className="w-full h-full object-cover"/>
+                                ) : isPdf ? (
+                                    <PdfThumb url={url}/>
+                                ) : isVideo ? (
+                                    <div className="flex flex-col items-center gap-1">
+                                        <span className="text-3xl">🎬</span>
+                                        <span className="text-[10px] font-black text-purple-500 uppercase tracking-wider">Video</span>
+                                    </div>
+                                ) : isAudio ? (
+                                    <div className="flex flex-col items-center gap-1">
+                                        <span className="text-3xl">🎵</span>
+                                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-wider">Audio</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-1">
+                                        <span className="text-3xl">📎</span>
+                                        <span className="text-[10px] font-black text-black/40 uppercase tracking-wider">{name.split(".").pop()}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="px-2 py-1.5 flex items-center justify-between gap-1 border-t border-black/5">
+                                <span className="text-[10px] font-semibold text-black/60 truncate flex-1" title={name}>{name}</span>
+                                {url && (
+                                    <a href={url} target="_blank" rel="noopener noreferrer"
+                                        className="shrink-0 rounded-lg border border-black/10 bg-slate-50 px-2 py-0.5 text-[10px] font-extrabold text-[#131E5C] hover:bg-slate-100">
+                                        Ver
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     )}
 
@@ -842,22 +976,56 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     <div className="rounded-xl border border-dashed border-black/20 bg-slate-50 p-4 text-center">
         <Paperclip className="mx-auto mb-2 h-7 w-7 text-black/30"/>
         <label className="cursor-pointer text-sm font-extrabold text-[#131E5C] hover:underline">Seleccionar archivos
-            <input type="file" multiple accept=".png,.jpg,.jpeg,.pdf,.mp4,.mov,.webm,.mp3,.wav,.m4a" className="hidden" onChange={e=>setEvidencias(p=>[...p,...Array.from(e.target.files||[])])}/>
+            <input type="file" multiple accept=".png,.jpg,.jpeg,.pdf,.mp4,.mov,.webm,.mp3,.wav,.m4a" className="hidden"
+                onChange={e => setEvidencias(p => [...p, ...Array.from(e.target.files || [])])}/>
         </label>
         <p className="mt-1 text-xs text-black/40">Imágenes, PDF, video y audio</p>
     </div>
+
+    {/* Archivos nuevos con miniatura */}
     {evidencias.length > 0 && (
-        <div className="mt-3 grid gap-2">
-            <div className="text-xs font-extrabold text-black/50">{evidencias.length} archivo(s) nuevos</div>
-            {evidencias.map((f,i) => (
-                <div key={i} className="flex items-center justify-between gap-3 rounded-xl border border-black/10 bg-white px-3 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-lg">{f.type.startsWith("image/")?"🖼️":f.type==="application/pdf"?"📄":f.type.startsWith("video/")?"🎬":f.type.startsWith("audio/")?"🎵":"📎"}</span>
-                        <span className="text-xs font-semibold text-black/70 truncate">{f.name}</span>
-                    </div>
-                    <button onClick={()=>setEvidencias(p=>p.filter((_,j)=>j!==i))} className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100"><X className="h-3.5 w-3.5"/></button>
-                </div>
-            ))}
+        <div className="mt-3">
+            <div className="text-xs font-extrabold text-black/50 mb-2">{evidencias.length} archivo(s) nuevos</div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {evidencias.map((f, i) => {
+                    const isImg   = f.type.startsWith("image/");
+                    const isPdf   = f.type === "application/pdf";
+                    const isVideo = f.type.startsWith("video/");
+                    const isAudio = f.type.startsWith("audio/");
+                    const emoji     = isPdf ? "📄" : isVideo ? "🎬" : isAudio ? "🎵" : "📎";
+                    const labelColor = isPdf ? "text-red-500" : isVideo ? "text-purple-500" : isAudio ? "text-blue-500" : "text-black/40";
+                    const labelText  = isPdf ? "PDF" : isVideo ? "Video" : isAudio ? "Audio" : f.name.split(".").pop().toUpperCase();
+                    return (
+                        <div key={i} className="rounded-xl border border-black/10 bg-white overflow-hidden flex flex-col">
+                            <div className="w-full h-24 bg-slate-100 flex items-center justify-center overflow-hidden relative">
+                                {isImg ? (
+                                    <img
+                                        src={URL.createObjectURL(f)}
+                                        alt={f.name}
+                                        className="w-full h-full object-cover"
+                                        onLoad={e => URL.revokeObjectURL(e.target.src)}
+                                    />
+                                ) : (
+                                    <div className="flex flex-col items-center gap-1">
+                                        <span className="text-3xl">{emoji}</span>
+                                        <span className={`text-[10px] font-black uppercase tracking-wider ${labelColor}`}>{labelText}</span>
+                                    </div>
+                                )}
+                                <span className="absolute top-1.5 left-1.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider">
+                                    Nuevo
+                                </span>
+                            </div>
+                            <div className="px-2 py-1.5 flex items-center justify-between gap-1 border-t border-black/5">
+                                <span className="text-[10px] font-semibold text-black/60 truncate flex-1" title={f.name}>{f.name}</span>
+                                <button onClick={() => setEvidencias(p => p.filter((_, j) => j !== i))}
+                                    className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 p-1 text-rose-600 hover:bg-rose-100">
+                                    <X className="h-3 w-3"/>
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     )}
 </section>
