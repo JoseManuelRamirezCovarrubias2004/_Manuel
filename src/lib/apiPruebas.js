@@ -238,6 +238,13 @@ export const api = {
       body: JSON.stringify(withRequestContext({ tel })),
     }),
 
+  digitalesMarkUnread: ({ tel }) =>
+    http("/digitales/chats/mark-unread/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withRequestContext({ tel })),
+    }),
+
   digitalesContacto: (
     tel,
     {
