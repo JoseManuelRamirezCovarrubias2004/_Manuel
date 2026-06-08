@@ -1,102 +1,38 @@
 // src/lib/apiPuestos.js
+import { buildQuery, http } from "./apiClient";
 
-const API_ROOT =
-  import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com";
+const ENDPOINT_PUESTOS = "/api/rrhh/puestos/";
+const ENDPOINT_EVALUACIONES = "/api/rrhh/evaluaciones-puestos/";
 
-const ENDPOINT_PUESTOS = `${API_ROOT.replace(/\/$/, "")}/api/rrhh/puestos/`;
-const ENDPOINT_EVALUACIONES = `${API_ROOT.replace(/\/$/, "")}/api/rrhh/evaluaciones-puestos/`;
-
-function obtenerToken() {
-  return (
-    localStorage.getItem("access") ||
-    localStorage.getItem("accessToken") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("authToken") ||
-    localStorage.getItem("auth.access") ||
-    ""
-  );
+function normalizarLista(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  return [];
 }
-
-async function request(endpoint, options = {}) {
-  const token = obtenerToken();
-
-  const headers = {
-    Accept: "application/json",
-    ...(options.headers || {}),
-  };
-
-  const tieneBody = options.body !== undefined && options.body !== null;
-
-  if (tieneBody && !(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  const response = await fetch(endpoint, {
-    ...options,
-    headers,
-  });
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const mensaje =
-      data?.detail ||
-      data?.error ||
-      data?.message ||
-      "Ocurrió un error al comunicarse con el servidor.";
-
-    throw new Error(mensaje);
-  }
-
-  return data;
-}
-
-// ========== PUESTOS ==========
 
 export async function listarPuestos(params = {}) {
-  const query = new URLSearchParams();
-  
-  if (params.categoria && params.categoria !== "Todos") {
-    query.append("categoria", params.categoria);
-  }
-  if (params.buscar) {
-    query.append("buscar", params.buscar);
-  }
-  
-  const url = `${ENDPOINT_PUESTOS}${query.toString() ? `?${query}` : ""}`;
-  const data = await request(url);
-  
-  return Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+  const query = buildQuery({
+    categoria: params.categoria,
+    buscar: params.buscar,
+  });
+
+  const data = await http(`${ENDPOINT_PUESTOS}${query}`);
+
+  return normalizarLista(data);
 }
 
-// ========== EVALUACIONES ==========
-
 export async function listarEvaluaciones(puestoId = null) {
-  let url = ENDPOINT_EVALUACIONES;
-  
-  if (puestoId) {
-    url = `${ENDPOINT_EVALUACIONES}?puesto_id=${puestoId}`;
-  }
-  
-  const data = await request(url);
-  return Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+  const query = puestoId ? buildQuery({ puesto_id: puestoId }) : "";
+  const data = await http(`${ENDPOINT_EVALUACIONES}${query}`);
+
+  return normalizarLista(data);
 }
 
 export async function guardarEvaluacion(evaluacion) {
-  const data = await request(ENDPOINT_EVALUACIONES, {
+  return http(ENDPOINT_EVALUACIONES, {
     method: "POST",
-    body: JSON.stringify(evaluacion),
+    body: evaluacion,
   });
-  
-  return data;
 }
 
 export default {

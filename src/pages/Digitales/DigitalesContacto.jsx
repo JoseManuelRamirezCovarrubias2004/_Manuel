@@ -136,14 +136,21 @@ function normalizeCampanasMetaOptions(response) {
     return unique;
 }
 
-function renderOptionsConValorActual(options, currentValue) {
+function renderOptionsConValorActual(
+    options,
+    currentValue,
+    placeholder = "Selecciona una opción…"
+) {
     const value = String(currentValue || "").trim();
+
     const exists = (options || []).some(
-        (option) => String(option || "").trim().toLowerCase() === value.toLowerCase(),
+        (option) => String(option || "").trim().toLowerCase() === value.toLowerCase()
     );
 
     return (
         <>
+            <option value="">{placeholder}</option>
+
             {value && !exists ? (
                 <option value={value}>{value} (actual)</option>
             ) : null}
@@ -157,7 +164,6 @@ function renderOptionsConValorActual(options, currentValue) {
     );
 }
 
-/** Devuelve el color del punto de estado según el estado del prospecto */
 function getStatusDotColor(estado) {
     const value = String(estado || "").toLowerCase();
     if (value === "descalificado") return "#3B82F6"; // azul
@@ -1958,7 +1964,8 @@ export default function DigitalesContacto() {
     function copyTel() {
         if (!activeTel) return;
         const display = formateaTelUi(activeTel);
-        navigator.clipboard?.writeText(display).then(() => {
+        const numero = display.replace(/\s/g, "");
+        navigator.clipboard?.writeText(numero.replace("+", "")).then(() => {
             setCopiedTel(true);
             setTimeout(() => setCopiedTel(false), 2000);
         }).catch(() => { });
@@ -2041,17 +2048,26 @@ export default function DigitalesContacto() {
 
     async function saveQuickEdit() {
         if (!prospecto?.id || !activeTel) return;
+
         setSavingQuickEdit(true);
+
         try {
-            await api.digitalesPatchProspecto(prospecto.id, {
-                nombre: quickEditDraft.nombre,
-                auto_interes: quickEditDraft.auto_interes,
-                estado: quickEditDraft.estado,
-                canal_contacto: quickEditDraft.canal_contacto,
-                business: quickEditDraft.business,
-                pauta: quickEditDraft.pauta || "",
+            const payload = {
+                nombre: quickEditDraft.nombre || "",
+                auto_interes: quickEditDraft.auto_interes || "",
+                estado: quickEditDraft.estado || "",
+                canal_contacto: quickEditDraft.canal_contacto || "",
+                business: quickEditDraft.business || "",
                 comentarios: quickEditDraft.comentarios || "",
-            });
+            };
+
+            const pautaLimpia = String(quickEditDraft.pauta || "").trim();
+            if (pautaLimpia) {
+                payload.pauta = pautaLimpia;
+            }
+
+            await api.digitalesPatchProspecto(prospecto.id, payload);
+
             await refreshActiveChat(activeTel);
             setShowQuickEdit(false);
         } catch (error) {
@@ -2615,8 +2631,7 @@ export default function DigitalesContacto() {
                                                     }
                                                     className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
                                                 >
-                                                    {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta)}
-                                                </select>
+                                                    {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta, "Sin campaña detectada")}                                                </select>
 
                                                 <div className="flex items-center gap-2">
                                                     <button

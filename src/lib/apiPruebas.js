@@ -1,39 +1,30 @@
 // src/lib/apiPruebas.js
+
 const API =
   import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com";
 // import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-function getAuthHeader() {
-  try {
-    const t = localStorage.getItem("auth.access");
-    if (!t) return {};
-    return { Authorization: `Bearer ${t}` };
-  } catch {
-    return {};
-  }
-}
+const LOGIN_PATH = "/login";
 
 function isFormData(x) {
   return typeof FormData !== "undefined" && x instanceof FormData;
 }
 
-function normalizaTelefonoMx(tel) {
-  const digits = String(tel || "").replace(/\D/g, "");
-  if (!digits) return "";
+function cleanToken(value) {
+  const token = String(value || "").trim();
 
-  if (digits.startsWith("521") && digits.length === 13) {
-    return `52${digits.slice(3)}`;
-  }
+  if (!token) return "";
+  if (token === "undefined") return "";
+  if (token === "null") return "";
 
-  if (digits.length === 10) {
-    return `52${digits}`;
-  }
+  return token;
+}
 
-  if (digits.length === 12 && digits.startsWith("52")) {
-    return digits;
-  }
+function isJwt(token) {
+  const value = cleanToken(token);
 
-  return digits;
+  // Un JWT normalmente tiene 3 partes: header.payload.signature
+  return value.split(".").length === 3;
 }
 
 function tryParseJson(text) {
@@ -49,12 +40,21 @@ function getAuthObject() {
     const raw = localStorage.getItem("auth");
     if (!raw) return null;
 
-    const parsed = JSON.parse(raw);
+    const parsed = tryParseJson(raw);
+
     if (!parsed || typeof parsed !== "object") return null;
 
     return parsed;
   } catch {
     return null;
+  }
+}
+
+function saveAuthObject(nextAuth) {
+  try {
+    localStorage.setItem("auth", JSON.stringify(nextAuth || {}));
+  } catch {
+    // Sin acción.
   }
 }
 
@@ -81,11 +81,203 @@ function getStoredUserObject() {
 
       return parsed;
     } catch {
-      // seguir buscando
+      // Seguir buscando.
     }
   }
 
   return null;
+}
+
+function getAccessToken() {
+  const directCandidates = [
+    localStorage.getItem("@token_access_jwt"),
+    localStorage.getItem("auth.access"),
+    localStorage.getItem("access"),
+    localStorage.getItem("token"),
+  ];
+
+  for (const candidate of directCandidates) {
+    const token = cleanToken(candidate);
+    if (isJwt(token)) return token;
+  }
+
+  const auth = getAuthObject();
+
+  const authCandidates = [
+    auth?.access,
+    auth?.access_token,
+    auth?.token,
+    auth?.jwt,
+  ];
+
+  for (const candidate of authCandidates) {
+    const token = cleanToken(candidate);
+    if (isJwt(token)) return token;
+  }
+
+  return "";
+}
+
+function getRefreshToken() {
+  const directCandidates = [
+    localStorage.getItem("@token_refresh_jwt"),
+    localStorage.getItem("auth.refresh"),
+    localStorage.getItem("refresh"),
+  ];
+
+  for (const candidate of directCandidates) {
+    const token = cleanToken(candidate);
+    if (isJwt(token)) return token;
+  }
+
+  const auth = getAuthObject();
+
+  const authCandidates = [auth?.refresh, auth?.refresh_token];
+
+  for (const candidate of authCandidates) {
+    const token = cleanToken(candidate);
+    if (isJwt(token)) return token;
+  }
+
+  return "";
+}
+
+function getAuthHeader() {
+  const token = getAccessToken();
+
+  if (!token) return {};
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+function saveJwtTokens({ access, refresh } = {}) {
+  const accessToken = cleanToken(access);
+  const refreshToken = cleanToken(refresh);
+
+  const auth = getAuthObject() || {};
+  const user = getStoredUserObject() || auth.user || null;
+
+  const nextAuth = {
+    ...auth,
+    ...(user ? { user } : {}),
+  };
+
+  if (isJwt(accessToken)) {
+    localStorage.setItem("@token_access_jwt", accessToken);
+    localStorage.setItem("auth.access", accessToken);
+
+    nextAuth.access = accessToken;
+    nextAuth.token = accessToken;
+  }
+
+  if (isJwt(refreshToken)) {
+    localStorage.setItem("@token_refresh_jwt", refreshToken);
+    localStorage.setItem("auth.refresh", refreshToken);
+
+    nextAuth.refresh = refreshToken;
+  }
+
+  saveAuthObject(nextAuth);
+}
+
+function clearJwtTokensOnly() {
+  const keys = [
+    "@token_access_jwt",
+    "@token_refresh_jwt",
+    "auth.access",
+    "auth.refresh",
+    "auth.token",
+    "access",
+    "refresh",
+    "token",
+  ];
+
+  for (const key of keys) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Sin acción.
+    }
+  }
+
+  const auth = getAuthObject();
+
+  if (auth && typeof auth === "object") {
+    delete auth.access;
+    delete auth.refresh;
+    delete auth.token;
+    delete auth.access_token;
+    delete auth.refresh_token;
+    delete auth.jwt;
+
+    saveAuthObject(auth);
+  }
+}
+
+function clearFullSession() {
+  clearJwtTokensOnly();
+
+  try {
+    localStorage.removeItem("auth");
+  } catch {
+    // Sin acción.
+  }
+}
+
+function redirectToLogin() {
+  if (window.location.pathname !== LOGIN_PATH) {
+    window.location.href = LOGIN_PATH;
+  }
+}
+
+async function refreshAccessToken() {
+  const refresh = getRefreshToken();
+
+  if (!refresh) {
+    throw new Error("No hay refresh token.");
+  }
+
+  const res = await fetch(`${API}/conformidad/api/auth/token/refresh/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refresh }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data?.access) {
+    throw new Error(data?.detail || "No se pudo refrescar el token.");
+  }
+
+  saveJwtTokens({
+    access: data.access,
+    refresh,
+  });
+
+  return data.access;
+}
+
+function normalizaTelefonoMx(tel) {
+  const digits = String(tel || "").replace(/\D/g, "");
+  if (!digits) return "";
+
+  if (digits.startsWith("521") && digits.length === 13) {
+    return `52${digits.slice(3)}`;
+  }
+
+  if (digits.length === 10) {
+    return `52${digits}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith("52")) {
+    return digits;
+  }
+
+  return digits;
 }
 
 function getCrmUsername() {
@@ -149,7 +341,30 @@ function appendContextToFormData(fd) {
   if (usuario) fd.append("usuario", usuario);
 }
 
-async function http(path, { method = "GET", body, headers } = {}) {
+async function parseErrorResponse(res) {
+  const text = await res.text().catch(() => "");
+
+  if (!text) return `HTTP ${res.status}`;
+
+  const json = tryParseJson(text);
+
+  if (json?.detail) return json.detail;
+  if (json?.error) return json.error;
+  if (json?.message) return json.message;
+
+  return text;
+}
+
+async function http(
+  path,
+  {
+    method = "GET",
+    body,
+    headers,
+    _retryRefresh = true,
+    _retryWithoutAuth = true,
+  } = {},
+) {
   const finalHeaders = {
     ...getAuthHeader(),
     ...(headers || {}),
@@ -166,15 +381,50 @@ async function http(path, { method = "GET", body, headers } = {}) {
     body,
   });
 
+  if (res.status === 401 && _retryRefresh) {
+    try {
+      await refreshAccessToken();
+
+      return http(path, {
+        method,
+        body,
+        headers,
+        _retryRefresh: false,
+        _retryWithoutAuth,
+      });
+    } catch {
+      clearJwtTokensOnly();
+
+      if (_retryWithoutAuth) {
+        return http(path, {
+          method,
+          body,
+          headers,
+          _retryRefresh: false,
+          _retryWithoutAuth: false,
+        });
+      }
+    }
+  }
+
+  if (res.status === 401) {
+    clearFullSession();
+    redirectToLogin();
+    throw new Error("Sesión expirada. Inicia sesión nuevamente.");
+  }
+
   if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(txt || `HTTP ${res.status}`);
+    const message = await parseErrorResponse(res);
+    throw new Error(message || `HTTP ${res.status}`);
   }
 
   if (res.status === 204) return null;
 
   const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) return res.json();
+
+  if (ct.includes("application/json")) {
+    return res.json();
+  }
 
   return res.text();
 }
@@ -351,5 +601,33 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(withRequestContext({ to, message_id })),
+    }),
+
+  get: (path) => http(path),
+
+  post: (path, payload) =>
+    http(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    }),
+
+  patch: (path, payload) =>
+    http(path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    }),
+
+  put: (path, payload) =>
+    http(path, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    }),
+
+  delete: (path) =>
+    http(path, {
+      method: "DELETE",
     }),
 };
