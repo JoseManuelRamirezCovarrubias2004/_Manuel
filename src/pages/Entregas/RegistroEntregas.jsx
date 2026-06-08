@@ -34,7 +34,8 @@ import {
 import { apiEntregas } from "../../lib/apiEntregas";
 import { createPortal } from "react-dom";
 import { useAuth } from "../../auth/AuthContext";
-
+import * as XLSX from "xlsx";
+import { FileDown } from "lucide-react";
 import {
     ResponsiveContainer,
     BarChart,
@@ -1388,6 +1389,79 @@ export default function RegistroEntregas() {
             return 0;
         })
         .map(({ fecha, total }) => ({ fecha, total }));
+const exportarExcel = () => {
+    // Fila de título
+    const titulo = [["REPORTE DE ENTREGAS — GRUPO AUTOMOTRIZ R&R"]];
+    const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+    const filtrosActivos = [];
+    if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+    if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+    if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+    if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+    const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+    const totalFila = [[`Total de registros: ${sorted.length}`]];
+    const espaciado = [[]];
+
+    const encabezados = [[
+        "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono",
+        "VIN / Chasis", "Modelo", "Versión", "Color",
+        "Asesor de Ventas", "Entrega Física", "Preparada por",
+        "ID SF-NADIN", "ID SF-DMS", "Comentarios",
+    ]];
+
+    const filas = sorted.map((row, i) => ([
+        i + 1,
+        formatDateTime(row.fecha_hora_entrega),
+        row.agencia || "—",
+        row?.cliente?.nombre || "—",
+        row?.cliente?.telefono || "—",
+        row.vin || "—",
+        row.modelo_version || "—",
+        row.version || "—",
+        row.color || "—",
+        row.asesor_ventas || "—",
+        entregaFisicaActiva(row.entrega_reportada) ? "Entregada" : "Pendiente",
+        row.preparada_por || "—",
+        row.id_cliente_sf_nadin || "—",
+        row.id_cliente_sf_dms || "—",
+        row.comentarios || "—",
+    ]));
+
+    const data = [
+        ...titulo,
+        ...fechaGen,
+        ...filtroFila,
+        ...totalFila,
+        ...espaciado,
+        ...encabezados,
+        ...filas,
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // Anchos de columna
+    ws["!cols"] = [
+        { wch: 5 },   // N°
+        { wch: 20 },  // Fecha y Hora
+        { wch: 16 },  // Dealer
+        { wch: 24 },  // Cliente
+        { wch: 16 },  // Teléfono
+        { wch: 20 },  // VIN
+        { wch: 14 },  // Modelo
+        { wch: 14 },  // Versión
+        { wch: 18 },  // Color
+        { wch: 36 },  // Asesor
+        { wch: 16 },  // Entrega Física
+        { wch: 24 },  // Preparada por
+        { wch: 16 },  // SF-NADIN
+        { wch: 16 },  // SF-DMS
+        { wch: 40 },  // Comentarios
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Entregas");
+    XLSX.writeFile(wb, `entregas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+};
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -1439,6 +1513,15 @@ export default function RegistroEntregas() {
                         >
                             <BarChart3 className="h-4 w-4" />
                             Gráficas
+                        </button>
+                        <button
+                            type="button"
+                            onClick={exportarExcel}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-xs font-black text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition"
+                            title="Exportar a Excel"
+                        >
+                            <FileDown className="h-4 w-4" />
+                            Exportar Excel
                         </button>
                     </div>
 
@@ -1616,6 +1699,7 @@ export default function RegistroEntregas() {
                                     </th>
 
                                     <th className="px-4 py-3">Cliente</th>
+                                    <th className="px-4 py-3">Teléfono</th>
                                     <th className="px-4 py-3">Chasis</th>
 
                                     <th className="px-4 py-3">
@@ -1717,6 +1801,7 @@ export default function RegistroEntregas() {
 
                                                     <td className="px-4 py-3 font-semibold text-[#131E5C]">{row.agencia || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{nombreCliente}</td>
+                                                    <td className="px-4 py-3 text-[#131E5C]">{row?.cliente?.telefono || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.vin || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.modelo_version || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.version || "—"}</td>
@@ -1744,7 +1829,7 @@ export default function RegistroEntregas() {
 
                                         {sorted.length === 0 ? (
                                             <tr>
-                                                <td colSpan={13} className="px-4 py-10 text-center text-[#131E5C]">
+                                                <td colSpan={14} className="px-4 py-10 text-center text-[#131E5C]">
                                                     No hay resultados con esos filtros.
                                                 </td>
                                             </tr>
