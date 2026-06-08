@@ -23,6 +23,8 @@ import {
 import { apiCitasPiso } from "../../lib/apiCitasPiso";
 import { createPortal } from "react-dom";
 import { useAuth } from "../../auth/AuthContext";
+import * as XLSX from "xlsx";
+import { FileDown } from "lucide-react";
 
 const BRAND_BLUE = "#131E5C";
 
@@ -744,6 +746,42 @@ export default function RegistroCitasPiso() {
         const hoy = toYMDLocal(new Date());
         setFilters((p) => ({ ...p, rangoDesde: hoy, rangoHasta: hoy }));
     };
+    const exportarExcel = () => {
+    const titulo = [["REPORTE CONTROL DE PISO — GRUPO AUTOMOTRIZ R&R"]];
+    const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+    const filtrosActivos = [];
+    if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+    if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+    if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+    if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+    const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+    const totalFila = [[`Total de registros: ${sorted.length}`]];
+
+    const encabezados = [["N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono", "Auto Interés", "Asesor Piso", "Folio", "Fuente Prospección", "Be Back", "Comentarios"]];
+
+    const filas = sorted.map((row, i) => ([
+        i + 1,
+        row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
+        row.agencia || "—",
+        row?.cliente?.nombre || "—",
+        row?.cliente?.telefono || "—",
+        row.auto_interes || "—",
+        row.asesor_piso || "—",
+        row.folio || "—",
+        row.fuente_prospeccion || "—",
+        row.be_back ? "Sí" : "No",
+        row.comentarios_cliente || "—",
+    ]));
+
+    const ws = XLSX.utils.aoa_to_sheet([...titulo, ...fechaGen, ...filtroFila, ...totalFila, [[]], ...encabezados, ...filas]);
+    ws["!cols"] = [
+        { wch: 5 }, { wch: 20 }, { wch: 16 }, { wch: 28 }, { wch: 16 },
+        { wch: 16 }, { wch: 36 }, { wch: 14 }, { wch: 22 }, { wch: 8 }, { wch: 40 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Control de piso");
+    XLSX.writeFile(wb, `control_piso_${new Date().toISOString().slice(0, 10)}.xlsx`);
+};
 
     return (
         <div className="w-full">
@@ -757,7 +795,16 @@ export default function RegistroCitasPiso() {
                         </p>
                     ) : null}
                 </div>
-
+               <div>
+                <button
+                    type="button"
+                    onClick={exportarExcel}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-xs font-black text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition"
+                    title="Exportar a Excel"
+                >
+                    <FileDown className="h-4 w-4" />
+                    Exportar Excel
+                </button>
                 <button
                     onClick={openCreate}
                     className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm bg-[#131E5C] hover:bg-[#131E5C]/80 text-white shadow-sm"
@@ -765,6 +812,8 @@ export default function RegistroCitasPiso() {
                     <Plus className="h-4 w-4" />
                     Nuevo ingreso
                 </button>
+               </div>
+                
             </div>
 
             <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
