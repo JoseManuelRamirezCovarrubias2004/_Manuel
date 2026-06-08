@@ -188,7 +188,7 @@ export default function LoginRegistro() {
                                 />
                                 <div className="min-w-0">
                                     <div className="truncate text-lg font-extrabold">
-                                        Grupo Automotriz R&amp;R
+                                        Grupo Automotriz R&R
                                     </div>
                                 </div>
                             </div>
@@ -196,7 +196,7 @@ export default function LoginRegistro() {
                             <div className="hidden sm:flex items-center gap-3">
                                 <img src={vwWhite} alt="VW" className="h-10 opacity-90" />
                                 <div className="h-8 w-px bg-white/25" />
-                                <span className="text-xs font-semibold text-white/80">Gestión R&amp;R</span>
+                                <span className="text-xs font-semibold text-white/80">Gestión R&R</span>
                             </div>
                         </div>
                     </div>
@@ -230,6 +230,7 @@ export default function LoginRegistro() {
                             <div className="mb-6 flex justify-center">
                                 <div className="inline-flex rounded-xl border border-black/10 bg-white/70 backdrop-blur p-1 shadow-sm">
                                     <button
+                                        type="button"
                                         onClick={() => setTab("login")}
                                         className={[
                                             "px-4 py-2 text-sm font-extrabold rounded-xl transition",
@@ -237,10 +238,12 @@ export default function LoginRegistro() {
                                                 ? "bg-white shadow text-slate-900"
                                                 : "text-slate-600 hover:text-slate-900",
                                         ].join(" ")}
+                                        disabled={isLoading}
                                     >
                                         Iniciar sesión
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => setTab("registro")}
                                         className={[
                                             "px-4 py-2 text-sm font-extrabold rounded-xl transition",
@@ -248,6 +251,7 @@ export default function LoginRegistro() {
                                                 ? "bg-white shadow text-slate-900"
                                                 : "text-slate-600 hover:text-slate-900",
                                         ].join(" ")}
+                                        disabled={isLoading}
                                     >
                                         Crear cuenta
                                     </button>
@@ -265,9 +269,10 @@ export default function LoginRegistro() {
                                         <input
                                             value={formLogin.usuario}
                                             onChange={(e) => setFormLogin((p) => ({ ...p, usuario: e.target.value }))}
-                                            className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25"
+                                            className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25 disabled:opacity-60"
                                             placeholder="usuario"
                                             required
+                                            disabled={isLoading}
                                         />
                                     </Field>
 
@@ -277,15 +282,17 @@ export default function LoginRegistro() {
                                                 type={showPassword ? "text" : "password"}
                                                 value={formLogin.contrasena}
                                                 onChange={(e) => setFormLogin((p) => ({ ...p, contrasena: e.target.value }))}
-                                                className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 pr-10 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25"
+                                                className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 pr-10 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25 disabled:opacity-60"
                                                 placeholder="••••••••"
                                                 required
+                                                disabled={isLoading}
                                             />
                                             <button
                                                 type="button"
                                                 onClick={() => setShowPassword((s) => !s)}
                                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
                                                 aria-label="Mostrar/ocultar contraseña"
+                                                disabled={isLoading}
                                             >
                                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                             </button>
@@ -294,7 +301,7 @@ export default function LoginRegistro() {
 
                                     <button
                                         type="submit"
-                                        className="w-full rounded-xl py-3 text-sm font-extrabold text-white shadow-lg hover:brightness-110 active:scale-[0.99] transition"
+                                        className="w-full rounded-xl py-3 text-sm font-extrabold text-white shadow-lg hover:brightness-110 active:scale-[0.99] transition disabled:opacity-50 disabled:pointer-events-none"
                                         style={{ backgroundColor: BRAND_BLUE }}
                                         disabled={isLoading}
                                     >
@@ -315,8 +322,9 @@ export default function LoginRegistro() {
                                             <input
                                                 value={formRegistro.nombre}
                                                 onChange={(e) => setFormRegistro((p) => ({ ...p, nombre: e.target.value }))}
-                                                className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25"
+                                                className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25 disabled:opacity-60"
                                                 required
+                                                disabled={isLoading}
                                             />
                                         </Field>
 
@@ -324,8 +332,9 @@ export default function LoginRegistro() {
                                             <input
                                                 value={formRegistro.apellidos}
                                                 onChange={(e) => setFormRegistro((p) => ({ ...p, apellidos: e.target.value }))}
-                                                className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25"
+                                                className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25 disabled:opacity-60"
                                                 required
+                                                disabled={isLoading}
                                             />
                                         </Field>
                                     </div>
@@ -334,8 +343,9 @@ export default function LoginRegistro() {
                                         <input
                                             value={formRegistro.usuario}
                                             onChange={(e) => setFormRegistro((p) => ({ ...p, usuario: e.target.value }))}
-                                            className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25"
+                                            className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25 disabled:opacity-60"
                                             required
+                                            disabled={isLoading}
                                         />
                                     </Field>
 
@@ -344,8 +354,9 @@ export default function LoginRegistro() {
                                             type="email"
                                             value={formRegistro.correo}
                                             onChange={(e) => setFormRegistro((p) => ({ ...p, correo: e.target.value }))}
-                                            className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25"
+                                            className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25 disabled:opacity-60"
                                             required
+                                            disabled={isLoading}
                                         />
                                     </Field>
 
@@ -353,8 +364,9 @@ export default function LoginRegistro() {
                                         <select
                                             value={formRegistro.agencia}
                                             onChange={(e) => setFormRegistro((p) => ({ ...p, agencia: e.target.value }))}
-                                            className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25"
+                                            className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25 disabled:opacity-60"
                                             required
+                                            disabled={isLoading}
                                         >
                                             <option value="" disabled>Selecciona una agencia...</option>
                                             {DEALERS.map((d) => (
@@ -370,14 +382,16 @@ export default function LoginRegistro() {
                                                     type={showPassword ? "text" : "password"}
                                                     value={formRegistro.contrasena}
                                                     onChange={(e) => setFormRegistro((p) => ({ ...p, contrasena: e.target.value }))}
-                                                    className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 pr-10 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25"
+                                                    className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 pr-10 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25 disabled:opacity-60"
                                                     required
+                                                    disabled={isLoading}
                                                 />
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowPassword((s) => !s)}
                                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
                                                     aria-label="Mostrar/ocultar contraseña"
+                                                    disabled={isLoading}
                                                 >
                                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                                 </button>
@@ -389,15 +403,16 @@ export default function LoginRegistro() {
                                                 type={showPassword ? "text" : "password"}
                                                 value={formRegistro.contrasenaConfirmada}
                                                 onChange={(e) => setFormRegistro((p) => ({ ...p, contrasenaConfirmada: e.target.value }))}
-                                                className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25"
+                                                className="w-full rounded-xl border border-black/10 bg-slate-50 px-3 py-2 text-sm text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/25 disabled:opacity-60"
                                                 required
+                                                disabled={isLoading}
                                             />
                                         </Field>
                                     </div>
 
                                     <button
                                         type="submit"
-                                        className="w-full rounded-xl py-3 text-sm font-extrabold text-white shadow-lg hover:brightness-110 active:scale-[0.99] transition"
+                                        className="w-full rounded-xl py-3 text-sm font-extrabold text-white shadow-lg hover:brightness-110 active:scale-[0.99] transition disabled:opacity-50 disabled:pointer-events-none"
                                         style={{ backgroundColor: BRAND_BLUE }}
                                         disabled={isLoading}
                                     >
@@ -420,7 +435,6 @@ export default function LoginRegistro() {
                         {showIntro && (
                             <LoginIntroPro
                                 onFinish={finishIntro}
-                                // Usa el logo que ya tienes (ryrBlue o vwWhite). Aquí te recomiendo R&R.
                                 logoSrc={ryrBlue}
                             />
                         )}
