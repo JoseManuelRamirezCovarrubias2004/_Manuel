@@ -4,7 +4,7 @@ export const API_ROOT = (
   import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com"
 ).replace(/\/+$/, "");
 
-const LOGIN_PATH = "/login";
+const LOGIN_PATH = "/crm/login";
 
 function cleanToken(value) {
   const token = String(value || "").trim();
@@ -32,19 +32,15 @@ function safeJsonParse(value, fallback = null) {
 }
 
 function getAuthObject() {
-  try {
-    const raw = localStorage.getItem("auth");
+  const raw = localStorage.getItem("auth");
 
-    if (!raw || raw === "undefined" || raw === "null") {
-      return null;
-    }
-
-    const parsed = safeJsonParse(raw, null);
-
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
+  if (!raw || raw === "undefined" || raw === "null") {
     return null;
   }
+
+  const parsed = safeJsonParse(raw, null);
+
+  return parsed && typeof parsed === "object" ? parsed : null;
 }
 
 function saveAuthObject(auth) {
@@ -65,22 +61,18 @@ export function getStoredUser() {
   const candidateKeys = ["crm.user", "user"];
 
   for (const key of candidateKeys) {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw || raw === "undefined" || raw === "null") continue;
+    const raw = localStorage.getItem(key);
+    if (!raw || raw === "undefined" || raw === "null") continue;
 
-      const parsed = safeJsonParse(raw, null);
+    const parsed = safeJsonParse(raw, null);
 
-      if (!parsed || typeof parsed !== "object") continue;
+    if (!parsed || typeof parsed !== "object") continue;
 
-      if (parsed.user && typeof parsed.user === "object") {
-        return parsed.user;
-      }
-
-      return parsed;
-    } catch {
-      // Seguir buscando.
+    if (parsed.user && typeof parsed.user === "object") {
+      return parsed.user;
     }
+
+    return parsed;
   }
 
   return null;
@@ -221,16 +213,6 @@ export function clearJwtTokens() {
     delete auth.jwt;
 
     saveAuthObject(auth);
-  }
-}
-
-export function clearFullSession() {
-  clearJwtTokens();
-
-  try {
-    localStorage.removeItem("auth");
-  } catch {
-    // Sin acción.
   }
 }
 
@@ -395,13 +377,6 @@ function buildBody({ body, data } = {}) {
   return JSON.stringify(body);
 }
 
-function buildMissingCredentialsError() {
-  const error = new Error("Authentication credentials were not provided.");
-  error.status = 401;
-  error.code = "SESSION_EXPIRED";
-  return error;
-}
-
 export async function http(
   path,
   {
@@ -410,37 +385,12 @@ export async function http(
     data,
     headers = {},
     signal,
-
-    // Por defecto los endpoints del CRM son protegidos.
     auth = true,
-
-    // Si el access expiró, intenta renovar con refresh.
     retryRefresh = true,
-
-    // Para endpoints protegidos conviene dejarlo en false desde cada api.
-    // Para endpoints AllowAny puedes dejarlo true.
     retryWithoutAuth = true,
-
     redirectOnUnauthorized = shouldRedirectOnUnauthorized(path),
   } = {},
 ) {
-  const tokenActual = auth ? getAccessToken() : "";
-
-  /*
-    Importante:
-    Si la ruta requiere auth y no tenemos token, NO mandamos el request sin header.
-    Eso evita el error repetido:
-    "Authentication credentials were not provided."
-  */
-  if (auth && !tokenActual) {
-    if (redirectOnUnauthorized) {
-      clearJwtTokens();
-      redirectToLogin();
-    }
-
-    throw buildMissingCredentialsError();
-  }
-
   const finalBody = buildBody({ body, data });
 
   const finalHeaders = buildHeaders({
@@ -476,6 +426,7 @@ export async function http(
     } catch {
       clearJwtTokens();
 
+      // Permite que endpoints AllowAny no fallen por un Bearer inválido.
       if (retryWithoutAuth) {
         return http(path, {
           method,
@@ -492,53 +443,15 @@ export async function http(
     }
   }
 
-  if (res.status === 403 && auth && retryRefresh) {
-    const message = resolveErrorMessage(responseData, res.status).toLowerCase();
-
-    const pareceErrorDeCredenciales =
-      message.includes("authentication credentials were not provided") ||
-      message.includes("credenciales de autenticación") ||
-      message.includes("credenciales de autenticacion") ||
-      message.includes("token") ||
-      message.includes("credentials");
-
-    if (pareceErrorDeCredenciales) {
-      try {
-        await refreshAccessToken();
-
-        return http(path, {
-          method,
-          body,
-          data,
-          headers,
-          signal,
-          auth: true,
-          retryRefresh: false,
-          retryWithoutAuth,
-          redirectOnUnauthorized,
-        });
-      } catch {
-        clearJwtTokens();
-
-        if (redirectOnUnauthorized) {
-          redirectToLogin();
-        }
-      }
-    }
-  }
-
   if (!res.ok) {
     const message = resolveErrorMessage(responseData, res.status);
     const error = new Error(message);
 
     error.status = res.status;
     error.data = responseData;
-    error.code =
-      res.status === 401 || message.toLowerCase().includes("credentials")
-        ? "SESSION_EXPIRED"
-        : "API_ERROR";
+    error.code = res.status === 401 ? "SESSION_EXPIRED" : "API_ERROR";
 
-    if (res.status === 401 || error.code === "SESSION_EXPIRED") {
+    if (res.status === 401) {
       clearJwtTokens();
 
       if (redirectOnUnauthorized) {
