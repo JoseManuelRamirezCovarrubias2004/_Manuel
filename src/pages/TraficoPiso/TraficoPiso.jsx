@@ -264,7 +264,7 @@ function validarFormulario(form) {
     if (!form.perfil_profesional) errores.push("Selecciona el perfil profesional.");
     if (!form.estado_civil) errores.push("Selecciona el estado civil.");
     if (form.deja_auto_cuenta && !normalizeStr(form.modelo_auto_cuenta)) errores.push("Captura el modelo que desea dejar a cuenta.");
-    if (!Array.isArray(form.pasatiempos) || form.pasatiempos.length < 3) errores.push("Selecciona al menos 3 pasatiempos.");
+    if (!Array.isArray(form.pasatiempos) || form.pasatiempos.length < 1) errores.push("Selecciona al menos 1 pasatiempo.");
     return errores;
 }
 
@@ -289,7 +289,7 @@ function BooleanSwitch({ value, onChange, yes = "SÍ", no = "NO" }) { return <di
 function PasatiemposPicker({ value, onChange, invalid }) {
     const seleccionados = new Set(value || []);
     function toggle(item) { if (seleccionados.has(item)) { onChange((value || []).filter((x) => x !== item)); return; } onChange([...(value || []), item]); }
-    return <div className={["rounded-lg border bg-neutral-200/50 p-4", invalid ? "border-red-400" : "border-white/10"].join(" ")}><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm font-extrabold text-[#131E5C]"><HeartHandshake className="h-4 w-4" /><span>Pasatiempos *</span></div><span className={["rounded-full px-3 py-1 text-xs font-extrabold", value.length >= 3 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"].join(" ")}>{value.length}/3 mínimos</span></div><div className="flex max-h-[220px] flex-wrap gap-2 overflow-y-auto pr-1">{PASATIEMPOS.map((item) => { const active = seleccionados.has(item); return <button key={item} type="button" onClick={() => toggle(item)} className={["rounded-full border px-3 py-2 text-xs font-extrabold transition", active ? "border-[#131E5C] bg-[#131E5C] text-white" : "border-black/10 bg-white text-[#131E5C] hover:border-[#131E5C] hover:bg-white"].join(" ")}>{item}</button>; })}</div></div>;
+    return <div className={["rounded-lg border bg-neutral-200/50 p-4", invalid ? "border-red-400" : "border-white/10"].join(" ")}><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm font-extrabold text-[#131E5C]"><HeartHandshake className="h-4 w-4" /><span>Pasatiempos *</span></div><span className={["rounded-full px-3 py-1 text-xs font-extrabold", value.length >= 1 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"].join(" ")}>{value.length}/1 mínimo</span></div><div className="flex max-h-[220px] flex-wrap gap-2 overflow-y-auto pr-1">{PASATIEMPOS.map((item) => { const active = seleccionados.has(item); return <button key={item} type="button" onClick={() => toggle(item)} className={["rounded-full border px-3 py-2 text-xs font-extrabold transition", active ? "border-[#131E5C] bg-[#131E5C] text-white" : "border-black/10 bg-white text-[#131E5C] hover:border-[#131E5C] hover:bg-white"].join(" ")}>{item}</button>; })}</div></div>;
 }
 
 function AsesorAutocomplete({ value, onChange, invalid }) {
@@ -606,7 +606,7 @@ export default function TraficoPiso() {
         if (!draft.motivo_compra) map.add("motivo_compra");
         if (!draft.perfil_profesional) map.add("perfil_profesional");
         if (!draft.estado_civil) map.add("estado_civil");
-        if (!Array.isArray(draft.pasatiempos) || draft.pasatiempos.length < 3) map.add("pasatiempos");
+        if (!Array.isArray(draft.pasatiempos) || draft.pasatiempos.length < 1) map.add("pasatiempos");
         return map;
     }, [draft]);
 
