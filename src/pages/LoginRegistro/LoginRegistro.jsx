@@ -178,17 +178,82 @@ export default function LoginRegistro() {
             const res = await fetch(`${API}/conformidad/api/auth/login/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formLogin),
+                body: JSON.stringify({
+                    // SimpleJWT normalmente usa estos campos:
+                    username: formLogin.usuario,
+                    password: formLogin.contrasena,
+
+                    // Compatibilidad con tu login viejo:
+                    usuario: formLogin.usuario,
+                    contrasena: formLogin.contrasena,
+                }),
             });
 
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                alert(data?.detail || "Credenciales inválidas.");
+                console.error("Error login:", data);
+                alert(data?.detail || data?.error || "Credenciales inválidas.");
                 return;
             }
 
-            login({ token: data.token, user: data.user });
+            console.log("Respuesta login:", data);
+
+            const access = data.access || data.access_token || "";
+            const refresh = data.refresh || data.refresh_token || "";
+
+            const legacyToken = data.token || access;
+
+            if (!access) {
+                console.error("El backend no devolvió access JWT:", data);
+                alert(
+                    "El login fue exitoso, pero el backend no devolvió access JWT. Hay que corregir el endpoint de login."
+                );
+                return;
+            }
+
+            const user =
+                data.user ||
+                data.usuario ||
+                {
+                    usuario: formLogin.usuario,
+                    username: formLogin.usuario,
+                    permisos: data.permisos || [],
+                    rol: data.rol || "",
+                    agencia: data.agencia || "",
+                    telefono: data.telefono || "",
+                };
+
+            localStorage.setItem("@token_access_jwt", access);
+            localStorage.setItem("auth.access", access);
+            localStorage.setItem("access", access);
+
+            if (refresh) {
+                localStorage.setItem("@token_refresh_jwt", refresh);
+                localStorage.setItem("auth.refresh", refresh);
+                localStorage.setItem("refresh", refresh);
+            }
+
+            localStorage.setItem(
+                "auth",
+                JSON.stringify({
+                    token: legacyToken,
+                    access,
+                    ...(refresh ? { refresh } : {}),
+                    user,
+                })
+            );
+
+            localStorage.setItem("crm.user", JSON.stringify(user));
+            localStorage.setItem("user", JSON.stringify(user));
+
+            login({
+                token: legacyToken,
+                access,
+                refresh,
+                user,
+            });
+
             navigate(from, { replace: true });
         } catch (error) {
             console.error(error);

@@ -200,6 +200,7 @@ export const router = createBrowserRouter(
                                         "CRM_VENTAS",
                                         "USUARIOS_ADMIN",
                                         "CRM_CALIDAD",
+                                        "CRM_CALL_CENTER"
                                     ]}
                                 >
                                     <ComercialLayout />
@@ -318,7 +319,7 @@ export const router = createBrowserRouter(
                                     path: "entregas",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
+                                            anyOf={["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_CALL_CENTER"]}
                                         >
                                             <EntregasLayout />
                                         </RequirePermission>
@@ -469,7 +470,7 @@ export const router = createBrowserRouter(
                         {
                             path: "postventa",
                             element: (
-                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
+                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]}>
                                     <PostVentaLayout />
                                 </RequirePermission>
                             ),
@@ -490,7 +491,7 @@ export const router = createBrowserRouter(
                                 {
                                     path: "hoja_ingresos",
                                     element: (
-                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
+                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]}>
                                             <HojaIngresos />
                                         </RequirePermission>
                                     ),

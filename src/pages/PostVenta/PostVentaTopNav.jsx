@@ -18,7 +18,7 @@ export default function PostVentaTopNav() {
     const { hasAnyPermission } = useAuth();
 
     const inProspectos = location.pathname.startsWith("/postventa/pedidos_piezas");
-    const canSeeContacto = hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]);
+    const canSeeContacto = hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]);
 
     const tabs = useMemo(() => {
         const items = [
@@ -32,7 +32,7 @@ export default function PostVentaTopNav() {
                 label: "Hoja de Ingresos",
                 href: "/postventa/hoja_ingresos",
                 icon: DoorOpen,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
             },
             {
                 label: "Panel Taller",
