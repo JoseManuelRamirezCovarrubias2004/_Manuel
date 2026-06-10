@@ -89,6 +89,9 @@ import CampanasMeta from "./pages/CampanasMeta/CampanasMeta";
 import Retencion from "./pages/Retencion/Retencion";
 import JDPower from "./pages/JDPower/JDPower";
 
+import WhatsLayout from "./pages/EnvioWhats/EnvioLayout";
+import WhatsIndex from "./pages/EnvioWhats/EnvioIndex";
+
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
 function tienePermiso(permisos = [], permisosPermitidos = []) {
@@ -520,13 +523,13 @@ export const router = createBrowserRouter(
                                         "CRM_POSTVENTA",
                                     ]}
                                 >
-                                    <PostVentaLayout />
+                                    <WhatsLayout />
                                 </RequirePermission>
                             ),
                             children: [
                                 {
                                     index: true,
-                                    element: <PostVentaIndex />,
+                                    element: <WhatsIndex />,
                                 },
                                 {
                                     path: "envio_satisfaccion",
