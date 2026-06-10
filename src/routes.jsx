@@ -1,7 +1,7 @@
-///src/routes.jsx
+// src/routes.jsx
 import React from "react";
-import { createBrowserRouter } from "react-router-dom";
-import EncuestasWhats from './pages/EncuestasWhats/EncuestasWhats';
+import { createBrowserRouter, Navigate } from "react-router-dom";
+import EncuestasWhats from "./pages/EncuestasWhats/EncuestasWhats";
 
 import CatalogoPreciosLayout from "./pages/CatalogoPrecios/CatalogoPreciosLayout";
 import CatalogoPreciosIndex from "./pages/CatalogoPrecios/CatalogoPreciosIndex";
@@ -11,6 +11,7 @@ import TimeForAction from "./pages/TimeForAction/TimeForAction";
 
 import ProtectedLayout from "./auth/ProtectedLayout";
 import RequirePermission from "./auth/RequirePermission";
+import { useAuth } from "./auth/AuthContext";
 
 import AppShell from "./app/AppShell";
 import Home from "./pages/Home";
@@ -44,7 +45,6 @@ import RegistroPruebaManejo from "./pages/PruebasManejo/RegistroPruebaManejo";
 
 import EntregasLayout from "./pages/Entregas/EntregasLayout";
 import RegistroEntregas from "./pages/Entregas/RegistroEntregas";
-
 
 import CalidadLayout from "./pages/Calidad/CalidadLayout";
 import CalidadIndex from "./pages/Calidad/CalidadIndex";
@@ -85,13 +85,120 @@ import Safety from "./pages/SafetyCulture/Safety";
 import Reclutamiento from "./pages/Reclutamiento/Reclutamiento";
 import Puestos from "./pages/puestos/Puestos";
 
-import CampanasMeta from './pages/CampanasMeta/CampanasMeta';
-
-import Retencion from './pages/Retencion/Retencion';
-
-import JDPower from './pages/JDPower/JDPower';
+import CampanasMeta from "./pages/CampanasMeta/CampanasMeta";
+import Retencion from "./pages/Retencion/Retencion";
+import JDPower from "./pages/JDPower/JDPower";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
+
+function tienePermiso(permisos = [], permisosPermitidos = []) {
+    if (permisos.includes("ALL")) return true;
+    return permisosPermitidos.some((permiso) => permisos.includes(permiso));
+}
+
+function obtenerRutaInicialPorUsuario(user) {
+    const permisos = user?.permisos || [];
+
+    if (
+        tienePermiso(permisos, [
+            "ALL",
+            "USUARIOS_ADMIN",
+            "CRM_CALIDAD",
+            "CRM_RECLAMACIONES",
+        ])
+    ) {
+        return "/";
+    }
+
+    if (permisos.includes("CRM_CALL_CENTER")) {
+        return "/comercial/entregas";
+    }
+
+    if (permisos.includes("CRM_POSTVENTA")) {
+        return "/postventa";
+    }
+
+    if (
+        permisos.includes("CRM_DIGITALES") ||
+        permisos.includes("CRM_VENTAS")
+    ) {
+        return "/comercial";
+    }
+
+    if (permisos.includes("CRM_FINANCIEROS")) {
+        return "/financieros";
+    }
+
+    if (permisos.includes("CRM_RRHH")) {
+        return "/administrativos";
+    }
+
+    return "/";
+}
+
+function InicioPorPermisos() {
+    const { user, ready } = useAuth();
+
+    if (ready === false) {
+        return null;
+    }
+
+    const rutaInicial = obtenerRutaInicialPorUsuario(user);
+
+    if (rutaInicial === "/") {
+        return <Home />;
+    }
+
+    return <Navigate to={rutaInicial} replace />;
+}
+
+function ComercialIndexPorPermisos() {
+    const { user, ready } = useAuth();
+
+    if (ready === false) {
+        return null;
+    }
+
+    const permisos = user?.permisos || [];
+
+    const puedeVerIndexComercial = tienePermiso(permisos, [
+        "ALL",
+        "CRM_RECLAMACIONES",
+        "CRM_DIGITALES",
+        "CRM_VENTAS",
+        "USUARIOS_ADMIN",
+        "CRM_CALIDAD",
+    ]);
+
+    if (!puedeVerIndexComercial && permisos.includes("CRM_CALL_CENTER")) {
+        return <Navigate to="/comercial/entregas" replace />;
+    }
+
+    return <ComercialIndex />;
+}
+
+function PostVentaIndexPorPermisos() {
+    const { user, ready } = useAuth();
+
+    if (ready === false) {
+        return null;
+    }
+
+    const permisos = user?.permisos || [];
+
+    const puedeVerIndexPostVenta = tienePermiso(permisos, [
+        "ALL",
+        "USUARIOS_ADMIN",
+        "CRM_POSTVENTA",
+        "CRM_CALIDAD",
+    ]);
+
+    if (!puedeVerIndexPostVenta && permisos.includes("CRM_CALL_CENTER")) {
+        return <Navigate to="/postventa/hoja_ingresos" replace />;
+    }
+
+    return <PostVentaIndex />;
+}
 
 export const router = createBrowserRouter(
     [
@@ -99,7 +206,6 @@ export const router = createBrowserRouter(
             path: "/login",
             element: <Login />,
         },
-
         {
             element: <ProtectedLayout />,
             children: [
@@ -109,13 +215,19 @@ export const router = createBrowserRouter(
                     children: [
                         {
                             index: true,
-                            element: <Home />,
+                            element: <InicioPorPermisos />,
                         },
 
                         {
                             path: "calidad",
                             element: (
-                                <RequirePermission anyOf={["CRM_RECLAMACIONES", "USUARIOS_ADMIN", "CRM_CALIDAD"]}>
+                                <RequirePermission
+                                    anyOf={[
+                                        "CRM_RECLAMACIONES",
+                                        "USUARIOS_ADMIN",
+                                        "CRM_CALIDAD",
+                                    ]}
+                                >
                                     <CalidadLayout />
                                 </RequirePermission>
                             ),
@@ -124,11 +236,16 @@ export const router = createBrowserRouter(
                                     index: true,
                                     element: <CalidadIndex />,
                                 },
-
                                 {
                                     path: "reclamaciones",
                                     element: (
-                                        <RequirePermission anyOf={["CRM_RECLAMACIONES", "USUARIOS_ADMIN", "CRM_CALIDAD"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "CRM_RECLAMACIONES",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
                                             <CrmLayout />
                                         </RequirePermission>
                                     ),
@@ -146,26 +263,40 @@ export const router = createBrowserRouter(
                                 {
                                     path: "safety",
                                     element: (
-                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_CALIDAD"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
                                             <Safety />
                                         </RequirePermission>
                                     ),
                                 },
-
                                 {
                                     path: "enc_servicio",
                                     element: (
-                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_POSTVENTA",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
                                             <RegistroServicio />
                                         </RequirePermission>
                                     ),
                                 },
-
                                 {
                                     path: "enc_satisfaccion",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "CRM_VENTAS",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
                                         >
                                             <RegistroSatisfaccion />
                                         </RequirePermission>
@@ -174,7 +305,14 @@ export const router = createBrowserRouter(
                                 {
                                     path: "retencion",
                                     element: (
-                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_POSTVENTA"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                                "CRM_POSTVENTA",
+                                            ]}
+                                        >
                                             <Retencion />
                                         </RequirePermission>
                                     ),
@@ -182,7 +320,14 @@ export const router = createBrowserRouter(
                                 {
                                     path: "jdpower",
                                     element: (
-                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_POSTVENTA"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                                "CRM_POSTVENTA",
+                                            ]}
+                                        >
                                             <JDPower />
                                         </RequirePermission>
                                     ),
@@ -200,7 +345,7 @@ export const router = createBrowserRouter(
                                         "CRM_VENTAS",
                                         "USUARIOS_ADMIN",
                                         "CRM_CALIDAD",
-                                        "CRM_CALL_CENTER"
+                                        "CRM_CALL_CENTER",
                                     ]}
                                 >
                                     <ComercialLayout />
@@ -209,22 +354,34 @@ export const router = createBrowserRouter(
                             children: [
                                 {
                                     index: true,
-                                    element: <ComercialIndex />,
+                                    element: <ComercialIndexPorPermisos />,
                                 },
-
                                 {
                                     path: "campanas_meta",
                                     element: (
-                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                                "CRM_VENTAS",
+                                            ]}
+                                        >
                                             <CampanasMeta />
                                         </RequirePermission>
                                     ),
                                 },
-
                                 {
                                     path: "prospectos",
                                     element: (
-                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS",]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                                "CRM_VENTAS",
+                                            ]}
+                                        >
                                             <DigitalesLayout />
                                         </RequirePermission>
                                     ),
@@ -241,15 +398,18 @@ export const router = createBrowserRouter(
                                             path: "contacto",
                                             element: <DigitalesContacto />,
                                         },
-
                                     ],
                                 },
-
                                 {
                                     path: "citas",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "CRM_VENTAS",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
                                         >
                                             <CitasLayout />
                                         </RequirePermission>
@@ -265,12 +425,16 @@ export const router = createBrowserRouter(
                                         },
                                     ],
                                 },
-
                                 {
                                     path: "control_piso",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "CRM_VENTAS",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
                                         >
                                             <CitasPisoLayout />
                                         </RequirePermission>
@@ -286,23 +450,31 @@ export const router = createBrowserRouter(
                                         },
                                     ],
                                 },
-
                                 {
                                     path: "trafico_piso",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "CRM_VENTAS",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
                                         >
                                             <TraficoPiso />
                                         </RequirePermission>
                                     ),
                                 },
-
                                 {
                                     path: "pruebas_manejo",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "CRM_VENTAS",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
                                         >
                                             <PruebaManejoLayout />
                                         </RequirePermission>
@@ -314,12 +486,17 @@ export const router = createBrowserRouter(
                                         },
                                     ],
                                 },
-
                                 {
                                     path: "entregas",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_CALL_CENTER"]}
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "CRM_VENTAS",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                                "CRM_CALL_CENTER",
+                                            ]}
                                         >
                                             <EntregasLayout />
                                         </RequirePermission>
@@ -337,7 +514,12 @@ export const router = createBrowserRouter(
                         {
                             path: "encuesta_whats",
                             element: (
-                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA"]}>
+                                <RequirePermission
+                                    anyOf={[
+                                        "USUARIOS_ADMIN",
+                                        "CRM_POSTVENTA",
+                                    ]}
+                                >
                                     <PostVentaLayout />
                                 </RequirePermission>
                             ),
@@ -346,22 +528,33 @@ export const router = createBrowserRouter(
                                     index: true,
                                     element: <PostVentaIndex />,
                                 },
-
                                 {
                                     path: "envio_satisfaccion",
                                     element: (
-                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_POSTVENTA",
+                                            ]}
+                                        >
                                             <EncuestasWhats />
                                         </RequirePermission>
                                     ),
                                 },
                             ],
                         },
+
                         {
                             path: "usados",
                             element: (
                                 <RequirePermission
-                                    anyOf={["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
+                                    anyOf={[
+                                        "CRM_RECLAMACIONES",
+                                        "CRM_DIGITALES",
+                                        "CRM_VENTAS",
+                                        "USUARIOS_ADMIN",
+                                        "CRM_CALIDAD",
+                                    ]}
                                 >
                                     <UsadosLayout />
                                 </RequirePermission>
@@ -371,12 +564,16 @@ export const router = createBrowserRouter(
                                     index: true,
                                     element: <UsadosIndex />,
                                 },
-
                                 {
                                     path: "avaluos",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_VENTAS", "CRM_CALIDAD"]}
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_VENTAS",
+                                                "CRM_CALIDAD",
+                                            ]}
                                         >
                                             <AvaluosLayout />
                                         </RequirePermission>
@@ -388,12 +585,16 @@ export const router = createBrowserRouter(
                                         },
                                     ],
                                 },
-
                                 {
                                     path: "ventas_cruzadas",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_VENTAS", "CRM_CALIDAD"]}
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_VENTAS",
+                                                "CRM_CALIDAD",
+                                            ]}
                                         >
                                             <DigitalesLayout />
                                         </RequirePermission>
@@ -420,7 +621,14 @@ export const router = createBrowserRouter(
                             path: "financieros",
                             element: (
                                 <RequirePermission
-                                    anyOf={["CRM_RECLAMACIONES", "CRM_FINANCIEROS", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD",]}
+                                    anyOf={[
+                                        "CRM_RECLAMACIONES",
+                                        "CRM_FINANCIEROS",
+                                        "CRM_DIGITALES",
+                                        "CRM_VENTAS",
+                                        "USUARIOS_ADMIN",
+                                        "CRM_CALIDAD",
+                                    ]}
                                 >
                                     <FinancierosLayout />
                                 </RequirePermission>
@@ -430,12 +638,17 @@ export const router = createBrowserRouter(
                                     index: true,
                                     element: <FinancierosIndex />,
                                 },
-
                                 {
                                     path: "credito",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "CRM_FINANCIEROS", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "CRM_FINANCIEROS",
+                                                "CRM_VENTAS",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
                                         >
                                             <CreditoLayout />
                                         </RequirePermission>
@@ -447,12 +660,17 @@ export const router = createBrowserRouter(
                                         },
                                     ],
                                 },
-
                                 {
                                     path: "long_drive",
                                     element: (
                                         <RequirePermission
-                                            anyOf={["CRM_DIGITALES", "CRM_FINANCIEROS", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]}
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "CRM_FINANCIEROS",
+                                                "CRM_VENTAS",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
                                         >
                                             <LongDriveLayout />
                                         </RequirePermission>
@@ -470,20 +688,32 @@ export const router = createBrowserRouter(
                         {
                             path: "postventa",
                             element: (
-                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]}>
+                                <RequirePermission
+                                    anyOf={[
+                                        "USUARIOS_ADMIN",
+                                        "CRM_POSTVENTA",
+                                        "CRM_CALIDAD",
+                                        "CRM_CALL_CENTER",
+                                    ]}
+                                >
                                     <PostVentaLayout />
                                 </RequirePermission>
                             ),
                             children: [
                                 {
                                     index: true,
-                                    element: <PostVentaIndex />,
+                                    element: <PostVentaIndexPorPermisos />,
                                 },
-
                                 {
                                     path: "pedidos_piezas",
                                     element: (
-                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_POSTVENTA",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
                                             <RegistroPiezas />
                                         </RequirePermission>
                                     ),
@@ -491,7 +721,14 @@ export const router = createBrowserRouter(
                                 {
                                     path: "hoja_ingresos",
                                     element: (
-                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_POSTVENTA",
+                                                "CRM_CALIDAD",
+                                                "CRM_CALL_CENTER",
+                                            ]}
+                                        >
                                             <HojaIngresos />
                                         </RequirePermission>
                                     ),
@@ -499,7 +736,13 @@ export const router = createBrowserRouter(
                                 {
                                     path: "taller",
                                     element: (
-                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_POSTVENTA",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
                                             <Taller />
                                         </RequirePermission>
                                     ),
@@ -510,7 +753,13 @@ export const router = createBrowserRouter(
                         {
                             path: "administrativos",
                             element: (
-                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]}>
+                                <RequirePermission
+                                    anyOf={[
+                                        "USUARIOS_ADMIN",
+                                        "CRM_RRHH",
+                                        "CRM_CALIDAD",
+                                    ]}
+                                >
                                     <AdministrativosLayout />
                                 </RequirePermission>
                             ),
@@ -519,20 +768,30 @@ export const router = createBrowserRouter(
                                     index: true,
                                     element: <AdministrativosIndex />,
                                 },
-
                                 {
                                     path: "reclutamiento",
                                     element: (
-                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_RRHH",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
                                             <Reclutamiento />
                                         </RequirePermission>
                                     ),
                                 },
-
                                 {
                                     path: "puestos",
                                     element: (
-                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]}>
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_RRHH",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
                                             <Puestos />
                                         </RequirePermission>
                                     ),
@@ -543,7 +802,12 @@ export const router = createBrowserRouter(
                         {
                             path: "timeforaction",
                             element: (
-                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_CALIDAD"]}>
+                                <RequirePermission
+                                    anyOf={[
+                                        "USUARIOS_ADMIN",
+                                        "CRM_CALIDAD",
+                                    ]}
+                                >
                                     <TimeForActionLayout />
                                 </RequirePermission>
                             ),
@@ -570,7 +834,6 @@ export const router = createBrowserRouter(
                             ],
                         },
 
-
                         {
                             path: "qr",
                             element: (
@@ -593,7 +856,6 @@ export const router = createBrowserRouter(
                             path: "*",
                             element: <NotFound />,
                         },
-
                     ],
                 },
             ],

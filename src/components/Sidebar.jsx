@@ -17,7 +17,7 @@ import {
     Car,
     TrendingUp,
     ClipboardCheck,
-      Tag,
+    Tag,
     QrCode,
     UserSearch,
 } from "lucide-react";
@@ -132,7 +132,7 @@ export default function Sidebar() {
                 to: "/comercial",
                 label: "Gestion Comercial",
                 icon: HandCoins,
-                show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
+                show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
             },
 
             {
@@ -160,7 +160,7 @@ export default function Sidebar() {
                 to: "/postventa",
                 label: "PostVenta",
                 icon: ClipboardCheck,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
             },
 
             {
