@@ -1,5 +1,5 @@
 // src/pages/Entregas/RegistroEntregas.jsx
-import { useMemo, useState, useEffect, useCallback  } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
     Plus,
     Search,
@@ -825,6 +825,9 @@ export default function RegistroEntregas() {
         "Sergio Rene Delgado Sarmiento",
         "Yoseth Ruiz Castellanos",
         "Ruben Romero",
+        "Luis Alberto Ramirez Santamaria",
+        "Paul Serrano Vera",
+        "Luis Manuel Alvarez Martinez"
     ];
 
     const MODELOS = [
@@ -1389,79 +1392,79 @@ export default function RegistroEntregas() {
             return 0;
         })
         .map(({ fecha, total }) => ({ fecha, total }));
-const exportarExcel = () => {
-    // Fila de título
-    const titulo = [["REPORTE DE ENTREGAS — GRUPO AUTOMOTRIZ R&R"]];
-    const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
-    const filtrosActivos = [];
-    if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
-    if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
-    if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
-    if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
-    const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
-    const totalFila = [[`Total de registros: ${sorted.length}`]];
-    const espaciado = [[]];
+    const exportarExcel = () => {
+        // Fila de título
+        const titulo = [["REPORTE DE ENTREGAS — GRUPO AUTOMOTRIZ R&R"]];
+        const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+        const filtrosActivos = [];
+        if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+        if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+        if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+        if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+        const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+        const totalFila = [[`Total de registros: ${sorted.length}`]];
+        const espaciado = [[]];
 
-    const encabezados = [[
-        "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono",
-        "VIN / Chasis", "Modelo", "Versión", "Color",
-        "Asesor de Ventas", "Entrega Física", "Preparada por",
-        "ID SF-NADIN", "ID SF-DMS", "Comentarios",
-    ]];
+        const encabezados = [[
+            "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono",
+            "VIN / Chasis", "Modelo", "Versión", "Color",
+            "Asesor de Ventas", "Entrega Física", "Preparada por",
+            "ID SF-NADIN", "ID SF-DMS", "Comentarios",
+        ]];
 
-    const filas = sorted.map((row, i) => ([
-        i + 1,
-        formatDateTime(row.fecha_hora_entrega),
-        row.agencia || "—",
-        row?.cliente?.nombre || "—",
-        row?.cliente?.telefono || "—",
-        row.vin || "—",
-        row.modelo_version || "—",
-        row.version || "—",
-        row.color || "—",
-        row.asesor_ventas || "—",
-        entregaFisicaActiva(row.entrega_reportada) ? "Entregada" : "Pendiente",
-        row.preparada_por || "—",
-        row.id_cliente_sf_nadin || "—",
-        row.id_cliente_sf_dms || "—",
-        row.comentarios || "—",
-    ]));
+        const filas = sorted.map((row, i) => ([
+            i + 1,
+            formatDateTime(row.fecha_hora_entrega),
+            row.agencia || "—",
+            row?.cliente?.nombre || "—",
+            row?.cliente?.telefono || "—",
+            row.vin || "—",
+            row.modelo_version || "—",
+            row.version || "—",
+            row.color || "—",
+            row.asesor_ventas || "—",
+            entregaFisicaActiva(row.entrega_reportada) ? "Entregada" : "Pendiente",
+            row.preparada_por || "—",
+            row.id_cliente_sf_nadin || "—",
+            row.id_cliente_sf_dms || "—",
+            row.comentarios || "—",
+        ]));
 
-    const data = [
-        ...titulo,
-        ...fechaGen,
-        ...filtroFila,
-        ...totalFila,
-        ...espaciado,
-        ...encabezados,
-        ...filas,
-    ];
+        const data = [
+            ...titulo,
+            ...fechaGen,
+            ...filtroFila,
+            ...totalFila,
+            ...espaciado,
+            ...encabezados,
+            ...filas,
+        ];
 
-    const ws = XLSX.utils.aoa_to_sheet(data);
+        const ws = XLSX.utils.aoa_to_sheet(data);
 
-    // Anchos de columna
-    ws["!cols"] = [
-        { wch: 5 },   // N°
-        { wch: 20 },  // Fecha y Hora
-        { wch: 16 },  // Dealer
-        { wch: 24 },  // Cliente
-        { wch: 16 },  // Teléfono
-        { wch: 20 },  // VIN
-        { wch: 14 },  // Modelo
-        { wch: 14 },  // Versión
-        { wch: 18 },  // Color
-        { wch: 36 },  // Asesor
-        { wch: 16 },  // Entrega Física
-        { wch: 24 },  // Preparada por
-        { wch: 16 },  // SF-NADIN
-        { wch: 16 },  // SF-DMS
-        { wch: 40 },  // Comentarios
-    ];
+        // Anchos de columna
+        ws["!cols"] = [
+            { wch: 5 },   // N°
+            { wch: 20 },  // Fecha y Hora
+            { wch: 16 },  // Dealer
+            { wch: 24 },  // Cliente
+            { wch: 16 },  // Teléfono
+            { wch: 20 },  // VIN
+            { wch: 14 },  // Modelo
+            { wch: 14 },  // Versión
+            { wch: 18 },  // Color
+            { wch: 36 },  // Asesor
+            { wch: 16 },  // Entrega Física
+            { wch: 24 },  // Preparada por
+            { wch: 16 },  // SF-NADIN
+            { wch: 16 },  // SF-DMS
+            { wch: 40 },  // Comentarios
+        ];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Entregas");
-    XLSX.writeFile(wb, `entregas_${new Date().toISOString().slice(0, 10)}.xlsx`);
-};
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Entregas");
+        XLSX.writeFile(wb, `entregas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">

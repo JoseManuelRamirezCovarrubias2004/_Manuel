@@ -677,6 +677,7 @@ export default function RegistroPruebaManejo() {
         "Roberto Ramses Luna Fajardo", "Carlos Arturo Garces Vengas", "Edgar Omar Noguera Solis",
         "Javier Perez Meraz", "Luis Armando Almora Perez", "Mara Erubey Soto Villegas",
         "Sergio Ivan Quintana Martinez", "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos",
+        "Luis Alberto Ramirez Santamaria", "Paul Serrano Vera", "Luis Manuel Alvarez Martinez"
     ];
     const VEHICULOS = [
         "Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun",
@@ -975,49 +976,49 @@ export default function RegistroPruebaManejo() {
             </div>
         );
     }
-const exportarExcel = () => {
-    const titulo = [["REPORTE PRUEBAS DE MANEJO — GRUPO AUTOMOTRIZ R&R"]];
-    const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
-    const filtrosActivos = [];
-    if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
-    if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
-    if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
-    if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
-    const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
-    const totalFila = [[`Total de registros: ${sorted.length}`]];
+    const exportarExcel = () => {
+        const titulo = [["REPORTE PRUEBAS DE MANEJO — GRUPO AUTOMOTRIZ R&R"]];
+        const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+        const filtrosActivos = [];
+        if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+        if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+        if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+        if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+        const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+        const totalFila = [[`Total de registros: ${sorted.length}`]];
 
-    const encabezados = [[
-        "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono", "Correo",
-        "Auto Interés", "Asesor Piso", "No. Serie", "Folio Pase Salida",
-        "¿Asistió?", "Comentarios", "Evidencias",
-    ]];
+        const encabezados = [[
+            "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono", "Correo",
+            "Auto Interés", "Asesor Piso", "No. Serie", "Folio Pase Salida",
+            "¿Asistió?", "Comentarios", "Evidencias",
+        ]];
 
-    const filas = sorted.map((row, i) => ([
-        i + 1,
-        row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
-        row.agencia || "—",
-        row?.cliente?.nombre || "—",
-        row?.cliente?.telefono || "—",
-        row?.cliente?.correo || "—",
-        row.auto_interes || "—",
-        row.asesor_piso || "—",
-        row.num_serie || "—",
-        row.folio_salida || "—",
-        row.asistencia ? "Sí" : "No",
-        row.comentarios_cliente || "—",
-        Array.isArray(row.evidencias) ? row.evidencias.length : 0,
-    ]));
+        const filas = sorted.map((row, i) => ([
+            i + 1,
+            row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
+            row.agencia || "—",
+            row?.cliente?.nombre || "—",
+            row?.cliente?.telefono || "—",
+            row?.cliente?.correo || "—",
+            row.auto_interes || "—",
+            row.asesor_piso || "—",
+            row.num_serie || "—",
+            row.folio_salida || "—",
+            row.asistencia ? "Sí" : "No",
+            row.comentarios_cliente || "—",
+            Array.isArray(row.evidencias) ? row.evidencias.length : 0,
+        ]));
 
-    const ws = XLSX.utils.aoa_to_sheet([...titulo, ...fechaGen, ...filtroFila, ...totalFila, [[]], ...encabezados, ...filas]);
-    ws["!cols"] = [
-        { wch: 5 }, { wch: 20 }, { wch: 16 }, { wch: 28 }, { wch: 14 },
-        { wch: 28 }, { wch: 16 }, { wch: 36 }, { wch: 20 }, { wch: 18 },
-        { wch: 10 }, { wch: 40 }, { wch: 10 },
-    ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Pruebas de Manejo");
-    XLSX.writeFile(wb, `pruebas_manejo_${new Date().toISOString().slice(0, 10)}.xlsx`);
-};
+        const ws = XLSX.utils.aoa_to_sheet([...titulo, ...fechaGen, ...filtroFila, ...totalFila, [[]], ...encabezados, ...filas]);
+        ws["!cols"] = [
+            { wch: 5 }, { wch: 20 }, { wch: 16 }, { wch: 28 }, { wch: 14 },
+            { wch: 28 }, { wch: 16 }, { wch: 36 }, { wch: 20 }, { wch: 18 },
+            { wch: 10 }, { wch: 40 }, { wch: 10 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Pruebas de Manejo");
+        XLSX.writeFile(wb, `pruebas_manejo_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

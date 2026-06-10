@@ -743,6 +743,7 @@ export default function RegistroCitas() {
         "Luis Armando Almora Perez", "Mara Erubey Soto Villegas", "Sergio Ivan Quintana Martinez",
         "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos", "José Alberto Sedas Flores",
         "Maria Vanessa Jiménez Medina", "Juan Jesús Márquez Aquino", "Estefano Marlom Aparicio",
+        "Luis Alberto Ramirez Santamaria", "Paul Serrano Vera", "Luis Manuel Alvarez Martinez"
     ];
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
     const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter", "CRAFTER ELITE", "CRAFTER URBAN", "CRAFTER ELEMENTAL", "CRAFTER INSPIRE"];
@@ -967,71 +968,71 @@ export default function RegistroCitas() {
             ))}
         </div>
     );
-const exportarExcel = () => {
-    const titulo = [["REPORTE DE CITAS — GRUPO AUTOMOTRIZ R&R"]];
-    const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
-    const filtrosActivos = [];
-    if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
-    if (filters.asesorDigital !== "Todos") filtrosActivos.push(`Asesor Digital: ${filters.asesorDigital}`);
-    if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
-    if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
-    if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
-    const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
-    const totalFila = [[`Total de registros: ${sorted.length}`]];
-    const espaciado = [[]];
+    const exportarExcel = () => {
+        const titulo = [["REPORTE DE CITAS — GRUPO AUTOMOTRIZ R&R"]];
+        const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+        const filtrosActivos = [];
+        if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+        if (filters.asesorDigital !== "Todos") filtrosActivos.push(`Asesor Digital: ${filters.asesorDigital}`);
+        if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+        if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+        if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+        const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+        const totalFila = [[`Total de registros: ${sorted.length}`]];
+        const espaciado = [[]];
 
-    const encabezados = [[
-        "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono",
-        "Auto Interés", "Tipo Cita", "Fuente Prospección",
-        "Asesor Digital", "Asesor Piso", "¿Asistió?", "Comentarios",
-    ]];
+        const encabezados = [[
+            "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono",
+            "Auto Interés", "Tipo Cita", "Fuente Prospección",
+            "Asesor Digital", "Asesor Piso", "¿Asistió?", "Comentarios",
+        ]];
 
-    const filas = sorted.map((row, i) => ([
-        i + 1,
-        row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
-        row.agencia || "—",
-        row?.cliente?.nombre || "—",
-        row?.cliente?.telefono || "—",
-        row.auto_interes || "—",
-        row.tipo_cita || "—",
-        row.fuente_prospeccion || "—",
-        row.asesor_digital || "—",
-        row.asesor_piso || "—",
-        row.asistencia ? "Sí" : "No",
-        row.comentarios || "—",
-    ]));
+        const filas = sorted.map((row, i) => ([
+            i + 1,
+            row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
+            row.agencia || "—",
+            row?.cliente?.nombre || "—",
+            row?.cliente?.telefono || "—",
+            row.auto_interes || "—",
+            row.tipo_cita || "—",
+            row.fuente_prospeccion || "—",
+            row.asesor_digital || "—",
+            row.asesor_piso || "—",
+            row.asistencia ? "Sí" : "No",
+            row.comentarios || "—",
+        ]));
 
-    const data = [
-        ...titulo,
-        ...fechaGen,
-        ...filtroFila,
-        ...totalFila,
-        ...espaciado,
-        ...encabezados,
-        ...filas,
-    ];
+        const data = [
+            ...titulo,
+            ...fechaGen,
+            ...filtroFila,
+            ...totalFila,
+            ...espaciado,
+            ...encabezados,
+            ...filas,
+        ];
 
-    const ws = XLSX.utils.aoa_to_sheet(data);
+        const ws = XLSX.utils.aoa_to_sheet(data);
 
-    ws["!cols"] = [
-        { wch: 5 },   // N°
-        { wch: 20 },  // Fecha y Hora
-        { wch: 16 },  // Dealer
-        { wch: 28 },  // Cliente
-        { wch: 16 },  // Teléfono
-        { wch: 16 },  // Auto Interés
-        { wch: 14 },  // Tipo Cita
-        { wch: 22 },  // Fuente Prospección
-        { wch: 30 },  // Asesor Digital
-        { wch: 36 },  // Asesor Piso
-        { wch: 10 },  // ¿Asistió?
-        { wch: 40 },  // Comentarios
-    ];
+        ws["!cols"] = [
+            { wch: 5 },   // N°
+            { wch: 20 },  // Fecha y Hora
+            { wch: 16 },  // Dealer
+            { wch: 28 },  // Cliente
+            { wch: 16 },  // Teléfono
+            { wch: 16 },  // Auto Interés
+            { wch: 14 },  // Tipo Cita
+            { wch: 22 },  // Fuente Prospección
+            { wch: 30 },  // Asesor Digital
+            { wch: 36 },  // Asesor Piso
+            { wch: 10 },  // ¿Asistió?
+            { wch: 40 },  // Comentarios
+        ];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Citas");
-    XLSX.writeFile(wb, `citas_${new Date().toISOString().slice(0, 10)}.xlsx`);
-};
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Citas");
+        XLSX.writeFile(wb, `citas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

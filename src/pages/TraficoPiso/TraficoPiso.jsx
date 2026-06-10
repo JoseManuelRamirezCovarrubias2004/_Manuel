@@ -170,6 +170,9 @@ const ASESORES = [
     "Estefano Marlom De Azcue Aparicio",
     "VANESSA JIMENEZ MEDINA",
     "JOSE ALBERTO SEDAS FLORES",
+    "Luis Alberto Ramirez Santamaria",
+    "Paul Serrano Vera",
+    "Luis Manuel Alvarez Martinez"
 ];
 
 const PASATIEMPOS = [
@@ -804,70 +807,70 @@ export default function TraficoPiso() {
     }
 
     const exportarExcel = () => {
-    const titulo = [["REPORTE TRÁFICO DE PISO — GRUPO AUTOMOTRIZ R&R"]];
-    const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
-    const filtrosActivos = [];
-    if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
-    if (filters.tipoPersona !== "Todos") filtrosActivos.push(`Tipo persona: ${filters.tipoPersona}`);
-    if (filters.tiempoCompra !== "Todos") filtrosActivos.push(`Tiempo compra: ${filters.tiempoCompra}`);
-    if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
-    if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
-    if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
-    const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
-    const totalFila = [[`Total de registros: ${sorted.length}`]];
+        const titulo = [["REPORTE TRÁFICO DE PISO — GRUPO AUTOMOTRIZ R&R"]];
+        const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+        const filtrosActivos = [];
+        if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+        if (filters.tipoPersona !== "Todos") filtrosActivos.push(`Tipo persona: ${filters.tipoPersona}`);
+        if (filters.tiempoCompra !== "Todos") filtrosActivos.push(`Tiempo compra: ${filters.tiempoCompra}`);
+        if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+        if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+        if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+        const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+        const totalFila = [[`Total de registros: ${sorted.length}`]];
 
-    const encabezados = [[
-        "N°", "Fecha", "Dealer", "Prospecto", "Teléfono", "Email",
-        "Asesor Ventas", "Motivo Ingreso", "Tipo Persona", "Tiempo Compra",
-        "Auto Sueños", "Deja Auto Cuenta", "Modelo Auto Cuenta",
-        "Forma Capitalización", "Presupuesto", "Enganche",
-        "Mensualidades", "Comprueba Ingresos", "Forma Comprobar",
-        "Motivo Compra", "Perfil Profesional", "Estado Civil",
-        "Edad", "Hijos", "Pasatiempos", "Be Back", "Comentarios",
-    ]];
+        const encabezados = [[
+            "N°", "Fecha", "Dealer", "Prospecto", "Teléfono", "Email",
+            "Asesor Ventas", "Motivo Ingreso", "Tipo Persona", "Tiempo Compra",
+            "Auto Sueños", "Deja Auto Cuenta", "Modelo Auto Cuenta",
+            "Forma Capitalización", "Presupuesto", "Enganche",
+            "Mensualidades", "Comprueba Ingresos", "Forma Comprobar",
+            "Motivo Compra", "Perfil Profesional", "Estado Civil",
+            "Edad", "Hijos", "Pasatiempos", "Be Back", "Comentarios",
+        ]];
 
-    const filas = sorted.map((row, i) => ([
-        i + 1,
-        dateTime(row.creado_en),
-        row.agencia || "—",
-        row.nombre_prospecto || "—",
-        row.telefono || "—",
-        row.email || "—",
-        row.asesor_ventas || "—",
-        row.motivo_ingreso || "—",
-        row.tipo_persona || "—",
-        row.tiempo_compra || "—",
-        row.auto_suenos || "—",
-        row.deja_auto_cuenta ? "Sí" : "No",
-        row.modelo_auto_cuenta || "—",
-        row.forma_capitalizacion || "—",
-        Number(row.presupuesto_estimado || 0),
-        Number(row.enganche_presupuestado || 0),
-        row.mensualidades_presupuestadas || "—",
-        row.comprueba_ingresos ? "Sí" : "No",
-        row.forma_comprobar_ingresos || "—",
-        row.motivo_compra || "—",
-        row.perfil_profesional || "—",
-        row.estado_civil || "—",
-        row.edad || "—",
-        row.cantidad_hijos ?? "—",
-        Array.isArray(row.pasatiempos) ? row.pasatiempos.join(", ") : "—",
-        beBackMap[row.id_trafico] ? "Sí" : "No",
-        row.comentarios || "—",
-    ]));
+        const filas = sorted.map((row, i) => ([
+            i + 1,
+            dateTime(row.creado_en),
+            row.agencia || "—",
+            row.nombre_prospecto || "—",
+            row.telefono || "—",
+            row.email || "—",
+            row.asesor_ventas || "—",
+            row.motivo_ingreso || "—",
+            row.tipo_persona || "—",
+            row.tiempo_compra || "—",
+            row.auto_suenos || "—",
+            row.deja_auto_cuenta ? "Sí" : "No",
+            row.modelo_auto_cuenta || "—",
+            row.forma_capitalizacion || "—",
+            Number(row.presupuesto_estimado || 0),
+            Number(row.enganche_presupuestado || 0),
+            row.mensualidades_presupuestadas || "—",
+            row.comprueba_ingresos ? "Sí" : "No",
+            row.forma_comprobar_ingresos || "—",
+            row.motivo_compra || "—",
+            row.perfil_profesional || "—",
+            row.estado_civil || "—",
+            row.edad || "—",
+            row.cantidad_hijos ?? "—",
+            Array.isArray(row.pasatiempos) ? row.pasatiempos.join(", ") : "—",
+            beBackMap[row.id_trafico] ? "Sí" : "No",
+            row.comentarios || "—",
+        ]));
 
-    const ws = XLSX.utils.aoa_to_sheet([...titulo, ...fechaGen, ...filtroFila, ...totalFila, [[]], ...encabezados, ...filas]);
-    ws["!cols"] = [
-        { wch: 5 }, { wch: 20 }, { wch: 14 }, { wch: 30 }, { wch: 14 }, { wch: 28 },
-        { wch: 30 }, { wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
-        { wch: 18 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 16 },
-        { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 12 }, { wch: 6 }, { wch: 6 },
-        { wch: 40 }, { wch: 8 }, { wch: 40 },
-    ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Tráfico de piso");
-    XLSX.writeFile(wb, `trafico_piso_${new Date().toISOString().slice(0, 10)}.xlsx`);
-};
+        const ws = XLSX.utils.aoa_to_sheet([...titulo, ...fechaGen, ...filtroFila, ...totalFila, [[]], ...encabezados, ...filas]);
+        ws["!cols"] = [
+            { wch: 5 }, { wch: 20 }, { wch: 14 }, { wch: 30 }, { wch: 14 }, { wch: 28 },
+            { wch: 30 }, { wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
+            { wch: 18 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 16 },
+            { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 12 }, { wch: 6 }, { wch: 6 },
+            { wch: 40 }, { wch: 8 }, { wch: 40 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Tráfico de piso");
+        XLSX.writeFile(wb, `trafico_piso_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -882,7 +885,7 @@ export default function TraficoPiso() {
                         )}
                     </p>
                 </div>
-               <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                     <ViewToggle />
                     <button
                         type="button"
