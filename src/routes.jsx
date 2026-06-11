@@ -88,9 +88,6 @@ import Puestos from "./pages/puestos/Puestos";
 import CampanasMeta from "./pages/CampanasMeta/CampanasMeta";
 import Retencion from "./pages/Retencion/Retencion";
 import JDPower from "./pages/JDPower/JDPower";
-
-import Retencion from "./pages/Retencion/Retencion";
-import JDPower from "./pages/JDPower/JDPower";
 import JDPowerServicio from "./pages/encuestaJDpowerservicio/JDPowerServicio";
 
 import WhatsLayout from "./pages/EnvioWhats/EnvioLayout";
