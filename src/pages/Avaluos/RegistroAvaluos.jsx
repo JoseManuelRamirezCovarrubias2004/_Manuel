@@ -750,7 +750,10 @@ export default function RegistroAvaluos() {
         "Yoseth Ruiz Castellanos",
         "Estefano Marlom De Azcue Aparicio",
         "Paul Serrano",
-        "Nicolas Martinez"
+        "Nicolas Martinez",
+        "Luis Alberto Ramirez Santamaria",
+        "Paul Serrano Vera",
+        "Luis Manuel Alvarez Martinez"
     ];
 
     const ETAPAS_PROCESO = [

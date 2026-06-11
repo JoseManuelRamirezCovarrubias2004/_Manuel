@@ -1,117 +1,16 @@
-const API_ROOT =
-  import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com";
+// src/lib/apiReclutamiento.js
+import { buildQuery, http } from "./apiClient";
 
-const ENDPOINT = `${API_ROOT.replace(/\/$/, "")}/api/rrhh/vacantes/`;
-
-function obtenerToken() {
-  return (
-    localStorage.getItem("access") ||
-    localStorage.getItem("accessToken") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("authToken") ||
-    localStorage.getItem("auth.access") ||
-    ""
-  );
-}
-
-function construirQuery(params = {}) {
-  const query = new URLSearchParams();
-
-  Object.entries(params).forEach(([clave, valor]) => {
-    if (
-      valor !== undefined &&
-      valor !== null &&
-      valor !== "" &&
-      valor !== "Todos"
-    ) {
-      const nombreParametro = clave === "q" ? "buscar" : clave;
-      query.append(nombreParametro, valor);
-    }
-  });
-
-  const texto = query.toString();
-
-  return texto ? `?${texto}` : "";
-}
-
-function obtenerPrimerError(data) {
-  if (!data || typeof data !== "object") return "";
-
-  const primeraClave = Object.keys(data)[0];
-
-  if (!primeraClave) return "";
-
-  const valor = data[primeraClave];
-
-  if (Array.isArray(valor)) {
-    return `${primeraClave}: ${valor.join(", ")}`;
-  }
-
-  if (typeof valor === "string") {
-    return `${primeraClave}: ${valor}`;
-  }
-
-  if (typeof valor === "object") {
-    return `${primeraClave}: ${JSON.stringify(valor)}`;
-  }
-
-  return "";
-}
-
-async function request(ruta = "", options = {}) {
-  const token = obtenerToken();
-
-  const headers = {
-    Accept: "application/json",
-    ...(options.headers || {}),
-  };
-
-  const tieneBody = options.body !== undefined && options.body !== null;
-
-  if (tieneBody && !(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`${ENDPOINT}${ruta}`, {
-    ...options,
-    headers,
-  });
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const mensaje =
-      data?.detail ||
-      data?.error ||
-      data?.message ||
-      obtenerPrimerError(data) ||
-      "Ocurrió un error al comunicarse con el servidor.";
-
-    throw new Error(mensaje);
-  }
-
-  return data;
-}
+const ENDPOINT = "/api/rrhh/vacantes/";
 
 function normalizarLista(data) {
   if (Array.isArray(data)) return data;
-
   if (Array.isArray(data?.results)) return data.results;
-
   return [];
 }
 
 function normalizarFecha(valor) {
   if (!valor) return null;
-
   return valor;
 }
 
@@ -133,16 +32,12 @@ function limpiarCandidato(candidato = {}) {
     cv: candidato.cv || "",
 
     fecha_entrevista_do: normalizarFecha(candidato.fecha_entrevista_do),
-    fecha_entrevista_gerente: normalizarFecha(
-      candidato.fecha_entrevista_gerente,
-    ),
+    fecha_entrevista_gerente: normalizarFecha(candidato.fecha_entrevista_gerente),
     fecha_respuesta_gerente: normalizarFecha(candidato.fecha_respuesta_gerente),
 
     fecha_alta_khor: normalizarFecha(candidato.fecha_alta_khor),
     fecha_realizacion_khor: normalizarFecha(candidato.fecha_realizacion_khor),
-    fecha_entrega_resultados_khor: normalizarFecha(
-      candidato.fecha_entrega_resultados_khor,
-    ),
+    fecha_entrega_resultados_khor: normalizarFecha(candidato.fecha_entrega_resultados_khor),
 
     tipo_validacion_socioeconomica:
       candidato.tipo_validacion_socioeconomica || "No aplica",
@@ -186,27 +81,30 @@ function limpiarPayload(payload = {}) {
 
 export const apiReclutamiento = {
   async listarVacantes(params = {}) {
-    const data = await request(construirQuery(params));
+    const { q, ...rest } = params || {};
+    const data = await http(
+      `${ENDPOINT}${buildQuery({ ...rest, buscar: q || rest.buscar })}`,
+    );
 
     return normalizarLista(data);
   },
 
   async crearVacante(payload) {
-    return request("", {
+    return http(ENDPOINT, {
       method: "POST",
-      body: JSON.stringify(limpiarPayload(payload)),
+      body: limpiarPayload(payload),
     });
   },
 
   async actualizarVacante(idVacante, payload) {
-    return request(`${idVacante}/`, {
+    return http(`${ENDPOINT}${idVacante}/`, {
       method: "PATCH",
-      body: JSON.stringify(limpiarPayload(payload)),
+      body: limpiarPayload(payload),
     });
   },
 
   async eliminarVacante(idVacante) {
-    await request(`${idVacante}/`, {
+    await http(`${ENDPOINT}${idVacante}/`, {
       method: "DELETE",
     });
 

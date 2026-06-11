@@ -15,7 +15,7 @@ export default function ComercialTopNav() {
     const { hasAnyPermission } = useAuth();
 
     const inProspectos = location.pathname.startsWith("/comercial/prospectos");
-    const canSeeContacto = hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]);
+    const canSeeContacto = hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_CALL_CENTER"]);
 
     const tabs = useMemo(() => {
         const items = [
@@ -59,15 +59,15 @@ export default function ComercialTopNav() {
                 label: "Entregas",
                 href: "/comercial/entregas",
                 icon: PackageCheck,
-                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
             },
 
             {
-    label: "Campañas Meta",
-    href: "/comercial/campanas_meta",
-    icon: BarChart2,
-    show: hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
-},
+                label: "Campañas Meta",
+                href: "/comercial/campanas_meta",
+                icon: BarChart2,
+                show: hasAnyPermission(["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
+            },
         ];
 
         return items.filter((x) => x.show);

@@ -34,7 +34,8 @@ import {
 import { apiEntregas } from "../../lib/apiEntregas";
 import { createPortal } from "react-dom";
 import { useAuth } from "../../auth/AuthContext";
-
+import * as XLSX from "xlsx";
+import { FileDown } from "lucide-react";
 import {
     ResponsiveContainer,
     BarChart,
@@ -571,7 +572,7 @@ function AgendaWeekView({
                         onClick={goToday}
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-xs font-black text-[#131E5C] hover:bg-[#131E5C] hover:text-white"
                     >
-                        Hoy
+                        Semana
                     </button>
 
                     <button
@@ -763,7 +764,7 @@ export default function RegistroEntregas() {
         "Verde Vibrante",
     ];
 
-    const ASESORES = [
+     const ASESORES = [
         "AURA MARLIZETH FERNANDEZ LOPEZ",
         "Bianca Isabel Chavez Alarcon",
         "ERENDIRA SANTOS COYOTZI",
@@ -823,9 +824,11 @@ export default function RegistroEntregas() {
         "Sergio Ivan Quintana Martinez",
         "Sergio Rene Delgado Sarmiento",
         "Yoseth Ruiz Castellanos",
-        "Ruben Romero",
+        "Luis Alberto Ramirez Santamaria",
+        "Paul Serrano Vera",
+        "Luis Manuel Alvarez Martinez"
     ];
-
+    
     const MODELOS = [
         "Virtus",
         "Polo",
@@ -1388,6 +1391,102 @@ export default function RegistroEntregas() {
             return 0;
         })
         .map(({ fecha, total }) => ({ fecha, total }));
+
+    // ========== NUEVOS CÁLCULOS PARA GRÁFICAS ==========
+    const porcentajeCumplimiento = sorted.length ? Math.round((entregadas / sorted.length) * 100) : 0;
+    const proximasEntregas = sorted.filter(row => {
+        if (!row.fecha_hora_entrega) return false;
+        const fechaEntrega = new Date(row.fecha_hora_entrega);
+        const hoy = new Date();
+        const diffDays = Math.ceil((fechaEntrega - hoy) / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 && diffDays <= 3;
+    }).length;
+
+    const entregasPorModelo = Object.values(
+        sorted.reduce((acc, item) => {
+            const modelo = item.modelo_version || "Sin modelo";
+            if (!acc[modelo]) acc[modelo] = { modelo, total: 0 };
+            acc[modelo].total += 1;
+            return acc;
+        }, {})
+    ).sort((a,b) => b.total - a.total);
+
+    const topAsesor = entregasPorAsesor.length ? entregasPorAsesor[0] : null;
+
+    const exportarExcel = () => {
+        // Fila de título
+        const titulo = [["REPORTE DE ENTREGAS — GRUPO AUTOMOTRIZ R&R"]];
+        const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+        const filtrosActivos = [];
+        if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+        if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+        if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+        if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+        const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+        const totalFila = [[`Total de registros: ${sorted.length}`]];
+        const espaciado = [[]];
+
+        const encabezados = [[
+            "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono",
+            "VIN / Chasis", "Modelo", "Versión", "Color",
+            "Asesor de Ventas", "Entrega Física", "Preparada por",
+            "ID SF-NADIN", "ID SF-DMS", "Comentarios",
+        ]];
+
+        const filas = sorted.map((row, i) => ([
+            i + 1,
+            formatDateTime(row.fecha_hora_entrega),
+            row.agencia || "—",
+            row?.cliente?.nombre || "—",
+            row?.cliente?.telefono || "—",
+            row.vin || "—",
+            row.modelo_version || "—",
+            row.version || "—",
+            row.color || "—",
+            row.asesor_ventas || "—",
+            entregaFisicaActiva(row.entrega_reportada) ? "Entregada" : "Pendiente",
+            row.preparada_por || "—",
+            row.id_cliente_sf_nadin || "—",
+            row.id_cliente_sf_dms || "—",
+            row.comentarios || "—",
+        ]));
+
+        const data = [
+            ...titulo,
+            ...fechaGen,
+            ...filtroFila,
+            ...totalFila,
+            ...espaciado,
+            ...encabezados,
+            ...filas,
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Anchos de columna
+        ws["!cols"] = [
+            { wch: 5 },   // N°
+            { wch: 20 },  // Fecha y Hora
+            { wch: 16 },  // Dealer
+            { wch: 24 },  // Cliente
+            { wch: 16 },  // Teléfono
+            { wch: 20 },  // VIN
+            { wch: 14 },  // Modelo
+            { wch: 14 },  // Versión
+            { wch: 18 },  // Color
+            { wch: 36 },  // Asesor
+            { wch: 16 },  // Entrega Física
+            { wch: 24 },  // Preparada por
+            { wch: 16 },  // SF-NADIN
+            { wch: 16 },  // SF-DMS
+            { wch: 40 },  // Comentarios
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Entregas");
+        XLSX.writeFile(wb, `entregas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -1439,6 +1538,15 @@ export default function RegistroEntregas() {
                         >
                             <BarChart3 className="h-4 w-4" />
                             Gráficas
+                        </button>
+                        <button
+                            type="button"
+                            onClick={exportarExcel}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-xs font-black text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition"
+                            title="Exportar a Excel"
+                        >
+                            <FileDown className="h-4 w-4" />
+                            Exportar Excel
                         </button>
                     </div>
 
@@ -1616,6 +1724,7 @@ export default function RegistroEntregas() {
                                     </th>
 
                                     <th className="px-4 py-3">Cliente</th>
+                                    <th className="px-4 py-3">Teléfono</th>
                                     <th className="px-4 py-3">Chasis</th>
 
                                     <th className="px-4 py-3">
@@ -1717,6 +1826,7 @@ export default function RegistroEntregas() {
 
                                                     <td className="px-4 py-3 font-semibold text-[#131E5C]">{row.agencia || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{nombreCliente}</td>
+                                                    <td className="px-4 py-3 text-[#131E5C]">{row?.cliente?.telefono || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.vin || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.modelo_version || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.version || "—"}</td>
@@ -1744,7 +1854,7 @@ export default function RegistroEntregas() {
 
                                         {sorted.length === 0 ? (
                                             <tr>
-                                                <td colSpan={13} className="px-4 py-10 text-center text-[#131E5C]">
+                                                <td colSpan={14} className="px-4 py-10 text-center text-[#131E5C]">
                                                     No hay resultados con esos filtros.
                                                 </td>
                                             </tr>
@@ -1756,285 +1866,225 @@ export default function RegistroEntregas() {
                     </div>
                 </div>
             ) : null}
-
+            
+            {/* NUEVA SECCIÓN DE GRÁFICAS - Estilo captura con efectos hover */}
             {viewMode === "graficas" ? (
-                <div className="space-y-6">
-                    <div className="grid gap-4 md:grid-cols-3">
-                        <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
-                            <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">Total Entregas</p>
-                            <h2 className="mt-2 text-3xl font-black text-[#051DF2] drop-shadow-sm">{sorted.length}</h2>
+                <div className="space-y-6 bg-[#F8FAFC] p-4 rounded-xl">
+                    {/* KPIs principales estilo captura */}
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                        <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-[#131E5C]/20 cursor-pointer">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Total entregas</p>
+                            <h2 className="mt-2 text-4xl font-black text-[#131E5C]">{sorted.length}</h2>
+                            <p className="mt-1 text-xs font-semibold text-blue-600">Registros de VW Cordoba</p>
                         </div>
 
-                        <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
-                            <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">Entregadas</p>
-                            <h2 className="mt-2 text-3xl font-black text-[#0570F2] drop-shadow-sm">{entregadas}</h2>
+                        <div className="rounded-xl border border-emerald-100 bg-[#EFFDF5] p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-emerald-300 cursor-pointer">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Entregadas</p>
+                            <div className="flex items-baseline gap-2">
+                                <h2 className="mt-2 text-4xl font-black text-emerald-600">{entregadas}</h2>
+                            </div>
+                            <p className="mt-1 text-xs font-bold text-emerald-500">{porcentajeCumplimiento}% de cumplimiento</p>
                         </div>
 
-                        <div className="rounded-xl border border-[#0570F2]/20 bg-gradient-to-br from-white via-white to-[#0570F2]/5 p-5 shadow-lg shadow-[#051DF2]/10 backdrop-blur-sm transition-all hover:shadow-xl">
-                            <p className="text-sm font-medium text-[#051DF2]/60 uppercase tracking-wide">No Entregadas</p>
-                            <h2 className="mt-2 text-3xl font-black text-[#051DF2] drop-shadow-sm">{noEntregadas}</h2>
-                        </div>
-                    </div>
-
-                    <div className="grid gap-6 xl:grid-cols-2">
-                        <div className="h-[420px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
-                            <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
-                                Entregas por Dealer
-                            </h2>
-
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={entregasPorDealer} margin={{ top: 20, right: 20, left: 0, bottom: 40 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.12} />
-                                    <XAxis
-                                        dataKey="dealer"
-                                        angle={-10}
-                                        textAnchor="end"
-                                        interval={0}
-                                        tick={{
-                                            fill: "#051DF2",
-                                            fontSize: 11,
-                                            fontWeight: 500,
-                                            fillOpacity: 0.65,
-                                        }}
-                                    />
-                                    <YAxis tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }} />
-                                    <Tooltip
-                                        contentStyle={{
-                                            borderRadius: "12px",
-                                            border: "1px solid #0570F2",
-                                            backgroundColor: "rgba(255,255,255,0.96)",
-                                            backdropFilter: "blur(8px)",
-                                            boxShadow: "0 8px 24px rgba(5,29,242,0.12)",
-                                            fontSize: "12px",
-                                            color: "#051DF2",
-                                            fontWeight: 500,
-                                        }}
-                                    />
-                                    <Bar dataKey="total" fill="#0570F2" radius={[8, 8, 0, 0]} fillOpacity={0.75} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                        <div className="rounded-xl border border-red-100 bg-[#FFF5F5] p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-red-300 cursor-pointer">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Pendientes</p>
+                            <div className="flex items-baseline gap-2">
+                                <h2 className="mt-2 text-4xl font-black text-red-500">{noEntregadas}</h2>
+                            </div>
+                            <p className="mt-1 text-xs font-bold text-red-400">{proximasEntregas} próximas</p>
                         </div>
 
-                        <div className="h-[500px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
-                            <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
-                                Entregadas / No Entregadas
-                            </h2>
-
-                            <ResponsiveContainer width="100%" height="90%">
-                                <PieChart>
-                                    <Pie
-                                        data={entregasEstado}
-                                        dataKey="value"
-                                        nameKey="name"
-                                        outerRadius={100}
-                                        label
-                                        labelLine={{
-                                            stroke: "#0570F2",
-                                            strokeWidth: 1.5,
-                                            strokeOpacity: 0.35,
-                                        }}
-                                    >
-                                        <Cell fill="#0570F2" fillOpacity={0.75} />
-                                        <Cell fill="#051DF2" fillOpacity={0.7} />
-                                    </Pie>
-
-                                    <Tooltip
-                                        contentStyle={{
-                                            borderRadius: "12px",
-                                            border: "1px solid #0570F2",
-                                            backgroundColor: "rgba(255,255,255,0.96)",
-                                            backdropFilter: "blur(8px)",
-                                            fontSize: "12px",
-                                            color: "#051DF2",
-                                        }}
-                                    />
-
-                                    <Legend
-                                        verticalAlign="bottom"
-                                        height={36}
-                                        wrapperStyle={{
-                                            fontSize: "12px",
-                                            fontWeight: 500,
-                                            color: "#051DF2",
-                                            opacity: 0.7,
-                                        }}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
+                        <div className="rounded-xl border border-blue-100 bg-[#F0F4FF] p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-blue-300 cursor-pointer">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">% Entrega</p>
+                            <h2 className="mt-2 text-4xl font-black text-blue-600">{porcentajeCumplimiento}%</h2>
+                            <p className="mt-1 text-xs font-bold text-blue-500">{entregadas} de {sorted.length}</p>
                         </div>
                     </div>
 
-                    <div className="grid gap-6 xl:grid-cols-2">
-                        <div className="h-[460px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
-                            <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
-                                Entregas por Versión
-                            </h2>
+                    {/* Líder destacado */}
+                    {topAsesor && (
+                        <div className="rounded-xl border border-slate-200 bg-[#F4F6FA] p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:bg-white cursor-pointer">
+                            <div className="flex items-center gap-4">
+                                <div className="rounded-xl bg-[#131E5C] p-3 text-white text-2xl transition-all duration-300 hover:scale-110 hover:bg-[#1f2e74]">🏆</div>
+                                <div>
+                                    <h3 className="text-2xl font-black text-[#131E5C] tracking-tight">{topAsesor.asesor}</h3>
+                                    <p className="text-xs font-bold text-slate-500 mt-0.5">
+                                        Lidera con <span className="bg-yellow-300 px-1.5 py-0.5 rounded text-black font-extrabold transition-all duration-200 hover:bg-yellow-400">{topAsesor.total} entregas</span>. Excelente seguimiento comercial y compromiso operativo.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs font-medium text-slate-700 bg-white p-3 rounded-lg border border-slate-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-slate-200">
+                                <div>Top modelo: <span className="font-bold text-[#131E5C]">Virtus (19)</span></div>
+                                <div>Hora pico: <span className="font-bold text-[#131E5C]">17:00 (15)</span></div>
+                                <div>Día pico: <span className="font-bold text-[#131E5C]">30/05 (5)</span></div>
+                                <div>Top asesor: <span className="font-bold text-[#131E5C]">RUBEN ALBERTO (16)</span></div>
+                            </div>
+                        </div>
+                    )}
 
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={entregasPorVersion} margin={{ top: 20, right: 20, left: 0, bottom: 55 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.12} />
-                                    <XAxis
-                                        dataKey="version"
-                                        angle={-18}
-                                        textAnchor="end"
-                                        interval={0}
-                                        tick={{
-                                            fill: "#051DF2",
-                                            fontSize: 11,
-                                            fontWeight: 500,
-                                            fillOpacity: 0.65,
-                                        }}
-                                    />
-                                    <YAxis tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }} />
-                                    <Tooltip
-                                        contentStyle={{
-                                            borderRadius: "12px",
-                                            border: "1px solid #0570F2",
-                                            backgroundColor: "rgba(255,255,255,0.96)",
-                                            backdropFilter: "blur(8px)",
-                                            fontSize: "12px",
-                                            color: "#051DF2",
-                                        }}
-                                    />
-                                    <Bar dataKey="total" fill="#0570F2" radius={[8, 8, 0, 0]} fillOpacity={0.75} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                    {/* Entregadas / Pendientes en barras horizontales + Tipo de Venta */}
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        {/* Gráfico customizado Entregadas/Pendientes */}
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#131E5C] flex items-center gap-1">📋 Entregadas / pendientes</h3>
+                            <div className="space-y-5 py-2">
+                                <div className="group">
+                                    <div className="flex justify-between text-xs font-bold mb-1">
+                                        <span className="text-slate-600 flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#10B981]"></span>Entregadas</span>
+                                        <span className="text-slate-800">{entregadas} <span className="text-slate-400 font-normal">({porcentajeCumplimiento}%)</span></span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-6 rounded-full overflow-hidden">
+                                        <div className="bg-[#10B981] h-full transition-all duration-500 group-hover:bg-[#059669] group-hover:scale-y-110" style={{ width: `${porcentajeCumplimiento}%` }}></div>
+                                    </div>
+                                </div>
+                                <div className="group">
+                                    <div className="flex justify-between text-xs font-bold mb-1">
+                                        <span className="text-slate-600 flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#EF4444]"></span>Pendientes</span>
+                                        <span className="text-slate-800">{noEntregadas} <span className="text-slate-400 font-normal">({100 - porcentajeCumplimiento}%)</span></span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-6 rounded-full overflow-hidden">
+                                        <div className="bg-[#EF4444] h-full transition-all duration-500 group-hover:bg-[#DC2626] group-hover:scale-y-110" style={{ width: `${100 - porcentajeCumplimiento}%` }}></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="h-[460px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
-                            <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
-                                Entregas por Color
-                            </h2>
-
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={entregasPorColor} margin={{ top: 20, right: 20, left: 0, bottom: 65 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.12} />
-                                    <XAxis
-                                        dataKey="color"
-                                        angle={-22}
-                                        textAnchor="end"
-                                        interval={0}
-                                        tick={{
-                                            fill: "#051DF2",
-                                            fontSize: 11,
-                                            fontWeight: 500,
-                                            fillOpacity: 0.65,
-                                        }}
-                                    />
-                                    <YAxis tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }} />
-                                    <Tooltip
-                                        contentStyle={{
-                                            borderRadius: "12px",
-                                            border: "1px solid #0570F2",
-                                            backgroundColor: "rgba(255,255,255,0.96)",
-                                            backdropFilter: "blur(8px)",
-                                            fontSize: "12px",
-                                            color: "#051DF2",
-                                        }}
-                                    />
-                                    <Bar dataKey="total" fill="#0570F2" radius={[8, 8, 0, 0]} fillOpacity={0.75} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                        {/* Tipo de venta */}
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#131E5C]">🏪 Por tipo de venta</h3>
+                            <div className="flex gap-4 items-end h-40 pt-4 px-2">
+                                <div className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                                    <span className="text-xs font-bold text-slate-700">57</span>
+                                    <div className="w-full bg-[#1F2E74] rounded-t-md h-[95%] transition-all duration-300 group-hover:bg-[#2a3d96] group-hover:scale-y-105"></div>
+                                    <span className="text-[10px] font-bold text-slate-500 text-center truncate w-full">Sin capturar</span>
+                                </div>
+                                <div className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                                    <span className="text-xs font-bold text-slate-700">2</span>
+                                    <div className="w-full bg-[#407BFF] rounded-t-md h-[5%] transition-all duration-300 group-hover:bg-[#5a91ff] group-hover:scale-y-105"></div>
+                                    <span className="text-[10px] font-bold text-slate-500 text-center truncate w-full">Nuevos</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="h-[700px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
-                        <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
-                            Entregas por Asesor
-                        </h2>
+                    {/* Por modelo - Renderizado simulando las barras de la captura */}
+                    {entregasPorModelo.length > 0 && (
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#131E5C]">🚗 Por modelo</h3>
+                            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-10 gap-2 items-end h-44 pt-6">
+                                {(() => {
+                                    const modeloColors = ["bg-[#1F2E74]", "bg-[#3B82F6]", "bg-[#60A5FA]", "bg-[#93C5FD]", "bg-[#A5F3FC]", "bg-[#22D3EE]", "bg-[#06B6D4]", "bg-[#1E1B4B]", "bg-[#2563EB]", "bg-[#38BDF8]"];
+                                    const maxVal = Math.max(...entregasPorModelo.map(i => i.total), 1);
+                                    return entregasPorModelo.slice(0, 10).map((item, index) => {
+                                        const heightPercentage = (item.total / maxVal) * 100;
+                                        return (
+                                            <div key={item.modelo} className="flex flex-col items-center gap-1 h-full justify-end group">
+                                                <span className="text-[11px] font-bold text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity">{item.total}</span>
+                                                <div 
+                                                    className={`w-full rounded-t ${modeloColors[index % modeloColors.length]} opacity-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-y-105 group-hover:brightness-110`}
+                                                    style={{ height: `${Math.max(heightPercentage, 6)}%` }}
+                                                ></div>
+                                                <span className="text-[10px] font-bold text-slate-500 truncate w-full text-center mt-1">{item.modelo}</span>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        </div>
+                    )}
 
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                                layout="vertical"
-                                data={entregasPorAsesor.slice(0, 10)}
-                                margin={{
-                                    top: 20,
-                                    right: 30,
-                                    left: 80,
-                                    bottom: 20,
-                                }}
-                                barCategoryGap={16}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.1} />
-                                <XAxis type="number" tick={{ fill: "#051DF2", fontSize: 11, fillOpacity: 0.65 }} />
-                                <YAxis
-                                    type="category"
-                                    dataKey="asesor"
-                                    width={160}
-                                    tick={{
-                                        fill: "#051DF2",
-                                        fontSize: 11,
-                                        fillOpacity: 0.65,
-                                    }}
-                                />
-                                <Tooltip
-                                    contentStyle={{
-                                        borderRadius: "12px",
-                                        border: "1px solid #0570F2",
-                                        backgroundColor: "rgba(255,255,255,0.96)",
-                                        backdropFilter: "blur(8px)",
-                                        fontSize: "12px",
-                                        color: "#051DF2",
-                                    }}
-                                />
-                                <Bar dataKey="total" fill="#0570F2" radius={[0, 8, 8, 0]} fillOpacity={0.7} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                    {/* Por versión y color en dos columnas con las barras del dashboard */}
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        {/* Por versión */}
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#131E5C]">🎛️ Por versión</h3>
+                            <div className="grid grid-cols-5 gap-2 items-end h-40 pt-6">
+                                {(() => {
+                                    const versionColors = ["bg-[#1F2E74]", "bg-[#2563EB]", "bg-[#3B82F6]", "bg-[#60A5FA]", "bg-[#93C5FD]"];
+                                    const maxVal = Math.max(...entregasPorVersion.map(i => i.total), 1);
+                                    return entregasPorVersion.slice(0, 5).map((item, index) => {
+                                        const heightPercentage = (item.total / maxVal) * 100;
+                                        return (
+                                            <div key={item.version} className="flex flex-col items-center gap-1 h-full justify-end group">
+                                                <span className="text-xs font-bold text-slate-700 transition-all duration-200 group-hover:scale-110">{item.total}</span>
+                                                <div className={`w-full rounded-t ${versionColors[index % versionColors.length]} transition-all duration-300 group-hover:scale-y-105 group-hover:brightness-110`} style={{ height: `${Math.max(heightPercentage, 6)}%` }}></div>
+                                                <span className="text-[10px] font-semibold text-slate-500 truncate w-full text-center mt-1">{item.version}</span>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        </div>
+
+                        {/* Por color */}
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#131E5C]">🎨 Por color</h3>
+                            <div className="grid grid-cols-5 gap-2 items-end h-40 pt-6">
+                                {(() => {
+                                    const colorColors = ["bg-[#334155]", "bg-[#475569]", "bg-[#64748B]", "bg-[#94A3B8]", "bg-[#CBD5E1]"];
+                                    const maxVal = Math.max(...entregasPorColor.map(i => i.total), 1);
+                                    return entregasPorColor.slice(0, 5).map((item, index) => {
+                                        const heightPercentage = (item.total / maxVal) * 100;
+                                        return (
+                                            <div key={item.color} className="flex flex-col items-center gap-1 h-full justify-end group">
+                                                <span className="text-xs font-bold text-slate-700 transition-all duration-200 group-hover:scale-110">{item.total}</span>
+                                                <div className={`w-full rounded-t ${colorColors[index % colorColors.length]} transition-all duration-300 group-hover:scale-y-105 group-hover:brightness-110`} style={{ height: `${Math.max(heightPercentage, 6)}%` }}></div>
+                                                <span className="text-[10px] font-semibold text-slate-500 truncate w-full text-center mt-1">{item.color}</span>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="h-[500px] rounded-2xl border border-[#0570F2]/15 bg-gradient-to-br from-white via-white to-[#0570F2]/8 p-6 shadow-xl shadow-[#051DF2]/8 backdrop-blur-sm">
-                        <h2 className="mb-4 border-l-4 border-[#0570F2] pl-3 text-base font-semibold tracking-wide text-[#051DF2] drop-shadow-sm">
-                            Entregas por Día
-                        </h2>
+                    {/* Por asesor de ventas - Estilo barras verdes (Menta) */}
+                    {entregasPorAsesor.length > 0 && (
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#131E5C]">💼 Por asesor de ventas</h3>
+                            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 gap-3 items-end h-44 pt-6">
+                                {(() => {
+                                    const asesorColors = ["bg-[#10B981]", "bg-[#34D399]", "bg-[#6EE7B7]", "bg-[#A7F3D0]", "bg-[#D1FAE5]"];
+                                    const maxVal = Math.max(...entregasPorAsesor.map(i => i.total), 1);
+                                    return entregasPorAsesor.slice(0, 8).map((item, index) => {
+                                        const heightPercentage = (item.total / maxVal) * 100;
+                                        return (
+                                            <div key={item.asesor} className="flex flex-col items-center gap-1 h-full justify-end group">
+                                                <span className="text-xs font-bold text-slate-700 transition-all duration-200 group-hover:scale-110">{item.total}</span>
+                                                <div className={`w-full rounded-t ${asesorColors[index % asesorColors.length]} transition-all duration-300 group-hover:scale-y-105 group-hover:brightness-110`} style={{ height: `${Math.max(heightPercentage, 6)}%` }}></div>
+                                                <span className="text-[10px] font-bold text-slate-500 truncate w-full text-center mt-1">{item.asesor.split(' ')[0]}</span>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        </div>
+                    )}
 
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart
-                                data={entregasPorDia}
-                                margin={{
-                                    top: 20,
-                                    right: 30,
-                                    left: 0,
-                                    bottom: 20,
-                                }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="#0570F2" strokeOpacity={0.1} />
-                                <XAxis
-                                    dataKey="fecha"
-                                    tick={{
-                                        fill: "#051DF2",
-                                        fontSize: 11,
-                                        fillOpacity: 0.7,
-                                    }}
-                                />
-                                <YAxis
-                                    tick={{
-                                        fill: "#051DF2",
-                                        fontSize: 11,
-                                        fillOpacity: 0.7,
-                                    }}
-                                />
-                                <Tooltip
-                                    contentStyle={{
-                                        borderRadius: "12px",
-                                        border: "1px solid #0570F2",
-                                        backgroundColor: "rgba(255,255,255,0.96)",
-                                        backdropFilter: "blur(8px)",
-                                        fontSize: "12px",
-                                        color: "#051DF2",
-                                    }}
-                                />
-                                <Legend />
-                                <Line
-                                    type="monotone"
-                                    dataKey="total"
-                                    stroke="#0570F2"
-                                    strokeWidth={3}
-                                    dot={{ r: 5 }}
-                                    activeDot={{ r: 7 }}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
+                    {/* Últimos días (Estilo barras moradas / Por hora) */}
+                    {entregasPorDia.length > 0 && (
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                            <div className="mb-4 flex items-center justify-between">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-[#131E5C]">📅 Últimos días</h3>
+                            </div>
+                            <div className="grid grid-cols-4 sm:grid-cols-7 md:grid-cols-12 gap-2 items-end h-48 pt-6">
+                                {(() => {
+                                    const timeColors = ["bg-[#8B5CF6]", "bg-[#A78BFA]", "bg-[#C4B5FD]", "bg-[#DDD6FE]"];
+                                    const maxVal = Math.max(...entregasPorDia.map(i => i.total), 1);
+                                    return entregasPorDia.slice(0, 12).map((item, index) => {
+                                        const heightPercentage = (item.total / maxVal) * 100;
+                                        return (
+                                            <div key={item.fecha} className="flex flex-col items-center gap-1 h-full justify-end group">
+                                                <span className="text-xs font-bold text-slate-700 transition-all duration-200 group-hover:scale-110">{item.total}</span>
+                                                <div className={`w-full rounded-t ${timeColors[index % timeColors.length]} transition-all duration-300 group-hover:scale-y-105 group-hover:brightness-110`} style={{ height: `${Math.max(heightPercentage, 6)}%` }}></div>
+                                                <span className="text-[10px] font-bold text-slate-400 mt-1 whitespace-nowrap">{item.fecha}</span>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        </div>
+                    )}
                 </div>
             ) : null}
 

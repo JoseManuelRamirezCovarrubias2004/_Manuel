@@ -120,6 +120,13 @@ const TIPOS_SERVICIO = [
     "Mtto. 75 km",
     "Mtto. 90 km",
     "Diagnóstico",
+    "Reparacion",
+    "Reparacion Mayor",
+    "Reparacion Menor",
+    "Diagnostico por Testigos Encendidos",
+    "Diagnostico por Ruidos y Vibraciones",
+    "Diagnostico por Fallo Electrico-Electronico",
+    "Diagnostico por Fallo Mecanico",
     "Garantía",
     "Hojalatería y pintura",
     "Campaña",
@@ -461,13 +468,13 @@ export default function HojaRegistros() {
     }, [user]);
 
     const userAgencias = useMemo(() => {
-    return String(user?.agencia || "")
-        .split("|")
-        .map((a) => a.trim())
-        .filter(Boolean);
-}, [user?.agencia]);
+        return String(user?.agencia || "")
+            .split("|")
+            .map((a) => a.trim())
+            .filter(Boolean);
+    }, [user?.agencia]);
 
-const userAgencia = userAgencias[0] || "";
+    const userAgencia = userAgencias[0] || "";
 
     const [rows, setRows] = useState([]);
     const [loadingList, setLoadingList] = useState(false);
@@ -631,8 +638,8 @@ const userAgencia = userAgencias[0] || "";
 
         return (rows || []).filter((row) => {
             if (!isAdmin && userAgencias.length > 0) {
-            if (!userAgencias.some((ua) => normalizeStr(ua) === normalizeStr(row.agencia))) return false;
-           }
+                if (!userAgencias.some((ua) => normalizeStr(ua) === normalizeStr(row.agencia))) return false;
+            }
 
             const matchAgencia =
                 filters.agencia === "Todos" ||

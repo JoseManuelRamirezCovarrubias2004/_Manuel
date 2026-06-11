@@ -8,7 +8,7 @@ export default function PostVentaIndex() {
 
     useEffect(() => {
         if (hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"])) {
-            navigate("/postventa/pedidos_piezas", { replace: true });
+            navigate("/encuesta_whats/envio_satisfaccion", { replace: true });
             return;
         }
         // fallback

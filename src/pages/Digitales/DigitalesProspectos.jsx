@@ -61,7 +61,7 @@ const origenMeta = {
     "Llamada Entrante": { Icon: ImgIcon(PHONE, "Llamada Entrante"), label: "Llamada Entrante" },
 };
 
-const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón"];
+const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Edgar Omar Nogera Solis"];
 const ESTADOS_PROSPECTO = ["Descalificado", "Contactado", "Sin Respuesta"];
 
 const VEHICULOS = [
@@ -129,6 +129,10 @@ const ASESOR_DIGITAL_POR_NUMERO = {
     "522721986539": {
         asesor_digital: "Candy Denisse Marquez",
         agencia: "VW Orizaba Usados",
+    },
+    "527831263814": {
+        asesor_digital: "Edgar Omar Nogera Solis",
+        agencia: "VW Tuxpan",
     },
 };
 
@@ -660,7 +664,7 @@ function VistaGraficos({ rows }) {
         return Object.entries(map).sort(([, a], [, b]) => b - a);
     }, [rows]);
 
-    
+
     const statsPorAsesor = useMemo(() => {
         const map = {};
         for (const row of rows) {
@@ -860,7 +864,7 @@ export default function DigitalesProspectos() {
     const [cases, setCases] = useState([]);
 
     //Estado de la vista activa 
-    const [viewMode, setViewMode] = useState("tabla"); 
+    const [viewMode, setViewMode] = useState("tabla");
 
     const VIEW_MODES = [
         { key: "tabla", label: "Tabla", Icon: Table2 },
@@ -879,22 +883,22 @@ export default function DigitalesProspectos() {
     }, [user]);
 
     const userAgencias = useMemo(() => {
-    return String(user?.agencia || "")
-        .split("|")
-        .map((a) => a.trim())
-        .filter(Boolean);
-}, [user?.agencia]);
+        return String(user?.agencia || "")
+            .split("|")
+            .map((a) => a.trim())
+            .filter(Boolean);
+    }, [user?.agencia]);
 
-const userTieneAgencia = useCallback(
-    (agenciaRegistro) => {
-        const agencia = String(agenciaRegistro || "").trim();
-        if (!agencia) return false;
-        return userAgencias.some(
-            (a) => a.toLowerCase() === agencia.toLowerCase()
-        );
-    },
-    [userAgencias]
-);
+    const userTieneAgencia = useCallback(
+        (agenciaRegistro) => {
+            const agencia = String(agenciaRegistro || "").trim();
+            if (!agencia) return false;
+            return userAgencias.some(
+                (a) => a.toLowerCase() === agencia.toLowerCase()
+            );
+        },
+        [userAgencias]
+    );
 
     const numeroUsuarioSesion = useMemo(() => getNumeroUsuarioSesion(user), [user]);
 
@@ -972,6 +976,9 @@ const userTieneAgencia = useCallback(
         "Yoseth Ruiz Castellanos",
         "Dulce Abigail Garcia Olivares",
         "JOSE ALBERTO SEDAS FLORES",
+        "Luis Alberto Ramirez Santamaria",
+        "Paul Serrano Vera",
+        "Luis Manuel Alvarez Martinez"
     ];
 
     const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
@@ -1190,12 +1197,12 @@ const userTieneAgencia = useCallback(
     }, [isAdmin, numeroUsuarioSesion, ready]);
 
     const dealers = useMemo(() => {
-    const d = new Set(cases.map((c) => c.agencia).filter(Boolean));
-    if (!isAdmin && userAgencias.length > 0) {
-        return ["Todos", ...userAgencias];
-    }
-    return ["Todos", ...Array.from(d)];
-}, [cases, isAdmin, userAgencias]);
+        const d = new Set(cases.map((c) => c.agencia).filter(Boolean));
+        if (!isAdmin && userAgencias.length > 0) {
+            return ["Todos", ...userAgencias];
+        }
+        return ["Todos", ...Array.from(d)];
+    }, [cases, isAdmin, userAgencias]);
 
     const estados = useMemo(() => {
         const s = new Set(cases.map((c) => c.estado).filter(Boolean));
@@ -2416,9 +2423,9 @@ const userTieneAgencia = useCallback(
                                 ].join(" ")}
                             >
                                 <option value="" disabled>Selecciona un dealer...</option>
-                        {(isAdmin ? DEALERS : userAgencias.length > 0 ? userAgencias : DEALERS).map((d) => (
-                            <option key={d} value={d}>{d}</option>
-                        ))}
+                                {(isAdmin ? DEALERS : userAgencias.length > 0 ? userAgencias : DEALERS).map((d) => (
+                                    <option key={d} value={d}>{d}</option>
+                                ))}
                             </select>
                         </Field>
 

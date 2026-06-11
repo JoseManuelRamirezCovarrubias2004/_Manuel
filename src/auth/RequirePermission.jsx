@@ -1,16 +1,86 @@
-//src/auth/RequirePermission.jsx
+// src/auth/RequirePermission.jsx
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 
+function tieneAlguno(permisos = [], permitidos = []) {
+    if (permisos.includes("ALL")) return true;
+
+    return permitidos.some((permiso) => permisos.includes(permiso));
+}
+
+export function obtenerRutaInicialPorUsuario(user) {
+    const permisos = user?.permisos || [];
+
+    if (permisos.includes("ALL")) {
+        return "/";
+    }
+
+    if (permisos.includes("USUARIOS_ADMIN")) {
+        return "/";
+    }
+
+    if (permisos.includes("CRM_CALIDAD")) {
+        return "/";
+    }
+
+    if (permisos.includes("CRM_CALL_CENTER")) {
+        return "/comercial/entregas";
+        // También podrías usar:
+        // return "/postventa/hoja_ingresos";
+    }
+
+    if (permisos.includes("CRM_POSTVENTA")) {
+        return "/postventa";
+    }
+
+    if (
+        permisos.includes("CRM_DIGITALES") ||
+        permisos.includes("CRM_VENTAS")
+    ) {
+        return "/comercial";
+    }
+
+    if (permisos.includes("CRM_FINANCIEROS")) {
+        return "/financieros";
+    }
+
+    if (permisos.includes("CRM_RRHH")) {
+        return "/administrativos";
+    }
+
+    return "/";
+}
+
 export default function RequirePermission({ anyOf = [], children }) {
-    const { user } = useAuth();
+    const { user, ready } = useAuth();
     const location = useLocation();
 
-    if (!anyOf.length) return children;
+    if (ready === false) {
+        return null;
+    }
+
+    if (!anyOf.length) {
+        return children;
+    }
 
     const permisos = user?.permisos || [];
-    const ok = permisos.includes("ALL") || anyOf.some((p) => permisos.includes(p));
+    const autorizado = tieneAlguno(permisos, anyOf);
 
-    if (!ok) return <Navigate to="/" state={{ from: location }} replace />;
-    return children;
+    if (autorizado) {
+        return children;
+    }
+
+    const rutaInicial = obtenerRutaInicialPorUsuario(user);
+
+    if (location.pathname === rutaInicial) {
+        return null;
+    }
+
+    return (
+        <Navigate
+            to={rutaInicial}
+            replace
+            state={{ from: location.pathname }}
+        />
+    );
 }

@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { apiTraficoPiso } from "../../lib/apiTraficoPiso";
 import { useAuth } from "../../auth/AuthContext";
+import * as XLSX from "xlsx";
+import { FileDown } from "lucide-react";
 
 const BRAND_BLUE = "#131E5C";
 
@@ -103,72 +105,70 @@ const PERFILES_PROFESIONALES = [
 
 const ESTADOS_CIVILES = ["Soltero", "Casado", "Divorciado"];
 
-const ASESORES = [
-    "AURA MARLIZETH FERNANDEZ LOPEZ",
-    "Bianca Isabel Chavez Alarcon",
-    "ERENDIRA SANTOS COYOTZI",
-    "IRENE DEL CARMEN GUIZA LOPEZ",
-    "MARCOS RAUL DIAZ RAMOS",
-    "MARIO ALBERTO LOPEZ RAMOS",
-    "MARISOL LAGUNES GONZALEZ",
-    "NALLELY HERNANDEZ GARCIA",
-    "OCTAVIO BRUNO GONZALEZ",
-    "ROGELIO VAZQUEZ SANCHEZ",
-    "RUBEN ALBERTO TOSQUY ADRIANO",
-    "Saja Azzam Mohammad Jamous",
-    "SANDRA LUZ PRIETO PEREZ",
-    "YAMIL MISAEL RODRIGUEZ AGUILAR",
-    "LUIS ALFONSO CORIA MARROQUIN",
-    "CANDY DENISSE MARQUEZ CORTES",
-    "DELMAR JAVIER ILLESCAS DOMINGUEZ",
-    "EDGAR JESUS GOMEZ PEREZ",
-    "Valeria Zilli Durante",
-    "IDALMY JIMENEZ SANCHEZ",
-    "IVAN JUAREZ ORTEGA",
-    "JESSICA OLIVARES CAMPOS",
-    "JESUS XITLAMA GOMEZ",
-    "LIZBETH CANO CLARA",
-    "LUIS MANUEL PALOMARES OLAYO",
-    "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
-    "OMAR VILLIERS MONDRAGON",
-    "RUBEN ROMERO VALDES",
-    "VERONICA CASTILLO FUENTES",
-    "Hector Rodriguez",
-    "GEOVANI NAVA DIAZ",
-    "ZEILA NAVARRO CONTRERAS",
-    "JOSE ALFREDO BARRANCA REYES",
-    "ADRIAN GALVEZ ROLDAN",
-    "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
-    "Marelly Tenorio Salinas",
-    "ELIA INES ARANO REYES",
-    "JORGE LUIS ALAMILLO RODRIGUEZ",
-    "Cesar Ivan Salazar Reyes",
-    "Cristian Fernando Rivera Godinez",
-    "DULCE ABIGAIL GARCIA OLIVARES",
-    "Felix Emmanuel Solis Angeles",
-    "GERMAN JARITH SALAZAR MIRANDA",
-    "Iris Yazmín Gómez Velázquez",
-    "Israel Garcia Juarez",
-    "JORGE ANTONIO RODRIGUEZ MARTINEZ",
-    "JOSE DE JESUS GARCIA ROMAN",
-    "JUAN MANUEL SOBREVILLA VICENCIO",
-    "Miguel Capitanachi Paredes",
-    "OLIMPIA VAZQUEZ MENDEZ",
-    "Roberto Ramses Luna Fajardo",
-    "Carlos Arturo Garces Vengas",
-    "Edgar Omar Noguera Solis",
-    "Javier Perez Meraz",
-    "Luis Armando Almora Perez",
-    "Mara Erubey Soto Villegas",
-    "Sergio Ivan Quintana Martinez",
-    "Sergio Rene Delgado Sarmiento",
-    "Yoseth Ruiz Castellanos",
-    "Luis Alfonso Coria Marroquín",
-    "Juan Jesús Márquez Aquino",
-    "Estefano Marlom De Azcue Aparicio",
-    "VANESSA JIMENEZ MEDINA",
-    "JOSE ALBERTO SEDAS FLORES",
-];
+  const ASESORES = [
+        "AURA MARLIZETH FERNANDEZ LOPEZ",
+        "Bianca Isabel Chavez Alarcon",
+        "ERENDIRA SANTOS COYOTZI",
+        "IRENE DEL CARMEN GUIZA LOPEZ",
+        "MARCOS RAUL DIAZ RAMOS",
+        "MARIO ALBERTO LOPEZ RAMOS",
+        "MARISOL LAGUNES GONZALEZ",
+        "NALLELY HERNANDEZ GARCIA",
+        "OCTAVIO BRUNO GONZALEZ",
+        "ROGELIO VAZQUEZ SANCHEZ",
+        "RUBEN ALBERTO TOSQUY ADRIANO",
+        "Saja Azzam Mohammad Jamous",
+        "SANDRA LUZ PRIETO PEREZ",
+        "YAMIL MISAEL RODRIGUEZ AGUILAR",
+        "LUIS ALFONSO CORIA MARROQUIN",
+        "CANDY DENISSE MARQUEZ CORTES",
+        "DELMAR JAVIER ILLESCAS DOMINGUEZ",
+        "EDGAR JESUS GOMEZ PEREZ",
+        "Valeria Zilli Durante",
+        "IDALMY JIMENEZ SANCHEZ",
+        "IVAN JUAREZ ORTEGA",
+        "JESSICA OLIVARES CAMPOS",
+        "JESUS XITLAMA GOMEZ",
+        "LIZBETH CANO CLARA",
+        "LUIS MANUEL PALOMARES OLAYO",
+        "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
+        "OMAR VILLIERS MONDRAGON",
+        "RUBEN ROMERO VALDES",
+        "VERONICA CASTILLO FUENTES",
+        "Hector Rodriguez",
+        "GEOVANI NAVA DIAZ",
+        "ZEILA NAVARRO CONTRERAS",
+        "JOSE ALFREDO BARRANCA REYES",
+        "ADRIAN GALVEZ ROLDAN",
+        "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
+        "Marelly Tenorio Salinas",
+        "ELIA INES ARANO REYES",
+        "JORGE LUIS ALAMILLO RODRIGUEZ",
+        "Cesar Ivan Salazar Reyes",
+        "Cristian Fernando Rivera Godinez",
+        "DULCE ABIGAIL GARCIA OLIVARES",
+        "Felix Emmanuel Solis Angeles",
+        "GERMAN JARITH SALAZAR MIRANDA",
+        "Iris Yazmín Gómez Velázquez",
+        "Israel Garcia Juarez",
+        "JORGE ANTONIO RODRIGUEZ MARTINEZ",
+        "JOSE DE JESUS GARCIA ROMAN",
+        "JUAN MANUEL SOBREVILLA VICENCIO",
+        "Miguel Capitanachi Paredes",
+        "OLIMPIA VAZQUEZ MENDEZ",
+        "Roberto Ramses Luna Fajardo",
+        "Carlos Arturo Garces Vengas",
+        "Edgar Omar Noguera Solis",
+        "Javier Perez Meraz",
+        "Luis Armando Almora Perez",
+        "Mara Erubey Soto Villegas",
+        "Sergio Ivan Quintana Martinez",
+        "Sergio Rene Delgado Sarmiento",
+        "Yoseth Ruiz Castellanos",
+        "Luis Alberto Ramirez Santamaria",
+        "Paul Serrano Vera",
+        "Luis Manuel Alvarez Martinez"
+    ];
 
 const PASATIEMPOS = [
     "Ciclismo", "Natación", "Futbol", "Pesca", "Senderismo", "Tenis-frontón",
@@ -264,7 +264,7 @@ function validarFormulario(form) {
     if (!form.perfil_profesional) errores.push("Selecciona el perfil profesional.");
     if (!form.estado_civil) errores.push("Selecciona el estado civil.");
     if (form.deja_auto_cuenta && !normalizeStr(form.modelo_auto_cuenta)) errores.push("Captura el modelo que desea dejar a cuenta.");
-    if (!Array.isArray(form.pasatiempos) || form.pasatiempos.length < 3) errores.push("Selecciona al menos 3 pasatiempos.");
+    if (!Array.isArray(form.pasatiempos) || form.pasatiempos.length < 1) errores.push("Selecciona al menos 1 pasatiempo.");
     return errores;
 }
 
@@ -289,7 +289,7 @@ function BooleanSwitch({ value, onChange, yes = "SÍ", no = "NO" }) { return <di
 function PasatiemposPicker({ value, onChange, invalid }) {
     const seleccionados = new Set(value || []);
     function toggle(item) { if (seleccionados.has(item)) { onChange((value || []).filter((x) => x !== item)); return; } onChange([...(value || []), item]); }
-    return <div className={["rounded-lg border bg-neutral-200/50 p-4", invalid ? "border-red-400" : "border-white/10"].join(" ")}><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm font-extrabold text-[#131E5C]"><HeartHandshake className="h-4 w-4" /><span>Pasatiempos *</span></div><span className={["rounded-full px-3 py-1 text-xs font-extrabold", value.length >= 3 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"].join(" ")}>{value.length}/3 mínimos</span></div><div className="flex max-h-[220px] flex-wrap gap-2 overflow-y-auto pr-1">{PASATIEMPOS.map((item) => { const active = seleccionados.has(item); return <button key={item} type="button" onClick={() => toggle(item)} className={["rounded-full border px-3 py-2 text-xs font-extrabold transition", active ? "border-[#131E5C] bg-[#131E5C] text-white" : "border-black/10 bg-white text-[#131E5C] hover:border-[#131E5C] hover:bg-white"].join(" ")}>{item}</button>; })}</div></div>;
+    return <div className={["rounded-lg border bg-neutral-200/50 p-4", invalid ? "border-red-400" : "border-white/10"].join(" ")}><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm font-extrabold text-[#131E5C]"><HeartHandshake className="h-4 w-4" /><span>Pasatiempos *</span></div><span className={["rounded-full px-3 py-1 text-xs font-extrabold", value.length >= 1 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"].join(" ")}>{value.length}/1 mínimo</span></div><div className="flex max-h-[220px] flex-wrap gap-2 overflow-y-auto pr-1">{PASATIEMPOS.map((item) => { const active = seleccionados.has(item); return <button key={item} type="button" onClick={() => toggle(item)} className={["rounded-full border px-3 py-2 text-xs font-extrabold transition", active ? "border-[#131E5C] bg-[#131E5C] text-white" : "border-black/10 bg-white text-[#131E5C] hover:border-[#131E5C] hover:bg-white"].join(" ")}>{item}</button>; })}</div></div>;
 }
 
 function AsesorAutocomplete({ value, onChange, invalid }) {
@@ -415,7 +415,7 @@ function AgendaTraficoPiso({ rows, loading, onEdit, onNewAtSlot }) {
                         <ChevronLeft className="h-4 w-4" />
                     </button>
                     <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-[#131E5C] text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition">
-                        Hoy
+                        Semana
                     </button>
                     <button onClick={goNext} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
                         <ChevronRight className="h-4 w-4" />
@@ -606,7 +606,7 @@ export default function TraficoPiso() {
         if (!draft.motivo_compra) map.add("motivo_compra");
         if (!draft.perfil_profesional) map.add("perfil_profesional");
         if (!draft.estado_civil) map.add("estado_civil");
-        if (!Array.isArray(draft.pasatiempos) || draft.pasatiempos.length < 3) map.add("pasatiempos");
+        if (!Array.isArray(draft.pasatiempos) || draft.pasatiempos.length < 1) map.add("pasatiempos");
         return map;
     }, [draft]);
 
@@ -801,6 +801,71 @@ export default function TraficoPiso() {
         return <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center"><p className="text-amber-800 font-semibold">⚠️ No se ha asignado una sucursal a tu usuario. Contacta al administrador.</p></div>;
     }
 
+    const exportarExcel = () => {
+        const titulo = [["REPORTE TRÁFICO DE PISO — GRUPO AUTOMOTRIZ R&R"]];
+        const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+        const filtrosActivos = [];
+        if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+        if (filters.tipoPersona !== "Todos") filtrosActivos.push(`Tipo persona: ${filters.tipoPersona}`);
+        if (filters.tiempoCompra !== "Todos") filtrosActivos.push(`Tiempo compra: ${filters.tiempoCompra}`);
+        if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+        if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+        if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+        const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+        const totalFila = [[`Total de registros: ${sorted.length}`]];
+
+        const encabezados = [[
+            "N°", "Fecha", "Dealer", "Prospecto", "Teléfono", "Email",
+            "Asesor Ventas", "Motivo Ingreso", "Tipo Persona", "Tiempo Compra",
+            "Auto Sueños", "Deja Auto Cuenta", "Modelo Auto Cuenta",
+            "Forma Capitalización", "Presupuesto", "Enganche",
+            "Mensualidades", "Comprueba Ingresos", "Forma Comprobar",
+            "Motivo Compra", "Perfil Profesional", "Estado Civil",
+            "Edad", "Hijos", "Pasatiempos", "Be Back", "Comentarios",
+        ]];
+
+        const filas = sorted.map((row, i) => ([
+            i + 1,
+            dateTime(row.creado_en),
+            row.agencia || "—",
+            row.nombre_prospecto || "—",
+            row.telefono || "—",
+            row.email || "—",
+            row.asesor_ventas || "—",
+            row.motivo_ingreso || "—",
+            row.tipo_persona || "—",
+            row.tiempo_compra || "—",
+            row.auto_suenos || "—",
+            row.deja_auto_cuenta ? "Sí" : "No",
+            row.modelo_auto_cuenta || "—",
+            row.forma_capitalizacion || "—",
+            Number(row.presupuesto_estimado || 0),
+            Number(row.enganche_presupuestado || 0),
+            row.mensualidades_presupuestadas || "—",
+            row.comprueba_ingresos ? "Sí" : "No",
+            row.forma_comprobar_ingresos || "—",
+            row.motivo_compra || "—",
+            row.perfil_profesional || "—",
+            row.estado_civil || "—",
+            row.edad || "—",
+            row.cantidad_hijos ?? "—",
+            Array.isArray(row.pasatiempos) ? row.pasatiempos.join(", ") : "—",
+            beBackMap[row.id_trafico] ? "Sí" : "No",
+            row.comentarios || "—",
+        ]));
+
+        const ws = XLSX.utils.aoa_to_sheet([...titulo, ...fechaGen, ...filtroFila, ...totalFila, [[]], ...encabezados, ...filas]);
+        ws["!cols"] = [
+            { wch: 5 }, { wch: 20 }, { wch: 14 }, { wch: 30 }, { wch: 14 }, { wch: 28 },
+            { wch: 30 }, { wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
+            { wch: 18 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 16 },
+            { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 12 }, { wch: 6 }, { wch: 6 },
+            { wch: 40 }, { wch: 8 }, { wch: 40 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Tráfico de piso");
+        XLSX.writeFile(wb, `trafico_piso_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -817,7 +882,18 @@ export default function TraficoPiso() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <ViewToggle />
-                    <button type="button" onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#131E5C] px-4 py-2 text-sm text-white shadow-sm hover:bg-[#131E5C]/80"><Plus className="h-4 w-4" /> Nuevo ingreso</button>
+                    <button
+                        type="button"
+                        onClick={exportarExcel}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-xs font-black text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition"
+                        title="Exportar a Excel"
+                    >
+                        <FileDown className="h-4 w-4" />
+                        Exportar Excel
+                    </button>
+                    <button type="button" onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#131E5C] px-4 py-2 text-sm text-white shadow-sm hover:bg-[#131E5C]/80">
+                        <Plus className="h-4 w-4" /> Nuevo ingreso
+                    </button>
                 </div>
             </div>
 

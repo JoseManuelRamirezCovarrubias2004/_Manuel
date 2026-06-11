@@ -16,12 +16,11 @@ import {
     ChevronDown,
     Paperclip,
     FileText,
-    Pencil,
-    Trash2,
     Plus,
     Copy,
     Check,
     Save,
+    MailOpen,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
@@ -137,14 +136,21 @@ function normalizeCampanasMetaOptions(response) {
     return unique;
 }
 
-function renderOptionsConValorActual(options, currentValue) {
+function renderOptionsConValorActual(
+    options,
+    currentValue,
+    placeholder = "Selecciona una opción…"
+) {
     const value = String(currentValue || "").trim();
+
     const exists = (options || []).some(
-        (option) => String(option || "").trim().toLowerCase() === value.toLowerCase(),
+        (option) => String(option || "").trim().toLowerCase() === value.toLowerCase()
     );
 
     return (
         <>
+            <option value="">{placeholder}</option>
+
             {value && !exists ? (
                 <option value={value}>{value} (actual)</option>
             ) : null}
@@ -158,7 +164,6 @@ function renderOptionsConValorActual(options, currentValue) {
     );
 }
 
-/** Devuelve el color del punto de estado según el estado del prospecto */
 function getStatusDotColor(estado) {
     const value = String(estado || "").toLowerCase();
     if (value === "descalificado") return "#3B82F6"; // azul
@@ -255,6 +260,126 @@ function prettyStatus(status) {
     if (value === "received") return "";
 
     return value || "—";
+}
+
+function parseWhatsAppFormat(texto) {
+    let resultado = String(texto || "");
+
+    resultado = resultado
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    resultado = resultado.replace(
+        /```([\s\S]+?)```/g,
+        '<code class="inline-block rounded-md bg-black/10 px-1.5 py-0.5 font-mono text-[13px]">$1</code>'
+    );
+
+    resultado = resultado.replace(/\*([^*\n]+)\*/g, '<strong class="font-black">$1</strong>');
+    resultado = resultado.replace(/_([^_\n]+)_/g, "<em>$1</em>");
+    resultado = resultado.replace(/~([^~\n]+)~/g, "<del>$1</del>");
+    resultado = resultado.replace(/\n/g, "<br>");
+
+    return resultado;
+}
+function parseWhatsAppComposerFormat(texto) {
+    let resultado = String(texto || "");
+
+    resultado = resultado
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    resultado = resultado.replace(
+        /```([\s\S]+?)```/g,
+        '<code class="inline-block rounded-md bg-black/10 px-1.5 py-0.5 font-mono text-[13px]">$1</code>'
+    );
+
+    resultado = resultado.replace(/\*([^*\n]+)\*/g, '<strong class="font-black">$1</strong>');
+    resultado = resultado.replace(/_([^_\n]+)_/g, "<em>$1</em>");
+    resultado = resultado.replace(/~([^~\n]+)~/g, "<del>$1</del>");
+    resultado = resultado.replace(/\n/g, "<br>");
+
+    return resultado;
+}
+function WhatsAppComposerInput({
+    value,
+    onChange,
+    onSend,
+    disabled,
+    placeholder,
+    inputRef,
+    onPaste,
+}) {
+    const internalRef = useRef(null);
+    const mirrorRef = useRef(null);
+
+    const setRefs = (node) => {
+        internalRef.current = node;
+        if (inputRef) inputRef.current = node;
+    };
+
+    useEffect(() => {
+        const textarea = internalRef.current;
+        if (!textarea) return;
+
+        textarea.style.height = "auto";
+        textarea.style.height = `${Math.min(textarea.scrollHeight, 128)}px`;
+    }, [value]);
+
+    function syncScroll() {
+        if (!internalRef.current || !mirrorRef.current) return;
+
+        mirrorRef.current.scrollTop = internalRef.current.scrollTop;
+    }
+
+    function handleKeyDown(event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            onSend();
+        }
+    }
+
+    return (
+        <div className="relative min-h-[40px] flex-1">
+            {!String(value || "").length ? (
+                <div className="pointer-events-none absolute left-2 top-2 z-0 text-sm font-medium text-slate-400">
+                    {placeholder}
+                </div>
+            ) : null}
+
+            <div
+                ref={mirrorRef}
+                aria-hidden="true"
+                className={cls(
+                    "pointer-events-none absolute inset-0 z-0 max-h-32 overflow-y-auto whitespace-pre-wrap break-words px-2 py-2 text-sm font-medium leading-relaxed text-[#131E5C]",
+                    "[&_strong]:font-black [&_em]:italic [&_del]:line-through",
+                    "[&_code]:rounded-md [&_code]:bg-black/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px]"
+                )}
+                dangerouslySetInnerHTML={{
+                    __html: value ? parseWhatsAppComposerFormat(value) : "",
+                }}
+            />
+
+            <textarea
+                ref={setRefs}
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                onKeyDown={handleKeyDown}
+                onPaste={onPaste}
+                onScroll={syncScroll}
+                disabled={disabled}
+                rows={1}
+                spellCheck
+                className={cls(
+                    "relative z-10 block max-h-32 min-h-[40px] w-full resize-none overflow-y-auto bg-transparent px-2 py-2 text-sm font-medium leading-relaxed outline-none",
+                    "text-transparent caret-[#131E5C] placeholder:text-slate-400",
+                    "selection:bg-[#131E5C]/20 selection:text-transparent",
+                    disabled ? "cursor-not-allowed opacity-60" : ""
+                )}
+            />
+        </div>
+    );
 }
 
 function getMessageKey(message) {
@@ -828,21 +953,19 @@ function MessageBubble({
     attachments = [],
     isAi = false,
     renderText,
-    onEdit,
-    onDelete,
 }) {
     const shown = renderText ? renderText(text) : text;
     const statusText = prettyStatus(status);
 
     return (
         <div className={cls("flex w-full", mine ? "justify-end" : "justify-start")}>
-            <div className="group relative max-w-[88%] sm:max-w-[82%] lg:max-w-[76%] xl:max-w-[72%]">
+            <div className="max-w-[88%] sm:max-w-[82%] lg:max-w-[76%] xl:max-w-[72%]">
                 <div
                     className={cls(
-                        "rounded-2xl border px-4 py-2.5 shadow-sm transition-all duration-200 ease-out group-hover:shadow-md",
+                        "rounded-2xl px-4 py-2.5 shadow-sm",
                         mine
-                            ? "border-white/10 bg-[#131E5C] text-white"
-                            : "border-black/10 bg-white text-[#131E5C]",
+                            ? "rounded-br-md bg-[#131E5C] text-white"
+                            : "rounded-bl-md border border-black/10 bg-white text-[#131E5C]"
                     )}
                 >
                     {attachments?.length ? (
@@ -852,43 +975,15 @@ function MessageBubble({
                                 if (!src) return null;
 
                                 if (attachment.kind === "sticker" || attachment.kind === "image") {
-                                    const isSticker = attachment.kind === "sticker";
-
                                     return (
-                                        <AttachmentShell
-                                            key={attachment.id}
-                                            mine={mine}
-                                            attachment={attachment}
-                                        >
-                                            <a
-                                                href={src}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="block"
-                                                title="Abrir"
-                                            >
+                                        <AttachmentShell key={attachment.id} mine={mine} attachment={attachment}>
+                                            <a href={src} target="_blank" rel="noreferrer" className="block">
                                                 <img
                                                     src={src}
-                                                    alt={attachment.name || (isSticker ? "sticker" : "imagen")}
-                                                    className={cls(
-                                                        "w-full",
-                                                        isSticker
-                                                            ? "max-h-44 object-contain p-2"
-                                                            : "max-h-64 object-cover",
-                                                    )}
+                                                    alt={attachment.name || "imagen"}
+                                                    className="max-h-64 w-full object-cover"
                                                     loading="lazy"
                                                 />
-
-                                                {!isSticker ? (
-                                                    <div
-                                                        className={cls(
-                                                            "px-3 py-2 text-xs font-bold",
-                                                            mine ? "text-white/80" : "text-slate-600",
-                                                        )}
-                                                    >
-                                                        {attachment.name ? shortName(attachment.name) : "Imagen"}
-                                                    </div>
-                                                ) : null}
                                             </a>
                                         </AttachmentShell>
                                     );
@@ -896,90 +991,40 @@ function MessageBubble({
 
                                 if (attachment.kind === "video") {
                                     return (
-                                        <AttachmentShell
-                                            key={attachment.id}
-                                            mine={mine}
-                                            attachment={attachment}
-                                        >
-                                            <video
-                                                src={src}
-                                                controls
-                                                className="max-h-72 w-full bg-black"
-                                                preload="metadata"
-                                            />
+                                        <AttachmentShell key={attachment.id} mine={mine} attachment={attachment}>
+                                            <video src={src} controls className="max-h-72 w-full bg-black" preload="metadata" />
                                         </AttachmentShell>
                                     );
                                 }
 
                                 if (attachment.kind === "audio") {
                                     return (
-                                        <AttachmentShell
-                                            key={attachment.id}
-                                            mine={mine}
-                                            attachment={attachment}
-                                        >
+                                        <AttachmentShell key={attachment.id} mine={mine} attachment={attachment}>
                                             <div className="px-3 py-2">
-                                                <div
-                                                    className={cls(
-                                                        "mb-2 text-xs font-extrabold",
-                                                        mine ? "text-white/85" : "text-[#131E5C]",
-                                                    )}
-                                                >
-                                                    {attachment.name ? shortName(attachment.name) : "Audio"}
-                                                </div>
-
-                                                <audio
-                                                    src={src}
-                                                    controls
-                                                    className="w-full"
-                                                    preload="metadata"
-                                                />
+                                                <audio src={src} controls className="w-full" preload="metadata" />
                                             </div>
                                         </AttachmentShell>
                                     );
                                 }
 
                                 return (
-                                    <AttachmentShell
-                                        key={attachment.id}
-                                        mine={mine}
-                                        attachment={attachment}
-                                    >
+                                    <AttachmentShell key={attachment.id} mine={mine} attachment={attachment}>
                                         <a
                                             href={src}
                                             target="_blank"
                                             rel="noreferrer"
                                             className={cls(
                                                 "flex items-center gap-2 px-3 py-3 hover:opacity-90",
-                                                mine ? "text-white" : "text-[#131E5C]",
+                                                mine ? "text-white" : "text-[#131E5C]"
                                             )}
-                                            title="Abrir archivo"
                                         >
-                                            <FileText
-                                                className={cls(
-                                                    "h-4 w-4",
-                                                    mine ? "text-white/85" : "text-[#131E5C]",
-                                                )}
-                                            />
-
+                                            <FileText className="h-4 w-4" />
                                             <div className="min-w-0">
-                                                <div
-                                                    className={cls(
-                                                        "truncate text-xs font-extrabold",
-                                                        mine ? "text-white" : "text-[#131E5C]",
-                                                    )}
-                                                >
+                                                <div className="truncate text-xs font-extrabold">
                                                     {attachment.name ? shortName(attachment.name) : "Archivo"}
                                                 </div>
-
-                                                <div
-                                                    className={cls(
-                                                        "text-[11px] font-bold",
-                                                        mine ? "text-white/70" : "text-slate-500",
-                                                    )}
-                                                >
-                                                    {attachment.mime ? attachment.mime : ""}
-                                                    {attachment.size ? ` · ${humanBytes(attachment.size)}` : ""}
+                                                <div className={cls("text-[11px] font-bold", mine ? "text-white/70" : "text-slate-500")}>
+                                                    {attachment.size ? humanBytes(attachment.size) : ""}
                                                 </div>
                                             </div>
                                         </a>
@@ -989,61 +1034,26 @@ function MessageBubble({
                         </div>
                     ) : null}
 
-                    <div className="whitespace-pre-wrap text-[15px] font-semibold leading-relaxed md:text-base">
-                        {shown}
-                    </div>
+                    <div
+                        className="whitespace-pre-wrap text-[15px] font-medium leading-relaxed md:text-base [&_strong]:font-black [&_em]:italic [&_del]:line-through"
+                        dangerouslySetInnerHTML={{
+                            __html: parseWhatsAppFormat(shown),
+                        }}
+                    />
 
                     {isAi ? (
                         <div className="mt-2">
-                            <span
-                                className={cls(
-                                    "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-extrabold",
-                                    mine
-                                        ? "border-white/20 bg-white/10 text-white"
-                                        : "border-emerald-200 bg-emerald-50 text-emerald-700",
-                                )}
-                            >
+                            <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-extrabold">
                                 IA
                             </span>
                         </div>
                     ) : null}
 
-                    <div
-                        className={cls(
-                            "mt-1 flex items-center justify-end gap-2 text-[11px] font-bold",
-                            mine ? "text-white/75" : "text-slate-500",
-                        )}
-                    >
+                    <div className={cls("mt-1 flex items-center justify-end gap-2 text-[11px] font-bold", mine ? "text-white/75" : "text-slate-500")}>
                         <span>{time}</span>
-                        {mine ? <span className="text-white/80">{statusText}</span> : null}
+                        {mine ? <span>{statusText}</span> : null}
                     </div>
                 </div>
-
-                {mine && (onEdit || onDelete) ? (
-                    <div className="absolute -right-8 top-0 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        {onEdit ? (
-                            <button
-                                onClick={onEdit}
-                                className="flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white text-slate-500 hover:bg-neutral-100 hover:text-[#131E5C]"
-                                title="Editar"
-                                type="button"
-                            >
-                                <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                        ) : null}
-
-                        {onDelete ? (
-                            <button
-                                onClick={onDelete}
-                                className="flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                                title="Eliminar"
-                                type="button"
-                            >
-                                <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                        ) : null}
-                    </div>
-                ) : null}
             </div>
         </div>
     );
@@ -1117,6 +1127,10 @@ export default function DigitalesContacto() {
 
     // Feedback de copia de teléfono
     const [copiedTel, setCopiedTel] = useState(false);
+
+    // Acción de marcar chat como no leído
+    const [markingUnreadTel, setMarkingUnreadTel] = useState("");
+    const [chatMenu, setChatMenu] = useState(null);
 
     const endRef = useRef(null);
     const messagesScrollRef = useRef(null);
@@ -1196,10 +1210,8 @@ export default function DigitalesContacto() {
 
     const composerHint = useMemo(() => {
         if (!activeTel) return "Selecciona un chat para escribir…";
-        if (editingMsgId) return "Editando mensaje… (Enter para guardar)";
-
-        return "Escribe un mensaje…";
-    }, [activeTel, editingMsgId]);
+        return "Mensaje";
+    }, [activeTel]);
 
     const templatePreview = useMemo(() => {
         if (!tplSelected) return "";
@@ -1536,6 +1548,9 @@ export default function DigitalesContacto() {
 
     function resetComposer() {
         setDraftMsg("");
+        if (inputRef.current) {
+            inputRef.current.value = "";
+        }
         setEditingMsgId(null);
         setOpenEmoji(false);
         cleanupPreviews(attachments);
@@ -1586,8 +1601,29 @@ export default function DigitalesContacto() {
 
         if (!emoji) return;
 
-        setDraftMsg((prev) => prev + emoji);
-        inputRef.current?.focus?.();
+        const input = inputRef.current;
+
+        if (input && typeof input.selectionStart === "number") {
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const next = `${draftMsg.slice(0, start)}${emoji}${draftMsg.slice(end)}`;
+            const nextCursor = start + emoji.length;
+
+            setDraftMsg(next);
+
+            requestAnimationFrame(() => {
+                input.focus();
+                input.setSelectionRange(nextCursor, nextCursor);
+            });
+
+            return;
+        }
+
+        setDraftMsg((prev) => `${prev}${emoji}`);
+
+        requestAnimationFrame(() => {
+            inputRef.current?.focus?.();
+        });
     }
 
     function onPasteInComposer(event) {
@@ -1756,7 +1792,7 @@ export default function DigitalesContacto() {
                 local_pending: true,
                 local_created_at: new Date().toISOString(),
                 mine: true,
-                text: text.trim(),
+                text: text.replace(/\r\n/g, "\n").trim(),
                 time: "Ahora",
                 status: "sent",
                 attachments: [],
@@ -1779,7 +1815,7 @@ export default function DigitalesContacto() {
     async function enviarMensaje() {
         if (!activeTel) return;
 
-        const text = draftMsg.trim();
+        const text = draftMsg.replace(/\r\n/g, "\n").trim();
         const hasText = Boolean(text);
         const hasAttachments = attachments.length > 0;
 
@@ -1928,10 +1964,73 @@ export default function DigitalesContacto() {
     function copyTel() {
         if (!activeTel) return;
         const display = formateaTelUi(activeTel);
-        navigator.clipboard?.writeText(display).then(() => {
+        const numero = display.replace(/\s/g, "");
+        navigator.clipboard?.writeText(numero.replace("+", "")).then(() => {
             setCopiedTel(true);
             setTimeout(() => setCopiedTel(false), 2000);
         }).catch(() => { });
+    }
+
+    async function llamarMarkUnread(tel52) {
+        if (typeof api.digitalesMarkUnread === "function") {
+            return api.digitalesMarkUnread({ tel: tel52 });
+        }
+
+        if (typeof api.post === "function") {
+            return api.post("/digitales/chats/mark-unread/", {
+                tel: tel52,
+            });
+        }
+
+        throw new Error("Falta agregar api.digitalesMarkUnread en src/lib/apiPruebas.js");
+    }
+
+    async function marcarChatComoNoLeido(tel52 = activeTel) {
+        const target = normalizaTelefonoMx(tel52);
+
+        if (!target || markingUnreadTel) return;
+
+        setChatMenu(null);
+        setMarkingUnreadTel(target);
+
+        try {
+            await llamarMarkUnread(target);
+
+            setChats((prev) =>
+                prev.map((chat) =>
+                    chat.telefono === target
+                        ? {
+                            ...chat,
+                            unread: Math.max(Number(chat.unread || 0), 1),
+                        }
+                        : chat,
+                ),
+            );
+
+            mensajesCacheRef.current.delete(target);
+
+            if (!isDirectChatMode) {
+                await refreshChats().catch(() => { });
+            }
+        } catch (error) {
+            alert(`No se pudo marcar como no leído: ${error.message}`);
+        } finally {
+            setMarkingUnreadTel("");
+        }
+    }
+
+    function abrirMenuChat(event, chat) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!chat?.telefono) return;
+
+        setChatMenu({
+            x: event.clientX,
+            y: event.clientY,
+            tel: chat.telefono,
+            nombre: chat.nombre || "Prospecto",
+        });
     }
 
     function openQuickEdit() {
@@ -1949,55 +2048,32 @@ export default function DigitalesContacto() {
 
     async function saveQuickEdit() {
         if (!prospecto?.id || !activeTel) return;
+
         setSavingQuickEdit(true);
+
         try {
-            await api.digitalesPatchProspecto(prospecto.id, {
-                nombre: quickEditDraft.nombre,
-                auto_interes: quickEditDraft.auto_interes,
-                estado: quickEditDraft.estado,
-                canal_contacto: quickEditDraft.canal_contacto,
-                business: quickEditDraft.business,
-                pauta: quickEditDraft.pauta || "",
+            const payload = {
+                nombre: quickEditDraft.nombre || "",
+                auto_interes: quickEditDraft.auto_interes || "",
+                estado: quickEditDraft.estado || "",
+                canal_contacto: quickEditDraft.canal_contacto || "",
+                business: quickEditDraft.business || "",
                 comentarios: quickEditDraft.comentarios || "",
-            });
+            };
+
+            const pautaLimpia = String(quickEditDraft.pauta || "").trim();
+            if (pautaLimpia) {
+                payload.pauta = pautaLimpia;
+            }
+
+            await api.digitalesPatchProspecto(prospecto.id, payload);
+
             await refreshActiveChat(activeTel);
             setShowQuickEdit(false);
         } catch (error) {
             alert(`No se pudo guardar: ${error.message}`);
         } finally {
             setSavingQuickEdit(false);
-        }
-    }
-
-    function startEditMessage(message) {
-        if (!message?.mine) return;
-
-        setEditingMsgId(message.wa_message_id || message.id);
-        setDraftMsg(String(message.text || ""));
-        inputRef.current?.focus?.();
-    }
-
-    async function deleteMessage(message) {
-        if (!message?.mine) return;
-
-        const id = message.wa_message_id || message.id;
-
-        setMensajes((prev) =>
-            prev.filter((item) => (item.wa_message_id || item.id) !== id),
-        );
-
-        try {
-            if (typeof api.digitalesEliminarMensaje === "function") {
-                await api.digitalesEliminarMensaje({
-                    to: activeTel,
-                    message_id: id,
-                });
-            }
-
-            await refreshChats().catch(() => { });
-        } catch (error) {
-            alert(`No se pudo eliminar: ${error.message}`);
-            await refreshActiveChat(activeTel).catch(() => { });
         }
     }
 
@@ -2089,6 +2165,22 @@ export default function DigitalesContacto() {
 
         return () => document.removeEventListener("mousedown", onDoc);
     }, [openEmoji]);
+
+    useEffect(() => {
+        if (!chatMenu) return;
+
+        const cerrar = () => setChatMenu(null);
+
+        document.addEventListener("mousedown", cerrar);
+        window.addEventListener("scroll", cerrar, true);
+        window.addEventListener("resize", cerrar);
+
+        return () => {
+            document.removeEventListener("mousedown", cerrar);
+            window.removeEventListener("scroll", cerrar, true);
+            window.removeEventListener("resize", cerrar);
+        };
+    }, [chatMenu]);
 
     useEffect(() => {
         const onNuevoMensaje = async (event) => {
@@ -2393,6 +2485,7 @@ export default function DigitalesContacto() {
                                                     onMouseEnter={() => prefetchChat(chat.telefono)}
                                                     onFocus={() => prefetchChat(chat.telefono)}
                                                     onClick={() => openChatByTel(chat.telefono)}
+                                                    onContextMenu={(event) => abrirMenuChat(event, chat)}
                                                     className={cls(
                                                         "w-full border-b border-black/5 px-4 py-3 text-left transition",
                                                         isActive
@@ -2538,8 +2631,7 @@ export default function DigitalesContacto() {
                                                     }
                                                     className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
                                                 >
-                                                    {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta)}
-                                                </select>
+                                                    {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta, "Sin campaña detectada")}                                                </select>
 
                                                 <div className="flex items-center gap-2">
                                                     <button
@@ -2581,6 +2673,19 @@ export default function DigitalesContacto() {
 
                                                     <span className={copiedTel ? "font-bold text-emerald-600" : ""}>
                                                         {activeTel ? formateaTelUi(activeTel) : "—"}
+                                                    </span>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => marcarChatComoNoLeido(activeTel)}
+                                                    disabled={!activeTel || markingUnreadTel === activeTel}
+                                                    className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-1"
+                                                    title="Marcar este chat como no leído"
+                                                >
+                                                    <MailOpen className="h-3.5 w-3.5" />
+                                                    <span>
+                                                        {markingUnreadTel === activeTel ? "Marcando..." : "Marcar no leído"}
                                                     </span>
                                                 </button>
 
@@ -2741,16 +2846,6 @@ export default function DigitalesContacto() {
                                             attachments={message.attachments || []}
                                             isAi={Boolean(message.is_ai)}
                                             renderText={renderTextForBubble}
-                                            onEdit={
-                                                message.mine && message.editable !== false
-                                                    ? () => startEditMessage(message)
-                                                    : undefined
-                                            }
-                                            onDelete={
-                                                message.mine
-                                                    ? () => deleteMessage(message)
-                                                    : undefined
-                                            }
                                         />
                                     ))
                                 )}
@@ -2940,23 +3035,24 @@ export default function DigitalesContacto() {
                                     </div>
                                 ) : null}
 
-                                <div className="flex items-center gap-2">
+
+                                <div className="flex items-end gap-2 rounded-2xl border border-black/10 bg-white p-2 shadow-sm">
                                     <div className="relative" ref={emojiRef}>
                                         <button
                                             className={cls(
-                                                "inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-white hover:bg-neutral-50",
-                                                !activeTel ? "cursor-not-allowed opacity-60" : "",
+                                                "inline-flex h-10 w-10 items-center justify-center rounded-full text-[#131E5C] hover:bg-neutral-100",
+                                                !activeTel ? "cursor-not-allowed opacity-60" : ""
                                             )}
                                             title="Emojis"
                                             type="button"
                                             disabled={!activeTel}
                                             onClick={() => setOpenEmoji((prev) => !prev)}
                                         >
-                                            <Smile className="h-5 w-5 text-[#131E5C]" />
+                                            <Smile className="h-5 w-5" />
                                         </button>
 
                                         {openEmoji ? (
-                                            <div className="absolute bottom-14 left-0 z-50 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
+                                            <div className="absolute bottom-12 left-0 z-50 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
                                                 <EmojiPicker
                                                     onEmojiClick={(emojiObj) => onPickEmoji(emojiObj)}
                                                     searchDisabled={false}
@@ -2969,74 +3065,59 @@ export default function DigitalesContacto() {
                                         ) : null}
                                     </div>
 
-                                    <div>
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            multiple
-                                            className="hidden"
-                                            onChange={(event) => {
-                                                const files = event.target.files;
-                                                addFilesAsAttachments(files);
-                                                event.target.value = "";
-                                            }}
-                                        />
-
-                                        <button
-                                            className={cls(
-                                                "inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-white hover:bg-neutral-50",
-                                                !activeTel ? "cursor-not-allowed opacity-60" : "",
-                                            )}
-                                            title="Adjuntar"
-                                            type="button"
-                                            disabled={!activeTel}
-                                            onClick={() => fileInputRef.current?.click()}
-                                        >
-                                            <Paperclip className="h-5 w-5 text-[#131E5C]" />
-                                        </button>
-                                    </div>
-
                                     <input
-                                        ref={inputRef}
-                                        value={draftMsg}
-                                        onChange={(event) => setDraftMsg(event.target.value)}
-                                        onPaste={onPasteInComposer}
-                                        onKeyDown={(event) => {
-                                            if (event.key === "Enter") {
-                                                enviarMensaje();
-                                            }
+                                        ref={fileInputRef}
+                                        type="file"
+                                        multiple
+                                        className="hidden"
+                                        onChange={(event) => {
+                                            addFilesAsAttachments(event.target.files);
+                                            event.target.value = "";
                                         }}
-                                        onDragEnter={onDragEnterComposer}
-                                        onDragOver={onDragOverComposer}
-                                        onDragLeave={onDragLeaveComposer}
-                                        onDrop={onDropComposer}
-                                        placeholder={composerHint}
-                                        disabled={!activeTel}
+                                    />
+
+                                    <button
                                         className={cls(
-                                            "h-11 flex-1 rounded-xl border border-black/10 bg-neutral-100 px-4 text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400",
-                                            !activeTel ? "cursor-not-allowed opacity-60" : "",
-                                            dragOver && activeTel
-                                                ? "border-[#131E5C]/25 bg-[#131E5C]/[0.04] ring-2 ring-[#131E5C]/30"
-                                                : "",
+                                            "inline-flex h-10 w-10 items-center justify-center rounded-full text-[#131E5C] hover:bg-neutral-100",
+                                            !activeTel ? "cursor-not-allowed opacity-60" : ""
                                         )}
+                                        title="Adjuntar"
+                                        type="button"
+                                        disabled={!activeTel}
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <Paperclip className="h-5 w-5" />
+                                    </button>
+
+                                    <WhatsAppComposerInput
+                                        value={draftMsg}
+                                        onChange={setDraftMsg}
+                                        onSend={enviarMensaje}
+                                        disabled={!activeTel}
+                                        placeholder={composerHint}
+                                        inputRef={inputRef}
+                                        onPaste={onPasteInComposer}
                                     />
 
                                     <button
                                         onClick={enviarMensaje}
-                                        disabled={!activeTel}
+                                        disabled={!activeTel || (!draftMsg.trim() && attachments.length === 0)}
                                         className={cls(
-                                            "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-extrabold text-white shadow-sm hover:opacity-95",
-                                            !activeTel ? "cursor-not-allowed opacity-60" : "",
+                                            "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition",
+                                            !activeTel || (!draftMsg.trim() && attachments.length === 0)
+                                                ? "cursor-not-allowed bg-slate-300"
+                                                : "hover:scale-105"
                                         )}
-                                        style={{ backgroundColor: BRAND_BLUE }}
-                                        title={editingMsgId ? "Guardar" : "Enviar"}
+                                        style={{
+                                            backgroundColor:
+                                                !activeTel || (!draftMsg.trim() && attachments.length === 0)
+                                                    ? undefined
+                                                    : BRAND_BLUE,
+                                        }}
+                                        title="Enviar"
                                         type="button"
                                     >
                                         <Send className="h-4 w-4" />
-
-                                        <span className="hidden sm:inline">
-                                            {editingMsgId ? "Guardar" : "Enviar"}
-                                        </span>
                                     </button>
                                 </div>
 
@@ -3059,6 +3140,27 @@ export default function DigitalesContacto() {
                     </section>
                 </div>
             </div >
+
+            {chatMenu ? (
+                <div
+                    className="fixed z-[90] min-w-[210px] overflow-hidden rounded-xl border border-black/10 bg-white py-1 shadow-2xl"
+                    style={{
+                        left: Math.min(chatMenu.x, window.innerWidth - 230),
+                        top: Math.min(chatMenu.y, window.innerHeight - 90),
+                    }}
+                    onMouseDown={(event) => event.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        onClick={() => marcarChatComoNoLeido(chatMenu.tel)}
+                        disabled={markingUnreadTel === chatMenu.tel}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        <MailOpen className="h-4 w-4" />
+                        {markingUnreadTel === chatMenu.tel ? "Marcando..." : "Marcar como no leído"}
+                    </button>
+                </div>
+            ) : null}
 
             <Modal
                 open={openTpl}
