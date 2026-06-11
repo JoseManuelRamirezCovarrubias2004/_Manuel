@@ -1679,7 +1679,7 @@ export default function HojaRegistros() {
                             />
                         </Field>
 
-                        <div className="md:col-span-3">
+                        <div className="md:col-span-2">
                             <Field label="Declaración textual del cliente" icon={MessageSquareText}>
                                 <textarea
                                     value={draft.declaracion_textual_cliente}
