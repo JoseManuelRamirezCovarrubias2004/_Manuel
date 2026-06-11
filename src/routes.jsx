@@ -90,6 +90,7 @@ import CampanasMeta from './pages/CampanasMeta/CampanasMeta';
 import Retencion from './pages/Retencion/Retencion';
 
 import JDPower from './pages/JDPower/JDPower';
+import JDPowerServicio from './pages/encuestaJDpowerservicio/JDPowerServicio';
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
@@ -187,10 +188,18 @@ export const router = createBrowserRouter(
                                         </RequirePermission>
                                     ),
                                 },
+                                {
+                                    path: "jdpower-servicio",
+                                    element: (
+                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_POSTVENTA"]}>
+                                            <JDPowerServicio />
+                                        </RequirePermission>
+                                    ),
+                                },
                             ],
                         },
 
-                        {
+                                {
                             path: "comercial",
                             element: (
                                 <RequirePermission
