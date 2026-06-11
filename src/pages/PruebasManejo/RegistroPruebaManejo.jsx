@@ -685,9 +685,7 @@ function GraficasView({ registros }) {
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════
+
 export default function RegistroPruebaManejo() {
     const { user } = useAuth();
 
@@ -793,7 +791,7 @@ export default function RegistroPruebaManejo() {
         "Paul Serrano Vera",
         "Luis Manuel Alvarez Martinez"
     ];
-    
+
     const VEHICULOS = [
         "Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun",
         "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo",
