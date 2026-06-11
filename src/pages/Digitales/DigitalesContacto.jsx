@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
+import { Phone } from "lucide-react";
 
 const BRAND_BLUE = "#131E5C";
 const QUICK_BUBBLES_KEY = "digitales_quick_bubbles_global";
@@ -90,6 +91,7 @@ const PAUTAS_ORIGEN = [
     "Evento",
     "Otro",
 ];
+
 
 function normalizeCampanasMetaOptions(response) {
     const rawItems = Array.isArray(response)
@@ -2353,6 +2355,15 @@ export default function DigitalesContacto() {
         };
     }, [isDirectChatMode]);
 
+    const llamarProspecto = () => {
+    if (!activeTel) {
+        alert("Selecciona un chat primero");
+        return;
+    }
+
+    alert(`Llamando a ${activeTel}`);
+    };
+
     return (
         <div className="w-full min-w-0">
             <div className="relative overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
@@ -2360,38 +2371,27 @@ export default function DigitalesContacto() {
                     className="px-4 py-4 text-white sm:px-5"
                     style={{ backgroundColor: BRAND_BLUE }}
                 >
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                            <div className="text-lg font-extrabold">
-                                Seguimiento por WhatsApp
-                            </div>
+                   <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setMobileView("list")}
+                            className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15 lg:hidden"
+                            type="button"
+                            title="Ver chats"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                            Chats
+                        </button>
 
-                            <div className="text-xs opacity-80">
-                                {activeTel ? `Chat: ${formateaTelUi(activeTel)}` : "Selecciona un chat"}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setMobileView("list")}
-                                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15 lg:hidden"
-                                type="button"
-                                title="Ver chats"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                                Chats
-                            </button>
-
-                            <button
-                                onClick={() => navigate("/comercial/prospectos")}
-                                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15"
-                                title="Volver a Prospectos"
-                                type="button"
-                            >
-                                <ArrowLeft className="h-4 w-4" />
-                                Volver
-                            </button>
-                        </div>
+                        
+                        <button
+                            onClick={() => navigate("/comercial/prospectos")}
+                            className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15"
+                            title="Volver a Prospectos"
+                            type="button"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Volver
+                        </button>
                     </div>
                 </div>
 
@@ -2618,7 +2618,7 @@ export default function DigitalesContacto() {
                                                     {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta)}
                                                 </select>
 
-                                                <div className="flex items-center gap-2">
+                                               <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={saveQuickEdit}
                                                         disabled={savingQuickEdit}
@@ -2629,6 +2629,7 @@ export default function DigitalesContacto() {
                                                     >
                                                         <Save className="h-3.5 w-3.5" />
                                                     </button>
+
                                                     <button
                                                         onClick={abrirPlantillas}
                                                         disabled={!activeTel}
@@ -2639,6 +2640,16 @@ export default function DigitalesContacto() {
                                                         title="Enviar plantilla"
                                                     >
                                                         <LayoutTemplate className="h-3.5 w-3.5" />
+                                                    </button>
+
+                                                    <button
+                                                        onClick={llamarProspecto}
+                                                        disabled={!activeTel}
+                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                        type="button"
+                                                        title="Llamar"
+                                                    >
+                                                        <Phone className="h-4 w-4" />
                                                     </button>
                                                 </div>
                                             </div>
