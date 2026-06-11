@@ -27,6 +27,7 @@ import {
     Table2,
     BarChart3,
     Calendar,
+    CalendarCheck,
 } from "lucide-react";
 import { apiCitas } from "../../lib/apiCitas";
 import { createPortal } from "react-dom";
@@ -444,6 +445,7 @@ function AgendaView({ rows, loading, onEdit, onNewAtSlot, onToggleAsistencia, up
                                                                 const telefono = cita?.cliente?.telefono || "—";
                                                                 const autoInteres = cita.auto_interes || "—";
                                                                 const asesorPiso = cita.asesor_piso || "—";
+                                                                const agendado_por = cita.agendado_por || "—";
                                                                 const asesorDigital = cita.asesor_digital || "—";
 
                                                                 return (
@@ -721,7 +723,7 @@ export default function RegistroCitas() {
 
     const DEALERS = useMemo(() => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"], []);
     const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "Candy Denisse Marquez Cortes", "IA Vagen"];
-     const ASESORES = [
+    const ASESORES = [
         "AURA MARLIZETH FERNANDEZ LOPEZ",
         "Bianca Isabel Chavez Alarcon",
         "ERENDIRA SANTOS COYOTZI",
@@ -784,6 +786,12 @@ export default function RegistroCitas() {
         "Luis Alberto Ramirez Santamaria",
         "Paul Serrano Vera",
         "Luis Manuel Alvarez Martinez"
+    ];
+
+    const AGENDADO = [
+        "Asistente",
+        "Call Center",
+        "Asesor de Servicio",
     ];
 
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
@@ -880,7 +888,7 @@ export default function RegistroCitas() {
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) return false;
             const nombreCliente = normalizeStr(c?.cliente?.nombre);
             const telCliente = normalizeStr(c?.cliente?.telefono);
-            const matchQ = !q || [c.agencia, nombreCliente, telCliente, c.auto_interes, c.tipo_cita, c.fuente_prospeccion, c.asesor_digital, c.asesor_piso, c.comentarios].some((v) => normalizeStr(v).toLowerCase().includes(q));
+            const matchQ = !q || [c.agencia, nombreCliente, telCliente, c.auto_interes, c.tipo_cita, c.fuente_prospeccion, c.asesor_digital, c.asesor_piso, c.agendado_por, c.comentarios].some((v) => normalizeStr(v).toLowerCase().includes(q));
             const matchAgencia = filters.agencia === "Todos" || normalizeStr(c.agencia) === normalizeStr(filters.agencia);
             const matchAsesorDigital = filters.asesorDigital === "Todos" || normalizeStr(c.asesor_digital) === normalizeStr(filters.asesorDigital);
             let matchRango = true;
@@ -925,7 +933,7 @@ export default function RegistroCitas() {
             fechaDefault = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
         }
 
-        setDraft({ id: null, cliente_id: null, agencia: agenciaDefault, cliente_nombre: "", cliente_telefono: "", auto_interes: "", fecha_hora_cita: fechaDefault, asistencia: false, tipo_cita: "", fuente_prospeccion: "", asesor_digital: "", asesor_piso: "", comentarios: "" });
+        setDraft({ id: null, cliente_id: null, agencia: agenciaDefault, cliente_nombre: "", cliente_telefono: "", auto_interes: "", fecha_hora_cita: fechaDefault, asistencia: false, tipo_cita: "", fuente_prospeccion: "", asesor_digital: "", asesor_piso: "", agendado_por: "", comentarios: "" });
         setOpenModal(true);
     };
 
@@ -939,7 +947,7 @@ export default function RegistroCitas() {
                 alert("No tienes permisos para ver registros de otra agencia."); setOpenModal(false); return;
             }
             // ────────────────────────────────────────────────────────────────
-            setDraft({ id: c.id, cliente_id: c?.cliente?.id_cliente ?? null, agencia: c.agencia || (isAdmin ? "" : userAgencia), cliente_nombre: c?.cliente?.nombre || "", cliente_telefono: c?.cliente?.telefono || "", auto_interes: c.auto_interes || "", fecha_hora_cita: toDTLocal(c.fecha_hora_cita), asistencia: !!c.asistencia, tipo_cita: c.tipo_cita || "", fuente_prospeccion: c.fuente_prospeccion || "", asesor_digital: c.asesor_digital || "", asesor_piso: c.asesor_piso || "", comentarios: c.comentarios || "" });
+            setDraft({ id: c.id, cliente_id: c?.cliente?.id_cliente ?? null, agencia: c.agencia || (isAdmin ? "" : userAgencia), cliente_nombre: c?.cliente?.nombre || "", cliente_telefono: c?.cliente?.telefono || "", auto_interes: c.auto_interes || "", fecha_hora_cita: toDTLocal(c.fecha_hora_cita), asistencia: !!c.asistencia, tipo_cita: c.tipo_cita || "", fuente_prospeccion: c.fuente_prospeccion || "", asesor_digital: c.asesor_digital || "", asesor_piso: c.asesor_piso || "", agendado_por: c.agendado_por || "", comentarios: c.comentarios || "" });
         } catch (e) { console.error(e); alert("No se pudo abrir la cita (revisa consola)."); setOpenModal(false); }
         finally { setLoadingDetail(false); }
     };
@@ -970,7 +978,9 @@ export default function RegistroCitas() {
         setSaving(true);
         try {
             const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : normalizeStr(draft.agencia || userAgencia);
-            const payload = { agencia: agenciaFinal, ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}), nombre: draft.cliente_nombre || "", telefono: normalizeStr(draft.cliente_telefono), auto_interes: draft.auto_interes || "", fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita), asistencia: !!draft.asistencia, tipo_cita: draft.tipo_cita || "", fuente_prospeccion: draft.fuente_prospeccion || "", asesor_digital: draft.asesor_digital || "", asesor_piso: draft.asesor_piso || "", comentarios: draft.comentarios || "" };
+            const payload = {
+                agencia: agenciaFinal, ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}), nombre: draft.cliente_nombre || "", telefono: normalizeStr(draft.cliente_telefono), auto_interes: draft.auto_interes || "", fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita), asistencia: !!draft.asistencia, tipo_cita: draft.tipo_cita || "", fuente_prospeccion: draft.fuente_prospeccion || "", asesor_digital: draft.asesor_digital || "", asesor_piso: draft.asesor_piso || "", agendado_por: draft.agendado_por || "", comentarios: draft.comentarios || ""
+            };
             if (mode === "create") await apiCitas.create(payload);
             else await apiCitas.update(draft.id, payload);
             await refreshList(); closeModal();
@@ -1284,7 +1294,13 @@ export default function RegistroCitas() {
                                 {ASESORES.map((d) => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </Field>
-                        <div className="md:col-span-3">
+                        <Field label="Agendado Por" icon={CalendarCheck}>
+                            <select value={draft.agendado_por || ""} onChange={(e) => setDraft((p) => ({ ...p, agendado_por: e.target.value }))} className={[inputBase, inputOk].join(" ")}>
+                                <option value="" disabled>Selecciona un asesor ...</option>
+                                {AGENDADO.map((d) => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </Field>
+                        <div className="md:col-span-2">
                             <Field label="Comentarios" icon={MessageSquareText}>
                                 <textarea value={draft.comentarios} onChange={(e) => setDraft((p) => ({ ...p, comentarios: e.target.value }))} className={[inputBase, inputOk, "min-h-[110px]"].join(" ")} placeholder="Notas internas..." />
                             </Field>
