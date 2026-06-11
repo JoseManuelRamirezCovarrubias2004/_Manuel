@@ -364,7 +364,7 @@ function AgendaView({ rows, loading, onEdit, onNewAtSlot, onToggleAsistencia, up
                         <ChevronLeft className="h-4 w-4" />
                     </button>
                     <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-[#131E5C] text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition">
-                        Hoy
+                        Semana
                     </button>
                     <button onClick={goNext} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
                         <ChevronRight className="h-4 w-4" />
@@ -721,30 +721,71 @@ export default function RegistroCitas() {
 
     const DEALERS = useMemo(() => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"], []);
     const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "Candy Denisse Marquez Cortes", "IA Vagen"];
-    const ASESORES = [
-        "AURA MARLIZETH FERNANDEZ LOPEZ", "Bianca Isabel Chavez Alarcon", "ERENDIRA SANTOS COYOTZI",
-        "IRENE DEL CARMEN GUIZA LOPEZ", "MARCOS RAUL DIAZ RAMOS", "MARIO ALBERTO LOPEZ RAMOS",
-        "MARISOL LAGUNES GONZALEZ", "NALLELY HERNANDEZ GARCIA", "OCTAVIO BRUNO GONZALEZ",
-        "ROGELIO VAZQUEZ SANCHEZ", "RUBEN ALBERTO TOSQUY ADRIANO", "Saja Azzam Mohammad Jamous",
-        "SANDRA LUZ PRIETO PEREZ", "YAMIL MISAEL RODRIGUEZ AGUILAR", "LUIS ALFONSO CORIA MARROQUIN",
-        "CANDY DENISSE MARQUEZ CORTES", "DELMAR JAVIER ILLESCAS DOMINGUEZ", "EDGAR JESUS GOMEZ PEREZ",
-        "Valeria Zilli Durante", "IDALMY JIMENEZ SANCHEZ", "IVAN JUAREZ ORTEGA",
-        "JESSICA OLIVARES CAMPOS", "JESUS XITLAMA GOMEZ", "LIZBETH CANO CLARA",
-        "LUIS MANUEL PALOMARES OLAYO", "MARIA DEL CARMEN ZAVALA VELAZQUEZ", "OMAR VILLIERS MONDRAGON",
-        "RUBEN ROMERO VALDES", "VERONICA CASTILLO FUENTES", "Hector Rodriguez",
-        "GEOVANI NAVA DIAZ", "ZEILA NAVARRO CONTRERAS", "JOSE ALFREDO BARRANCA REYES",
-        "ADRIAN GALVEZ ROLDAN", "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ", "Marelly Tenorio Salinas",
-        "ELIA INES ARANO REYES", "JORGE LUIS ALAMILLO RODRIGUEZ", "Cesar Ivan Salazar Reyes",
-        "Cristian Fernando Rivera Godinez", "DULCE ABIGAIL GARCIA OLIVARES", "Felix Emmanuel Solis Angeles",
-        "GERMAN JARITH SALAZAR MIRANDA", "Iris Yazmín Gómez Velázquez", "Israel Garcia Juarez",
-        "JORGE ANTONIO RODRIGUEZ MARTINEZ", "JOSE DE JESUS GARCIA ROMAN", "JUAN MANUEL SOBREVILLA VICENCIO",
-        "Miguel Capitanachi Paredes", "OLIMPIA VAZQUEZ MENDEZ", "Roberto Ramses Luna Fajardo",
-        "Carlos Arturo Garces Vengas", "Edgar Omar Noguera Solis", "Javier Perez Meraz",
-        "Luis Armando Almora Perez", "Mara Erubey Soto Villegas", "Sergio Ivan Quintana Martinez",
-        "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos", "José Alberto Sedas Flores",
-        "Maria Vanessa Jiménez Medina", "Juan Jesús Márquez Aquino", "Estefano Marlom Aparicio",
-        "Luis Alberto Ramirez Santamaria", "Paul Serrano Vera", "Luis Manuel Alvarez Martinez"
+     const ASESORES = [
+        "AURA MARLIZETH FERNANDEZ LOPEZ",
+        "Bianca Isabel Chavez Alarcon",
+        "ERENDIRA SANTOS COYOTZI",
+        "IRENE DEL CARMEN GUIZA LOPEZ",
+        "MARCOS RAUL DIAZ RAMOS",
+        "MARIO ALBERTO LOPEZ RAMOS",
+        "MARISOL LAGUNES GONZALEZ",
+        "NALLELY HERNANDEZ GARCIA",
+        "OCTAVIO BRUNO GONZALEZ",
+        "ROGELIO VAZQUEZ SANCHEZ",
+        "RUBEN ALBERTO TOSQUY ADRIANO",
+        "Saja Azzam Mohammad Jamous",
+        "SANDRA LUZ PRIETO PEREZ",
+        "YAMIL MISAEL RODRIGUEZ AGUILAR",
+        "LUIS ALFONSO CORIA MARROQUIN",
+        "CANDY DENISSE MARQUEZ CORTES",
+        "DELMAR JAVIER ILLESCAS DOMINGUEZ",
+        "EDGAR JESUS GOMEZ PEREZ",
+        "Valeria Zilli Durante",
+        "IDALMY JIMENEZ SANCHEZ",
+        "IVAN JUAREZ ORTEGA",
+        "JESSICA OLIVARES CAMPOS",
+        "JESUS XITLAMA GOMEZ",
+        "LIZBETH CANO CLARA",
+        "LUIS MANUEL PALOMARES OLAYO",
+        "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
+        "OMAR VILLIERS MONDRAGON",
+        "RUBEN ROMERO VALDES",
+        "VERONICA CASTILLO FUENTES",
+        "Hector Rodriguez",
+        "GEOVANI NAVA DIAZ",
+        "ZEILA NAVARRO CONTRERAS",
+        "JOSE ALFREDO BARRANCA REYES",
+        "ADRIAN GALVEZ ROLDAN",
+        "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
+        "Marelly Tenorio Salinas",
+        "ELIA INES ARANO REYES",
+        "JORGE LUIS ALAMILLO RODRIGUEZ",
+        "Cesar Ivan Salazar Reyes",
+        "Cristian Fernando Rivera Godinez",
+        "DULCE ABIGAIL GARCIA OLIVARES",
+        "Felix Emmanuel Solis Angeles",
+        "GERMAN JARITH SALAZAR MIRANDA",
+        "Iris Yazmín Gómez Velázquez",
+        "Israel Garcia Juarez",
+        "JORGE ANTONIO RODRIGUEZ MARTINEZ",
+        "JOSE DE JESUS GARCIA ROMAN",
+        "JUAN MANUEL SOBREVILLA VICENCIO",
+        "Miguel Capitanachi Paredes",
+        "OLIMPIA VAZQUEZ MENDEZ",
+        "Roberto Ramses Luna Fajardo",
+        "Carlos Arturo Garces Vengas",
+        "Edgar Omar Noguera Solis",
+        "Javier Perez Meraz",
+        "Luis Armando Almora Perez",
+        "Mara Erubey Soto Villegas",
+        "Sergio Ivan Quintana Martinez",
+        "Sergio Rene Delgado Sarmiento",
+        "Yoseth Ruiz Castellanos",
+        "Luis Alberto Ramirez Santamaria",
+        "Paul Serrano Vera",
+        "Luis Manuel Alvarez Martinez"
     ];
+
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
     const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter", "CRAFTER ELITE", "CRAFTER URBAN", "CRAFTER ELEMENTAL", "CRAFTER INSPIRE"];
     const TIPO_CITA = ["Tradicional", "Digital", "Evento", "Remarketing"];
