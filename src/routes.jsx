@@ -221,7 +221,7 @@ export const router = createBrowserRouter(
                             element: <InicioPorPermisos />,
                         },
 
-                        {
+    {
                             path: "calidad",
                             element: (
                                 <RequirePermission
