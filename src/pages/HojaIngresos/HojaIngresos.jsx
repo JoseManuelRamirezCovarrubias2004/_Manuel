@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import {
     ArrowUpDown,
     Building2,
+    CalendarCheck,
     CalendarDays,
     CarFront,
     CheckCircle2,
@@ -132,6 +133,12 @@ const TIPOS_SERVICIO = [
     "Campaña",
     "Reclamación",
     "Otro",
+];
+
+const AGENDADO = [
+    "Asistente",
+    "Call Center",
+    "Asesor de Servicio",
 ];
 
 function normalizeStr(value) {
@@ -289,6 +296,7 @@ function crearDraftBase(userAgencia = "", isAdmin = true) {
         alcance: "",
         torre: "",
         asesor: "",
+        agendado_por: "",
 
         cliente_nombre: "",
         cliente_telefono: "",
@@ -786,6 +794,7 @@ export default function HojaRegistros() {
                 alcance: data.alcance || "",
                 torre: data.torre || "",
                 asesor: data.asesor || "",
+                agendado_por: data.agendado_por || "",
 
                 cliente_nombre: data.nombre_cliente || data?.cliente?.nombre || "",
                 cliente_telefono: data.telefono || data?.cliente?.telefono || "",
@@ -840,6 +849,7 @@ export default function HojaRegistros() {
             alcance: draft.alcance || "",
             torre: draft.torre || "",
             asesor: draft.asesor || "",
+            agendado_por: draft.agendado_por || "",
             nombre_cliente: draft.cliente_nombre || "",
 
             tipo_cita: draft.tipo_cita || "",
@@ -1514,6 +1524,21 @@ export default function HojaRegistros() {
                             ) : null}
                         </Field>
 
+                        <Field label="Agendado Por" icon={CalendarCheck}>
+                            <select
+                                value={draft.agendado_por || ""}
+                                onChange={(event) =>
+                                    setDraft((prev) => ({ ...prev, agendado_por: event.target.value }))
+                                }
+                                className={[inputBase, inputOk].join(" ")}
+                            >
+                                <option value="" disabled>Selecciona una opción...</option>
+                                {AGENDADO.map((d) => (
+                                    <option key={d} value={d}>{d}</option>
+                                ))}
+                            </select>
+                        </Field>
+
                         <Field label="Tipo de servicio" icon={ClipboardList}>
                             <select
                                 value={draft.tipo_cita || ""}
@@ -1654,7 +1679,7 @@ export default function HojaRegistros() {
                             />
                         </Field>
 
-                        <div className="md:col-span-3">
+                        <div className="md:col-span-2">
                             <Field label="Declaración textual del cliente" icon={MessageSquareText}>
                                 <textarea
                                     value={draft.declaracion_textual_cliente}

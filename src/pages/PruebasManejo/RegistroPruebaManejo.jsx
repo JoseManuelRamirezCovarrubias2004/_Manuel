@@ -25,6 +25,10 @@ const CHART_COLORS = [
     "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6",
 ];
 
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
+const DAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
 function normalizeStr(v) { return String(v ?? "").trim(); }
 
 function Skeleton({ className = "" }) {
@@ -64,7 +68,7 @@ function ModalSkeleton() {
 
 function Modal({ open, title, onClose, children, footer }) {
     if (!open) return null;
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[60]">
             <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" onClick={onClose} />
             <div className="absolute inset-0 flex items-end justify-center p-3 sm:items-center">
@@ -85,7 +89,8 @@ function Modal({ open, title, onClose, children, footer }) {
                     ) : null}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -138,6 +143,45 @@ function toYMDLocal(dateLike) {
 function ymdToInt(ymd) {
     if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
     return Number(ymd.replaceAll("-", ""));
+}
+
+function addDays(date, days) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+}
+
+function startOfWeekMonday(date) {
+    const d = new Date(date);
+    const jsDay = d.getDay();
+    const deltaToMonday = (jsDay + 6) % 7;
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - deltaToMonday);
+    return d;
+}
+
+function formatWeekTitle(startDate, endDate) {
+    const start = startDate.toLocaleDateString("es-MX", { day: "numeric", month: "long" });
+    const end = endDate.toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
+    return `${start} — ${end}`;
+}
+
+function weekdayShortEs(dateObj) {
+    return DAYS_ES[dateObj.getDay()] || "";
+}
+
+function formatCardTime(dateLike) {
+    if (!dateLike) return "—";
+    const d = new Date(dateLike);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+}
+
+function getHourKey(dateLike) {
+    if (!dateLike) return "";
+    const d = new Date(dateLike);
+    if (Number.isNaN(d.getTime())) return "";
+    return `${String(d.getHours()).padStart(2, "0")}:00`;
 }
 
 function ContextMenu({ ctxMenu, onDelete, onClose }) {
@@ -274,172 +318,203 @@ function EvidenciasUploader({ evidencias = [], onSubir, onEliminar, disabled }) 
     );
 }
 
-const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+// ========== COMPONENTE DE AGENDA SEMANAL ==========
+function AgendaSemanalView({ rows, loading, onEdit, onNewAtSlot, onToggleAsistencia, updatingInline }) {
+    const [weekRef, setWeekRef] = useState(new Date());
+    const today = new Date();
 
-function getRegistrosPorFecha(registros) {
-    const mapa = {};
-    for (const r of registros) {
-        if (!r.fecha_hora_cita) continue;
-        const ymd = toYMDLocal(r.fecha_hora_cita);
-        if (!ymd) continue;
-        if (!mapa[ymd]) mapa[ymd] = [];
-        mapa[ymd].push(r);
-    }
-    return mapa;
-}
-
-function AgendaView({ registros, onEditRow }) {
-    const hoy = new Date();
-    const [calYear, setCalYear] = useState(hoy.getFullYear());
-    const [calMonth, setCalMonth] = useState(hoy.getMonth());
-    const [selectedDay, setSelectedDay] = useState(toYMDLocal(hoy));
-
-    const registrosPorFecha = useMemo(() => getRegistrosPorFecha(registros), [registros]);
-
-    const calDays = useMemo(() => {
-        const firstDay = new Date(calYear, calMonth, 1).getDay();
-        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-        const days = [];
-        for (let i = 0; i < firstDay; i++) days.push(null);
-        for (let d = 1; d <= daysInMonth; d++) {
-            const pad = (n) => String(n).padStart(2, "0");
-            days.push(`${calYear}-${pad(calMonth + 1)}-${pad(d)}`);
-        }
-        return days;
-    }, [calYear, calMonth]);
-
-    const prevMonth = () => {
-        if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); }
-        else setCalMonth(m => m - 1);
-    };
-    const nextMonth = () => {
-        if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); }
-        else setCalMonth(m => m + 1);
-    };
-
-    const todayYMD = toYMDLocal(hoy);
-    const citasDelDia = useMemo(() => {
-        if (!selectedDay) return [];
-        return (registrosPorFecha[selectedDay] || []).sort((a, b) => {
-            const ta = a.fecha_hora_cita ? new Date(a.fecha_hora_cita).getTime() : 0;
-            const tb = b.fecha_hora_cita ? new Date(b.fecha_hora_cita).getTime() : 0;
-            return ta - tb;
+    const weekDates = useMemo(() => {
+        const d = new Date(weekRef);
+        const jsDay = d.getDay();
+        const deltaToMonday = (jsDay + 6) % 7;
+        const monday = new Date(d);
+        monday.setHours(0, 0, 0, 0);
+        monday.setDate(d.getDate() - deltaToMonday);
+        return Array.from({ length: 7 }, (_, i) => {
+            const nd = new Date(monday);
+            nd.setDate(monday.getDate() + i);
+            return nd;
         });
-    }, [selectedDay, registrosPorFecha]);
+    }, [weekRef]);
 
-    const proximasCitas = useMemo(() => {
-        const result = [];
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(hoy);
-            d.setDate(d.getDate() + i);
-            const ymd = toYMDLocal(d);
-            const citas = registrosPorFecha[ymd] || [];
-            if (citas.length > 0) result.push({ ymd, citas, d });
+    const goNext = () => { const d = new Date(weekRef); d.setDate(d.getDate() + 7); setWeekRef(d); };
+    const goPrev = () => { const d = new Date(weekRef); d.setDate(d.getDate() - 7); setWeekRef(d); };
+    const goToday = () => setWeekRef(new Date());
+
+    const isSameDay = (d1, d2) =>
+        d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate();
+
+    const registrosByDayHour = useMemo(() => {
+        const map = {};
+        for (const row of rows) {
+            if (!row.fecha_hora_cita) continue;
+            const dt = new Date(row.fecha_hora_cita);
+            if (Number.isNaN(dt.getTime())) continue;
+            const dayKey = toYMDLocal(dt);
+            const hour = dt.getHours();
+            if (!map[dayKey]) map[dayKey] = {};
+            if (!map[dayKey][hour]) map[dayKey][hour] = [];
+            map[dayKey][hour].push(row);
         }
-        return result;
-    }, [registrosPorFecha]);
+        return map;
+    }, [rows]);
+
+    const weekLabel = useMemo(() => {
+        const start = weekDates[0];
+        const end = weekDates[6];
+        const smth = MONTHS_ES[start.getMonth()];
+        const emth = MONTHS_ES[end.getMonth()];
+        const yr = end.getFullYear();
+        if (start.getMonth() === end.getMonth())
+            return `${start.getDate()} – ${end.getDate()} de ${smth} de ${yr}`;
+        return `${start.getDate()} de ${smth} – ${end.getDate()} de ${emth} de ${yr}`;
+    }, [weekDates]);
 
     return (
-        <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
-            <div className="rounded-xl border border-black/10 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3" style={{ backgroundColor: BRAND_BLUE }}>
-                    <button onClick={prevMonth} className="rounded-lg p-1.5 text-white hover:bg-white/15"><ChevronLeft className="h-4 w-4" /></button>
-                    <span className="text-sm font-extrabold text-white">{MESES[calMonth]} {calYear}</span>
-                    <button onClick={nextMonth} className="rounded-lg p-1.5 text-white hover:bg-white/15"><ChevronRight className="h-4 w-4" /></button>
+        <div className="rounded-lg border border-black/10 bg-white overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-black/10">
+                <div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Semana</div>
+                    <div className="text-sm font-extrabold text-[#131E5C]">{weekLabel}</div>
                 </div>
-                <div className="grid grid-cols-7 border-b border-black/10">
-                    {DIAS_SEMANA.map(d => (
-                        <div key={d} className="py-2 text-center text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">{d}</div>
-                    ))}
+                <div className="flex gap-2">
+                    <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-700 font-semibold">Prueba de Manejo</span>
                 </div>
-                <div className="grid grid-cols-7">
-                    {calDays.map((ymd, idx) => {
-                        if (!ymd) return <div key={`empty-${idx}`} className="aspect-square" />;
-                        const count = (registrosPorFecha[ymd] || []).length;
-                        const isToday = ymd === todayYMD;
-                        const isSelected = ymd === selectedDay;
-                        const day = parseInt(ymd.split("-")[2], 10);
-                        return (
-                            <button key={ymd} onClick={() => setSelectedDay(ymd)}
-                                className={["relative flex flex-col items-center justify-center aspect-square text-xs font-bold transition-colors", isSelected ? "bg-[#131E5C] text-white rounded-lg" : isToday ? "text-blue-600" : "text-slate-700 hover:bg-slate-50"].join(" ")}>
-                                <span>{day}</span>
-                                {count > 0 && (
-                                    <span className={["absolute bottom-1 left-1/2 -translate-x-1/2 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-extrabold", isSelected ? "bg-white text-[#131E5C]" : "bg-[#131E5C] text-white"].join(" ")}>{count}</span>
-                                )}
-                            </button>
-                        );
-                    })}
-                </div>
-                <div className="border-t border-black/10 p-3">
-                    <div className="text-xs font-extrabold text-slate-500 mb-2 uppercase tracking-wide">Próximos 7 días</div>
-                    {proximasCitas.length === 0 ? (
-                        <div className="text-xs text-slate-400">Sin citas próximas.</div>
-                    ) : (
-                        <div className="space-y-1">
-                            {proximasCitas.map(({ ymd, citas, d }) => (
-                                <button key={ymd} onClick={() => setSelectedDay(ymd)} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 hover:bg-slate-50">
-                                    <span className="text-xs font-semibold text-slate-600">{DIAS_SEMANA[d.getDay()]} {d.getDate()} {MESES[d.getMonth()].slice(0, 3)}</span>
-                                    <span className="rounded-full bg-[#131E5C] px-2 py-0.5 text-[10px] font-extrabold text-white">{citas.length} cita{citas.length > 1 ? "s" : ""}</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                <div className="flex items-center gap-2">
+                    <button onClick={goPrev} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-[#131E5C] text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition">
+                        Semana
+                    </button>
+                    <button onClick={goNext} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
+                        <ChevronRight className="h-4 w-4" />
+                    </button>
                 </div>
             </div>
-            <div>
-                <div className="mb-3 flex items-center gap-2">
-                    <CalendarRange className="h-4 w-4 text-[#131E5C]" />
-                    <span className="text-sm font-extrabold text-[#131E5C]">
-                        {selectedDay ? (() => {
-                            const [y, m, d] = selectedDay.split("-").map(Number);
-                            const fecha = new Date(y, m - 1, d);
-                            return `${DIAS_SEMANA[fecha.getDay()]}, ${d} de ${MESES[m - 1]} ${y}`;
-                        })() : "Selecciona un día"}
-                    </span>
-                    <span className="ml-auto rounded-full bg-[#131E5C]/10 px-3 py-1 text-xs font-bold text-[#131E5C]">{citasDelDia.length} prueba{citasDelDia.length !== 1 ? "s" : ""}</span>
+
+            <div className="overflow-auto">
+                <table className="min-w-full border-collapse" style={{ tableLayout: "fixed" }}>
+                    <colgroup>
+                        <col style={{ width: "64px" }} />
+                        {HOURS.map((_, i) => (
+                            <col key={i} style={{ width: `calc((100% - 64px) / ${HOURS.length})` }} />
+                        ))}
+                    </colgroup>
+
+                    <thead>
+                        <tr>
+                            <th className="px-2 py-3 text-xs font-bold text-slate-400 bg-white border-b border-r border-black/10">Día</th>
+                            {HOURS.map((hour, i) => (
+                                <th key={i} className="px-2 py-3 text-center border-b border-r border-black/10 bg-white">
+                                    <div className="text-xs font-bold text-[#131E5C]">{String(hour).padStart(2, "0")}:00</div>
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {loading ? (
+                            <tr>
+                                <td colSpan={HOURS.length + 1} className="px-4 py-16 text-center text-[#131E5C]">
+                                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                                    <span className="text-sm font-semibold">Cargando pruebas...</span>
+                                </td>
+                            </tr>
+                        ) : (
+                            weekDates
+                                .filter(d => d.getDay() !== 0)
+                                .map((d, di) => {
+                                    const isToday = isSameDay(d, today);
+                                    return (
+                                        <tr key={di} className="group">
+                                            <td className="px-2 py-0 text-xs font-bold text-slate-400 border-r border-b border-black/10 align-top pt-2 bg-white">
+                                                <div className={`inline-flex flex-col items-center justify-center px-2 py-[2px] rounded-full ${isToday ? "bg-[#131E5C] text-white" : ""}`}>
+                                                    <div className={`text-[10px] font-semibold leading-none ${isToday ? "text-white/70" : "text-slate-400"}`}>
+                                                        {DAYS_ES[d.getDay()]}
+                                                    </div>
+                                                    <div className={`text-xs font-bold leading-none ${isToday ? "text-white" : "text-[#131E5C]"}`}>
+                                                        {d.getDate()}/{String(d.getMonth() + 1).padStart(2, "0")}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            {HOURS.map((hour, hi) => {
+                                                const dayKey = toYMDLocal(d);
+                                                const registros = registrosByDayHour?.[dayKey]?.[hour] || [];
+                                                return (
+                                                    <td key={hi} className="border-r border-b border-black/10 align-top p-1 relative group/cell bg-white hover:bg-slate-50" style={{ minHeight: "72px", verticalAlign: "top" }}>
+                                                        {registros.length === 0 && (
+                                                            <button
+                                                                onClick={() => onNewAtSlot(d, hour)}
+                                                                className="absolute top-1 right-1 h-6 w-6 rounded-full bg-[#131E5C]/10 text-[#131E5C] opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center hover:bg-[#131E5C] hover:text-white"
+                                                                title={`Nueva prueba ${String(hour).padStart(2, "0")}:00`}
+                                                            >
+                                                                <Plus className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        )}
+                                                        <div className="flex flex-col gap-2">
+                                                            {registros.map((registro) => {
+                                                                const dt = new Date(registro.fecha_hora_cita);
+                                                                const mins = String(dt.getMinutes()).padStart(2, "0");
+                                                                const isUpdating = !!updatingInline?.[registro.id];
+                                                                const nombreCliente = registro?.cliente?.nombre || "—";
+                                                                const telefono = registro?.cliente?.telefono || "—";
+                                                                const autoInteres = registro.auto_interes || "—";
+                                                                const asesorPiso = registro.asesor_piso || "—";
+                                                                return (
+                                                                    <div key={registro.id} onClick={() => onEdit(registro)} className={`rounded-md p-2 text-left cursor-pointer hover:opacity-90 transition-all ${registro.asistencia ? "bg-emerald-50 border-emerald-400" : "bg-orange-50 border-orange-400"} border-l-4 shadow-sm`}>
+                                                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                                                            <span className="text-xs font-bold text-[#131E5C]">{String(hour).padStart(2, "0")}:{mins}</span>
+                                                                            <button
+                                                                                disabled={isUpdating}
+                                                                                onClick={(e) => { e.stopPropagation(); onToggleAsistencia?.(registro); }}
+                                                                                className={[
+                                                                                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                                                                                    registro.asistencia ? "bg-emerald-200 text-emerald-800 border-emerald-300" : "bg-red-200 text-red-800 border-red-300",
+                                                                                    isUpdating ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
+                                                                                ].join(" ")}
+                                                                            >
+                                                                                {isUpdating ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
+                                                                                {registro.asistencia ? "✓ Asistió" : "✗ No"}
+                                                                            </button>
+                                                                        </div>
+                                                                        <div className="text-sm font-extrabold text-[#131E5C] truncate">{nombreCliente}</div>
+                                                                        <div className="text-xs font-semibold text-slate-600 truncate">🚗 {autoInteres}</div>
+                                                                        <div className="text-[10px] text-slate-500 truncate flex items-center gap-1 mt-1"><Phone className="h-3 w-3" /> {telefono}</div>
+                                                                        <div className="text-[10px] text-slate-500 truncate"><span className="font-semibold">Asesor:</span> {asesorPiso}</div>
+                                                                        {registro.comentarios_cliente && registro.comentarios_cliente !== "" && (
+                                                                            <div className="text-[10px] text-slate-400 italic truncate mt-1">💬 {registro.comentarios_cliente.substring(0, 50)}</div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    );
+                                })
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 px-4 py-3 border-t border-black/10 bg-slate-50">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Asistió
                 </div>
-                {citasDelDia.length === 0 ? (
-                    <div className="rounded-xl border border-black/10 bg-white p-10 text-center">
-                        <CalendarDays className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                        <div className="text-sm font-semibold text-slate-500">Sin pruebas programadas para este día.</div>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {citasDelDia.map((row) => {
-                            const hora = row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).split("T")[1] || "—" : "—";
-                            const clienteNombre = row?.cliente?.nombre || "—";
-                            const clienteTel = row?.cliente?.telefono || "—";
-                            return (
-                                <button key={row.id} onClick={() => onEditRow(row)} className="w-full text-left rounded-xl border border-black/10 bg-white p-4 shadow-sm hover:shadow-md hover:border-[#131E5C]/30 transition-all">
-                                    <div className="flex items-start gap-3">
-                                        <div className="flex-shrink-0 rounded-lg bg-[#131E5C] px-3 py-2 text-center">
-                                            <div className="flex items-center gap-1 text-white"><Clock className="h-3 w-3" /><span className="text-xs font-extrabold">{hora}</span></div>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="truncate text-sm font-extrabold text-[#131E5C]">{clienteNombre}</span>
-                                                {row.asistencia ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-500" /> : <Circle className="h-4 w-4 flex-shrink-0 text-slate-300" />}
-                                            </div>
-                                            <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
-                                                <span>{row.agencia || "—"}</span>
-                                                <span>{clienteTel}</span>
-                                                <span>{row.auto_interes || "—"}</span>
-                                            </div>
-                                            {row.asesor_piso && <div className="mt-1 text-xs text-slate-400">Asesor: {row.asesor_piso}</div>}
-                                        </div>
-                                        <div className="flex-shrink-0 text-xs font-semibold text-[#131E5C] opacity-60">Editar →</div>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                    <span className="h-2.5 w-2.5 rounded-full bg-orange-400" /> Pendiente
+                </div>
             </div>
         </div>
     );
 }
 
+// ========== COMPONENTE DE GRÁFICAS ==========
 const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
@@ -610,13 +685,10 @@ function GraficasView({ registros }) {
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════
+
 export default function RegistroPruebaManejo() {
     const { user } = useAuth();
 
-    // ── Igual que RegistroCredito ─────────────────────────────────────────
     const permisos = user?.permisos || [];
     const rol = String(user?.rol || "").trim().toLowerCase();
 
@@ -629,7 +701,6 @@ export default function RegistroPruebaManejo() {
         );
     }, [rol, permisos]);
 
-    // Array de agencias separadas por "|"
     const userAgencias = useMemo(() => {
         return String(user?.agencia || "")
             .split("|")
@@ -639,7 +710,6 @@ export default function RegistroPruebaManejo() {
 
     const userAgencia = userAgencias[0] || "";
 
-    // Verifica si el usuario pertenece a una agencia concreta
     const userTieneAgencia = useCallback(
         (agenciaRegistro) => {
             const agencia = normalizeStr(agenciaRegistro);
@@ -651,33 +721,77 @@ export default function RegistroPruebaManejo() {
         },
         [userAgencias]
     );
-    // ─────────────────────────────────────────────────────────────────────
 
     const [registros, setRegistros] = useState([]);
     const [vistaActiva, setVistaActiva] = useState("tabla");
+    const [currentWeekDate, setCurrentWeekDate] = useState(new Date());
 
     const DEALERS = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"];
     const ASESORES = [
-        "AURA MARLIZETH FERNANDEZ LOPEZ", "Bianca Isabel Chavez Alarcon", "ERENDIRA SANTOS COYOTZI",
-        "IRENE DEL CARMEN GUIZA LOPEZ", "MARCOS RAUL DIAZ RAMOS", "MARIO ALBERTO LOPEZ RAMOS",
-        "MARISOL LAGUNES GONZALEZ", "NALLELY HERNANDEZ GARCIA", "OCTAVIO BRUNO GONZALEZ",
-        "ROGELIO VAZQUEZ SANCHEZ", "RUBEN ALBERTO TOSQUY ADRIANO", "Saja Azzam Mohammad Jamous",
-        "SANDRA LUZ PRIETO PEREZ", "YAMIL MISAEL RODRIGUEZ AGUILAR", "LUIS ALFONSO CORIA MARROQUIN",
-        "CANDY DENISSE MARQUEZ CORTES", "DELMAR JAVIER ILLESCAS DOMINGUEZ", "EDGAR JESUS GOMEZ PEREZ",
-        "Valeria Zilli Durante", "IDALMY JIMENEZ SANCHEZ", "IVAN JUAREZ ORTEGA", "JESSICA OLIVARES CAMPOS",
-        "JESUS XITLAMA GOMEZ", "LIZBETH CANO CLARA", "LUIS MANUEL PALOMARES OLAYO",
-        "MARIA DEL CARMEN ZAVALA VELAZQUEZ", "OMAR VILLIERS MONDRAGON", "RUBEN ROMERO VALDES",
-        "VERONICA CASTILLO FUENTES", "Hector Rodriguez", "GEOVANI NAVA DIAZ", "ZEILA NAVARRO CONTRERAS",
-        "JOSE ALFREDO BARRANCA REYES", "ADRIAN GALVEZ ROLDAN", "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
-        "Marelly Tenorio Salinas", "ELIA INES ARANO REYES", "JORGE LUIS ALAMILLO RODRIGUEZ",
-        "Cesar Ivan Salazar Reyes", "Cristian Fernando Rivera Godinez", "DULCE ABIGAIL GARCIA OLIVARES",
-        "Felix Emmanuel Solis Angeles", "GERMAN JARITH SALAZAR MIRANDA", "Iris Yazmín Gómez Velázquez",
-        "Israel Garcia Juarez", "JORGE ANTONIO RODRIGUEZ MARTINEZ", "JOSE DE JESUS GARCIA ROMAN",
-        "JUAN MANUEL SOBREVILLA VICENCIO", "Miguel Capitanachi Paredes", "OLIMPIA VAZQUEZ MENDEZ",
-        "Roberto Ramses Luna Fajardo", "Carlos Arturo Garces Vengas", "Edgar Omar Noguera Solis",
-        "Javier Perez Meraz", "Luis Armando Almora Perez", "Mara Erubey Soto Villegas",
-        "Sergio Ivan Quintana Martinez", "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos",
+        "AURA MARLIZETH FERNANDEZ LOPEZ",
+        "Bianca Isabel Chavez Alarcon",
+        "ERENDIRA SANTOS COYOTZI",
+        "IRENE DEL CARMEN GUIZA LOPEZ",
+        "MARCOS RAUL DIAZ RAMOS",
+        "MARIO ALBERTO LOPEZ RAMOS",
+        "MARISOL LAGUNES GONZALEZ",
+        "NALLELY HERNANDEZ GARCIA",
+        "OCTAVIO BRUNO GONZALEZ",
+        "ROGELIO VAZQUEZ SANCHEZ",
+        "RUBEN ALBERTO TOSQUY ADRIANO",
+        "Saja Azzam Mohammad Jamous",
+        "SANDRA LUZ PRIETO PEREZ",
+        "YAMIL MISAEL RODRIGUEZ AGUILAR",
+        "LUIS ALFONSO CORIA MARROQUIN",
+        "CANDY DENISSE MARQUEZ CORTES",
+        "DELMAR JAVIER ILLESCAS DOMINGUEZ",
+        "EDGAR JESUS GOMEZ PEREZ",
+        "Valeria Zilli Durante",
+        "IDALMY JIMENEZ SANCHEZ",
+        "IVAN JUAREZ ORTEGA",
+        "JESSICA OLIVARES CAMPOS",
+        "JESUS XITLAMA GOMEZ",
+        "LIZBETH CANO CLARA",
+        "LUIS MANUEL PALOMARES OLAYO",
+        "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
+        "OMAR VILLIERS MONDRAGON",
+        "RUBEN ROMERO VALDES",
+        "VERONICA CASTILLO FUENTES",
+        "Hector Rodriguez",
+        "GEOVANI NAVA DIAZ",
+        "ZEILA NAVARRO CONTRERAS",
+        "JOSE ALFREDO BARRANCA REYES",
+        "ADRIAN GALVEZ ROLDAN",
+        "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
+        "Marelly Tenorio Salinas",
+        "ELIA INES ARANO REYES",
+        "JORGE LUIS ALAMILLO RODRIGUEZ",
+        "Cesar Ivan Salazar Reyes",
+        "Cristian Fernando Rivera Godinez",
+        "DULCE ABIGAIL GARCIA OLIVARES",
+        "Felix Emmanuel Solis Angeles",
+        "GERMAN JARITH SALAZAR MIRANDA",
+        "Iris Yazmín Gómez Velázquez",
+        "Israel Garcia Juarez",
+        "JORGE ANTONIO RODRIGUEZ MARTINEZ",
+        "JOSE DE JESUS GARCIA ROMAN",
+        "JUAN MANUEL SOBREVILLA VICENCIO",
+        "Miguel Capitanachi Paredes",
+        "OLIMPIA VAZQUEZ MENDEZ",
+        "Roberto Ramses Luna Fajardo",
+        "Carlos Arturo Garces Vengas",
+        "Edgar Omar Noguera Solis",
+        "Javier Perez Meraz",
+        "Luis Armando Almora Perez",
+        "Mara Erubey Soto Villegas",
+        "Sergio Ivan Quintana Martinez",
+        "Sergio Rene Delgado Sarmiento",
+        "Yoseth Ruiz Castellanos",
+        "Luis Alberto Ramirez Santamaria",
+        "Paul Serrano Vera",
+        "Luis Manuel Alvarez Martinez"
     ];
+
     const VEHICULOS = [
         "Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun",
         "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo",
@@ -701,6 +815,7 @@ export default function RegistroPruebaManejo() {
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [saving, setSaving] = useState(false);
     const [subiendoEvidencia, setSubiendoEvidencia] = useState(false);
+    const [updatingInline, setUpdatingInline] = useState({});
 
     const REQUIRED = useMemo(() => ({ telefono: "Teléfono", fecha_hora_cita: "Fecha y hora" }), []);
     const [touchedSave, setTouchedSave] = useState(false);
@@ -753,7 +868,6 @@ export default function RegistroPruebaManejo() {
 
     const onRowContextMenu = (e, row) => { e.preventDefault(); e.stopPropagation(); setCtxMenu({ open: true, x: e.clientX, y: e.clientY, row }); };
 
-    // ── refreshList sin filtros de agencia al backend (igual que RegistroCredito) ──
     const refreshList = useCallback(async () => {
         setLoadingList(true);
         try {
@@ -774,7 +888,6 @@ export default function RegistroPruebaManejo() {
         return () => clearInterval(interval);
     }, [vistaActiva, refreshList]);
 
-    // ── Dealers en filtros limitado a agencias del usuario (igual que RegistroCredito) ──
     const dealers = useMemo(() => {
         const set = new Set((registros || []).map((r) => normalizeStr(r.agencia)).filter(Boolean));
         if (!isAdmin && userAgencias.length > 0) {
@@ -783,14 +896,12 @@ export default function RegistroPruebaManejo() {
         return ["Todos", ...Array.from(set)];
     }, [registros, isAdmin, userAgencias]);
 
-    // ── filtered respeta multi-agencia (igual que RegistroCredito) ──
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
         const desdeInt = ymdToInt(filters.rangoDesde);
         const hastaInt = ymdToInt(filters.rangoHasta);
 
         return (registros || []).filter((r) => {
-            // Bloquear registros de agencias ajenas
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(r.agencia)) return false;
 
             const clienteNombre = normalizeStr(r?.cliente?.nombre);
@@ -821,6 +932,8 @@ export default function RegistroPruebaManejo() {
         });
     }, [registros, filters, isAdmin, userAgencias, userTieneAgencia]);
 
+    const agendaRows = filtered;
+
     const sorted = useMemo(() => {
         const data = [...filtered];
         const { key, dir } = sort || {};
@@ -838,13 +951,13 @@ export default function RegistroPruebaManejo() {
         });
     }, [filtered, sort]);
 
-    const openCreate = () => {
+    const openCreate = (fechaHoraDefault = "") => {
         setTouchedSave(false); setMode("create");
         setDraft({
             id: null,
             agencia: isAdmin ? "" : userAgencias[0] || "",
             nombre: "", telefono: "", correo: "",
-            auto_interes: "", fecha_hora_cita: "", asistencia: false,
+            auto_interes: "", fecha_hora_cita: fechaHoraDefault, asistencia: false,
             num_serie: "", asesor_piso: "", folio_salida: "", comentarios_cliente: "",
             evidencias: [],
         });
@@ -857,7 +970,6 @@ export default function RegistroPruebaManejo() {
             setTouchedSave(false); setMode("edit"); setLoadingDetail(true); setOpenModal(true);
             const c = await apiPruebaManejo.get(row.id);
 
-            // Verificar permiso de agencia (igual que RegistroCredito)
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) {
                 alert("No tienes permisos para ver registros de otra agencia.");
                 setOpenModal(false); return;
@@ -883,7 +995,6 @@ export default function RegistroPruebaManejo() {
     const eliminarRegistro = async (row) => {
         if (!row?.id) return;
 
-        // Verificar permiso de agencia antes de eliminar (igual que RegistroCredito)
         if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para eliminar registros de otra agencia."); return;
         }
@@ -925,7 +1036,6 @@ export default function RegistroPruebaManejo() {
         } catch (e) { console.error(e); alert("Error guardando."); } finally { setSaving(false); }
     };
 
-    const [updatingInline, setUpdatingInline] = useState({});
     const toggleAsistenciaInline = async (row) => {
         const id = row?.id; if (!id) return;
         if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) { alert("Sin permisos."); return; }
@@ -975,49 +1085,51 @@ export default function RegistroPruebaManejo() {
             </div>
         );
     }
-const exportarExcel = () => {
-    const titulo = [["REPORTE PRUEBAS DE MANEJO — GRUPO AUTOMOTRIZ R&R"]];
-    const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
-    const filtrosActivos = [];
-    if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
-    if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
-    if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
-    if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
-    const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
-    const totalFila = [[`Total de registros: ${sorted.length}`]];
 
-    const encabezados = [[
-        "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono", "Correo",
-        "Auto Interés", "Asesor Piso", "No. Serie", "Folio Pase Salida",
-        "¿Asistió?", "Comentarios", "Evidencias",
-    ]];
+    const exportarExcel = () => {
+        const titulo = [["REPORTE PRUEBAS DE MANEJO — GRUPO AUTOMOTRIZ R&R"]];
+        const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+        const filtrosActivos = [];
+        if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+        if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+        if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+        if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+        const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+        const totalFila = [[`Total de registros: ${sorted.length}`]];
 
-    const filas = sorted.map((row, i) => ([
-        i + 1,
-        row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
-        row.agencia || "—",
-        row?.cliente?.nombre || "—",
-        row?.cliente?.telefono || "—",
-        row?.cliente?.correo || "—",
-        row.auto_interes || "—",
-        row.asesor_piso || "—",
-        row.num_serie || "—",
-        row.folio_salida || "—",
-        row.asistencia ? "Sí" : "No",
-        row.comentarios_cliente || "—",
-        Array.isArray(row.evidencias) ? row.evidencias.length : 0,
-    ]));
+        const encabezados = [[
+            "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono", "Correo",
+            "Auto Interés", "Asesor Piso", "No. Serie", "Folio Pase Salida",
+            "¿Asistió?", "Comentarios", "Evidencias",
+        ]];
 
-    const ws = XLSX.utils.aoa_to_sheet([...titulo, ...fechaGen, ...filtroFila, ...totalFila, [[]], ...encabezados, ...filas]);
-    ws["!cols"] = [
-        { wch: 5 }, { wch: 20 }, { wch: 16 }, { wch: 28 }, { wch: 14 },
-        { wch: 28 }, { wch: 16 }, { wch: 36 }, { wch: 20 }, { wch: 18 },
-        { wch: 10 }, { wch: 40 }, { wch: 10 },
-    ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Pruebas de Manejo");
-    XLSX.writeFile(wb, `pruebas_manejo_${new Date().toISOString().slice(0, 10)}.xlsx`);
-};
+        const filas = sorted.map((row, i) => ([
+            i + 1,
+            row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
+            row.agencia || "—",
+            row?.cliente?.nombre || "—",
+            row?.cliente?.telefono || "—",
+            row?.cliente?.correo || "—",
+            row.auto_interes || "—",
+            row.asesor_piso || "—",
+            row.num_serie || "—",
+            row.folio_salida || "—",
+            row.asistencia ? "Sí" : "No",
+            row.comentarios_cliente || "—",
+            Array.isArray(row.evidencias) ? row.evidencias.length : 0,
+        ]));
+
+        const ws = XLSX.utils.aoa_to_sheet([...titulo, ...fechaGen, ...filtroFila, ...totalFila, [[]], ...encabezados, ...filas]);
+        ws["!cols"] = [
+            { wch: 5 }, { wch: 20 }, { wch: 16 }, { wch: 28 }, { wch: 14 },
+            { wch: 28 }, { wch: 16 }, { wch: 36 }, { wch: 20 }, { wch: 18 },
+            { wch: 10 }, { wch: 40 }, { wch: 10 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Pruebas de Manejo");
+        XLSX.writeFile(wb, `pruebas_manejo_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1025,7 +1137,7 @@ const exportarExcel = () => {
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Pruebas de Manejo</h2>
                     <p className="text-sm text-slate-400">
                         {vistaActiva === "tabla" && "Doble clic para editar la información."}
-                        {vistaActiva === "agenda" && "Visualiza las pruebas en el calendario."}
+                        {vistaActiva === "agenda" && "Visualiza las pruebas en el calendario semanal."}
                         {vistaActiva === "graficas" && "Estadísticas en tiempo real · Se actualiza cada 60 s."}
                     </p>
                     {!isAdmin && userAgencias.length > 0 ? (
@@ -1184,13 +1296,20 @@ const exportarExcel = () => {
             )}
 
             {vistaActiva === "agenda" && (
-                <div>
-                    {loadingList ? (
-                        <div className="flex items-center justify-center py-20 text-[#131E5C]"><Loader2 className="h-8 w-8 animate-spin" /></div>
-                    ) : (
-                        <AgendaView registros={sorted} onEditRow={openEdit} />
-                    )}
-                </div>
+                <AgendaSemanalView
+                    rows={agendaRows}
+                    loading={loadingList}
+                    onEdit={openEdit}
+                    onNewAtSlot={(date, hour) => {
+                        const d = new Date(date);
+                        d.setHours(hour, 0, 0, 0);
+                        const pad = (n) => String(n).padStart(2, "0");
+                        const fechaDefault = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
+                        openCreate(fechaDefault);
+                    }}
+                    onToggleAsistencia={toggleAsistenciaInline}
+                    updatingInline={updatingInline}
+                />
             )}
 
             {vistaActiva === "graficas" && (
@@ -1223,7 +1342,6 @@ const exportarExcel = () => {
                                 className={[inputBase, inputOk, !isAdmin && userAgencias.length <= 1 ? "opacity-75 cursor-not-allowed" : ""].join(" ")}
                             >
                                 <option value="" disabled>Selecciona un dealer...</option>
-                                {/* Admin ve TODOS los dealers; usuario solo ve sus agencias */}
                                 {(isAdmin ? DEALERS : userAgencias).map((d) => (<option key={d} value={d}>{d}</option>))}
                             </select>
                         </Field>

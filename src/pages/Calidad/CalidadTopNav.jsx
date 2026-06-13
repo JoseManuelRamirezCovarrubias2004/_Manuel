@@ -1,7 +1,7 @@
 // src/pages/Calidad/CalidadTopNav.jsx
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BadgeCheck, ShieldCheck, Cog, ThumbsUp, UndoDot, ClipboardPenLine, Store } from "lucide-react";
+import { BadgeCheck, ShieldCheck, Cog, ThumbsUp, UndoDot, ClipboardPenLine, Store, Wrench } from "lucide-react";
 import vwWhite from "../../assets/vw_white.png";
 import ryr from "../../assets/ryr.png";
 import { useAuth } from "../../auth/AuthContext";
@@ -56,6 +56,12 @@ export default function CalidadTopNav() {
                 label: "Encuestas JD Power",
                 href: "/calidad/jdpower",
                 icon: ClipboardPenLine,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
+            },
+            {
+                label: "JD Power Servicio",
+                href: "/calidad/jdpower-servicio",
+                icon: Wrench,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
         ];

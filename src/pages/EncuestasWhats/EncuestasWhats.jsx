@@ -6,10 +6,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 const API_URL      = "https://crm.grupoautomotrizryr.com";
 const API_WHATSAPP = "https://graph.facebook.com/v25.0";
 
-// Credenciales fijas — no se muestran en UI
 const ACCESS_TOKEN    = 'EAAMHhf6nlX8BRsem3YmFgR7wKIEGwZByRLbsZApyZC3TMvgKfr4ARDcWNqeX5BUIcL699ZBQ1ayAk4NQzRvDIa7Ec3FjFZA51rSfodI96FoCWlHR2RypxcbOeseSUovfBtvmDqTs6DiU3hk1gyJnW9XLjuaF3te6UqH0M4ZBAhkxe8wzCBwk0ZCw0FcizAgnfDyilN3ZCeHqTMBhb7XKWkZAJhKTVZCNCKg1IUjEJj';
 const PHONE_NUMBER_ID = '1184628394729057';
 const WABA_ID         = '990790696655589';
+
+const POR_PAGINA = 15;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AUTH HELPERS
@@ -151,35 +152,36 @@ const DEFAULT_TEMPLATES = [
     flowButtonIndex: '0',
   },
   {
-    id: 'satisfacion',
-    nombre: 'satisfacion',
+    id: 'enc_piso',
+    nombre: 'enc_piso',
     descripcion: 'Plantilla de servicio activa en Meta',
     icono: '🏠',
     color: '#001e50',
-    template: 'satisfacion',
+    template: 'enc_piso',
     langExact: 'en',
     motivo: 'Evaluación de experiencia en agencia',
     tipo: 'encuesta',
     mensaje: 'Se envía al cliente después de su visita para calificar la atención recibida.',
-    hasImage: false,
-    imageUrl: null,
-    flowId: '846627115169219',
+    hasImage: true,
+    imageUrl: 'https://i.imgur.com/wKJqh2K.jpeg',
+    flowId: '1331381228411307',
     flowButtonIndex: '0',
   },
+
   {
-    id: 'encuesta_satisfaccion_flow',
-    nombre: 'encuesta_satisfaccion_flow',
-    descripcion: 'Plantilla de servicio activa en Meta',
+    id: 'satisfacion',
+    nombre: 'satisfacion',
+    descripcion: 'Plantilla de Marketing activa en Meta',
     icono: '🏠',
-    color: '#001e50',
-    template: 'encuesta_satisfaccion_flow',
-    langExact: 'es',
+    color: '#9d174d',
+    template: 'satisfacion',
+    langExact: 'en',
     motivo: 'Evaluación de experiencia en agencia',
-    tipo: 'encuesta',
+    tipo: 'marketing',
     mensaje: 'Se envía al cliente después de su visita para calificar la atención recibida.',
     hasImage: false,
     imageUrl: null,
-    flowId: '4357221161188445',
+    flowId: null,
     flowButtonIndex: '0',
   },
 ];
@@ -223,6 +225,13 @@ const EncuestasWhats = () => {
   const [alert,      setAlert]      = useState({ show: false, type: '', message: '' });
   const [isSending,  setIsSending]  = useState(false);
   const [deletedIds, setDeletedIds] = useState(new Set());
+
+  // ── Filtros del panel ─────────────────────────────────────────────────────
+  const [filtroTexto,   setFiltroTexto]   = useState('');
+  const [filtroTipo,    setFiltroTipo]    = useState('todos');
+  const [filtroAgencia, setFiltroAgencia] = useState('');
+  const [filtroAsesor,  setFiltroAsesor]  = useState('');
+  const [pagina,        setPagina]        = useState(1);
 
   // ── Editor de plantillas ──────────────────────────────────────────────────
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
@@ -279,6 +288,38 @@ const EncuestasWhats = () => {
     return () => clearInterval(interval);
   }, [sincronizarLogs, logsLoaded]);
 
+  // ── Reset página al cambiar filtros ───────────────────────────────────────
+  useEffect(() => { setPagina(1); }, [filtroTexto, filtroTipo, filtroAgencia, filtroAsesor, activeTab]);
+
+  // ── Listas únicas para dropdowns ──────────────────────────────────────────
+  const agenciasUnicas = [...new Set(responses.map(r => r.agencia).filter(Boolean))].sort();
+  const asesoresUnicos = [...new Set(responses.map(r => r.asesor_atendio).filter(Boolean))].sort();
+
+  // ── Filtrado de respuestas ────────────────────────────────────────────────
+  const responsesFiltradas = responses.filter(r => {
+    if (filtroTipo !== 'todos' && r._tipo !== filtroTipo) return false;
+    if (filtroAgencia && r.agencia !== filtroAgencia) return false;
+    if (filtroAsesor && r.asesor_atendio !== filtroAsesor) return false;
+    if (filtroTexto) {
+      const q = filtroTexto.toLowerCase();
+      const nombre = (r.nombre_cliente || r.nombre_OS_cliente || '').toLowerCase();
+      const asesor = (r.asesor_atendio || '').toLowerCase();
+      const agencia = (r.agencia || '').toLowerCase();
+      const id = String(r.id_encuesta || r.id || '').toLowerCase();
+      if (!nombre.includes(q) && !asesor.includes(q) && !agencia.includes(q) && !id.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const totalPaginas  = Math.ceil(responsesFiltradas.length / POR_PAGINA);
+  const responsesPagina = responsesFiltradas.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+
+  // ── Contadores ────────────────────────────────────────────────────────────
+  const okCount       = logs.filter(l => l.status === 'ok').length;
+  const errCount      = logs.filter(l => l.status === 'err').length;
+  const numServicio   = responses.filter(r => r._tipo === 'servicio').length;
+  const numSatisf     = responses.filter(r => r._tipo === 'satisfaccion').length;
+
   // ── Utilidades ────────────────────────────────────────────────────────────
   const showAlertMsg = (type, message) => {
     setAlert({ show: true, type, message });
@@ -333,12 +374,12 @@ const EncuestasWhats = () => {
         components.push({
           type: 'button',
           sub_type: 'flow',
-          index: selectedTemplate.flowButtonIndex || '0',
+          index: String(selectedTemplate.flowButtonIndex || '0'),
           parameters: [{ type: 'action', action: { flow_token: `survey_${fullPhone}_${Date.now()}` } }],
         });
       }
 
-      if (selectedTemplate.hasImage && selectedTemplate.imageUrl && !selectedTemplate.flowId) {
+      if (selectedTemplate.hasImage && selectedTemplate.imageUrl) {
         try {
           const mediaId = await uploadImageToMeta(selectedTemplate.imageUrl);
           components.push({ type: 'header', parameters: [{ type: 'image', image: { id: mediaId } }] });
@@ -359,8 +400,6 @@ const EncuestasWhats = () => {
         },
       };
       if (components.length > 0) body.template.components = components;
-
-      console.log('📤 Enviando:', JSON.stringify(body, null, 2));
 
       const res  = await fetch(`${API_WHATSAPP}/${PHONE_NUMBER_ID}/messages`, {
         method:  'POST',
@@ -432,10 +471,6 @@ const EncuestasWhats = () => {
     if (selectedTemplateId === id) setSelectedTemplateId(updated[0].id);
   };
 
-  // ── Métricas ──────────────────────────────────────────────────────────────
-  const okCount  = logs.filter(l => l.status === 'ok').length;
-  const errCount = logs.filter(l => l.status === 'err').length;
-
   // ── Estilos ───────────────────────────────────────────────────────────────
   const dotStyle = {
     high: { background: 'rgba(34,197,94,.25)',  borderColor: 'rgba(34,197,94,.4)',   color: '#86efac' },
@@ -462,6 +497,12 @@ const EncuestasWhats = () => {
     outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
   };
   const inputSmStyle = { ...inputStyle, fontSize: '12px', fontFamily: 'monospace' };
+
+  const filterSelectStyle = {
+    padding: '7px 10px', border: '1.5px solid #e5e7eb', borderRadius: '9px',
+    fontSize: '12px', color: '#374151', background: '#f8fafd',
+    outline: 'none', cursor: 'pointer', fontFamily: 'inherit',
+  };
 
   // ── ResponseCard ──────────────────────────────────────────────────────────
   const ResponseCard = ({ response }) => {
@@ -631,6 +672,13 @@ const EncuestasWhats = () => {
         .tpl-card:hover .tpl-edit-btn { opacity:1 }
         .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px }
         .modal-box     { background:white;border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:fadeIn .2s ease }
+        .filtro-select:focus { border-color:#00b0f0!important;outline:none;box-shadow:0 0 0 3px rgba(0,176,240,.15)!important }
+        .filtro-input:focus  { border-color:#00b0f0!important;outline:none;box-shadow:0 0 0 3px rgba(0,176,240,.15)!important }
+        .tab-tipo-btn        { transition:all .15s;cursor:pointer;border:none;border-radius:7px;padding:5px 12px;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.04em }
+        .tab-tipo-btn:hover  { opacity:0.85 }
+        .pag-btn             { background:#f8fafd;border:1px solid #e5e7eb;border-radius:8px;padding:5px 14px;font-size:12px;cursor:pointer;color:#374151;transition:all .15s }
+        .pag-btn:hover:not(:disabled) { background:#e5e7eb }
+        .pag-btn:disabled    { opacity:0.35;cursor:default }
       `}</style>
 
       {/* MODAL EDITOR DE PLANTILLA */}
@@ -763,7 +811,7 @@ const EncuestasWhats = () => {
       {/* LAYOUT PRINCIPAL */}
       <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: '24px', alignItems: 'start', fontFamily: 'Epilogue, sans-serif' }}>
 
-        {/* COLUMNA IZQUIERDA */}
+        {/* ── COLUMNA IZQUIERDA (sin cambios) ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
           {/* Selector de plantillas */}
@@ -902,7 +950,7 @@ const EncuestasWhats = () => {
           </div>
         </div>
 
-        {/* PANEL DERECHO */}
+        {/* ── PANEL DERECHO MEJORADO ── */}
         <div style={cardStyle}>
           <div style={cardHeaderStyle}>
             <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: '#eff6ff', color: '#001e50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -920,23 +968,27 @@ const EncuestasWhats = () => {
           </div>
 
           <div style={{ padding: '1.4rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '24px' }}>
+
+            {/* ── Estadísticas ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', marginBottom: '20px' }}>
               {[
-                { val: responses.length, label: 'Respuestas', barColor: '#001e50', textColor: '#001e50' },
-                { val: okCount,          label: 'Enviados',   barColor: '#25d366', textColor: '#166534' },
-                { val: errCount,         label: 'Fallidos',   barColor: '#ef4444', textColor: '#991b1b' },
+                { val: responses.length, label: 'Total',        barColor: '#001e50', textColor: '#001e50' },
+                { val: numServicio,      label: 'Servicio',      barColor: '#22c55e', textColor: '#166534' },
+                { val: numSatisf,        label: 'Satisfacción',  barColor: '#00b0f0', textColor: '#0369a1' },
+                { val: errCount,         label: 'Fallidos',      barColor: '#ef4444', textColor: '#991b1b' },
               ].map((s, i) => (
-                <div key={i} style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', textAlign: 'center' }}>
+                <div key={i} style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', textAlign: 'center' }}>
                   <div style={{ height: '3px', background: s.barColor }}></div>
-                  <div style={{ padding: '14px 12px' }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: '28px', fontWeight: 500, lineHeight: 1, marginBottom: '4px', color: s.textColor }}>{s.val}</div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af' }}>{s.label}</div>
+                  <div style={{ padding: '10px 8px' }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: '22px', fontWeight: 500, lineHeight: 1, marginBottom: '3px', color: s.textColor }}>{s.val}</div>
+                    <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af' }}>{s.label}</div>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: '4px', background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '4px', marginBottom: '20px' }}>
+            {/* ── Tabs ── */}
+            <div style={{ display: 'flex', gap: '4px', background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '4px', marginBottom: '16px' }}>
               {[
                 { id: 'responses', label: '📊 Respuestas de clientes' },
                 { id: 'logs',      label: '📋 Registro de envíos'     },
@@ -948,19 +1000,114 @@ const EncuestasWhats = () => {
               ))}
             </div>
 
+            {/* ── PANEL RESPUESTAS ── */}
             {activeTab === 'responses' && (
-              <div className="encuestas-scrollbar" style={{ maxHeight: '560px', overflowY: 'auto', paddingRight: '4px' }}>
-                {responses.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9ca3af', fontSize: '13px' }}>
-                    <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}>💬</div>
-                    <p style={{ margin: 0 }}>Sin respuestas aún.<br /><span style={{ fontSize: '11px' }}>Se actualizan automáticamente cada 3 segundos.</span></p>
+              <>
+                {/* Filtros */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  {/* Búsqueda */}
+                  <input
+                    className="filtro-input"
+                    type="text"
+                    placeholder="🔍 Buscar cliente, asesor, folio..."
+                    value={filtroTexto}
+                    onChange={e => setFiltroTexto(e.target.value)}
+                    style={{ ...filterSelectStyle, flex: 2, minWidth: '160px' }}
+                  />
+                  {/* Tipo */}
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    {[
+                      { val: 'todos',        label: 'Todos' },
+                      { val: 'servicio',     label: '🔧 Servicio' },
+                      { val: 'satisfaccion', label: '⭐ Satisfacción' },
+                    ].map(({ val, label }) => (
+                      <button
+                        key={val}
+                        className="tab-tipo-btn"
+                        onClick={() => setFiltroTipo(val)}
+                        style={{
+                          background: filtroTipo === val ? '#001e50' : '#f3f4f6',
+                          color:      filtroTipo === val ? 'white'   : '#6b7280',
+                        }}
+                      >{label}</button>
+                    ))}
                   </div>
-                ) : (
-                  responses.map((r) => <ResponseCard key={getItemKey(r)} response={r} />)
+                </div>
+
+                {/* Dropdowns agencia / asesor */}
+                {(agenciasUnicas.length > 0 || asesoresUnicos.length > 0) && (
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                    {agenciasUnicas.length > 0 && (
+                      <select
+                        className="filtro-select"
+                        value={filtroAgencia}
+                        onChange={e => setFiltroAgencia(e.target.value)}
+                        style={{ ...filterSelectStyle, flex: 1 }}
+                      >
+                        <option value="">Todas las agencias</option>
+                        {agenciasUnicas.map(a => <option key={a}>{a}</option>)}
+                      </select>
+                    )}
+                    {asesoresUnicos.length > 0 && (
+                      <select
+                        className="filtro-select"
+                        value={filtroAsesor}
+                        onChange={e => setFiltroAsesor(e.target.value)}
+                        style={{ ...filterSelectStyle, flex: 1 }}
+                      >
+                        <option value="">Todos los asesores</option>
+                        {asesoresUnicos.map(a => <option key={a}>{a}</option>)}
+                      </select>
+                    )}
+                    {(filtroTexto || filtroTipo !== 'todos' || filtroAgencia || filtroAsesor) && (
+                      <button
+                        onClick={() => { setFiltroTexto(''); setFiltroTipo('todos'); setFiltroAgencia(''); setFiltroAsesor(''); }}
+                        style={{ padding: '7px 12px', background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '9px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >✕ Limpiar</button>
+                    )}
+                  </div>
                 )}
-              </div>
+
+                {/* Contador de resultados */}
+                {(filtroTexto || filtroTipo !== 'todos' || filtroAgencia || filtroAsesor) && (
+                  <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '10px', fontFamily: 'monospace' }}>
+                    {responsesFiltradas.length} resultado{responsesFiltradas.length !== 1 ? 's' : ''} de {responses.length} total
+                  </div>
+                )}
+
+                {/* Lista */}
+                <div className="encuestas-scrollbar" style={{ maxHeight: '520px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {responsesPagina.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9ca3af', fontSize: '13px' }}>
+                      <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}>
+                        {responses.length === 0 ? '💬' : '🔍'}
+                      </div>
+                      <p style={{ margin: 0 }}>
+                        {responses.length === 0
+                          ? <>Sin respuestas aún.<br /><span style={{ fontSize: '11px' }}>Se actualizan automáticamente cada 3 segundos.</span></>
+                          : <>Sin resultados para los filtros aplicados.</>
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    responsesPagina.map((r) => <ResponseCard key={getItemKey(r)} response={r} />)
+                  )}
+                </div>
+
+                {/* Paginación */}
+                {totalPaginas > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #f3f4f6' }}>
+                    <button className="pag-btn" disabled={pagina <= 1} onClick={() => setPagina(p => p - 1)}>← Anterior</button>
+                    <span style={{ fontSize: '12px', color: '#6b7280', fontFamily: 'monospace' }}>
+                      {pagina} / {totalPaginas}
+                    </span>
+                    <button className="pag-btn" disabled={pagina >= totalPaginas} onClick={() => setPagina(p => p + 1)}>Siguiente →</button>
+                  </div>
+                )}
+              </>
             )}
 
+            {/* ── PANEL LOGS ── */}
             {activeTab === 'logs' && (
               <div>
                 {!logsLoaded ? (

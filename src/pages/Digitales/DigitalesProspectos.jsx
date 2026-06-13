@@ -976,6 +976,9 @@ export default function DigitalesProspectos() {
         "Yoseth Ruiz Castellanos",
         "Dulce Abigail Garcia Olivares",
         "JOSE ALBERTO SEDAS FLORES",
+        "Luis Alberto Ramirez Santamaria",
+        "Paul Serrano Vera",
+        "Luis Manuel Alvarez Martinez"
     ];
 
     const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
