@@ -1575,7 +1575,7 @@ async function exportToPDF() {
     // Fechas — itálica light
     if (proyectoInicio && proyectoFin) {
         setItalic(9, GRAY);
-        doc.text(`${proyectoInicio} – ${proyectoFin}`, margin, y);
+        doc.text(`${proyectoInicio} - ${proyectoFin}`, margin, y);
         y += 10;
     }
  
@@ -1645,7 +1645,10 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
     // PÁGINAS DE PLANES — una por tarea (portrait, vertical)
     // ─────────────────────────────────────────────────────────
     // DESPUÉS
-    const tasksList = [...withDate, ...noDate];
+    const PRIO_ORDER = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+    const tasksList = [...withDate, ...noDate].sort((a, b) =>
+    (PRIO_ORDER[a.priority] ?? 2) - (PRIO_ORDER[b.priority] ?? 2)
+);
     const totalPages = 1 + tasksList.length;
 
  
@@ -1689,7 +1692,7 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
         setItalic(8.5, GRAY);
         const prioLabel = { LOW:"Baja", MEDIUM:"Media", HIGH:"Alta", URGENT:"Urgente" }[task.priority] || task.priority;
         doc.text(
-            `Estatus: ${task.list_name || "—"}  ·  Prioridad: ${prioLabel || "—"}`,
+            `Estatus: ${task.list_name || "-"}  |  Prioridad: ${prioLabel || "-"}`,
             margin, cy
         );
         cy += 6;
@@ -1699,7 +1702,7 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
         const eStr = task.due_date   ? String(task.due_date).slice(0, 10)   : null;
         if (sStr || eStr) {
             setItalic(8, GRAY);
-            doc.text(`${sStr || "—"} → ${eStr || "—"}`, margin, cy);
+            doc.text(`${sStr || "-"} - ${eStr || "-"}`, margin, cy);
             cy += 6;
         }
  
@@ -1708,17 +1711,15 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
  
         // ── Causa raíz ──
         if (task.causa || task.raiz) {
-            setLight(9, BLACK);
-            const causaTxt = [task.causa, task.raiz].filter(Boolean).join(", ");
-            const causaLines = doc.splitTextToSize(`Causa raíz: ${causaTxt}`, contentW);
-            setHead(9, [...BLUE]);
-            doc.text("Causa raíz: ", margin, cy);
-            const labelW = doc.getTextWidth("Causa raíz: ");
-            setLight(9, BLACK);
-            // texto completo en splitText para wrap correcto
-            doc.text(causaLines, margin, cy);
-            cy += causaLines.length * 4.2 + 6;
-        }
+        const causaTxt = [task.causa, task.raiz].filter(Boolean).join(", ");
+        setHead(8, [...BLUE]);
+        doc.text("Causa raiz:", margin, cy);
+        cy += 5;
+        setLight(9, BLACK);
+        const causaLines = doc.splitTextToSize(causaTxt, contentW);
+        doc.text(causaLines, margin, cy);
+        cy += causaLines.length * 4.5 + 6;
+    }
  
         separator(cy, [230, 232, 242]);
         cy += 7;
@@ -1746,13 +1747,14 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
             cy += 7;
  
             subtasks.forEach(sub => {
-                const mark = sub.done ? "✓" : "○";
+                const mark = sub.done ? "[x]" : "[ ]";
                 const { rawStart, rawEnd } = getSubDates(sub);
-                let fechaSub = "";
-                if (rawStart || rawEnd) {
-                    fechaSub = `  ${rawStart ? String(rawStart).slice(0, 10) : ""}${rawStart && rawEnd ? " – " : ""}${rawEnd ? String(rawEnd).slice(0, 10) : ""}`;
-                }
-                const subTxt = `${mark}  ${sub.title || sub.titulo || ""}${fechaSub}`;
+                const subInicio = rawStart ? String(rawStart).slice(0, 10) : "";
+                const subFin    = rawEnd   ? String(rawEnd).slice(0, 10)   : "";
+                const fechaSub  = (subInicio || subFin)
+                    ? `   Inicio: ${subInicio || "-"}  Fin: ${subFin || "-"}`
+                    : "";
+                const subTxt = `${mark} ${sub.title || sub.titulo || ""}${fechaSub}`;
                 setLight(sub.done ? 8.5 : 9, sub.done ? GRAY : BLACK);
                 if (sub.done) doc.setFont("helvetica", "normal");
                 const subLines = doc.splitTextToSize(subTxt, contentW - 4);
@@ -1773,26 +1775,40 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
             doc.text("Asignado a", margin, cy);
             cy += 5;
             setLight(9, BLACK);
-            const nombresAsig = task.asignados.map(a => a.name || a.email || "—").join("  ·  ");
+            const nombresAsig = task.asignados.map(a => a.name || a.email || "-").join("  |  ");
             doc.text(nombresAsig, margin, cy);
             cy += 7;
         }
  
         // ── Evidencias (si hay) ──
         if (Array.isArray(task.evidencias) && task.evidencias.length > 0) {
-            separator(cy, [230, 232, 242]);
-            cy += 6;
-            setHead(8, [...BLUE]);
-            doc.text(`Evidencias (${task.evidencias.length})`, margin, cy);
-            cy += 5;
-            setLight(8.5, GRAY);
-            task.evidencias.forEach(ev => {
-                const url = ev.proxy_url || ev.archivo_url || "";
-                const name = url.split("/").pop() || "Archivo";
-                doc.text(`• ${name}`, margin + 2, cy);
-                cy += 4.5;
-            });
+    separator(cy, [230, 232, 242]);
+    cy += 6;
+    setHead(8, [...BLUE]);
+    doc.text(`Evidencias (${task.evidencias.length})`, margin, cy);
+    cy += 6;
+    task.evidencias.forEach(ev => {
+        const url = ev.proxy_url || ev.archivo_url || "";
+        const rawName = url.split("/").pop() || "Archivo";
+        // Limpiar el nombre: quitar query strings y decodificar
+        const name = decodeURIComponent(rawName.split("?")[0]).slice(0, 60);
+        // Fondo gris claro para cada evidencia
+        doc.setFillColor(245, 246, 250);
+        doc.roundedRect(margin, cy - 3.5, contentW, 7, 1, 1, "F");
+        // Icono tipo archivo
+        const ext = name.split(".").pop().toLowerCase();
+        const icon = ext === "pdf" ? "[PDF]" : ["jpg","jpeg","png","webp"].includes(ext) ? "[IMG]" : "[DOC]";
+        setHead(7.5, [...BLUE]);
+        doc.text(icon, margin + 2, cy + 1);
+        // Nombre como link clickeable
+        setLight(8, BLACK);
+        doc.text(name, margin + 14, cy + 1);
+        if (url) {
+            doc.link(margin + 14, cy - 3, contentW - 16, 7, { url });
         }
+        cy += 9;
+    });
+}
  
         drawFooter(pageNum, totalPages);
     });
