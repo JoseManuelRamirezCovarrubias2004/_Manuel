@@ -445,7 +445,7 @@ function AgendaView({ rows, loading, onEdit, onNewAtSlot, onToggleAsistencia, up
                                                                 const telefono = cita?.cliente?.telefono || "—";
                                                                 const autoInteres = cita.auto_interes || "—";
                                                                 const asesorPiso = cita.asesor_piso || "—";
-                                                                const agendado_por = cita.agendado_por || "—";
+
                                                                 const asesorDigital = cita.asesor_digital || "—";
 
                                                                 return (
@@ -696,7 +696,6 @@ export default function RegistroCitas() {
         );
     }, [rol, permisos]);
 
-    // ── Multi-agencia: split por "|" igual que RegistroCredito ──────────────
     const userAgencias = useMemo(() => {
         return String(user?.agencia || "")
             .split("|")
@@ -716,7 +715,6 @@ export default function RegistroCitas() {
         },
         [userAgencias]
     );
-    // ────────────────────────────────────────────────────────────────────────
 
     const [citas, setCitas] = useState([]);
     const [vista, setVista] = useState("tabla");
@@ -786,12 +784,6 @@ export default function RegistroCitas() {
         "Luis Alberto Ramirez Santamaria",
         "Paul Serrano Vera",
         "Luis Manuel Alvarez Martinez"
-    ];
-
-    const AGENDADO = [
-        "Asistente",
-        "Call Center",
-        "Asesor de Servicio",
     ];
 
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
@@ -866,20 +858,17 @@ export default function RegistroCitas() {
 
     useEffect(() => { refreshList(); }, [refreshList]);
 
-    // ── Dealers: solo las agencias del usuario si no es admin ────────────────
     const dealers = useMemo(() => {
         const set = new Set((citas || []).map((c) => normalizeStr(c.agencia)).filter(Boolean));
         if (!isAdmin && userAgencias.length > 0) return ["Todos", ...userAgencias];
         return ["Todos", ...Array.from(set)];
     }, [citas, isAdmin, userAgencias]);
-    // ────────────────────────────────────────────────────────────────────────
 
     const asesoresDigitalesFiltro = useMemo(() => {
         const set = new Set([...ASESORES_DIGITALES.map((a) => normalizeStr(a)), ...(citas || []).map((c) => normalizeStr(c.asesor_digital))].filter(Boolean));
         return ["Todos", ...Array.from(set)];
     }, [citas]);
 
-    // ── Filtrado: usar userTieneAgencia para soporte multi-agencia ───────────
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
         const desdeInt = ymdToInt(filters.rangoDesde);
@@ -888,7 +877,7 @@ export default function RegistroCitas() {
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) return false;
             const nombreCliente = normalizeStr(c?.cliente?.nombre);
             const telCliente = normalizeStr(c?.cliente?.telefono);
-            const matchQ = !q || [c.agencia, nombreCliente, telCliente, c.auto_interes, c.tipo_cita, c.fuente_prospeccion, c.asesor_digital, c.asesor_piso, c.agendado_por, c.comentarios].some((v) => normalizeStr(v).toLowerCase().includes(q));
+            const matchQ = !q || [c.agencia, nombreCliente, telCliente, c.auto_interes, c.tipo_cita, c.fuente_prospeccion, c.asesor_digital, c.asesor_piso, c.comentarios].some((v) => normalizeStr(v).toLowerCase().includes(q));
             const matchAgencia = filters.agencia === "Todos" || normalizeStr(c.agencia) === normalizeStr(filters.agencia);
             const matchAsesorDigital = filters.asesorDigital === "Todos" || normalizeStr(c.asesor_digital) === normalizeStr(filters.asesorDigital);
             let matchRango = true;
@@ -901,7 +890,6 @@ export default function RegistroCitas() {
             return matchQ && matchAgencia && matchAsesorDigital && matchRango;
         });
     }, [citas, filters, isAdmin, userAgencias, userTieneAgencia]);
-    // ────────────────────────────────────────────────────────────────────────
 
     const sorted = useMemo(() => {
         const data = [...filtered];
@@ -933,7 +921,7 @@ export default function RegistroCitas() {
             fechaDefault = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
         }
 
-        setDraft({ id: null, cliente_id: null, agencia: agenciaDefault, cliente_nombre: "", cliente_telefono: "", auto_interes: "", fecha_hora_cita: fechaDefault, asistencia: false, tipo_cita: "", fuente_prospeccion: "", asesor_digital: "", asesor_piso: "", agendado_por: "", comentarios: "" });
+        setDraft({ id: null, cliente_id: null, agencia: agenciaDefault, cliente_nombre: "", cliente_telefono: "", auto_interes: "", fecha_hora_cita: fechaDefault, asistencia: false, tipo_cita: "", fuente_prospeccion: "", asesor_digital: "", asesor_piso: "", comentarios: "" });
         setOpenModal(true);
     };
 
@@ -942,12 +930,10 @@ export default function RegistroCitas() {
         try {
             setTouchedSave(false); setMode("edit"); setLoadingDetail(true); setOpenModal(true);
             const c = await apiCitas.get(row.id);
-            // ── Validación multi-agencia ─────────────────────────────────────
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) {
                 alert("No tienes permisos para ver registros de otra agencia."); setOpenModal(false); return;
             }
-            // ────────────────────────────────────────────────────────────────
-            setDraft({ id: c.id, cliente_id: c?.cliente?.id_cliente ?? null, agencia: c.agencia || (isAdmin ? "" : userAgencia), cliente_nombre: c?.cliente?.nombre || "", cliente_telefono: c?.cliente?.telefono || "", auto_interes: c.auto_interes || "", fecha_hora_cita: toDTLocal(c.fecha_hora_cita), asistencia: !!c.asistencia, tipo_cita: c.tipo_cita || "", fuente_prospeccion: c.fuente_prospeccion || "", asesor_digital: c.asesor_digital || "", asesor_piso: c.asesor_piso || "", agendado_por: c.agendado_por || "", comentarios: c.comentarios || "" });
+            setDraft({ id: c.id, cliente_id: c?.cliente?.id_cliente ?? null, agencia: c.agencia || (isAdmin ? "" : userAgencia), cliente_nombre: c?.cliente?.nombre || "", cliente_telefono: c?.cliente?.telefono || "", auto_interes: c.auto_interes || "", fecha_hora_cita: toDTLocal(c.fecha_hora_cita), asistencia: !!c.asistencia, tipo_cita: c.tipo_cita || "", fuente_prospeccion: c.fuente_prospeccion || "", asesor_digital: c.asesor_digital || "", asesor_piso: c.asesor_piso || "", comentarios: c.comentarios || "" });
         } catch (e) { console.error(e); alert("No se pudo abrir la cita (revisa consola)."); setOpenModal(false); }
         finally { setLoadingDetail(false); }
     };
@@ -956,11 +942,9 @@ export default function RegistroCitas() {
 
     const eliminarCita = async (row) => {
         if (!row?.id) return;
-        // ── Validación multi-agencia ─────────────────────────────────────────
         if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para eliminar registros de otra agencia."); return;
         }
-        // ────────────────────────────────────────────────────────────────────
         const ok = confirm(`¿Eliminar la cita de ${row?.cliente?.nombre || row?.cliente?.telefono || "cliente"}?`);
         if (!ok) return;
         try {
@@ -979,7 +963,7 @@ export default function RegistroCitas() {
         try {
             const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : normalizeStr(draft.agencia || userAgencia);
             const payload = {
-                agencia: agenciaFinal, ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}), nombre: draft.cliente_nombre || "", telefono: normalizeStr(draft.cliente_telefono), auto_interes: draft.auto_interes || "", fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita), asistencia: !!draft.asistencia, tipo_cita: draft.tipo_cita || "", fuente_prospeccion: draft.fuente_prospeccion || "", asesor_digital: draft.asesor_digital || "", asesor_piso: draft.asesor_piso || "", agendado_por: draft.agendado_por || "", comentarios: draft.comentarios || ""
+                agencia: agenciaFinal, ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}), nombre: draft.cliente_nombre || "", telefono: normalizeStr(draft.cliente_telefono), auto_interes: draft.auto_interes || "", fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita), asistencia: !!draft.asistencia, tipo_cita: draft.tipo_cita || "", fuente_prospeccion: draft.fuente_prospeccion || "", asesor_digital: draft.asesor_digital || "", asesor_piso: draft.asesor_piso || "", comentarios: draft.comentarios || ""
             };
             if (mode === "create") await apiCitas.create(payload);
             else await apiCitas.update(draft.id, payload);
@@ -990,11 +974,9 @@ export default function RegistroCitas() {
 
     const toggleAsistenciaInline = async (row) => {
         const id = row?.id; if (!id) return;
-        // ── Validación multi-agencia ─────────────────────────────────────────
         if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para modificar registros de otra agencia."); return;
         }
-        // ────────────────────────────────────────────────────────────────────
         const prev = !!row.asistencia;
         setCitas((p) => p.map((c) => (c.id === id ? { ...c, asistencia: !prev } : c)));
         setUpdatingInline((p) => ({ ...p, [id]: true }));
@@ -1066,18 +1048,18 @@ export default function RegistroCitas() {
         const ws = XLSX.utils.aoa_to_sheet(data);
 
         ws["!cols"] = [
-            { wch: 5 },   // N°
-            { wch: 20 },  // Fecha y Hora
-            { wch: 16 },  // Dealer
-            { wch: 28 },  // Cliente
-            { wch: 16 },  // Teléfono
-            { wch: 16 },  // Auto Interés
-            { wch: 14 },  // Tipo Cita
-            { wch: 22 },  // Fuente Prospección
-            { wch: 30 },  // Asesor Digital
-            { wch: 36 },  // Asesor Piso
-            { wch: 10 },  // ¿Asistió?
-            { wch: 40 },  // Comentarios
+            { wch: 5 },
+            { wch: 20 },
+            { wch: 16 },
+            { wch: 28 },
+            { wch: 16 },
+            { wch: 16 },
+            { wch: 14 },
+            { wch: 22 },
+            { wch: 30 },
+            { wch: 36 },
+            { wch: 10 },
+            { wch: 40 },
         ];
 
         const wb = XLSX.utils.book_new();
@@ -1089,7 +1071,6 @@ export default function RegistroCitas() {
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                     <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Citas</h2>
-                    {/* ── Mostrar todas las agencias del usuario ── */}
                     {!isAdmin && userAgencias.length > 0 ? (
                         <p className="mt-1 text-xs font-semibold text-slate-500">
                             Agencia asignada: <span className="text-[#131E5C]">{userAgencias.join(", ")}</span>
@@ -1246,7 +1227,6 @@ export default function RegistroCitas() {
                             </Field>
                         </div>
                         <Field label="Dealer" icon={Building2}>
-                            {/* ── Dealer select: opciones según agencias del usuario ── */}
                             <select value={draft.agencia || ""} onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))} disabled={!isAdmin && userAgencias.length <= 1} className={[inputBase, inputOk, !isAdmin && userAgencias.length <= 1 ? "opacity-75 cursor-not-allowed" : ""].join(" ")}>
                                 <option value="" disabled>Selecciona un dealer...</option>
                                 {(isAdmin ? DEALERS : userAgencias).map((d) => <option key={d} value={d}>{d}</option>)}
@@ -1292,12 +1272,6 @@ export default function RegistroCitas() {
                             <select value={draft.asesor_piso || ""} onChange={(e) => setDraft((p) => ({ ...p, asesor_piso: e.target.value }))} className={[inputBase, inputOk].join(" ")}>
                                 <option value="" disabled>Selecciona un asesor ...</option>
                                 {ASESORES.map((d) => <option key={d} value={d}>{d}</option>)}
-                            </select>
-                        </Field>
-                        <Field label="Agendado Por" icon={CalendarCheck}>
-                            <select value={draft.agendado_por || ""} onChange={(e) => setDraft((p) => ({ ...p, agendado_por: e.target.value }))} className={[inputBase, inputOk].join(" ")}>
-                                <option value="" disabled>Selecciona un asesor ...</option>
-                                {AGENDADO.map((d) => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </Field>
                         <div className="md:col-span-2">

@@ -1077,6 +1077,7 @@ export default function DigitalesContacto() {
     );
 
     const [q, setQ] = useState("");
+    const [chatFilter, setChatFilter] = useState("todos"); 
     const [loadingList, setLoadingList] = useState(false);
     const [loadingChat, setLoadingChat] = useState(false);
     const [chats, setChats] = useState([]);
@@ -1190,6 +1191,7 @@ export default function DigitalesContacto() {
             : chats;
 
         return base.filter((chat) => {
+            if (chatFilter === "no_leidos" && !(chat.unread > 0)) return false;
             if (!query) return true;
 
             const nombre = normalizeText(chat.nombre);
@@ -1208,7 +1210,7 @@ export default function DigitalesContacto() {
                 ultimoTexto.includes(query)
             );
         });
-    }, [chats, prospectosIndex, deferredQ]);
+    }, [chats, prospectosIndex, deferredQ, chatFilter]);
 
     const composerHint = useMemo(() => {
         if (!activeTel) return "Selecciona un chat para escribir…";
@@ -2468,6 +2470,33 @@ export default function DigitalesContacto() {
                                             placeholder="Buscar prospecto, número, agencia…"
                                             className="w-full bg-transparent text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400"
                                         />
+                                    </div>
+
+                                    <div className="mt-2 flex gap-2">
+                                        <button
+                                            onClick={() => setChatFilter("todos")}
+                                            className={cls(
+                                                "flex-1 rounded-lg border py-1.5 text-xs font-extrabold transition",
+                                                chatFilter === "todos"
+                                                    ? "border-[#131E5C] bg-[#131E5C] text-white"
+                                                    : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
+                                            )}
+                                            type="button"
+                                        >
+                                            Todos
+                                        </button>
+                                        <button
+                                            onClick={() => setChatFilter("no_leidos")}
+                                            className={cls(
+                                                "flex-1 rounded-lg border py-1.5 text-xs font-extrabold transition",
+                                                chatFilter === "no_leidos"
+                                                    ? "border-[#131E5C] bg-[#131E5C] text-white"
+                                                    : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
+                                            )}
+                                            type="button"
+                                        >
+                                            No leídos
+                                        </button>
                                     </div>
                                 </div>
 

@@ -3,8 +3,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTES
 // ─────────────────────────────────────────────────────────────────────────────
-const API_URL       = "https://crm.grupoautomotrizryr.com";
-const API_WHATSAPP  = "https://graph.facebook.com/v25.0";
+const API_URL      = "https://crm.grupoautomotrizryr.com";
+const API_WHATSAPP = "https://graph.facebook.com/v25.0";
+
+const ACCESS_TOKEN    = 'EAAMHhf6nlX8BRsem3YmFgR7wKIEGwZByRLbsZApyZC3TMvgKfr4ARDcWNqeX5BUIcL699ZBQ1ayAk4NQzRvDIa7Ec3FjFZA51rSfodI96FoCWlHR2RypxcbOeseSUovfBtvmDqTs6DiU3hk1gyJnW9XLjuaF3te6UqH0M4ZBAhkxe8wzCBwk0ZCw0FcizAgnfDyilN3ZCeHqTMBhb7XKWkZAJhKTVZCNCKg1IUjEJj';
+const PHONE_NUMBER_ID = '1184628394729057';
+const WABA_ID         = '990790696655589';
+
+const POR_PAGINA = 15;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AUTH HELPERS
@@ -30,7 +36,6 @@ const getAuthHeader = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // FETCH ENCUESTAS (paginado)
 // ─────────────────────────────────────────────────────────────────────────────
-// DESPUÉS:
 const fetchAllPages = async (baseUrl) => {
   let url = baseUrl;
   let all = [];
@@ -62,7 +67,7 @@ const listarEncuestas = async () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LOGS EN BACKEND — guardar y cargar
+// LOGS EN BACKEND
 // ─────────────────────────────────────────────────────────────────────────────
 const guardarLogEnBackend = async (nombre, telefono, asesor, plantilla, estado, errorMsg = '') => {
   try {
@@ -74,8 +79,8 @@ const guardarLogEnBackend = async (nombre, telefono, asesor, plantilla, estado, 
         cliente_nombre:   nombre,
         cliente_telefono: telefono,
         asesor:           asesor || '',
-        plantilla:        plantilla,
-        estado:           estado,
+        plantilla,
+        estado,
         error_mensaje:    errorMsg,
       }),
     });
@@ -92,7 +97,6 @@ const cargarLogsDesdeBackend = async () => {
     });
     if (!res.ok) return [];
     const data = await res.json();
-    // Convertir formato backend → formato local
     return (Array.isArray(data) ? data : data.results || []).map(l => ({
       name:         l.cliente_nombre,
       phone:        l.cliente_telefono,
@@ -103,15 +107,13 @@ const cargarLogsDesdeBackend = async () => {
       time:         new Date(l.creado).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       fromDB:       true,
     }));
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUBIR IMAGEN A META
 // ─────────────────────────────────────────────────────────────────────────────
-const uploadImageToMeta = async (accessToken, phoneNumberId, imageUrl) => {
+const uploadImageToMeta = async (imageUrl) => {
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) throw new Error('No se pudo descargar la imagen');
   const blob = await imgRes.blob();
@@ -119,9 +121,9 @@ const uploadImageToMeta = async (accessToken, phoneNumberId, imageUrl) => {
   form.append('messaging_product', 'whatsapp');
   form.append('type', blob.type || 'image/jpeg');
   form.append('file', blob, 'encuesta.jpg');
-  const res = await fetch(`${API_WHATSAPP}/${phoneNumberId}/media`, {
+  const res = await fetch(`${API_WHATSAPP}/${PHONE_NUMBER_ID}/media`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
     body: form,
   });
   const data = await res.json();
@@ -140,35 +142,49 @@ const DEFAULT_TEMPLATES = [
     icono: '🏠',
     color: '#001e50',
     template: 'pisito',
-    lang: 'en',
     langExact: 'en',
     motivo: 'Evaluación de experiencia en agencia',
     tipo: 'encuesta',
     mensaje: 'Se envía al cliente después de su visita para calificar la atención recibida.',
     hasImage: false,
     imageUrl: null,
-    flowId: '1331381228411307',   // ← Flow ID de Pisito
+    flowId: '1331381228411307',
     flowButtonIndex: '0',
   },
   {
-    id: 'satisfacion',
-    nombre: 'satisfacion',
+    id: 'enc_piso',
+    nombre: 'enc_piso',
     descripcion: 'Plantilla de servicio activa en Meta',
     icono: '🏠',
     color: '#001e50',
-    template: 'satisfacion',
-    lang: 'en',
+    template: 'enc_piso',
     langExact: 'en',
     motivo: 'Evaluación de experiencia en agencia',
     tipo: 'encuesta',
     mensaje: 'Se envía al cliente después de su visita para calificar la atención recibida.',
+    hasImage: true,
+    imageUrl: 'https://i.imgur.com/wKJqh2K.jpeg',
+    flowId: '1331381228411307',
+    flowButtonIndex: '0',
+  },
+
+  {
+    id: 'satisfacion',
+    nombre: 'satisfacion',
+    descripcion: 'Plantilla de Marketing activa en Meta',
+    icono: '🏠',
+    color: '#9d174d',
+    template: 'satisfacion',
+    langExact: 'en',
+    motivo: 'Evaluación de experiencia en agencia',
+    tipo: 'marketing',
+    mensaje: 'Se envía al cliente después de su visita para calificar la atención recibida.',
     hasImage: false,
     imageUrl: null,
-    flowId: '846627115169219',    // ← Flow ID de Satisfacion
+    flowId: null,
     flowButtonIndex: '0',
   },
 ];
-
 
 const TIPO_BADGE = {
   encuesta:     { bg: '#eff6ff', color: '#1d4ed8', label: 'Encuesta' },
@@ -183,7 +199,7 @@ const TIPO_BADGE = {
 // ─────────────────────────────────────────────────────────────────────────────
 const EncuestasWhats = () => {
 
-  // ── Estado: plantillas ────────────────────────────────────────────────────
+  // ── Plantillas ────────────────────────────────────────────────────────────
   const [templates, setTemplates] = useState(() => {
     try {
       const saved = localStorage.getItem('vw_templates');
@@ -199,38 +215,25 @@ const EncuestasWhats = () => {
     } catch { return DEFAULT_TEMPLATES[0].id; }
   });
 
-  // ── Estado: configuración API ─────────────────────────────────────────────
-  const [config, setConfig] = useState(() => {
-    try {
-      const saved = localStorage.getItem('vw_config');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          accessToken:   parsed.accessToken   || '',
-          phoneNumberId: parsed.phoneNumberId || parsed.phoneId || '1180313015157033',
-          wabaId:        parsed.wabaId        || '',
-        };
-      }
-      return { accessToken: '', phoneNumberId: '1180313015157033', wabaId: '' };
-    } catch {
-      return { accessToken: '', phoneNumberId: '1180313015157033', wabaId: '' };
-    }
-  });
+  // ── UI ────────────────────────────────────────────────────────────────────
+  const [formData,   setFormData]   = useState({ clientName: '', countryCode: '52', phoneNumber: '', advisor: '' });
+  const [logs,       setLogs]       = useState([]);
+  const [logsLoaded, setLogsLoaded] = useState(false);
+  const [responses,  setResponses]  = useState([]);
+  const [syncStatus, setSyncStatus] = useState(false);
+  const [activeTab,  setActiveTab]  = useState('responses');
+  const [alert,      setAlert]      = useState({ show: false, type: '', message: '' });
+  const [isSending,  setIsSending]  = useState(false);
+  const [deletedIds, setDeletedIds] = useState(new Set());
 
-  // ── Estado: formulario y UI ───────────────────────────────────────────────
-  const [formData,    setFormData]    = useState({ clientName: '', countryCode: '52', phoneNumber: '', advisor: '' });
-  const [logs,        setLogs]        = useState([]);
-  const [logsLoaded,  setLogsLoaded]  = useState(false);
-  const [responses,   setResponses]   = useState([]);
-  const [syncStatus,  setSyncStatus]  = useState(false);
-  const [activeTab,   setActiveTab]   = useState('responses');
-  const [configOpen,  setConfigOpen]  = useState(false);
-  const [showToken,   setShowToken]   = useState(false);
-  const [alert,       setAlert]       = useState({ show: false, type: '', message: '' });
-  const [isSending,   setIsSending]   = useState(false);
-  const [deletedIds,  setDeletedIds]  = useState(new Set());
+  // ── Filtros del panel ─────────────────────────────────────────────────────
+  const [filtroTexto,   setFiltroTexto]   = useState('');
+  const [filtroTipo,    setFiltroTipo]    = useState('todos');
+  const [filtroAgencia, setFiltroAgencia] = useState('');
+  const [filtroAsesor,  setFiltroAsesor]  = useState('');
+  const [pagina,        setPagina]        = useState(1);
 
-  // ── Estado: editor de plantillas ─────────────────────────────────────────
+  // ── Editor de plantillas ──────────────────────────────────────────────────
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [editingTemplate,    setEditingTemplate]    = useState(null);
   const [templateDraft,      setTemplateDraft]      = useState(null);
@@ -240,7 +243,7 @@ const EncuestasWhats = () => {
 
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId) || templates[0];
 
-  // ── Cargar logs desde backend al montar ──────────────────────────────────
+  // ── Cargar logs al montar ─────────────────────────────────────────────────
   useEffect(() => {
     cargarLogsDesdeBackend().then(logsDB => {
       setLogs(logsDB);
@@ -249,7 +252,7 @@ const EncuestasWhats = () => {
     });
   }, []);
 
-  // ── Sync respuestas de encuestas ──────────────────────────────────────────
+  // ── Sync respuestas ───────────────────────────────────────────────────────
   const getItemKey = (r) => String(r.id_encuesta || r.id || JSON.stringify(r).slice(0, 60));
 
   const cargarRespuestas = useCallback(async () => {
@@ -264,7 +267,6 @@ const EncuestasWhats = () => {
     } catch { setSyncStatus(false); }
   }, [deletedIds]);
 
-  // ── Sync logs desde backend cada 10s ─────────────────────────────────────
   const sincronizarLogs = useCallback(async () => {
     if (!logsLoaded) return;
     const logsDB = await cargarLogsDesdeBackend();
@@ -286,15 +288,42 @@ const EncuestasWhats = () => {
     return () => clearInterval(interval);
   }, [sincronizarLogs, logsLoaded]);
 
+  // ── Reset página al cambiar filtros ───────────────────────────────────────
+  useEffect(() => { setPagina(1); }, [filtroTexto, filtroTipo, filtroAgencia, filtroAsesor, activeTab]);
+
+  // ── Listas únicas para dropdowns ──────────────────────────────────────────
+  const agenciasUnicas = [...new Set(responses.map(r => r.agencia).filter(Boolean))].sort();
+  const asesoresUnicos = [...new Set(responses.map(r => r.asesor_atendio).filter(Boolean))].sort();
+
+  // ── Filtrado de respuestas ────────────────────────────────────────────────
+  const responsesFiltradas = responses.filter(r => {
+    if (filtroTipo !== 'todos' && r._tipo !== filtroTipo) return false;
+    if (filtroAgencia && r.agencia !== filtroAgencia) return false;
+    if (filtroAsesor && r.asesor_atendio !== filtroAsesor) return false;
+    if (filtroTexto) {
+      const q = filtroTexto.toLowerCase();
+      const nombre = (r.nombre_cliente || r.nombre_OS_cliente || '').toLowerCase();
+      const asesor = (r.asesor_atendio || '').toLowerCase();
+      const agencia = (r.agencia || '').toLowerCase();
+      const id = String(r.id_encuesta || r.id || '').toLowerCase();
+      if (!nombre.includes(q) && !asesor.includes(q) && !agencia.includes(q) && !id.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const totalPaginas  = Math.ceil(responsesFiltradas.length / POR_PAGINA);
+  const responsesPagina = responsesFiltradas.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+
+  // ── Contadores ────────────────────────────────────────────────────────────
+  const okCount       = logs.filter(l => l.status === 'ok').length;
+  const errCount      = logs.filter(l => l.status === 'err').length;
+  const numServicio   = responses.filter(r => r._tipo === 'servicio').length;
+  const numSatisf     = responses.filter(r => r._tipo === 'satisfaccion').length;
+
   // ── Utilidades ────────────────────────────────────────────────────────────
-  const showAlert = (type, message) => {
+  const showAlertMsg = (type, message) => {
     setAlert({ show: true, type, message });
     if (type === 'ok') setTimeout(() => setAlert({ show: false, type: '', message: '' }), 5000);
-  };
-
-  const saveConfig = () => {
-    localStorage.setItem('vw_config', JSON.stringify(config));
-    showAlert('ok', 'Configuración guardada ✓');
   };
 
   const saveTemplates = (newTemplates) => {
@@ -302,11 +331,9 @@ const EncuestasWhats = () => {
     localStorage.setItem('vw_templates', JSON.stringify(newTemplates));
   };
 
-  // addLog ahora guarda en backend Y en estado local
   const addLog = async (name, phone, advisor, status, templateName, errorMsg = '') => {
     const now = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const newLog = { name, phone, advisor, time: now, status, templateName, errorMsg };
-    setLogs(prev => [newLog, ...prev]);
+    setLogs(prev => [{ name, phone, advisor, time: now, status, templateName, errorMsg }, ...prev]);
     await guardarLogEnBackend(name, phone, advisor, templateName, status, errorMsg);
   };
 
@@ -328,56 +355,14 @@ const EncuestasWhats = () => {
 
   const deleteCard = (key) => setDeletedIds(prev => new Set([...prev, key]));
 
-  // ── Verificar plantillas en Meta ──────────────────────────────────────────
-  const verificarPlantillasMeta = async () => {
-    const { accessToken, phoneNumberId, wabaId } = config;
-    if (!accessToken) { showAlert('err', '❌ Configura tu token de acceso primero.'); return; }
-    if (!phoneNumberId) { showAlert('err', '❌ Configura tu Phone Number ID primero.'); return; }
-
-    setIsSending(true);
-    try {
-      const testRes  = await fetch(`${API_WHATSAPP}/${phoneNumberId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      const testData = await testRes.json();
-      if (testData.error) {
-        showAlert('err', `❌ Token o Phone ID inválido: ${testData.error.message}`);
-        setIsSending(false);
-        return;
-      }
-
-      const queryId = wabaId || phoneNumberId;
-      const res     = await fetch(`${API_WHATSAPP}/${queryId}/message_templates?limit=50`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      const data = await res.json();
-
-      if (data.error) {
-        showAlert('err', `❌ Error al obtener plantillas: ${data.error.message}`);
-      } else if (data.data) {
-        const approved = data.data.filter(t => t.status === 'APPROVED');
-        console.table(data.data.map(t => ({ name: t.name, status: t.status, language: t.language })));
-        showAlert('ok', `✅ ${approved.length} aprobadas de ${data.data.length} plantillas. Ver detalle en consola (F12).`);
-      } else {
-        showAlert('err', '⚠️ Respuesta inesperada de la API.');
-      }
-    } catch (err) {
-      showAlert('err', `❌ Error de conexión: ${err.message}`);
-    }
-    setIsSending(false);
-  };
-
   // ── Enviar encuesta ───────────────────────────────────────────────────────
   const sendSurvey = async () => {
     setAlert({ show: false, type: '', message: '' });
     const { clientName, countryCode, phoneNumber, advisor } = formData;
-    const { accessToken, phoneNumberId } = config;
 
-    if (!clientName)    { showAlert('err', '❌ Ingresa el nombre del cliente.'); return; }
-    if (!phoneNumber)   { showAlert('err', '❌ Ingresa el número de WhatsApp.'); return; }
-    if (!accessToken)   { setConfigOpen(true); showAlert('err', '❌ Configura tu token de acceso primero.'); return; }
-    if (!phoneNumberId) { setConfigOpen(true); showAlert('err', '❌ Configura tu Phone Number ID primero.'); return; }
-    if (!selectedTemplate?.template) { showAlert('err', '❌ La plantilla seleccionada no tiene un ID válido.'); return; }
+    if (!clientName)  { showAlertMsg('err', '❌ Ingresa el nombre del cliente.'); return; }
+    if (!phoneNumber) { showAlertMsg('err', '❌ Ingresa el número de WhatsApp.'); return; }
+    if (!selectedTemplate?.template) { showAlertMsg('err', '❌ La plantilla seleccionada no tiene un ID válido.'); return; }
 
     const fullPhone = countryCode + phoneNumber.replace(/\D/g, '');
     setIsSending(true);
@@ -389,21 +374,15 @@ const EncuestasWhats = () => {
         components.push({
           type: 'button',
           sub_type: 'flow',
-          index: selectedTemplate.flowButtonIndex || '0',
-          parameters: [{
-            type: 'action',
-            action: { flow_token: `survey_${fullPhone}_${Date.now()}` },
-          }],
+          index: String(selectedTemplate.flowButtonIndex || '0'),
+          parameters: [{ type: 'action', action: { flow_token: `survey_${fullPhone}_${Date.now()}` } }],
         });
       }
 
-      if (selectedTemplate.hasImage && selectedTemplate.imageUrl && !selectedTemplate.flowId) {
+      if (selectedTemplate.hasImage && selectedTemplate.imageUrl) {
         try {
-          const mediaId = await uploadImageToMeta(accessToken, phoneNumberId, selectedTemplate.imageUrl);
-          components.push({
-            type: 'header',
-            parameters: [{ type: 'image', image: { id: mediaId } }],
-          });
+          const mediaId = await uploadImageToMeta(selectedTemplate.imageUrl);
+          components.push({ type: 'header', parameters: [{ type: 'image', image: { id: mediaId } }] });
         } catch (imgErr) {
           console.warn('No se pudo subir imagen:', imgErr.message);
           await addLog(clientName, fullPhone, advisor, 'warning', selectedTemplate.nombre, 'Imagen no cargada');
@@ -417,55 +396,43 @@ const EncuestasWhats = () => {
         type:              'template',
         template: {
           name:     selectedTemplate.template,
-          language: { code: selectedTemplate.langExact || selectedTemplate.lang },
+          language: { code: selectedTemplate.langExact },
         },
       };
-
       if (components.length > 0) body.template.components = components;
 
-      console.log('📤 Enviando mensaje:', JSON.stringify(body, null, 2));
-
-      const res  = await fetch(`${API_WHATSAPP}/${phoneNumberId}/messages`, {
+      const res  = await fetch(`${API_WHATSAPP}/${PHONE_NUMBER_ID}/messages`, {
         method:  'POST',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
       });
       const data = await res.json();
 
       if (res.ok && data.messages) {
-        showAlert('ok', `✅ "${selectedTemplate.nombre}" enviada a ${clientName} (+${fullPhone})`);
+        showAlertMsg('ok', `✅ "${selectedTemplate.nombre}" enviada a ${clientName} (+${fullPhone})`);
         await addLog(clientName, fullPhone, advisor, 'ok', selectedTemplate.nombre);
         setFormData({ ...formData, clientName: '', phoneNumber: '', advisor: '' });
-        console.log('✅ Mensaje enviado, ID:', data.messages[0].id);
       } else {
         const errMsg  = data.error?.message || 'Error desconocido';
         const errCode = data.error?.code    || '';
-        console.error('❌ Error API:', data.error);
-
         let userMessage = errMsg;
-        if (errCode === 132001 || errMsg.includes('template') || errMsg.includes('does not exist')) {
-          userMessage = `⚠️ Plantilla "${selectedTemplate.template}" no encontrada. Verifica el nombre exacto en Meta Business.`;
-        } else if (errCode === 132000 || errMsg.includes('language')) {
-          userMessage = `⚠️ Código de idioma incorrecto. Usado: "${selectedTemplate.langExact}". Verifica en Meta que coincida exactamente.`;
-        } else if (errCode === 100) {
-          userMessage = '⚠️ Parámetros incorrectos. Verifica que el Phone Number ID y el Token sean correctos.';
-        } else if (errMsg.includes('quality')) {
-          userMessage = '⚠️ La plantilla tiene penalización de calidad. Revisa en Meta Business.';
-        }
-
-        showAlert('err', `❌ ${userMessage}`);
+        if (errCode === 132001 || errMsg.includes('template') || errMsg.includes('does not exist'))
+          userMessage = `⚠️ Plantilla "${selectedTemplate.template}" no encontrada. Verifica el nombre en Meta Business.`;
+        else if (errCode === 132000 || errMsg.includes('language'))
+          userMessage = `⚠️ Código de idioma incorrecto: "${selectedTemplate.langExact}".`;
+        else if (errCode === 100)
+          userMessage = '⚠️ Parámetros incorrectos. Verifica Phone Number ID y Token.';
+        showAlertMsg('err', `❌ ${userMessage}`);
         await addLog(clientName, fullPhone, advisor, 'err', selectedTemplate.nombre, errMsg);
       }
     } catch (err) {
-      console.error('❌ Error de conexión:', err);
-      showAlert('err', `❌ Error de conexión: ${err.message}`);
+      showAlertMsg('err', `❌ Error de conexión: ${err.message}`);
       await addLog(clientName, fullPhone, advisor, 'err', selectedTemplate.nombre, err.message);
     }
-
     setIsSending(false);
   };
 
-  // ── Editor de plantillas ──────────────────────────────────────────────────
+  // ── Editor plantillas ─────────────────────────────────────────────────────
   const openEditor = (template) => {
     setTemplateDraft({ ...template });
     setEditingTemplate(template.id);
@@ -475,7 +442,7 @@ const EncuestasWhats = () => {
   const openNewTemplate = () => {
     setTemplateDraft({
       id: `plantilla_${Date.now()}`, nombre: '', descripcion: '', icono: '📋',
-      color: '#001e50', template: '', lang: 'en', langExact: 'en',
+      color: '#001e50', template: '', langExact: 'en',
       motivo: '', tipo: 'encuesta', mensaje: '', hasImage: false,
       imageUrl: '', flowId: null, flowButtonIndex: '0',
     });
@@ -485,7 +452,7 @@ const EncuestasWhats = () => {
 
   const saveTemplate = () => {
     if (!templateDraft.nombre || !templateDraft.template) {
-      showAlert('err', 'El nombre y el ID de plantilla son obligatorios.');
+      showAlertMsg('err', 'El nombre y el ID de plantilla son obligatorios.');
       return;
     }
     const updated = editingTemplate === 'new'
@@ -494,26 +461,22 @@ const EncuestasWhats = () => {
     saveTemplates(updated);
     setShowTemplateEditor(false);
     setEditingTemplate(null);
-    showAlert('ok', 'Plantilla guardada ✓');
+    showAlertMsg('ok', 'Plantilla guardada ✓');
   };
 
   const deleteTemplate = (id) => {
-    if (templates.length <= 1) { showAlert('err', 'Debe haber al menos una plantilla.'); return; }
+    if (templates.length <= 1) { showAlertMsg('err', 'Debe haber al menos una plantilla.'); return; }
     const updated = templates.filter(t => t.id !== id);
     saveTemplates(updated);
     if (selectedTemplateId === id) setSelectedTemplateId(updated[0].id);
   };
 
-  // ── Métricas de logs ──────────────────────────────────────────────────────
-  const okCount  = logs.filter(l => l.status === 'ok').length;
-  const errCount = logs.filter(l => l.status === 'err').length;
-
-  // ── Estilos compartidos ───────────────────────────────────────────────────
+  // ── Estilos ───────────────────────────────────────────────────────────────
   const dotStyle = {
-    high: { background: 'rgba(34,197,94,.25)',   borderColor: 'rgba(34,197,94,.4)',    color: '#86efac' },
-    mid:  { background: 'rgba(234,179,8,.2)',    borderColor: 'rgba(234,179,8,.35)',   color: '#fde047' },
-    low:  { background: 'rgba(239,68,68,.2)',    borderColor: 'rgba(239,68,68,.35)',   color: '#fca5a5' },
-    '':   { background: 'rgba(255,255,255,.1)',  borderColor: 'rgba(255,255,255,.15)', color: 'white'  },
+    high: { background: 'rgba(34,197,94,.25)',  borderColor: 'rgba(34,197,94,.4)',   color: '#86efac' },
+    mid:  { background: 'rgba(234,179,8,.2)',   borderColor: 'rgba(234,179,8,.35)',  color: '#fde047' },
+    low:  { background: 'rgba(239,68,68,.2)',   borderColor: 'rgba(239,68,68,.35)',  color: '#fca5a5' },
+    '':   { background: 'rgba(255,255,255,.1)', borderColor: 'rgba(255,255,255,.15)',color: 'white'  },
   };
 
   const cardStyle = {
@@ -535,48 +498,114 @@ const EncuestasWhats = () => {
   };
   const inputSmStyle = { ...inputStyle, fontSize: '12px', fontFamily: 'monospace' };
 
+  const filterSelectStyle = {
+    padding: '7px 10px', border: '1.5px solid #e5e7eb', borderRadius: '9px',
+    fontSize: '12px', color: '#374151', background: '#f8fafd',
+    outline: 'none', cursor: 'pointer', fontFamily: 'inherit',
+  };
+
   // ── ResponseCard ──────────────────────────────────────────────────────────
- const ResponseCard = ({ response }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const key = getItemKey(response);
+  const ResponseCard = ({ response }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const key = getItemKey(response);
+    const fecha = response.creado
+      ? new Date(response.creado).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : '—';
 
-  const fecha = response.creado
-    ? new Date(response.creado).toLocaleString('es-MX', {
-        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-      })
-    : '—';
+    if (response._tipo === 'satisfaccion') {
+      const scores = [
+        { label: 'Atención asesor',   icon: '⭐', val: response.atencion_asesor },
+        { label: 'Seguimiento',       icon: '🔁', val: response.seguimiento_asesor },
+        { label: 'Tiempo de entrega', icon: '⏱️', val: response.tiempo_entrega_unidad },
+        { label: 'Recepción',         icon: '🏢', val: response.experiencia_recepcion },
+      ];
+      return (
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', marginBottom: '8px', background: 'white' }}>
+          <div onClick={() => setIsOpen(!isOpen)}
+            style={{ background: '#001e50', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', cursor: 'pointer' }}>
+            <span style={{ color: 'rgba(255,255,255,.4)', fontSize: '11px', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>▼</span>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace', fontSize: '12px', fontWeight: 500, color: 'white', minWidth: 0 }}>
+              👤 {response.nombre_cliente || '(sin nombre)'}
+              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,.35)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {response.agencia || ''}{response.asesor_atendio ? ` · ${response.asesor_atendio}` : ''}
+              </span>
+            </div>
+            <span style={{ fontSize: '8px', fontWeight: 700, padding: '2px 7px', borderRadius: '99px', background: 'rgba(0,176,240,.25)', color: '#7dd3fc', fontFamily: 'Syne, sans-serif', letterSpacing: '0.06em', flexShrink: 0 }}>
+              SATISFACCIÓN
+            </span>
+            <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexShrink: 0 }}>
+              {scores.map((s, idx) => {
+                const cls = scoreColor(s.val);
+                const sty = dotStyle[cls] || dotStyle[''];
+                return (
+                  <div key={idx} style={{ width: '20px', height: '20px', borderRadius: '50%', border: '1px solid', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontSize: '9px', fontWeight: 600, ...sty }} title={`${s.label}: ${s.val ?? '—'}`}>
+                    {s.val ?? '?'}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,.4)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{fecha}</div>
+            <button onClick={(e) => { e.stopPropagation(); deleteCard(key); }} title="Ocultar"
+              style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', borderRadius: '6px', color: 'rgba(248,113,113,.7)', cursor: 'pointer', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '12px' }}>
+              ✕
+            </button>
+          </div>
+          {isOpen && (
+            <div style={{ padding: '14px', borderTop: '1px solid #e5e7eb' }}>
+              <div style={{ marginBottom: '10px', fontSize: '12px', color: '#4b5563' }}>
+                <strong>Motivo de visita:</strong> {response.motivo_visita || '—'}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                {scores.map((s, idx) => (
+                  <div key={idx} style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '9px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.icon} {s.label}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 600, color: '#111827', lineHeight: 1 }}>{s.val != null ? s.val : '—'}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '3px' }}>{renderStars(s.val)}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderLeft: '4px solid #00b0f0', borderRadius: '9px', padding: '10px 14px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>📝 Comentarios</div>
+                <div style={{ fontSize: '13px', color: '#4b5563', lineHeight: '1.55' }}>
+                  {response.comentario?.trim()
+                    ? <p style={{ margin: 0 }}>{response.comentario}</p>
+                    : <p style={{ margin: 0, color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>Sin comentarios</p>}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
 
-  // ── Satisfacción ──────────────────────────────────────────────────────────
-  if (response._tipo === 'satisfaccion') {
+    // Servicio
     const scores = [
-      { label: 'Atención asesor',   icon: '⭐', val: response.atencion_asesor },
-      { label: 'Seguimiento',       icon: '🔁', val: response.seguimiento_asesor },
-      { label: 'Tiempo de entrega', icon: '⏱️', val: response.tiempo_entrega_unidad },
-      { label: 'Recepción',         icon: '🏢', val: response.experiencia_recepcion },
+      { label: 'Atención asesor',  icon: '⭐', val: response.satisfaccion_atencion_asesor },
+      { label: 'Calidad / precio', icon: '💰', val: response.percepcion_calidad_precio },
+      { label: 'Servicio RYR',     icon: '🔧', val: response.satisfaccion_servicio_ryr },
     ];
-
     return (
       <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', marginBottom: '8px', background: 'white' }}>
         <div onClick={() => setIsOpen(!isOpen)}
-          style={{ background: '#001e50', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', cursor: 'pointer' }}>
+          style={{ background: '#0f2d1f', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', cursor: 'pointer' }}>
           <span style={{ color: 'rgba(255,255,255,.4)', fontSize: '11px', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>▼</span>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace', fontSize: '12px', fontWeight: 500, color: 'white', minWidth: 0 }}>
-            👤 {response.nombre_cliente || '(sin nombre)'}
+            🔧 {response.nombre_OS_cliente || '(sin nombre)'}
             <span style={{ fontSize: '9px', color: 'rgba(255,255,255,.35)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {response.agencia || ''}{response.asesor_atendio ? ` · ${response.asesor_atendio}` : ''}
             </span>
           </div>
-          <span style={{ fontSize: '8px', fontWeight: 700, padding: '2px 7px', borderRadius: '99px', background: 'rgba(0,176,240,.25)', color: '#7dd3fc', fontFamily: 'Syne, sans-serif', letterSpacing: '0.06em', flexShrink: 0 }}>
-            SATISFACCIÓN
+          <span style={{ fontSize: '8px', fontWeight: 700, padding: '2px 7px', borderRadius: '99px', background: 'rgba(34,197,94,.2)', color: '#86efac', fontFamily: 'Syne, sans-serif', letterSpacing: '0.06em', flexShrink: 0 }}>
+            SERVICIO
           </span>
           <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexShrink: 0 }}>
             {scores.map((s, idx) => {
               const cls = scoreColor(s.val);
               const sty = dotStyle[cls] || dotStyle[''];
               return (
-                <div key={idx}
-                  style={{ width: '20px', height: '20px', borderRadius: '50%', border: '1px solid', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontSize: '9px', fontWeight: 600, ...sty }}
-                  title={`${s.label}: ${s.val ?? '—'}`}>
+                <div key={idx} style={{ width: '20px', height: '20px', borderRadius: '50%', border: '1px solid', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontSize: '9px', fontWeight: 600, ...sty }} title={`${s.label}: ${s.val ?? '—'}`}>
                   {s.val ?? '?'}
                 </div>
               );
@@ -588,13 +617,12 @@ const EncuestasWhats = () => {
             ✕
           </button>
         </div>
-
         {isOpen && (
           <div style={{ padding: '14px', borderTop: '1px solid #e5e7eb' }}>
             <div style={{ marginBottom: '10px', fontSize: '12px', color: '#4b5563' }}>
-              <strong>Motivo de visita:</strong> {response.motivo_visita || '—'}
+              <strong>Agenda de cita:</strong> {response.satisfaccion_agenda_cita || '—'}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
               {scores.map((s, idx) => (
                 <div key={idx} style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '9px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -605,7 +633,7 @@ const EncuestasWhats = () => {
                 </div>
               ))}
             </div>
-            <div style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderLeft: '4px solid #00b0f0', borderRadius: '9px', padding: '10px 14px' }}>
+            <div style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderLeft: '4px solid #22c55e', borderRadius: '9px', padding: '10px 14px' }}>
               <div style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>📝 Comentarios</div>
               <div style={{ fontSize: '13px', color: '#4b5563', lineHeight: '1.55' }}>
                 {response.comentario?.trim()
@@ -617,78 +645,7 @@ const EncuestasWhats = () => {
         )}
       </div>
     );
-  }
-
-  // ── Servicio ──────────────────────────────────────────────────────────────
-  const scores = [
-    { label: 'Atención asesor',  icon: '⭐', val: response.satisfaccion_atencion_asesor },
-    { label: 'Calidad / precio', icon: '💰', val: response.percepcion_calidad_precio },
-    { label: 'Servicio RYR',     icon: '🔧', val: response.satisfaccion_servicio_ryr },
-  ];
-
-  return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', marginBottom: '8px', background: 'white' }}>
-      <div onClick={() => setIsOpen(!isOpen)}
-        style={{ background: '#0f2d1f', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', cursor: 'pointer' }}>
-        <span style={{ color: 'rgba(255,255,255,.4)', fontSize: '11px', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>▼</span>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace', fontSize: '12px', fontWeight: 500, color: 'white', minWidth: 0 }}>
-          🔧 {response.nombre_OS_cliente || '(sin nombre)'}
-          <span style={{ fontSize: '9px', color: 'rgba(255,255,255,.35)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {response.agencia || ''}{response.asesor_atendio ? ` · ${response.asesor_atendio}` : ''}
-          </span>
-        </div>
-        <span style={{ fontSize: '8px', fontWeight: 700, padding: '2px 7px', borderRadius: '99px', background: 'rgba(34,197,94,.2)', color: '#86efac', fontFamily: 'Syne, sans-serif', letterSpacing: '0.06em', flexShrink: 0 }}>
-          SERVICIO
-        </span>
-        <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexShrink: 0 }}>
-          {scores.map((s, idx) => {
-            const cls = scoreColor(s.val);
-            const sty = dotStyle[cls] || dotStyle[''];
-            return (
-              <div key={idx}
-                style={{ width: '20px', height: '20px', borderRadius: '50%', border: '1px solid', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontSize: '9px', fontWeight: 600, ...sty }}
-                title={`${s.label}: ${s.val ?? '—'}`}>
-                {s.val ?? '?'}
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,.4)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{fecha}</div>
-        <button onClick={(e) => { e.stopPropagation(); deleteCard(key); }} title="Ocultar"
-          style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', borderRadius: '6px', color: 'rgba(248,113,113,.7)', cursor: 'pointer', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '12px' }}>
-          ✕
-        </button>
-      </div>
-
-      {isOpen && (
-        <div style={{ padding: '14px', borderTop: '1px solid #e5e7eb' }}>
-          <div style={{ marginBottom: '10px', fontSize: '12px', color: '#4b5563' }}>
-            <strong>Agenda de cita:</strong> {response.satisfaccion_agenda_cita || '—'}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-            {scores.map((s, idx) => (
-              <div key={idx} style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '9px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.icon} {s.label}</div>
-                  <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 600, color: '#111827', lineHeight: 1 }}>{s.val != null ? s.val : '—'}</div>
-                </div>
-                <div style={{ display: 'flex', gap: '3px' }}>{renderStars(s.val)}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderLeft: '4px solid #22c55e', borderRadius: '9px', padding: '10px 14px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>📝 Comentarios</div>
-            <div style={{ fontSize: '13px', color: '#4b5563', lineHeight: '1.55' }}>
-              {response.comentario?.trim()
-                ? <p style={{ margin: 0 }}>{response.comentario}</p>
-                : <p style={{ margin: 0, color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>Sin comentarios</p>}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+  };
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -715,9 +672,16 @@ const EncuestasWhats = () => {
         .tpl-card:hover .tpl-edit-btn { opacity:1 }
         .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px }
         .modal-box     { background:white;border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:fadeIn .2s ease }
+        .filtro-select:focus { border-color:#00b0f0!important;outline:none;box-shadow:0 0 0 3px rgba(0,176,240,.15)!important }
+        .filtro-input:focus  { border-color:#00b0f0!important;outline:none;box-shadow:0 0 0 3px rgba(0,176,240,.15)!important }
+        .tab-tipo-btn        { transition:all .15s;cursor:pointer;border:none;border-radius:7px;padding:5px 12px;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.04em }
+        .tab-tipo-btn:hover  { opacity:0.85 }
+        .pag-btn             { background:#f8fafd;border:1px solid #e5e7eb;border-radius:8px;padding:5px 14px;font-size:12px;cursor:pointer;color:#374151;transition:all .15s }
+        .pag-btn:hover:not(:disabled) { background:#e5e7eb }
+        .pag-btn:disabled    { opacity:0.35;cursor:default }
       `}</style>
 
-      {/* ── MODAL EDITOR DE PLANTILLA ──────────────────────────────────────── */}
+      {/* MODAL EDITOR DE PLANTILLA */}
       {showTemplateEditor && templateDraft && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowTemplateEditor(false); }}>
           <div className="modal-box">
@@ -728,7 +692,6 @@ const EncuestasWhats = () => {
               <button onClick={() => setShowTemplateEditor(false)}
                 style={{ background: '#f3f4f6', border: 'none', borderRadius: '8px', width: '30px', height: '30px', cursor: 'pointer', fontSize: '14px', color: '#6b7280' }}>✕</button>
             </div>
-
             <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', gap: '10px' }}>
                 <div>
@@ -746,7 +709,6 @@ const EncuestasWhats = () => {
                     style={inputStyle} />
                 </div>
               </div>
-
               <div>
                 <label style={labelStyle}>Descripción</label>
                 <input className="encuestas-input" type="text"
@@ -754,7 +716,6 @@ const EncuestasWhats = () => {
                   onChange={e => setTemplateDraft({ ...templateDraft, descripcion: e.target.value })}
                   style={inputStyle} />
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={labelStyle}>ID de plantilla (WhatsApp) *</label>
@@ -767,8 +728,8 @@ const EncuestasWhats = () => {
                 <div>
                   <label style={labelStyle}>Idioma (código exacto)</label>
                   <select className="encuestas-input"
-                    value={templateDraft.langExact || templateDraft.lang}
-                    onChange={e => setTemplateDraft({ ...templateDraft, langExact: e.target.value, lang: e.target.value })}
+                    value={templateDraft.langExact}
+                    onChange={e => setTemplateDraft({ ...templateDraft, langExact: e.target.value })}
                     style={{ ...inputSmStyle, appearance: 'none' }}>
                     <option value="en_US">English US (en_US)</option>
                     <option value="en">English (en)</option>
@@ -777,7 +738,6 @@ const EncuestasWhats = () => {
                   </select>
                 </div>
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '10px' }}>
                 <div>
                   <label style={labelStyle}>Tipo</label>
@@ -798,7 +758,6 @@ const EncuestasWhats = () => {
                     style={{ width: '100%', height: '41px', border: '1.5px solid #e5e7eb', borderRadius: '9px', cursor: 'pointer', background: 'white', padding: '2px 4px' }} />
                 </div>
               </div>
-
               <div>
                 <label style={labelStyle}>Flow ID (opcional)</label>
                 <input className="encuestas-input" type="text" placeholder="Ej: 1738125237360317 — dejar vacío si no tiene Flow"
@@ -806,7 +765,6 @@ const EncuestasWhats = () => {
                   onChange={e => setTemplateDraft({ ...templateDraft, flowId: e.target.value || null })}
                   style={inputSmStyle} />
               </div>
-
               <div>
                 <label style={{ ...labelStyle, marginBottom: '8px' }}>Header de imagen</label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', marginBottom: '8px' }}>
@@ -821,7 +779,6 @@ const EncuestasWhats = () => {
                     style={inputSmStyle} />
                 )}
               </div>
-
               <div>
                 <label style={labelStyle}>Motivo de envío</label>
                 <input className="encuestas-input" type="text"
@@ -836,7 +793,6 @@ const EncuestasWhats = () => {
                   onChange={e => setTemplateDraft({ ...templateDraft, mensaje: e.target.value })}
                   style={{ ...inputStyle, minHeight: '80px', resize: 'vertical', lineHeight: '1.5' }} />
               </div>
-
               <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                 <button onClick={() => setShowTemplateEditor(false)}
                   style={{ flex: 1, padding: '10px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '10px', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
@@ -852,10 +808,10 @@ const EncuestasWhats = () => {
         </div>
       )}
 
-      {/* ── LAYOUT PRINCIPAL ───────────────────────────────────────────────── */}
+      {/* LAYOUT PRINCIPAL */}
       <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: '24px', alignItems: 'start', fontFamily: 'Epilogue, sans-serif' }}>
 
-        {/* ── COLUMNA IZQUIERDA ─────────────────────────────────────────── */}
+        {/* ── COLUMNA IZQUIERDA (sin cambios) ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
           {/* Selector de plantillas */}
@@ -872,7 +828,6 @@ const EncuestasWhats = () => {
                 ＋ Nueva
               </button>
             </div>
-
             <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {templates.map(t => {
                 const badge      = TIPO_BADGE[t.tipo] || TIPO_BADGE.encuesta;
@@ -937,7 +892,7 @@ const EncuestasWhats = () => {
                   {selectedTemplate.hasImage && <div style={{ marginTop: '4px', opacity: 0.6, fontSize: '10px' }}>🖼️ Incluye imagen — se sube automáticamente</div>}
                   {selectedTemplate.flowId  && <div style={{ marginTop: '4px', opacity: 0.6, fontSize: '10px' }}>🔘 Flow: {selectedTemplate.flowId}</div>}
                   <div style={{ marginTop: '4px', opacity: 0.5, fontSize: '9px', fontFamily: 'monospace' }}>
-                    template: {selectedTemplate.template} | lang: {selectedTemplate.langExact || selectedTemplate.lang}
+                    template: {selectedTemplate.template} | lang: {selectedTemplate.langExact}
                   </div>
                 </div>
               </div>
@@ -991,79 +946,16 @@ const EncuestasWhats = () => {
                   <span>{alert.message}</span>
                 </div>
               )}
-
-              <div onClick={() => setConfigOpen(!configOpen)}
-                style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#9ca3af', cursor: 'pointer', userSelect: 'none', width: 'fit-content', padding: '4px 8px', borderRadius: '6px' }}>
-                <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-                </svg>
-                Configuración de la API
-                <svg style={{ transition: 'transform .2s', transform: configOpen ? 'rotate(180deg)' : 'none', width: '11px', height: '11px' }}
-                  fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path d="M6 9l6 6 6-6"/>
-                </svg>
-              </div>
-
-              {configOpen && (
-                <div style={{ marginTop: '12px', paddingTop: '16px', borderTop: '1px dashed #e5e7eb', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div>
-                    <label style={labelStyle}>Token de acceso WhatsApp</label>
-                    <div style={{ position: 'relative' }}>
-                      <input className="encuestas-input" type={showToken ? 'text' : 'password'}
-                        placeholder="Pega tu token aquí..."
-                        value={config.accessToken}
-                        onChange={(e) => setConfig({ ...config, accessToken: e.target.value })}
-                        style={{ ...inputStyle, paddingRight: '60px', fontFamily: 'monospace', fontSize: '11px' }} />
-                      <button onClick={() => setShowToken(!showToken)}
-                        style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', fontWeight: 600, color: '#00b0f0', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>
-                        {showToken ? 'Ocultar' : 'Ver'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>Phone Number ID</label>
-                    <input className="encuestas-input" type="text"
-                      placeholder="Ej: 1180313015157033"
-                      value={config.phoneNumberId}
-                      onChange={(e) => setConfig({ ...config, phoneNumberId: e.target.value })}
-                      style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '11px' }} />
-                    <p style={{ margin: '4px 0 0', fontSize: '10px', color: '#9ca3af' }}>Se usa para enviar mensajes y subir imágenes.</p>
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>WABA ID <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(opcional — para verificar plantillas)</span></label>
-                    <input className="encuestas-input" type="text"
-                      placeholder="Ej: 990790696655589"
-                      value={config.wabaId}
-                      onChange={(e) => setConfig({ ...config, wabaId: e.target.value })}
-                      style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '11px' }} />
-                    <p style={{ margin: '4px 0 0', fontSize: '10px', color: '#9ca3af' }}>WhatsApp Business Account ID.</p>
-                  </div>
-
-                  <button onClick={verificarPlantillasMeta} disabled={isSending}
-                    style={{ width: '100%', padding: '9px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '9px', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '12px', letterSpacing: '0.08em', cursor: 'pointer', opacity: isSending ? 0.6 : 1 }}>
-                    🔍 Verificar plantillas en Meta
-                  </button>
-
-                  <button onClick={saveConfig}
-                    style={{ width: '100%', padding: '9px', background: '#001e50', color: 'white', border: 'none', borderRadius: '9px', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '12px', letterSpacing: '0.08em', cursor: 'pointer' }}>
-                    💾 Guardar configuración
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* ── PANEL DERECHO ─────────────────────────────────────────────── */}
+        {/* ── PANEL DERECHO MEJORADO ── */}
         <div style={cardStyle}>
           <div style={cardHeaderStyle}>
             <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: '#eff6ff', color: '#001e50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <path d="M3 9h18M9 21V9"/>
+                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
               </svg>
             </div>
             <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: '12px', fontWeight: 700, color: '#111827', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
@@ -1076,23 +968,27 @@ const EncuestasWhats = () => {
           </div>
 
           <div style={{ padding: '1.4rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '24px' }}>
+
+            {/* ── Estadísticas ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', marginBottom: '20px' }}>
               {[
-                { val: responses.length, label: 'Respuestas', barColor: '#001e50', textColor: '#001e50' },
-                { val: okCount,          label: 'Enviados',   barColor: '#25d366', textColor: '#166534' },
-                { val: errCount,         label: 'Fallidos',   barColor: '#ef4444', textColor: '#991b1b' },
+                { val: responses.length, label: 'Total',        barColor: '#001e50', textColor: '#001e50' },
+                { val: numServicio,      label: 'Servicio',      barColor: '#22c55e', textColor: '#166534' },
+                { val: numSatisf,        label: 'Satisfacción',  barColor: '#00b0f0', textColor: '#0369a1' },
+                { val: errCount,         label: 'Fallidos',      barColor: '#ef4444', textColor: '#991b1b' },
               ].map((s, i) => (
-                <div key={i} style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', textAlign: 'center' }}>
+                <div key={i} style={{ background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', textAlign: 'center' }}>
                   <div style={{ height: '3px', background: s.barColor }}></div>
-                  <div style={{ padding: '14px 12px' }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: '28px', fontWeight: 500, lineHeight: 1, marginBottom: '4px', color: s.textColor }}>{s.val}</div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af' }}>{s.label}</div>
+                  <div style={{ padding: '10px 8px' }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: '22px', fontWeight: 500, lineHeight: 1, marginBottom: '3px', color: s.textColor }}>{s.val}</div>
+                    <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af' }}>{s.label}</div>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: '4px', background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '4px', marginBottom: '20px' }}>
+            {/* ── Tabs ── */}
+            <div style={{ display: 'flex', gap: '4px', background: '#f8fafd', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '4px', marginBottom: '16px' }}>
               {[
                 { id: 'responses', label: '📊 Respuestas de clientes' },
                 { id: 'logs',      label: '📋 Registro de envíos'     },
@@ -1104,19 +1000,114 @@ const EncuestasWhats = () => {
               ))}
             </div>
 
+            {/* ── PANEL RESPUESTAS ── */}
             {activeTab === 'responses' && (
-              <div className="encuestas-scrollbar" style={{ maxHeight: '560px', overflowY: 'auto', paddingRight: '4px' }}>
-                {responses.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9ca3af', fontSize: '13px' }}>
-                    <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}>💬</div>
-                    <p style={{ margin: 0 }}>Sin respuestas aún.<br /><span style={{ fontSize: '11px' }}>Se actualizan automáticamente cada 3 segundos.</span></p>
+              <>
+                {/* Filtros */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  {/* Búsqueda */}
+                  <input
+                    className="filtro-input"
+                    type="text"
+                    placeholder="🔍 Buscar cliente, asesor, folio..."
+                    value={filtroTexto}
+                    onChange={e => setFiltroTexto(e.target.value)}
+                    style={{ ...filterSelectStyle, flex: 2, minWidth: '160px' }}
+                  />
+                  {/* Tipo */}
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    {[
+                      { val: 'todos',        label: 'Todos' },
+                      { val: 'servicio',     label: '🔧 Servicio' },
+                      { val: 'satisfaccion', label: '⭐ Satisfacción' },
+                    ].map(({ val, label }) => (
+                      <button
+                        key={val}
+                        className="tab-tipo-btn"
+                        onClick={() => setFiltroTipo(val)}
+                        style={{
+                          background: filtroTipo === val ? '#001e50' : '#f3f4f6',
+                          color:      filtroTipo === val ? 'white'   : '#6b7280',
+                        }}
+                      >{label}</button>
+                    ))}
                   </div>
-                ) : (
-                  responses.map((r) => <ResponseCard key={getItemKey(r)} response={r} />)
+                </div>
+
+                {/* Dropdowns agencia / asesor */}
+                {(agenciasUnicas.length > 0 || asesoresUnicos.length > 0) && (
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                    {agenciasUnicas.length > 0 && (
+                      <select
+                        className="filtro-select"
+                        value={filtroAgencia}
+                        onChange={e => setFiltroAgencia(e.target.value)}
+                        style={{ ...filterSelectStyle, flex: 1 }}
+                      >
+                        <option value="">Todas las agencias</option>
+                        {agenciasUnicas.map(a => <option key={a}>{a}</option>)}
+                      </select>
+                    )}
+                    {asesoresUnicos.length > 0 && (
+                      <select
+                        className="filtro-select"
+                        value={filtroAsesor}
+                        onChange={e => setFiltroAsesor(e.target.value)}
+                        style={{ ...filterSelectStyle, flex: 1 }}
+                      >
+                        <option value="">Todos los asesores</option>
+                        {asesoresUnicos.map(a => <option key={a}>{a}</option>)}
+                      </select>
+                    )}
+                    {(filtroTexto || filtroTipo !== 'todos' || filtroAgencia || filtroAsesor) && (
+                      <button
+                        onClick={() => { setFiltroTexto(''); setFiltroTipo('todos'); setFiltroAgencia(''); setFiltroAsesor(''); }}
+                        style={{ padding: '7px 12px', background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '9px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >✕ Limpiar</button>
+                    )}
+                  </div>
                 )}
-              </div>
+
+                {/* Contador de resultados */}
+                {(filtroTexto || filtroTipo !== 'todos' || filtroAgencia || filtroAsesor) && (
+                  <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '10px', fontFamily: 'monospace' }}>
+                    {responsesFiltradas.length} resultado{responsesFiltradas.length !== 1 ? 's' : ''} de {responses.length} total
+                  </div>
+                )}
+
+                {/* Lista */}
+                <div className="encuestas-scrollbar" style={{ maxHeight: '520px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {responsesPagina.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9ca3af', fontSize: '13px' }}>
+                      <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}>
+                        {responses.length === 0 ? '💬' : '🔍'}
+                      </div>
+                      <p style={{ margin: 0 }}>
+                        {responses.length === 0
+                          ? <>Sin respuestas aún.<br /><span style={{ fontSize: '11px' }}>Se actualizan automáticamente cada 3 segundos.</span></>
+                          : <>Sin resultados para los filtros aplicados.</>
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    responsesPagina.map((r) => <ResponseCard key={getItemKey(r)} response={r} />)
+                  )}
+                </div>
+
+                {/* Paginación */}
+                {totalPaginas > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #f3f4f6' }}>
+                    <button className="pag-btn" disabled={pagina <= 1} onClick={() => setPagina(p => p - 1)}>← Anterior</button>
+                    <span style={{ fontSize: '12px', color: '#6b7280', fontFamily: 'monospace' }}>
+                      {pagina} / {totalPaginas}
+                    </span>
+                    <button className="pag-btn" disabled={pagina >= totalPaginas} onClick={() => setPagina(p => p + 1)}>Siguiente →</button>
+                  </div>
+                )}
+              </>
             )}
 
+            {/* ── PANEL LOGS ── */}
             {activeTab === 'logs' && (
               <div>
                 {!logsLoaded ? (

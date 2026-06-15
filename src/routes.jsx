@@ -88,6 +88,7 @@ import Puestos from "./pages/puestos/Puestos";
 import CampanasMeta from "./pages/CampanasMeta/CampanasMeta";
 import Retencion from "./pages/Retencion/Retencion";
 import JDPower from "./pages/JDPower/JDPower";
+import JDPowerServicio from "./pages/encuestaJDpowerservicio/JDPowerServicio";
 
 import WhatsLayout from "./pages/EnvioWhats/EnvioLayout";
 import WhatsIndex from "./pages/EnvioWhats/EnvioIndex";
@@ -221,7 +222,7 @@ export const router = createBrowserRouter(
                             element: <InicioPorPermisos />,
                         },
 
-                        {
+    {
                             path: "calidad",
                             element: (
                                 <RequirePermission
@@ -335,10 +336,18 @@ export const router = createBrowserRouter(
                                         </RequirePermission>
                                     ),
                                 },
+                                {
+                                    path: "jdpower-servicio",
+                                    element: (
+                                        <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_POSTVENTA"]}>
+                                            <JDPowerServicio />
+                                        </RequirePermission>
+                                    ),
+                                },
                             ],
                         },
 
-                        {
+                                {
                             path: "comercial",
                             element: (
                                 <RequirePermission
