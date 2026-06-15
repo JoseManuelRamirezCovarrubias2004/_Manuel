@@ -1,8 +1,9 @@
 // src/app/NotificacionesWhatsappRoot.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../auth/AuthContext";
 import { useNotificacionesWhatsapp } from "../hooks/useNotificacionesWhatsapp";
+import { getAccessToken } from "../lib/apiClient";
 
 function WhatsAppToast({ notificacion, onClose }) {
     useEffect(() => {
@@ -145,6 +146,11 @@ export default function NotificacionesWhatsappRoot() {
 
     const [cardNotificacionesCerrada, setCardNotificacionesCerrada] = useState(false);
 
+    const accessToken = useMemo(() => {
+        if (!ready || !isAuthenticated) return "";
+        return getAccessToken();
+    }, [ready, isAuthenticated, user]);
+
     const {
         estado,
         numeroAsesor,
@@ -158,17 +164,21 @@ export default function NotificacionesWhatsappRoot() {
         user,
         ready,
         isAuthenticated,
+        accessToken,
     });
 
     useEffect(() => {
+        if (!import.meta.env.DEV) return;
+
         console.log("Estado notificaciones WhatsApp:", {
             estado,
             numeroAsesor,
             usuario,
             esAdmin,
             permisoNotificaciones,
+            tieneJwt: Boolean(accessToken),
         });
-    }, [estado, numeroAsesor, usuario, esAdmin, permisoNotificaciones]);
+    }, [estado, numeroAsesor, usuario, esAdmin, permisoNotificaciones, accessToken]);
 
     useEffect(() => {
         setCardNotificacionesCerrada(false);

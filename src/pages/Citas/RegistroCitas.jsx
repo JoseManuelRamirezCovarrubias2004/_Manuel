@@ -27,6 +27,7 @@ import {
     Table2,
     BarChart3,
     Calendar,
+    CalendarCheck,
 } from "lucide-react";
 import { apiCitas } from "../../lib/apiCitas";
 import { createPortal } from "react-dom";
@@ -364,7 +365,7 @@ function AgendaView({ rows, loading, onEdit, onNewAtSlot, onToggleAsistencia, up
                         <ChevronLeft className="h-4 w-4" />
                     </button>
                     <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-[#131E5C] text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition">
-                        Hoy
+                        Semana
                     </button>
                     <button onClick={goNext} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
                         <ChevronRight className="h-4 w-4" />
@@ -444,6 +445,7 @@ function AgendaView({ rows, loading, onEdit, onNewAtSlot, onToggleAsistencia, up
                                                                 const telefono = cita?.cliente?.telefono || "—";
                                                                 const autoInteres = cita.auto_interes || "—";
                                                                 const asesorPiso = cita.asesor_piso || "—";
+                                                                const agendado_por = cita.agendado_por || "—";
                                                                 const asesorDigital = cita.asesor_digital || "—";
 
                                                                 return (
@@ -722,28 +724,76 @@ export default function RegistroCitas() {
     const DEALERS = useMemo(() => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"], []);
     const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "Candy Denisse Marquez Cortes", "IA Vagen"];
     const ASESORES = [
-        "AURA MARLIZETH FERNANDEZ LOPEZ", "Bianca Isabel Chavez Alarcon", "ERENDIRA SANTOS COYOTZI",
-        "IRENE DEL CARMEN GUIZA LOPEZ", "MARCOS RAUL DIAZ RAMOS", "MARIO ALBERTO LOPEZ RAMOS",
-        "MARISOL LAGUNES GONZALEZ", "NALLELY HERNANDEZ GARCIA", "OCTAVIO BRUNO GONZALEZ",
-        "ROGELIO VAZQUEZ SANCHEZ", "RUBEN ALBERTO TOSQUY ADRIANO", "Saja Azzam Mohammad Jamous",
-        "SANDRA LUZ PRIETO PEREZ", "YAMIL MISAEL RODRIGUEZ AGUILAR", "LUIS ALFONSO CORIA MARROQUIN",
-        "CANDY DENISSE MARQUEZ CORTES", "DELMAR JAVIER ILLESCAS DOMINGUEZ", "EDGAR JESUS GOMEZ PEREZ",
-        "Valeria Zilli Durante", "IDALMY JIMENEZ SANCHEZ", "IVAN JUAREZ ORTEGA",
-        "JESSICA OLIVARES CAMPOS", "JESUS XITLAMA GOMEZ", "LIZBETH CANO CLARA",
-        "LUIS MANUEL PALOMARES OLAYO", "MARIA DEL CARMEN ZAVALA VELAZQUEZ", "OMAR VILLIERS MONDRAGON",
-        "RUBEN ROMERO VALDES", "VERONICA CASTILLO FUENTES", "Hector Rodriguez",
-        "GEOVANI NAVA DIAZ", "ZEILA NAVARRO CONTRERAS", "JOSE ALFREDO BARRANCA REYES",
-        "ADRIAN GALVEZ ROLDAN", "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ", "Marelly Tenorio Salinas",
-        "ELIA INES ARANO REYES", "JORGE LUIS ALAMILLO RODRIGUEZ", "Cesar Ivan Salazar Reyes",
-        "Cristian Fernando Rivera Godinez", "DULCE ABIGAIL GARCIA OLIVARES", "Felix Emmanuel Solis Angeles",
-        "GERMAN JARITH SALAZAR MIRANDA", "Iris Yazmín Gómez Velázquez", "Israel Garcia Juarez",
-        "JORGE ANTONIO RODRIGUEZ MARTINEZ", "JOSE DE JESUS GARCIA ROMAN", "JUAN MANUEL SOBREVILLA VICENCIO",
-        "Miguel Capitanachi Paredes", "OLIMPIA VAZQUEZ MENDEZ", "Roberto Ramses Luna Fajardo",
-        "Carlos Arturo Garces Vengas", "Edgar Omar Noguera Solis", "Javier Perez Meraz",
-        "Luis Armando Almora Perez", "Mara Erubey Soto Villegas", "Sergio Ivan Quintana Martinez",
-        "Sergio Rene Delgado Sarmiento", "Yoseth Ruiz Castellanos", "José Alberto Sedas Flores",
-        "Maria Vanessa Jiménez Medina", "Juan Jesús Márquez Aquino", "Estefano Marlom Aparicio",
+        "AURA MARLIZETH FERNANDEZ LOPEZ",
+        "Bianca Isabel Chavez Alarcon",
+        "ERENDIRA SANTOS COYOTZI",
+        "IRENE DEL CARMEN GUIZA LOPEZ",
+        "MARCOS RAUL DIAZ RAMOS",
+        "MARIO ALBERTO LOPEZ RAMOS",
+        "MARISOL LAGUNES GONZALEZ",
+        "NALLELY HERNANDEZ GARCIA",
+        "OCTAVIO BRUNO GONZALEZ",
+        "ROGELIO VAZQUEZ SANCHEZ",
+        "RUBEN ALBERTO TOSQUY ADRIANO",
+        "Saja Azzam Mohammad Jamous",
+        "SANDRA LUZ PRIETO PEREZ",
+        "YAMIL MISAEL RODRIGUEZ AGUILAR",
+        "LUIS ALFONSO CORIA MARROQUIN",
+        "CANDY DENISSE MARQUEZ CORTES",
+        "DELMAR JAVIER ILLESCAS DOMINGUEZ",
+        "EDGAR JESUS GOMEZ PEREZ",
+        "Valeria Zilli Durante",
+        "IDALMY JIMENEZ SANCHEZ",
+        "IVAN JUAREZ ORTEGA",
+        "JESSICA OLIVARES CAMPOS",
+        "JESUS XITLAMA GOMEZ",
+        "LIZBETH CANO CLARA",
+        "LUIS MANUEL PALOMARES OLAYO",
+        "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
+        "OMAR VILLIERS MONDRAGON",
+        "RUBEN ROMERO VALDES",
+        "VERONICA CASTILLO FUENTES",
+        "Hector Rodriguez",
+        "GEOVANI NAVA DIAZ",
+        "ZEILA NAVARRO CONTRERAS",
+        "JOSE ALFREDO BARRANCA REYES",
+        "ADRIAN GALVEZ ROLDAN",
+        "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
+        "Marelly Tenorio Salinas",
+        "ELIA INES ARANO REYES",
+        "JORGE LUIS ALAMILLO RODRIGUEZ",
+        "Cesar Ivan Salazar Reyes",
+        "Cristian Fernando Rivera Godinez",
+        "DULCE ABIGAIL GARCIA OLIVARES",
+        "Felix Emmanuel Solis Angeles",
+        "GERMAN JARITH SALAZAR MIRANDA",
+        "Iris Yazmín Gómez Velázquez",
+        "Israel Garcia Juarez",
+        "JORGE ANTONIO RODRIGUEZ MARTINEZ",
+        "JOSE DE JESUS GARCIA ROMAN",
+        "JUAN MANUEL SOBREVILLA VICENCIO",
+        "Miguel Capitanachi Paredes",
+        "OLIMPIA VAZQUEZ MENDEZ",
+        "Roberto Ramses Luna Fajardo",
+        "Carlos Arturo Garces Vengas",
+        "Edgar Omar Noguera Solis",
+        "Javier Perez Meraz",
+        "Luis Armando Almora Perez",
+        "Mara Erubey Soto Villegas",
+        "Sergio Ivan Quintana Martinez",
+        "Sergio Rene Delgado Sarmiento",
+        "Yoseth Ruiz Castellanos",
+        "Luis Alberto Ramirez Santamaria",
+        "Paul Serrano Vera",
+        "Luis Manuel Alvarez Martinez"
     ];
+
+    const AGENDADO = [
+        "Asistente",
+        "Call Center",
+        "Asesor de Servicio",
+    ];
+
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
     const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter", "CRAFTER ELITE", "CRAFTER URBAN", "CRAFTER ELEMENTAL", "CRAFTER INSPIRE"];
     const TIPO_CITA = ["Tradicional", "Digital", "Evento", "Remarketing"];
@@ -838,7 +888,7 @@ export default function RegistroCitas() {
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) return false;
             const nombreCliente = normalizeStr(c?.cliente?.nombre);
             const telCliente = normalizeStr(c?.cliente?.telefono);
-            const matchQ = !q || [c.agencia, nombreCliente, telCliente, c.auto_interes, c.tipo_cita, c.fuente_prospeccion, c.asesor_digital, c.asesor_piso, c.comentarios].some((v) => normalizeStr(v).toLowerCase().includes(q));
+            const matchQ = !q || [c.agencia, nombreCliente, telCliente, c.auto_interes, c.tipo_cita, c.fuente_prospeccion, c.asesor_digital, c.asesor_piso, c.agendado_por, c.comentarios].some((v) => normalizeStr(v).toLowerCase().includes(q));
             const matchAgencia = filters.agencia === "Todos" || normalizeStr(c.agencia) === normalizeStr(filters.agencia);
             const matchAsesorDigital = filters.asesorDigital === "Todos" || normalizeStr(c.asesor_digital) === normalizeStr(filters.asesorDigital);
             let matchRango = true;
@@ -883,7 +933,7 @@ export default function RegistroCitas() {
             fechaDefault = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
         }
 
-        setDraft({ id: null, cliente_id: null, agencia: agenciaDefault, cliente_nombre: "", cliente_telefono: "", auto_interes: "", fecha_hora_cita: fechaDefault, asistencia: false, tipo_cita: "", fuente_prospeccion: "", asesor_digital: "", asesor_piso: "", comentarios: "" });
+        setDraft({ id: null, cliente_id: null, agencia: agenciaDefault, cliente_nombre: "", cliente_telefono: "", auto_interes: "", fecha_hora_cita: fechaDefault, asistencia: false, tipo_cita: "", fuente_prospeccion: "", asesor_digital: "", asesor_piso: "", agendado_por: "", comentarios: "" });
         setOpenModal(true);
     };
 
@@ -897,7 +947,7 @@ export default function RegistroCitas() {
                 alert("No tienes permisos para ver registros de otra agencia."); setOpenModal(false); return;
             }
             // ────────────────────────────────────────────────────────────────
-            setDraft({ id: c.id, cliente_id: c?.cliente?.id_cliente ?? null, agencia: c.agencia || (isAdmin ? "" : userAgencia), cliente_nombre: c?.cliente?.nombre || "", cliente_telefono: c?.cliente?.telefono || "", auto_interes: c.auto_interes || "", fecha_hora_cita: toDTLocal(c.fecha_hora_cita), asistencia: !!c.asistencia, tipo_cita: c.tipo_cita || "", fuente_prospeccion: c.fuente_prospeccion || "", asesor_digital: c.asesor_digital || "", asesor_piso: c.asesor_piso || "", comentarios: c.comentarios || "" });
+            setDraft({ id: c.id, cliente_id: c?.cliente?.id_cliente ?? null, agencia: c.agencia || (isAdmin ? "" : userAgencia), cliente_nombre: c?.cliente?.nombre || "", cliente_telefono: c?.cliente?.telefono || "", auto_interes: c.auto_interes || "", fecha_hora_cita: toDTLocal(c.fecha_hora_cita), asistencia: !!c.asistencia, tipo_cita: c.tipo_cita || "", fuente_prospeccion: c.fuente_prospeccion || "", asesor_digital: c.asesor_digital || "", asesor_piso: c.asesor_piso || "", agendado_por: c.agendado_por || "", comentarios: c.comentarios || "" });
         } catch (e) { console.error(e); alert("No se pudo abrir la cita (revisa consola)."); setOpenModal(false); }
         finally { setLoadingDetail(false); }
     };
@@ -928,7 +978,9 @@ export default function RegistroCitas() {
         setSaving(true);
         try {
             const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : normalizeStr(draft.agencia || userAgencia);
-            const payload = { agencia: agenciaFinal, ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}), nombre: draft.cliente_nombre || "", telefono: normalizeStr(draft.cliente_telefono), auto_interes: draft.auto_interes || "", fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita), asistencia: !!draft.asistencia, tipo_cita: draft.tipo_cita || "", fuente_prospeccion: draft.fuente_prospeccion || "", asesor_digital: draft.asesor_digital || "", asesor_piso: draft.asesor_piso || "", comentarios: draft.comentarios || "" };
+            const payload = {
+                agencia: agenciaFinal, ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}), nombre: draft.cliente_nombre || "", telefono: normalizeStr(draft.cliente_telefono), auto_interes: draft.auto_interes || "", fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita), asistencia: !!draft.asistencia, tipo_cita: draft.tipo_cita || "", fuente_prospeccion: draft.fuente_prospeccion || "", asesor_digital: draft.asesor_digital || "", asesor_piso: draft.asesor_piso || "", agendado_por: draft.agendado_por || "", comentarios: draft.comentarios || ""
+            };
             if (mode === "create") await apiCitas.create(payload);
             else await apiCitas.update(draft.id, payload);
             await refreshList(); closeModal();
@@ -967,71 +1019,71 @@ export default function RegistroCitas() {
             ))}
         </div>
     );
-const exportarExcel = () => {
-    const titulo = [["REPORTE DE CITAS — GRUPO AUTOMOTRIZ R&R"]];
-    const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
-    const filtrosActivos = [];
-    if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
-    if (filters.asesorDigital !== "Todos") filtrosActivos.push(`Asesor Digital: ${filters.asesorDigital}`);
-    if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
-    if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
-    if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
-    const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
-    const totalFila = [[`Total de registros: ${sorted.length}`]];
-    const espaciado = [[]];
+    const exportarExcel = () => {
+        const titulo = [["REPORTE DE CITAS — GRUPO AUTOMOTRIZ R&R"]];
+        const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+        const filtrosActivos = [];
+        if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+        if (filters.asesorDigital !== "Todos") filtrosActivos.push(`Asesor Digital: ${filters.asesorDigital}`);
+        if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+        if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+        if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+        const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+        const totalFila = [[`Total de registros: ${sorted.length}`]];
+        const espaciado = [[]];
 
-    const encabezados = [[
-        "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono",
-        "Auto Interés", "Tipo Cita", "Fuente Prospección",
-        "Asesor Digital", "Asesor Piso", "¿Asistió?", "Comentarios",
-    ]];
+        const encabezados = [[
+            "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono",
+            "Auto Interés", "Tipo Cita", "Fuente Prospección",
+            "Asesor Digital", "Asesor Piso", "¿Asistió?", "Comentarios",
+        ]];
 
-    const filas = sorted.map((row, i) => ([
-        i + 1,
-        row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
-        row.agencia || "—",
-        row?.cliente?.nombre || "—",
-        row?.cliente?.telefono || "—",
-        row.auto_interes || "—",
-        row.tipo_cita || "—",
-        row.fuente_prospeccion || "—",
-        row.asesor_digital || "—",
-        row.asesor_piso || "—",
-        row.asistencia ? "Sí" : "No",
-        row.comentarios || "—",
-    ]));
+        const filas = sorted.map((row, i) => ([
+            i + 1,
+            row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
+            row.agencia || "—",
+            row?.cliente?.nombre || "—",
+            row?.cliente?.telefono || "—",
+            row.auto_interes || "—",
+            row.tipo_cita || "—",
+            row.fuente_prospeccion || "—",
+            row.asesor_digital || "—",
+            row.asesor_piso || "—",
+            row.asistencia ? "Sí" : "No",
+            row.comentarios || "—",
+        ]));
 
-    const data = [
-        ...titulo,
-        ...fechaGen,
-        ...filtroFila,
-        ...totalFila,
-        ...espaciado,
-        ...encabezados,
-        ...filas,
-    ];
+        const data = [
+            ...titulo,
+            ...fechaGen,
+            ...filtroFila,
+            ...totalFila,
+            ...espaciado,
+            ...encabezados,
+            ...filas,
+        ];
 
-    const ws = XLSX.utils.aoa_to_sheet(data);
+        const ws = XLSX.utils.aoa_to_sheet(data);
 
-    ws["!cols"] = [
-        { wch: 5 },   // N°
-        { wch: 20 },  // Fecha y Hora
-        { wch: 16 },  // Dealer
-        { wch: 28 },  // Cliente
-        { wch: 16 },  // Teléfono
-        { wch: 16 },  // Auto Interés
-        { wch: 14 },  // Tipo Cita
-        { wch: 22 },  // Fuente Prospección
-        { wch: 30 },  // Asesor Digital
-        { wch: 36 },  // Asesor Piso
-        { wch: 10 },  // ¿Asistió?
-        { wch: 40 },  // Comentarios
-    ];
+        ws["!cols"] = [
+            { wch: 5 },   // N°
+            { wch: 20 },  // Fecha y Hora
+            { wch: 16 },  // Dealer
+            { wch: 28 },  // Cliente
+            { wch: 16 },  // Teléfono
+            { wch: 16 },  // Auto Interés
+            { wch: 14 },  // Tipo Cita
+            { wch: 22 },  // Fuente Prospección
+            { wch: 30 },  // Asesor Digital
+            { wch: 36 },  // Asesor Piso
+            { wch: 10 },  // ¿Asistió?
+            { wch: 40 },  // Comentarios
+        ];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Citas");
-    XLSX.writeFile(wb, `citas_${new Date().toISOString().slice(0, 10)}.xlsx`);
-};
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Citas");
+        XLSX.writeFile(wb, `citas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1242,7 +1294,13 @@ const exportarExcel = () => {
                                 {ASESORES.map((d) => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </Field>
-                        <div className="md:col-span-3">
+                        <Field label="Agendado Por" icon={CalendarCheck}>
+                            <select value={draft.agendado_por || ""} onChange={(e) => setDraft((p) => ({ ...p, agendado_por: e.target.value }))} className={[inputBase, inputOk].join(" ")}>
+                                <option value="" disabled>Selecciona un asesor ...</option>
+                                {AGENDADO.map((d) => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </Field>
+                        <div className="md:col-span-2">
                             <Field label="Comentarios" icon={MessageSquareText}>
                                 <textarea value={draft.comentarios} onChange={(e) => setDraft((p) => ({ ...p, comentarios: e.target.value }))} className={[inputBase, inputOk, "min-h-[110px]"].join(" ")} placeholder="Notas internas..." />
                             </Field>

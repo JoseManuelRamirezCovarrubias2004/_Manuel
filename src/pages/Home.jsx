@@ -457,37 +457,197 @@ function PanelFiltros({
     );
 }
 
-function extraerTokenDeStorage(storage) {
-    if (!storage) return "";
+function parsearJsonSeguro(valor, fallback = null) {
+    try {
+        return JSON.parse(valor);
+    } catch {
+        return fallback;
+    }
+}
 
-    const clavesDirectas = ["crm_token", "token", "authToken", "access_token"];
-    for (const clave of clavesDirectas) {
-        const valor = storage.getItem(clave);
-        if (valor && typeof valor === "string") {
-            return valor.replace(/^Bearer\s+/i, "").trim();
+function limpiarTokenSesion(valor) {
+    const token = String(valor || "").replace(/^Bearer\s+/i, "").trim();
+
+    if (!token) return "";
+    if (token === "undefined") return "";
+    if (token === "null") return "";
+
+    return token;
+}
+
+function pareceJwt(valor) {
+    const token = limpiarTokenSesion(valor);
+    return token.split(".").length === 3;
+}
+
+function leerPayloadJwt(token) {
+    try {
+        const partes = limpiarTokenSesion(token).split(".");
+        if (partes.length !== 3) return null;
+
+        const base64 = partes[1].replace(/-/g, "+").replace(/_/g, "/");
+        const normalizado = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+
+        return JSON.parse(window.atob(normalizado));
+    } catch {
+        return null;
+    }
+}
+
+function tokenJwtExpirado(token) {
+    const payload = leerPayloadJwt(token);
+
+    if (!payload?.exp) return false;
+
+    // Margen de 30 segundos para evitar peticiones justo al expirar.
+    return Date.now() >= (Number(payload.exp) - 30) * 1000;
+}
+
+function obtenerJwtDeObjeto(obj) {
+    if (!obj || typeof obj !== "object") return "";
+
+    const candidatos = [
+        obj?.access,
+        obj?.access_token,
+        obj?.accessToken,
+        obj?.jwt,
+
+        obj?.auth?.access,
+        obj?.auth?.access_token,
+        obj?.auth?.accessToken,
+        obj?.auth?.jwt,
+
+        obj?.tokens?.access,
+        obj?.tokens?.access_token,
+        obj?.tokens?.accessToken,
+
+        obj?.session?.access,
+        obj?.session?.access_token,
+        obj?.session?.accessToken,
+
+        // Al final porque en versiones viejas puede contener token firmado.
+        obj?.token,
+        obj?.authToken,
+        obj?.auth?.token,
+        obj?.session?.token,
+    ];
+
+    for (const candidato of candidatos) {
+        const token = limpiarTokenSesion(candidato);
+
+        if (pareceJwt(token) && !tokenJwtExpirado(token)) {
+            return token;
         }
     }
 
-    const clavesJson = ["crm_auth", "auth", "session", "user_session"];
+    return "";
+}
+
+function obtenerRefreshDeObjeto(obj) {
+    if (!obj || typeof obj !== "object") return "";
+
+    const candidatos = [
+        obj?.refresh,
+        obj?.refresh_token,
+        obj?.refreshToken,
+
+        obj?.auth?.refresh,
+        obj?.auth?.refresh_token,
+        obj?.auth?.refreshToken,
+
+        obj?.tokens?.refresh,
+        obj?.tokens?.refresh_token,
+        obj?.tokens?.refreshToken,
+
+        obj?.session?.refresh,
+        obj?.session?.refresh_token,
+        obj?.session?.refreshToken,
+    ];
+
+    for (const candidato of candidatos) {
+        const token = limpiarTokenSesion(candidato);
+
+        if (pareceJwt(token) && !tokenJwtExpirado(token)) {
+            return token;
+        }
+    }
+
+    return "";
+}
+
+function extraerTokenDeStorage(storage) {
+    if (!storage) return "";
+
+    /*
+        Orden importante:
+        1. Llaves nuevas JWT del CRM.
+        2. Llaves compatibles.
+        3. Llaves viejas solo si realmente contienen JWT.
+    */
+    const clavesDirectas = [
+        "@token_access_jwt",
+        "access",
+        "accessToken",
+        "auth.access",
+        "access_token",
+        "jwt",
+        "token",
+        "authToken",
+        "crm_token",
+    ];
+
+    for (const clave of clavesDirectas) {
+        const token = limpiarTokenSesion(storage.getItem(clave));
+
+        if (pareceJwt(token) && !tokenJwtExpirado(token)) {
+            return token;
+        }
+    }
+
+    const clavesJson = ["auth", "crm_auth", "session", "user_session"];
+
     for (const clave of clavesJson) {
         const valor = storage.getItem(clave);
         if (!valor) continue;
 
-        try {
-            const obj = JSON.parse(valor);
-            const token =
-                obj?.token ||
-                obj?.authToken ||
-                obj?.accessToken ||
-                obj?.access_token ||
-                obj?.jwt;
+        const obj = parsearJsonSeguro(valor, null);
+        const token = obtenerJwtDeObjeto(obj);
 
-            if (token) {
-                return String(token).replace(/^Bearer\s+/i, "").trim();
-            }
-        } catch {
-            // sin acción
+        if (token) return token;
+    }
+
+    return "";
+}
+
+function extraerRefreshDeStorage(storage) {
+    if (!storage) return "";
+
+    const clavesDirectas = [
+        "@token_refresh_jwt",
+        "refresh",
+        "refreshToken",
+        "auth.refresh",
+        "refresh_token",
+    ];
+
+    for (const clave of clavesDirectas) {
+        const token = limpiarTokenSesion(storage.getItem(clave));
+
+        if (pareceJwt(token) && !tokenJwtExpirado(token)) {
+            return token;
         }
+    }
+
+    const clavesJson = ["auth", "crm_auth", "session", "user_session"];
+
+    for (const clave of clavesJson) {
+        const valor = storage.getItem(clave);
+        if (!valor) continue;
+
+        const obj = parsearJsonSeguro(valor, null);
+        const token = obtenerRefreshDeObjeto(obj);
+
+        if (token) return token;
     }
 
     return "";
@@ -495,6 +655,7 @@ function extraerTokenDeStorage(storage) {
 
 function obtenerTokenSesion() {
     if (typeof window === "undefined") return "";
+
     return (
         extraerTokenDeStorage(window.localStorage) ||
         extraerTokenDeStorage(window.sessionStorage) ||
@@ -502,8 +663,141 @@ function obtenerTokenSesion() {
     );
 }
 
-function headersBase() {
+function obtenerRefreshSesion() {
+    if (typeof window === "undefined") return "";
+
+    return (
+        extraerRefreshDeStorage(window.localStorage) ||
+        extraerRefreshDeStorage(window.sessionStorage) ||
+        ""
+    );
+}
+
+function guardarJwtSesion({ access, refresh } = {}) {
+    if (typeof window === "undefined") return;
+
+    const accessToken = limpiarTokenSesion(access);
+    const refreshToken = limpiarTokenSesion(refresh);
+
+    if (!pareceJwt(accessToken)) return;
+
+    const authAnterior = parsearJsonSeguro(window.localStorage.getItem("auth"), {}) || {};
+
+    const authActualizado = {
+        ...authAnterior,
+        token: accessToken,
+        access: accessToken,
+        ...(pareceJwt(refreshToken) ? { refresh: refreshToken } : {}),
+    };
+
+    window.localStorage.setItem("auth", JSON.stringify(authActualizado));
+    window.localStorage.setItem("@token_access_jwt", accessToken);
+    window.localStorage.setItem("auth.access", accessToken);
+    window.localStorage.setItem("access", accessToken);
+
+    if (pareceJwt(refreshToken)) {
+        window.localStorage.setItem("@token_refresh_jwt", refreshToken);
+        window.localStorage.setItem("auth.refresh", refreshToken);
+        window.localStorage.setItem("refresh", refreshToken);
+    }
+}
+
+function limpiarJwtSesionExpirada() {
+    if (typeof window === "undefined") return;
+
+    const claves = [
+        "@token_access_jwt",
+        "@token_refresh_jwt",
+        "auth.access",
+        "auth.refresh",
+        "access",
+        "accessToken",
+        "refresh",
+        "refreshToken",
+    ];
+
+    claves.forEach((clave) => {
+        try {
+            window.localStorage.removeItem(clave);
+        } catch {
+            // sin acción
+        }
+    });
+
+    const auth = parsearJsonSeguro(window.localStorage.getItem("auth"), null);
+
+    if (auth && typeof auth === "object") {
+        delete auth.access;
+        delete auth.refresh;
+        delete auth.access_token;
+        delete auth.refresh_token;
+        delete auth.jwt;
+
+        if (pareceJwt(auth.token)) {
+            delete auth.token;
+        }
+
+        window.localStorage.setItem("auth", JSON.stringify(auth));
+    }
+}
+
+function resolverUrl(ruta) {
+    if (/^https?:\/\//i.test(ruta)) {
+        return ruta;
+    }
+
+    const path = ruta.startsWith("/") ? ruta : `/${ruta}`;
+    return API_URL ? `${API_URL.replace(/\/+$/, "")}${path}` : path;
+}
+
+async function renovarAccessToken() {
+    const refresh = obtenerRefreshSesion();
+
+    if (!refresh) {
+        throw new Error("No hay refresh token JWT disponible.");
+    }
+
+    const respuesta = await fetch(resolverUrl("/conformidad/api/auth/token/refresh/"), {
+        method: "POST",
+        headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+        },
+        credentials: "omit",
+        body: JSON.stringify({ refresh }),
+    });
+
+    const payload = await respuesta.json().catch(() => ({}));
+
+    if (!respuesta.ok || !payload?.access) {
+        limpiarJwtSesionExpirada();
+        throw new Error(payload?.detail || "No se pudo renovar la sesión JWT.");
+    }
+
+    guardarJwtSesion({
+        access: payload.access,
+        refresh,
+    });
+
+    return payload.access;
+}
+
+async function obtenerTokenSesionVigente() {
     const token = obtenerTokenSesion();
+
+    if (token && !tokenJwtExpirado(token)) {
+        return token;
+    }
+
+    try {
+        return await renovarAccessToken();
+    } catch {
+        return "";
+    }
+}
+
+async function headersBase() {
+    const token = await obtenerTokenSesionVigente();
 
     const headers = {
         Accept: "application/json",
@@ -517,15 +811,6 @@ function headersBase() {
     return headers;
 }
 
-function resolverUrl(ruta) {
-    if (/^https?:\/\//i.test(ruta)) {
-        return ruta;
-    }
-
-    const path = ruta.startsWith("/") ? ruta : `/${ruta}`;
-    return API_URL ? `${API_URL}${path}` : path;
-}
-
 function normalizarLista(payload) {
     if (Array.isArray(payload)) return payload;
     if (Array.isArray(payload?.results)) return payload.results;
@@ -534,15 +819,25 @@ function normalizarLista(payload) {
     return [];
 }
 
-async function solicitarJson(url) {
+async function solicitarJson(url, { intentarRefresh = true } = {}) {
     const respuesta = await fetch(url, {
         method: "GET",
-        headers: headersBase(),
-        credentials: "include",
+        headers: await headersBase(),
+        credentials: "omit",
     });
 
+    if ((respuesta.status === 401 || respuesta.status === 403) && intentarRefresh) {
+        try {
+            await renovarAccessToken();
+            return solicitarJson(url, { intentarRefresh: false });
+        } catch {
+            // Continúa para lanzar el error original.
+        }
+    }
+
     if (!respuesta.ok) {
-        throw new Error(`HTTP ${respuesta.status} en ${url}`);
+        const texto = await respuesta.text().catch(() => "");
+        throw new Error(`HTTP ${respuesta.status} en ${url}${texto ? ` - ${texto}` : ""}`);
     }
 
     return respuesta.json();

@@ -1,78 +1,5 @@
 // src/lib/apiJDPower.js
-const API =
-  import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com";
-// const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-
-function getAuthToken() {
-  try {
-    const directo = localStorage.getItem("auth.access");
-
-    if (directo) return directo;
-
-    const raw = localStorage.getItem("auth");
-
-    if (!raw) return "";
-
-    const parsed = JSON.parse(raw);
-
-    return parsed?.token || "";
-  } catch {
-    return "";
-  }
-}
-
-function getAuthHeader() {
-  const token = getAuthToken();
-
-  if (!token) return {};
-
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-async function http(path, { method = "GET", body, headers, signal } = {}) {
-  const finalHeaders = {
-    ...getAuthHeader(),
-    ...(headers || {}),
-  };
-
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: finalHeaders,
-    body,
-    signal,
-  });
-
-  if (!res.ok) {
-    let mensaje = "";
-
-    try {
-      const ct = res.headers.get("content-type") || "";
-
-      if (ct.includes("application/json")) {
-        const data = await res.json();
-        mensaje = data?.detail || data?.message || JSON.stringify(data);
-      } else {
-        mensaje = await res.text();
-      }
-    } catch {
-      mensaje = "";
-    }
-
-    throw new Error(mensaje || `HTTP ${res.status}`);
-  }
-
-  if (res.status === 204) return null;
-
-  const ct = res.headers.get("content-type") || "";
-
-  if (ct.includes("application/json")) {
-    return res.json();
-  }
-
-  return res.text();
-}
+import { http } from "./apiClient";
 
 function esFiltroVacio(valor) {
   return (
@@ -90,17 +17,13 @@ function construirQuery(filtros = {}) {
   if (!esFiltroVacio(filtros.anio)) params.set("anio", filtros.anio);
   if (!esFiltroVacio(filtros.mes)) params.set("mes", filtros.mes);
   if (!esFiltroVacio(filtros.tipo)) params.set("tipo", filtros.tipo);
-  if (!esFiltroVacio(filtros.canal_envio))
-    params.set("canal_envio", filtros.canal_envio);
+  if (!esFiltroVacio(filtros.canal_envio)) params.set("canal_envio", filtros.canal_envio);
   if (!esFiltroVacio(filtros.estatus)) params.set("estatus", filtros.estatus);
-  if (!esFiltroVacio(filtros.concesionaria))
-    params.set("concesionaria", filtros.concesionaria);
-  if (!esFiltroVacio(filtros.codigo_concesionaria))
-    params.set("codigo_concesionaria", filtros.codigo_concesionaria);
+  if (!esFiltroVacio(filtros.concesionaria)) params.set("concesionaria", filtros.concesionaria);
+  if (!esFiltroVacio(filtros.codigo_concesionaria)) params.set("codigo_concesionaria", filtros.codigo_concesionaria);
   if (!esFiltroVacio(filtros.asesor)) params.set("asesor", filtros.asesor);
   if (!esFiltroVacio(filtros.modelo)) params.set("modelo", filtros.modelo);
-  if (!esFiltroVacio(filtros.anio_vehiculo))
-    params.set("anio_vehiculo", filtros.anio_vehiculo);
+  if (!esFiltroVacio(filtros.anio_vehiculo)) params.set("anio_vehiculo", filtros.anio_vehiculo);
   if (!esFiltroVacio(filtros.region)) params.set("region", filtros.region);
   if (!esFiltroVacio(filtros.zona)) params.set("zona", filtros.zona);
   if (!esFiltroVacio(filtros.estado)) params.set("estado", filtros.estado);

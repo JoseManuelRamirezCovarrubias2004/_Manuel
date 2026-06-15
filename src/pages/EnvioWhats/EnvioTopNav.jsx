@@ -15,7 +15,7 @@ export default function PostVentaTopNav() {
     const location = useLocation();
     const { hasAnyPermission } = useAuth();
 
-    const inProspectos = location.pathname.startsWith("/postventa/pedidos_piezas");
+    const inProspectos = location.pathname.startsWith("/encuesta_whats/envio_satisfaccion");
     const canSeeContacto = hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA"]);
 
     const tabs = useMemo(() => {
