@@ -1,7 +1,7 @@
 // src/pages/Calidad/CalidadTopNav.jsx
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BadgeCheck, ShieldCheck, Cog, ThumbsUp, UndoDot, ClipboardPenLine, Wrench } from "lucide-react";
+import { BadgeCheck, ShieldCheck, Cog, ThumbsUp, UndoDot, ClipboardPenLine, Store, Wrench } from "lucide-react";
 import vwWhite from "../../assets/vw_white.png";
 import ryr from "../../assets/ryr.png";
 import { useAuth } from "../../auth/AuthContext";
@@ -20,6 +20,13 @@ export default function CalidadTopNav() {
                 icon: BadgeCheck,
                 show: hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
+
+            {
+    label: "Experiencia de Piso",
+    href: "/calidad/enc_piso",
+    icon: Store, // o el icono que prefieras
+    show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
+},
 
             {
                 label: "Safety Culture",
