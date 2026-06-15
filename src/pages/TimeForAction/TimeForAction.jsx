@@ -1216,7 +1216,8 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
 }
 
 /* TIMELINE VIEW*/
-function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading }) {
+function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
+    teams, projects, teamId, projectId, currentUser, allTasks }) {
     const ganttRef   = useRef(null);
     const leftRef    = useRef(null);
 
@@ -1469,681 +1470,340 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading }) {
     }
      
 async function exportToPDF() {
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    const BLUE = [19, 30, 92];
-    const W = doc.internal.pageSize.getWidth();
-    const H = doc.internal.pageSize.getHeight();
-    const margin = 14;
-    const colW = (W - margin * 2) / 3;
-    let y = 0;
-
-    function addPageHeader() {
-        doc.setFillColor(...BLUE);
-        doc.rect(0, 0, W, 18, "F");
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(11);
+    // ── Portrait A4 ──────────────────────────────────────────
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const W = doc.internal.pageSize.getWidth();   // 210
+    const H = doc.internal.pageSize.getHeight();  // 297
+    const margin = 18;
+    const contentW = W - margin * 2;
+    const BLUE  = [19, 30, 92];
+    const GRAY  = [120, 125, 145];
+    const BLACK = [30, 30, 40];
+ 
+    // ── Helpers tipografía VW ─────────────────────────────────
+    // VW Head Bold  → helvetica bold
+    // VW Text Light → helvetica normal
+    function setHead(size, color = BLACK) {
         doc.setFont("helvetica", "bold");
-        doc.text("Time For Action - Reporte de Planes de Accion", margin, 12);
-        doc.setFontSize(8);
+        doc.setFontSize(size);
+        doc.setTextColor(...color);
+    }
+    function setLight(size, color = BLACK) {
         doc.setFont("helvetica", "normal");
-        doc.text(new Date().toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "2-digit" }), W - margin, 12, { align: "right" });
-        y = 26;
+        doc.setFontSize(size);
+        doc.setTextColor(...color);
     }
-
-    function checkPageBreak(needed = 20) {
-        if (y + needed > H - 10) {
-            doc.addPage();
-            addPageHeader();
-        }
+    function setItalic(size, color = GRAY) {
+        doc.setFont("helvetica", "oblique");
+        doc.setFontSize(size);
+        doc.setTextColor(...color);
     }
-
-    function drawSectionTitle(title) {
-        checkPageBreak(14);
-        doc.setFillColor(235, 238, 248);
-        doc.roundedRect(margin, y, W - margin * 2, 9, 2, 2, "F");
-        doc.setTextColor(...BLUE);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.text(title, margin + 4, y + 6.2);
-        y += 13;
-    }
-
-    function drawTaskCard(task) {
-        const subtasks = Array.isArray(task.subtareas) ? task.subtareas : [];
-        const done = subtasks.filter(s => s.done).length;
-
-        const lineas = doc.splitTextToSize(task.descripcion_problema || "-", colW - 6);
-        const lineasEst = doc.splitTextToSize(task.desarrollo_estrategia || "-", colW - 6);
-        const cardH = 18 + 6 + lineas.length * 5 + 8 + lineasEst.length * 5 + (subtasks.length > 0 ? subtasks.length * 6 + 10 : 0) + 10;
-
-        checkPageBreak(cardH + 8);
-
-        doc.setFillColor(248, 249, 252);
-        doc.setDrawColor(...BLUE);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(margin, y, W - margin * 2, cardH, 3, 3, "FD");
-
-        const stateColor = task.list_name === "Hecho" ? [16, 185, 129]
-            : task.list_name === "En proceso" ? [79, 110, 247]
-            : [...BLUE];
-        doc.setFillColor(...stateColor);
-        doc.roundedRect(margin, y, W - margin * 2, 10, 3, 3, "F");
-        doc.rect(margin, y + 5, W - margin * 2, 5, "F");
-
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.text(task.title || "Sin titulo", margin + 4, y + 7);
-        doc.setFontSize(7.5);
-        doc.setFont("helvetica", "normal");
-        doc.text(`${task.list_name || "-"}   ${task.priority || "-"}`, W - margin - 4, y + 7, { align: "right" });
-
-        let cy = y + 16;
-
-        const startStr = task.start_date ? String(task.start_date).slice(0, 10) : null;
-        const endStr = task.due_date ? String(task.due_date).slice(0, 10) : null;
-        if (startStr || endStr) {
-            doc.setTextColor(100, 100, 130);
-            doc.setFontSize(7);
-            doc.setFont("helvetica", "italic");
-            doc.text(`Inicio: ${startStr || "-"}   Vence: ${endStr || "-"}`, margin + 4, cy);
-            cy += 6;
-        }
-
-        const col1x = margin + 4;
-        const col2x = margin + 4 + colW;
-        const col3x = margin + 4 + colW * 2;
-        const colInnerW = colW - 8;
-
-        doc.setTextColor(...BLUE);
-        doc.setFontSize(7.5);
-        doc.setFont("helvetica", "bold");
-        doc.text("Causa / Raiz", col1x, cy);
-        doc.text("Descripcion del Problema", col2x, cy);
-        doc.text("Desarrollo de la Estrategia", col3x, cy);
-        cy += 6;
-
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(50, 50, 80);
-        doc.setFontSize(7.5);
-
-        const causaText = [task.causa, task.raiz].filter(Boolean).join(" - ") || "-";
-        const causaLines = doc.splitTextToSize(causaText, colInnerW);
-        const probLines = doc.splitTextToSize(task.descripcion_problema || "-", colInnerW);
-        const estraLines = doc.splitTextToSize(task.desarrollo_estrategia || "-", colInnerW);
-        const maxLines = Math.max(causaLines.length, probLines.length, estraLines.length);
-
-        doc.text(causaLines, col1x, cy);
-        doc.text(probLines, col2x, cy);
-        doc.text(estraLines, col3x, cy);
-        cy += maxLines * 5 + 6;
-
-        if (subtasks.length > 0) {
-            doc.setDrawColor(220, 224, 240);
-            doc.setLineWidth(0.2);
-            doc.line(margin + 4, cy, W - margin - 4, cy);
-            cy += 4;
-            doc.setFontSize(7.5);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(...BLUE);
-            doc.text(`Subtareas: ${done}/${subtasks.length}`, margin + 4, cy);
-
-            const barX = margin + 42;
-            const barW = 60;
-            doc.setFillColor(220, 224, 240);
-            doc.roundedRect(barX, cy - 3.5, barW, 3.5, 1, 1, "F");
-            if (subtasks.length > 0) {
-                doc.setFillColor(16, 185, 129);
-                doc.roundedRect(barX, cy - 3.5, barW * (done / subtasks.length), 3.5, 1, 1, "F");
-            }
-            cy += 6;
-
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(60, 70, 100);
-            doc.setFontSize(7.5);
-            subtasks.forEach(sub => {
-                const mark = sub.done ? "[x]" : "[ ]";
-                const subTitle = sub.title || sub.titulo || "";
-                const dateStr = (sub.start_date || sub.due_date)
-                    ? `  [${sub.start_date?.slice(0,10) || ""}${sub.start_date && sub.due_date ? " - " : ""}${sub.due_date?.slice(0,10) || ""}]`
-                    : "";
-                doc.text(`${mark} ${subTitle}${dateStr}`, margin + 6, cy);
-                cy += 6;
-            });
-        }
-
-        y = cy + 16;
-    }
-
-   
- async function drawTimelineFromDOM() {
-    drawSectionTitle("Linea de Tiempo");
-
-    function clean(str) {
-        if (!str) return "-";
-        return String(str)
-            .replace(/á/g,"a").replace(/é/g,"e").replace(/í/g,"i")
-            .replace(/ó/g,"o").replace(/ú/g,"u").replace(/ü/g,"u")
-            .replace(/Á/g,"A").replace(/É/g,"E").replace(/Í/g,"I")
-            .replace(/Ó/g,"O").replace(/Ú/g,"U").replace(/Ü/g,"U")
-            .replace(/ñ/g,"n").replace(/Ñ/g,"N")
-            .replace(/[^\x20-\x7E]/g,"");
-    }
-
-    if (withDate.length === 0) {
-        doc.setTextColor(120,120,140);
-        doc.setFontSize(8);
-        doc.text("No hay planes con fechas.", margin + 4, y);
-        y += 10;
-        return;
-    }
-
-    // ── Layout columnas fijas 
-    const PAGE_W    = W - margin * 2;   
-    const COL_PLAN  = 52;
-    const COL_PROB  = 48;
-    const COL_ESTRA = 45;
-    const GANTT_W   = PAGE_W - COL_PLAN - COL_PROB - COL_ESTRA; 
-
-    const xPlan  = margin;
-    const xProb  = xPlan  + COL_PLAN;
-    const xEstra = xProb  + COL_PROB;
-    const xGantt = xEstra + COL_ESTRA;
-
-    // Ventana de días 
-
-    let minTaskOff = Infinity, maxTaskOff = -Infinity;
-    withDate.forEach(t => {
-        if (t.start_date) {
-            const off = Math.floor((new Date(String(t.start_date)) - minDate) / 86400000);
-            if (off < minTaskOff) minTaskOff = off;
-        }
-        if (t.due_date) {
-            const off = Math.floor((new Date(String(t.due_date)) - minDate) / 86400000);
-            if (off > maxTaskOff) maxTaskOff = off;
-        }
-        (Array.isArray(t.subtareas) ? t.subtareas : []).forEach(s => {
-            const {rawStart, rawEnd} = getSubDates(s);
-            if (rawStart) {
-                const off = Math.floor((new Date(String(rawStart)) - minDate) / 86400000);
-                if (off < minTaskOff) minTaskOff = off;
-            }
-            if (rawEnd) {
-                const off = Math.floor((new Date(String(rawEnd)) - minDate) / 86400000);
-                if (off > maxTaskOff) maxTaskOff = off;
-            }
+ 
+    // ── Footer ────────────────────────────────────────────────
+    function drawFooter(pageNum, totalPages) {
+        const fechaImp = new Date().toLocaleDateString("es-MX", {
+            year: "numeric", month: "long", day: "2-digit"
         });
-    });
-    if (minTaskOff === Infinity)  minTaskOff = todayOffset - 7;
-    if (maxTaskOff === -Infinity) maxTaskOff = todayOffset + 14;
-
-    // Padding de 3 días a cada lado
-    const windowStart = Math.max(0, minTaskOff - 3);
-    const windowEnd   = Math.min(totalDays, maxTaskOff + 4);
-    const WINDOW_DAYS = windowEnd - windowStart;
-
-    const MM_PER_DAY = Math.max(3.2, GANTT_W / WINDOW_DAYS);
-
-   
-    const visibleDays = Math.min(WINDOW_DAYS, Math.floor(GANTT_W / MM_PER_DAY));
-    // Centrar la ventana visible en el rango de tareas
-    const centerOff  = Math.floor((minTaskOff + maxTaskOff) / 2);
-    const winS = Math.max(0, Math.min(centerOff - Math.floor(visibleDays/2), totalDays - visibleDays));
-    const winE = Math.min(totalDays, winS + visibleDays);
-
-    function dayX(off) {
-        return xGantt + (off - winS) * MM_PER_DAY;
-    }
-
-    // Constantes de altura 
-    const BAR_H    = 9;
-    const SUBBAR_H = 6;
-    const SUB_GAP  = 3;
-    const ROW_PAD  = 7;
-    const LH7      = 4.2;
-    const LH6      = 3.8;
-    const LH5      = 3.2;
-
-    function calcRowH(task) {
-        doc.setFontSize(7);
-        const subs = Array.isArray(task.subtareas) ? task.subtareas : [];
-
-        const titleL = doc.splitTextToSize(clean(task.title), COL_PLAN - 9).length;
-        const probL  = doc.splitTextToSize(clean(task.descripcion_problema), COL_PROB - 8).length;
-        const estraL = doc.splitTextToSize(clean(task.desarrollo_estrategia), COL_ESTRA - 8).length;
-
-        const planH  = titleL * LH7 + LH6 + LH6 + (subs.length>0 ? 6 : 0) + 2;
-        const probH  = probL  * LH6 + (subs.length>0 ? subs.length*(LH6+0.5)+4 : 0);
-        const estraH = estraL * LH6 + (subs.length>0 ? subs.length*4.5+4 : 0);
-        const ganttH = BAR_H  + (subs.length>0 ? SUB_GAP + subs.length*(SUBBAR_H+2) : 0);
-
-        return Math.max(planH, probH, estraH, ganttH) + ROW_PAD*2;
-    }
-
-    doc.setFontSize(7);
-    const rowHeights  = withDate.map(t => calcRowH(t));
-    const totalBodyH  = rowHeights.reduce((a,b)=>a+b,0);
-
-    // ── Alturas header 
-    const HDR_COL  = 14;
-    const HDR_SEM  = 10;     // fila "Sem DD/MM"
-    const HDR_DAY  = 8;     // fila números de día
-    const HDR_TOT  = HDR_SEM + HDR_DAY;
-    const TTH      = HDR_TOT + totalBodyH;
-
-    checkPageBreak(TTH + 10);
-    const tblY  = y;
-    const bodyY = tblY + HDR_TOT;
-
-    for (let d = winS; d < winE; d++) {
-        const dt = new Date(minDate);
-        dt.setDate(dt.getDate() + d);
-        if (dt.getDay()===0||dt.getDay()===6) {
-            doc.setFillColor(230,233,248);
-            doc.rect(dayX(d), bodyY, MM_PER_DAY, totalBodyH, "F");
-        }
-    }
-
-    
-    // 2. Líneas verticales de día 
-    doc.setLineWidth(0.06);
-    doc.setDrawColor(215,218,238);
-    for (let d = winS; d <= winE; d++) {
-        const dx = dayX(d);
-        if (dx < xGantt-0.1 || dx > xGantt+GANTT_W+0.1) continue;
-        doc.line(dx, bodyY, dx, bodyY+totalBodyH);
-    }
-
-    // 3. Líneas verticales de semana 
-    weeks.forEach(w => {
-        const off = Math.floor((w.start - minDate) / 86400000);
-        if (off < winS || off > winE) return;
-        const wx = dayX(off);
-        if (wx < xGantt || wx > xGantt+GANTT_W) return;
-        doc.setDrawColor(175,185,220);
-        doc.setLineWidth(0.2);
-        doc.line(wx, tblY+HDR_COL, wx, tblY+TTH);
-    });
-
-
-        doc.setLineWidth(0.15);
-        doc.setDrawColor(180, 188, 215);
-        [xProb, xEstra, xGantt].forEach(x => {
-            doc.line(x, tblY, x, tblY + HDR_TOT);
-        });
-
-    doc.setFillColor(238,240,246);
-    doc.rect(xPlan,  tblY, COL_PLAN,  HDR_TOT, "F");
-    doc.setFillColor(232,235,245);
-    doc.rect(xProb,  tblY, COL_PROB,  HDR_TOT, "F");
-    doc.setFillColor(228,232,244);
-    doc.rect(xEstra, tblY, COL_ESTRA, HDR_TOT, "F");
-
-    
-    doc.setFontSize(7);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(...BLUE);
-    const hy = tblY + HDR_TOT / 2;
-    doc.text("PLAN DE",  xPlan + 4, hy - 3, { baseline: "middle" });
-    doc.text("ACCION",   xPlan + 4, hy + 3, { baseline: "middle" });
-    doc.text("DESCRIPCION DEL",  xProb + 4, hy - 3, { baseline: "middle" });
-    doc.text("PROBLEMA",         xProb + 4, hy + 3, { baseline: "middle" });
-    doc.text("DESARROLLO DE", xEstra + 4, hy - 3, { baseline: "middle" });
-    doc.text("LA ESTRATEGIA", xEstra + 4, hy + 3, { baseline: "middle" });
-    doc.text("LINEA DE TIEMPO",             xGantt + 4, hy, { baseline: "middle" });
-
-        
-        const semY = tblY;
-    doc.setFillColor(222,226,248);
-    doc.rect(xGantt, semY, GANTT_W, HDR_SEM, "F");
-
-    weeks.forEach(w => {
-        const off = Math.floor((w.start - minDate) / 86400000);
-        if (off < winS || off > winE) return;
-        const wx = dayX(off);
-        if (wx < xGantt || wx > xGantt+GANTT_W-1) return;
-
-        const dd = String(w.start.getDate()).padStart(2,"0");
-        const mm = String(w.start.getMonth()+1).padStart(2,"0");
-
-        doc.setFontSize(7);
-        doc.setFont("helvetica","bold");
-        doc.setTextColor(35,50,130);
-        doc.text(`Sem ${dd}/${mm}`, wx+1.5, semY+HDR_SEM*0.70);
-    });
-
-
-    const dayHdrY = semY + HDR_SEM;
-    doc.setFillColor(235,238,250);
-    doc.rect(xGantt, dayHdrY, GANTT_W, HDR_DAY, "F");
-
-    for (let d = winS; d < winE; d++) {
-        const dx = dayX(d);
-        if (dx < xGantt || dx+MM_PER_DAY > xGantt+GANTT_W+0.5) continue;
-        const dt = new Date(minDate);
-        dt.setDate(dt.getDate()+d);
-        const isToday   = d===todayOffset;
-        const isWeekend = dt.getDay()===0||dt.getDay()===6;
-
-        doc.setFontSize(5.5);
-        doc.setFont("helvetica", isToday?"bold":"normal");
-        doc.setTextColor(
-            isToday?19:isWeekend?90:120,
-            isToday?30:isWeekend?105:130,
-            isToday?92:isWeekend?175:170
-        );
+        const usuario = currentUser?.name || "Sistema";
+        setLight(7.5, GRAY);
+        doc.line(margin, H - 12, W - margin, H - 12);
         doc.text(
-            String(dt.getDate()),
-            dx+MM_PER_DAY/2,
-            dayHdrY+HDR_DAY*0.78,
-            {align:"center"}
+            `${fechaImp}; generado por ${usuario}. Referencia ISO 10.1`,
+            margin, H - 7
         );
+        doc.text(`Pag. ${pageNum} / ${totalPages}`, W - margin, H - 7, { align: "right" });
     }
-
+ 
+    // ── Línea separadora ─────────────────────────────────────
+    function separator(y, color = [210, 213, 228]) {
+        doc.setDrawColor(...color);
+        doc.setLineWidth(0.3);
+        doc.line(margin, y, W - margin, y);
+    }
+ 
+    // ── Label + contenido (devuelve nueva Y) ─────────────────
+    function block(label, content, y, labelSize = 8, contentSize = 9.5) {
+        if (!content || !content.trim()) return y;
+        setHead(labelSize, BLUE);
+        doc.text(label, margin, y);
+        y += 5;
+        setLight(contentSize, BLACK);
+        const lines = doc.splitTextToSize(content, contentW);
+        doc.text(lines, margin, y);
+        return y + lines.length * (contentSize * 0.42) + 5;
+    }
+ 
+    // ─────────────────────────────────────────────────────────
+    // PÁGINA 1 — PORTADA DEL PROYECTO
+    // ─────────────────────────────────────────────────────────
+    const selectedTeam    = teams.find(t => Number(t.id) === Number(teamId));
+    const selectedProject = projects.find(p => Number(p.id) === Number(projectId));
+ 
+    // Rango de fechas del proyecto
+    const allDates = allTasks
+        .flatMap(t => [t.start_date, t.due_date])
+        .filter(Boolean)
+        .map(d => new Date(String(d)))
+        .filter(d => !isNaN(d))
+        .sort((a, b) => a - b);
+    const proyectoInicio = allDates[0]
+        ? allDates[0].toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
+        : null;
+    const proyectoFin = allDates[allDates.length - 1]
+        ? allDates[allDates.length - 1].toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
+        : null;
+ 
+    // Header azul portada
+    doc.setFillColor(...BLUE);
+    doc.rect(0, 0, W, 14, "F");
+    setLight(8, [255, 255, 255]);
+    doc.text("Time For Action", margin, 9.5);
+ 
+    let y = 30;
+ 
+    // Nombre del equipo
+    setLight(9, GRAY);
+    doc.text(selectedTeam?.name || "Grupo Automotriz R&R", margin, y);
+    y += 10;
+ 
+    // Nombre del proyecto — VW Head Bold grande
+    setHead(28, [...BLUE]);
+    const projLines = doc.splitTextToSize(selectedProject?.name || "Proyecto", contentW);
+    doc.text(projLines, margin, y);
+    y += projLines.length * 12 + 3;
+ 
+    // Fechas — itálica light
+    if (proyectoInicio && proyectoFin) {
+        setItalic(9, GRAY);
+        doc.text(`${proyectoInicio} – ${proyectoFin}`, margin, y);
+        y += 10;
+    }
+ 
+    separator(y);
+    y += 8;
+ 
+    // Resumen IA — llamada a API Anthropic
+    let resumenIA = "";
+    try {
+        const problemasTexto = allTasks 
+            .slice(0, 8)
+            .map(t => [t.descripcion_problema, t.desarrollo_estrategia, t.resultados].filter(Boolean).join(". "))
+            .filter(Boolean)
+            .join(" | ");
+ 
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: "claude-sonnet-4-6",
+                max_tokens: 1000,
+                messages: [{
+                    role: "user",
+                    content: `Genera un resumen ejecutivo en español de máximo 4 oraciones sobre este proyecto de mejora continua. 
+Usa lenguaje profesional y conciso. No uses listas, solo párrafo continuo.
+Datos del proyecto: ${selectedProject?.name || "Proyecto"}
+Planes de acción analizados: ${tasks.length}
+Contenido: ${problemasTexto.slice(0, 1500)}`
+                }]
+            })
+        });
+        const data = await resp.json();
+        resumenIA = data?.content?.[0]?.text?.trim() || "";
+    } catch (e) {
+        resumenIA = `Este proyecto contiene ${tasks.length} planes de acción orientados a la mejora continua de procesos internos.`;
+    }
+ 
+    setLight(10.5, BLACK);
+    const resumenLines = doc.splitTextToSize(resumenIA, contentW);
+    doc.text(resumenLines, margin, y);
+    y += resumenLines.length * 4.8 + 10;
+ 
+    // Stats rápidos
+    const porHacer  = allTasks.filter(t => t.list_name === "Por hacer").length;
+    const enProceso = allTasks.filter(t => t.list_name === "En proceso").length;
+    const hecho     = allTasks.filter(t => t.list_name === "Hecho").length;
     
-    //Filas de tareas
-    let curY = bodyY;
-
-    withDate.forEach((task, idx) => {
-        const rh   = rowHeights[idx];
-        const subs = Array.isArray(task.subtareas)?task.subtareas:[];
-        const done = subs.filter(s=>s.done).length;
-
-        const sc =
-            task.list_name==="Hecho"      ?[16,185,129]:
-            task.list_name==="En proceso" ?[79,110,247]:[...BLUE];
-
-        doc.setFillColor(idx%2===0?248:255, idx%2===0?249:255, idx%2===0?252:255);
-        doc.rect(xPlan, curY, PAGE_W, rh, "F");
-
-        doc.setLineWidth(0.08);
-        doc.setDrawColor(210, 215, 232);
-        [xProb, xEstra, xGantt].forEach(x => {
-            doc.line(x, curY, x, curY + rh);
-        });
-   
-        doc.setDrawColor(220, 224, 240);
-        doc.setLineWidth(0.18);
-        doc.line(xPlan, curY+rh, xPlan+PAGE_W, curY+rh);
-        doc.setDrawColor(200, 205, 225);
-        doc.setLineWidth(0.15);
-
-                
-        doc.setFillColor(...sc);
-        doc.rect(xPlan + 0.2, curY, 2.3, rh, "F");
-
-        const ty = curY + ROW_PAD;
-
-        doc.setFontSize(7);
-        doc.setFont("helvetica","bold");
-        doc.setTextColor(...BLUE);
-        const tLines = doc.splitTextToSize(clean(task.title), COL_PLAN-9);
-        doc.text(tLines, xPlan+5, ty);
-        let py = ty + tLines.length*LH7 + 1.5;
-
-        doc.setFontSize(6);
-        doc.setFont("helvetica","normal");
-        doc.setTextColor(...sc);
-        const stTxt = clean(task.list_name||"-");
-        doc.text(stTxt, xPlan+5, py);
-        doc.setTextColor(140,140,165);
-        doc.text(clean(task.priority||"-"), xPlan+5+doc.getTextWidth(stTxt)+2, py);
-        py += LH6+1;
-
-        const sStr = task.start_date?String(task.start_date).slice(0,10):null;
-        const eStr = task.due_date  ?String(task.due_date  ).slice(0,10):null;
-        if (sStr||eStr) {
-            doc.setFontSize(6);
-            doc.setFont("helvetica","italic");
-            doc.setTextColor(150,155,185);
-            doc.text(`${sStr||"-"} - ${eStr||"-"}`, xPlan+5, py);
-        }
-
-        if (subs.length>0) {
-            const bpY = curY+rh-5.5;
-            const bpW = COL_PLAN-14;
-            doc.setFillColor(215,220,238);
-            doc.roundedRect(xPlan+5, bpY, bpW, 2.5, 0.7, 0.7, "F");
-            if (done>0) {
-                doc.setFillColor(16,185,129);
-                doc.roundedRect(xPlan+5, bpY, bpW*(done/subs.length), 2.5, 0.7, 0.7, "F");
-            }
-            doc.setFontSize(5.5);
-            doc.setFont("helvetica","normal");
-            doc.setTextColor(110,120,155);
-            doc.text(`${done}/${subs.length}`, xPlan+5+bpW+1.5, bpY+2);
-        }
-
-        {
-            doc.setFontSize(6.5);
-            doc.setFont("helvetica","normal");
-            doc.setTextColor(55,65,105);
-            const pLines = doc.splitTextToSize(clean(task.descripcion_problema), COL_PROB-8);
-            const subH   = subs.length>0 ? subs.length*(LH6+0.5)+4 : 0;
-            const avail  = rh - ROW_PAD*2 - subH;
-            const maxL   = Math.max(1, Math.floor(avail/LH6));
-            doc.text(pLines.slice(0,maxL), xProb+4, ty);
-
-            if (subs.length>0) {
-                let stY = ty + Math.min(pLines.length,maxL)*LH6 + 3;
-                doc.setFontSize(6);
-                subs.forEach(sub=>{
-                    if (stY+LH6>curY+rh-2) return;
-                    const mk = sub.done?"[x]":"[ ]";
-                    doc.setFont("helvetica", sub.done?"normal":"bold");
-                    doc.setTextColor(sub.done?16:55, sub.done?150:65, sub.done?100:105);
-                    const ln = doc.splitTextToSize(`${mk} ${clean(sub.title||sub.titulo||"")}`, COL_PROB-8);
-                    doc.text(ln[0], xProb+4, stY);
-                    stY += LH6+0.5;
-                });
-            }
-        }
-
-        // ── COL ESTRATEGIA
-        {
-            doc.setFontSize(6.5);
-            doc.setFont("helvetica","normal");
-            doc.setTextColor(55,65,105);
-            const eLines = doc.splitTextToSize(clean(task.desarrollo_estrategia), COL_ESTRA-8);
-            const subH   = subs.length>0 ? subs.length*4.5+4 : 0;
-            const avail  = rh - ROW_PAD*2 - subH;
-            const maxL   = Math.max(1, Math.floor(avail/LH6));
-            doc.text(eLines.slice(0,maxL), xEstra+4, ty);
-
-            if (subs.length>0) {
-                let seY = ty + Math.min(eLines.length,maxL)*LH6 + 3;
-                doc.setFontSize(6);
-                doc.setFont("helvetica","italic");
-                subs.forEach(sub=>{
-                    if (seY+4>curY+rh-2) return;
-                    const {rawStart,rawEnd} = getSubDates(sub);
-                    if (rawStart||rawEnd) {
-                        doc.setTextColor(150,155,185);
-                        const ds = rawStart?String(rawStart).slice(0,10):"-";
-                        const de = rawEnd  ?String(rawEnd  ).slice(0,10):"-";
-                        doc.text(`${ds} - ${de}`, xEstra+4, seY);
-                        seY += 4.5;
-                    }
-                });
-            }
-        }
-
-        // ── GANTT barra principal 
-        const s = task.start_date?new Date(String(task.start_date)):new Date(String(task.due_date));
-        const e = task.due_date  ?new Date(String(task.due_date  )):new Date(String(task.start_date));
-        const startOff = Math.floor((s-minDate)/86400000);
-        const endOff   = Math.floor((e-minDate)/86400000)+1;
-        const durDays  = Math.max(1, endOff-startOff);
-
-        const clS = Math.max(startOff, winS);
-        const clE = Math.min(endOff,   winE);
-
-        if (clS < clE) {
-            const bx      = dayX(clS);
-            const bw      = Math.max(4, (clE-clS)*MM_PER_DAY);
-            const barTopY = curY + ROW_PAD;
-            const [r,g,b] = sc;
-
-            // Fondo barra (color claro)
-            doc.setFillColor(
-                Math.round(r*0.22+255*0.78),
-                Math.round(g*0.22+255*0.78),
-                Math.round(b*0.22+255*0.78)
-            );
-            doc.roundedRect(bx, barTopY, bw, BAR_H, 1.5, 1.5, "F");
-
-            // Acento izquierdo sólido
-            doc.setFillColor(...sc);
-            doc.rect(bx, barTopY, 2, BAR_H, "F");
-
-            // Borde rojo si vencida
-if (e<today && task.list_name!=="Hecho") {
-    doc.setDrawColor(239,68,68);
-    doc.setLineWidth(0.8);
-    doc.line(bx+bw, barTopY, bx+bw, barTopY+BAR_H);
-}
-// SIEMPRE resetear después de la barra (vencida o no)
-doc.setDrawColor(210, 215, 232);
-doc.setLineWidth(0.08);
-
-            // Barra progreso subtareas en la barra
-            if (subs.length>0) {
-                doc.setFillColor(200,207,230);
-                doc.rect(bx, barTopY+BAR_H-1.8, bw, 1.8, "F");
-                if (done>0) {
-                    doc.setFillColor(16,185,129);
-                    doc.rect(bx, barTopY+BAR_H-1.8, bw*(done/subs.length), 1.8, "F");
-                }
-            }
-
-            // Título + fecha dentro de la barra (como en la UI)
-            if (bw > 10) {
-                doc.setFontSize(6.5);
-                doc.setFont("helvetica","bold");
-                doc.setTextColor(...sc);
-                const maxCh = Math.max(3, Math.floor((bw-5)/1.8));
-                const t2    = clean(task.title||"");
-                doc.text(
-                    t2.length>maxCh ? t2.slice(0,maxCh-1)+"." : t2,
-                    bx+3, barTopY+BAR_H*0.46
-                );
-
-                // Fecha debajo del título dentro de la barra
-                if (BAR_H > 6 && bw > 20) {
-                    doc.setFontSize(5);
-                    doc.setFont("helvetica","normal");
-                    doc.setTextColor(...sc);
-                    doc.text(`${sStr||"-"} -> ${eStr||"-"}`, bx+3, barTopY+BAR_H*0.78);
-                }
-            }
-        }
-
-        // ── GANTT barras subtareas 
-        subs.forEach((sub,si)=>{
-            const {rawStart,rawEnd} = getSubDates(sub);
-            let subS, subE;
-
-            if (rawStart||rawEnd) {
-                const ss = new Date(String(rawStart||rawEnd));
-                const se = new Date(String(rawEnd  ||rawStart));
-                subS = Math.floor((ss-minDate)/86400000);
-                subE = Math.floor((se-minDate)/86400000)+1;
-            } else {
-                const per = Math.max(1, Math.floor(durDays/subs.length));
-                subS = startOff + si*per;
-                subE = si===subs.length-1 ? endOff : subS+per;
-            }
-
-            const scS2 = Math.max(subS, winS);
-            const scE2 = Math.min(subE, winE);
-            if (scS2>=scE2) return;
-
-            const sbx    = dayX(scS2);
-            const sbw    = Math.max(3, (scE2-scS2)*MM_PER_DAY);
-            const sbTopY = curY + ROW_PAD + BAR_H + SUB_GAP + si*(SUBBAR_H+2);
-            if (sbTopY+SUBBAR_H > curY+rh-2) return;
-
-            const subc = sub.done?[16,185,129]:[80,100,190];
-            const [sr,sg,sb2] = subc;
-
-            // Fondo
-            doc.setFillColor(
-                Math.round(sr*0.2+255*0.8),
-                Math.round(sg*0.2+255*0.8),
-                Math.round(sb2*0.2+255*0.8)
-            );
-            doc.roundedRect(sbx, sbTopY, sbw, SUBBAR_H, 0.8, 0.8, "F");
-
-            // Acento
-            doc.setFillColor(...subc);
-            doc.rect(sbx, sbTopY, 1.5, SUBBAR_H, "F");
-
-            // Texto dentro de la barra de subtarea
-            if (sbw > 8) {
-                doc.setFontSize(5.5);
-                doc.setFont("helvetica", sub.done?"normal":"bold");
-                doc.setTextColor(...subc);
-                const maxC = Math.max(3, Math.floor((sbw-4)/1.5));
-                const rawT = clean(sub.title||sub.titulo||"");
-                const pref = sub.done?"x ":"O ";
-                doc.text(
-                    pref+(rawT.length>maxC?rawT.slice(0,maxC-1)+".":rawT),
-                    sbx+2.5, sbTopY+SUBBAR_H*0.75
-                );
-            }
-        });
-
-        curY += rh;
+    separator(y);
+    y += 8;
+ 
+    const statCols = [
+        { label: "Total de planes", val: String(allTasks.length) },
+        { label: "Por hacer",       val: String(porHacer) },
+        { label: "En proceso",      val: String(enProceso) },
+        { label: "Completados",     val: String(hecho) },
+    ];
+    const statW = contentW / statCols.length;
+    statCols.forEach((s, i) => {
+        const sx = margin + i * statW + statW / 2;
+        setHead(18, [...BLUE]);
+        doc.text(s.val, sx, y + 8, { align: "center" });
+        setLight(8, GRAY);
+        doc.text(s.label, sx, y + 14, { align: "center" });
     });
-
-    
-    if (todayOffset>=winS && todayOffset<winE) {
-        const tx = dayX(todayOffset);
-        doc.setDrawColor(239,68,68);
-        doc.setLineWidth(0.85);
-        doc.line(tx, tblY, tx, tblY+TTH);
-        doc.setFontSize(6.5);
-        doc.setTextColor(239,68,68);
-        doc.setFont("helvetica","bold");
-        doc.text("HOY", tx-3.5, tblY-1.5);
-    }
+ 
+    // ─────────────────────────────────────────────────────────
+    // PÁGINAS DE PLANES — una por tarea (portrait, vertical)
+    // ─────────────────────────────────────────────────────────
+    // DESPUÉS
+    const tasksList = [...withDate, ...noDate];
+    const totalPages = 1 + tasksList.length;
 
  
-doc.setDrawColor(150, 158, 195);
-doc.setLineWidth(0.4);
-doc.rect(xPlan, tblY, PAGE_W, TTH, "S");
-// Retrazar solo el borde del header encima
-doc.setDrawColor(...BLUE);
-doc.setLineWidth(0.5);
-doc.rect(xPlan, tblY, PAGE_W, HDR_TOT, "S");
-
-    y = tblY + TTH + 10;
-}
-
-    // ── GENERAR PDF ──
-    addPageHeader();
-    drawSectionTitle("Planes de Accion - Detalle Estrategico");
-    withDate.forEach(task => drawTaskCard(task));
-    if (noDate.length > 0) {
-        drawSectionTitle("Sin fecha asignada");
-        noDate.forEach(task => drawTaskCard(task));
-    }
-
-    doc.addPage();
-    addPageHeader();
-    await drawTimelineFromDOM();
-
-    const totalPages = doc.internal.getNumberOfPages();
-    for (let p = 1; p <= totalPages; p++) {
-        doc.setPage(p);
-        doc.setFontSize(7);
-        doc.setTextColor(160, 160, 180);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Pagina ${p} de ${totalPages}`, W / 2, H - 5, { align: "center" });
-        doc.text("Time For Action", margin, H - 5);
-    }
-
-    doc.save(`TimeForAction_${new Date().toISOString().slice(0,10)}.pdf`);
+    // Dibujar footer de portada
+    drawFooter(1, totalPages);
+ 
+    tasksList.forEach((task, idx) => {
+        doc.addPage();
+ 
+        const pageNum = idx + 2;
+        const subtasks = Array.isArray(task.subtareas) ? task.subtareas : [];
+        const doneCount = subtasks.filter(s => s.done).length;
+ 
+        // ── Color de estado ──
+        const stateColor =
+            task.list_name === "Hecho"      ? [16, 185, 129] :
+            task.list_name === "En proceso" ? [79, 110, 247] :
+            [...BLUE];
+ 
+        // ── Banda color superior ──
+        doc.setFillColor(...stateColor);
+        doc.rect(0, 0, W, 6, "F");
+ 
+        // ── Header azul ──
+        doc.setFillColor(...BLUE);
+        doc.rect(0, 6, W, 14, "F");
+        setLight(8, [255, 255, 255]);
+        doc.text("Time For Action", margin, 15.5);
+        setLight(8, [255, 255, 255]);
+        doc.text(selectedProject?.name || "", W - margin, 15.5, { align: "right" });
+ 
+        let cy = 30;
+ 
+        // ── Título del plan — VW Head Bold grande ──
+        setHead(22, [...BLUE]);
+        const titleLines = doc.splitTextToSize(task.title || "Sin título", contentW);
+        doc.text(titleLines, margin, cy);
+        cy += titleLines.length * 9 + 3;
+ 
+        // ── Estatus / Columna / Prioridad — itálica light ──
+        setItalic(8.5, GRAY);
+        const prioLabel = { LOW:"Baja", MEDIUM:"Media", HIGH:"Alta", URGENT:"Urgente" }[task.priority] || task.priority;
+        doc.text(
+            `Estatus: ${task.list_name || "—"}  ·  Prioridad: ${prioLabel || "—"}`,
+            margin, cy
+        );
+        cy += 6;
+ 
+        // ── Fechas ──
+        const sStr = task.start_date ? String(task.start_date).slice(0, 10) : null;
+        const eStr = task.due_date   ? String(task.due_date).slice(0, 10)   : null;
+        if (sStr || eStr) {
+            setItalic(8, GRAY);
+            doc.text(`${sStr || "—"} → ${eStr || "—"}`, margin, cy);
+            cy += 6;
+        }
+ 
+        separator(cy);
+        cy += 7;
+ 
+        // ── Causa raíz ──
+        if (task.causa || task.raiz) {
+            setLight(9, BLACK);
+            const causaTxt = [task.causa, task.raiz].filter(Boolean).join(", ");
+            const causaLines = doc.splitTextToSize(`Causa raíz: ${causaTxt}`, contentW);
+            setHead(9, [...BLUE]);
+            doc.text("Causa raíz: ", margin, cy);
+            const labelW = doc.getTextWidth("Causa raíz: ");
+            setLight(9, BLACK);
+            // texto completo en splitText para wrap correcto
+            doc.text(causaLines, margin, cy);
+            cy += causaLines.length * 4.2 + 6;
+        }
+ 
+        separator(cy, [230, 232, 242]);
+        cy += 7;
+ 
+        // ── Descripción del Problema ──
+        cy = block("Descripción del Problema", task.descripcion_problema, cy, 8, 9.5);
+ 
+        // ── Desarrollo de la Estrategia ──
+        cy = block("Desarrollo de la estrategia", task.desarrollo_estrategia, cy, 8, 9.5);
+ 
+        // ── Subtareas ──
+        if (subtasks.length > 0) {
+            setHead(8, [...BLUE]);
+            doc.text(`Subtareas  (${doneCount}/${subtasks.length} completadas)`, margin, cy);
+            cy += 5;
+ 
+            // Barra de progreso
+            const barW = contentW * 0.4;
+            doc.setFillColor(220, 224, 240);
+            doc.roundedRect(margin, cy, barW, 3, 1, 1, "F");
+            if (subtasks.length > 0 && doneCount > 0) {
+                doc.setFillColor(16, 185, 129);
+                doc.roundedRect(margin, cy, barW * (doneCount / subtasks.length), 3, 1, 1, "F");
+            }
+            cy += 7;
+ 
+            subtasks.forEach(sub => {
+                const mark = sub.done ? "✓" : "○";
+                const { rawStart, rawEnd } = getSubDates(sub);
+                let fechaSub = "";
+                if (rawStart || rawEnd) {
+                    fechaSub = `  ${rawStart ? String(rawStart).slice(0, 10) : ""}${rawStart && rawEnd ? " – " : ""}${rawEnd ? String(rawEnd).slice(0, 10) : ""}`;
+                }
+                const subTxt = `${mark}  ${sub.title || sub.titulo || ""}${fechaSub}`;
+                setLight(sub.done ? 8.5 : 9, sub.done ? GRAY : BLACK);
+                if (sub.done) doc.setFont("helvetica", "normal");
+                const subLines = doc.splitTextToSize(subTxt, contentW - 4);
+                doc.text(subLines, margin + 2, cy);
+                cy += subLines.length * 4.2 + 2;
+            });
+            cy += 4;
+        }
+ 
+        // ── Resultados ──
+        cy = block("Resultados", task.resultados, cy, 8, 9.5);
+ 
+        // ── Asignados (si hay) ──
+        if (Array.isArray(task.asignados) && task.asignados.length > 0) {
+            separator(cy, [230, 232, 242]);
+            cy += 6;
+            setHead(8, [...BLUE]);
+            doc.text("Asignado a", margin, cy);
+            cy += 5;
+            setLight(9, BLACK);
+            const nombresAsig = task.asignados.map(a => a.name || a.email || "—").join("  ·  ");
+            doc.text(nombresAsig, margin, cy);
+            cy += 7;
+        }
+ 
+        // ── Evidencias (si hay) ──
+        if (Array.isArray(task.evidencias) && task.evidencias.length > 0) {
+            separator(cy, [230, 232, 242]);
+            cy += 6;
+            setHead(8, [...BLUE]);
+            doc.text(`Evidencias (${task.evidencias.length})`, margin, cy);
+            cy += 5;
+            setLight(8.5, GRAY);
+            task.evidencias.forEach(ev => {
+                const url = ev.proxy_url || ev.archivo_url || "";
+                const name = url.split("/").pop() || "Archivo";
+                doc.text(`• ${name}`, margin + 2, cy);
+                cy += 4.5;
+            });
+        }
+ 
+        drawFooter(pageNum, totalPages);
+    });
+ 
+    // ─────────────────────────────────────────────────────────
+    // GUARDAR
+    // ─────────────────────────────────────────────────────────
+    const nombreProyecto = (selectedProject?.name || "TimeForAction")
+        .replace(/[^a-zA-Z0-9_\-]/g, "_")
+        .slice(0, 40);
+    doc.save(`${nombreProyecto}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
     
 
@@ -2854,8 +2514,14 @@ useEffect(() => {
 
             {view==="kanban"&&<KanbanView tasks={filtered} lists={lists} onEdit={openEdit} onDelete={handleDeleteTask} onCreateInCol={listId=>openCreate(listId)} loading={loading}/>}
             {view==="tabla"&&<TablaView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} loading={loading}/>}
-            {view==="timeline"&&<TimelineView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} onUpdateDates={handleUpdateDates} loading={loading}/>}
-
+            {view==="timeline"&&<TimelineView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} onUpdateDates={handleUpdateDates} loading={loading}
+            teams={teams}
+            projects={projects}
+            teamId={teamId}
+            projectId={projectId}
+            currentUser={currentUser}
+            allTasks={tasks}
+        />}
             <TaskModal open={modalOpen} onClose={()=>setModalOpen(false)} task={editingTask} lists={lists} teamId={teamId} onSaved={loadBoard}/>
             <TeamsModal
   open={teamsModalOpen}

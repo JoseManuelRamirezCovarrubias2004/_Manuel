@@ -13,14 +13,22 @@ async function apiFetch(path, opts = {}) {
 
 // ── Demo cuando no hay backend ────────────────────────────────────────────────
 const DEMO = {
-  "Polo 2026":    { precio_desde: "$339,990", precio_lista_num: 339990, versiones: { "Trendline": { precio_desde: "$339,990", precio_lista_num: 339990 }, "Highline": { precio_desde: "$389,990", precio_lista_num: 389990 } } },
-  "Virtus 2026":  { precio_desde: "$322,490", precio_lista_num: 322490, versiones: { "Trendline": { precio_desde: "$322,490", precio_lista_num: 322490 }, "Comfortline": { precio_desde: "$368,990", precio_lista_num: 368990 } } },
-  "Tera 2026":    { precio_desde: "$387,990", precio_lista_num: 387990, versiones: {} },
-  "Jetta 2026":   { precio_desde: "$449,290", precio_lista_num: 449290, versiones: { "Trendline": { precio_desde: "$449,290", precio_lista_num: 449290 }, "Comfortline": { precio_desde: "$498,290", precio_lista_num: 498290 }, "Sportline": { precio_desde: "$565,690", precio_lista_num: 565690 } } },
-  "Taos 2026":    { precio_desde: "$502,390", precio_lista_num: 502390, versiones: {} },
-  "Tiguan 2026":  { precio_desde: "$613,190", precio_lista_num: 613190, versiones: {} },
-  "Teramont 2026":{ precio_desde: "$901,190", precio_lista_num: 901190, versiones: {} },
-  "GTI 2026":     { precio_desde: "$857,990", precio_lista_num: 857990, versiones: {} },
+  "Polo 2026":         { precio_desde: "$339,990", precio_lista_num: 339990, versiones: { "Track": { precio_desde: "$339,990", precio_lista_num: 339990 } } },
+  "Virtus 2026":       { precio_desde: "$351,490", precio_lista_num: 351490, versiones: { "Trendline": { precio_desde: "$351,490", precio_lista_num: 351490 }, "Comfortline": { precio_desde: "$423,490", precio_lista_num: 423490 }, "Highline": { precio_desde: "$449,490", precio_lista_num: 449490 } } },
+  "Tera 2026":         { precio_desde: "$387,990", precio_lista_num: 387990, versiones: { "Trendline": { precio_desde: "$387,990", precio_lista_num: 387990 }, "Comfortline": { precio_desde: "$428,990", precio_lista_num: 428990 }, "Highline": { precio_desde: "$467,990", precio_lista_num: 467990 } } },
+  "Nuevo Nivus 2026":  { precio_desde: "$491,190", precio_lista_num: 491190, versiones: { "Highline": { precio_desde: "$491,190", precio_lista_num: 491190 } } },
+  "Jetta 2026":        { precio_desde: "$449,290", precio_lista_num: 449290, versiones: { "Trendline": { precio_desde: "$449,290", precio_lista_num: 449290 }, "Comfortline": { precio_desde: "$498,290", precio_lista_num: 498290 }, "Sportline": { precio_desde: "$565,690", precio_lista_num: 565690 } } },
+  "GLI 2026":          { precio_desde: "$691,190", precio_lista_num: 691190, versiones: {} },
+  "GTI 2026":          { precio_desde: "$857,990", precio_lista_num: 857990, versiones: {} },
+  "Saveiro 2026":      { precio_desde: "$342,490", precio_lista_num: 342490, versiones: { "Robust": { precio_desde: "$342,490", precio_lista_num: 342490 }, "Extreme": { precio_desde: "$432,990", precio_lista_num: 432990 } } },
+  "Taigun 2026":       { precio_desde: "$462,690", precio_lista_num: 462690, versiones: { "Comfortline TSI": { precio_desde: "$462,690", precio_lista_num: 462690 }, "Highline TSI": { precio_desde: "$491,690", precio_lista_num: 491690 } } },
+  "Taos 2026":         { precio_desde: "$502,390", precio_lista_num: 502390, versiones: { "Trendline": { precio_desde: "$502,390", precio_lista_num: 502390 }, "Comfortline": { precio_desde: "$554,990", precio_lista_num: 554990 }, "Highline": { precio_desde: "$616,190", precio_lista_num: 616190 } } },
+  "Tiguan 2026":       { precio_desde: "$613,190", precio_lista_num: 613190, versiones: { "Trendline": { precio_desde: "$613,190", precio_lista_num: 613190 }, "Comfortline": { precio_desde: "$694,290", precio_lista_num: 694290 }, "R-Line": { precio_desde: "$795,790", precio_lista_num: 795790 } } },
+  "Teramont 2026":     { precio_desde: "$901,190", precio_lista_num: 901190, versiones: { "Trendline": { precio_desde: "$901,190", precio_lista_num: 901190 }, "Peak Edition": { precio_desde: "$1,082,190", precio_lista_num: 1082190 }, "Highline": { precio_desde: "$1,152,190", precio_lista_num: 1152190 } } },
+  "Cross Sport 2026":  { precio_desde: "$1,175,190", precio_lista_num: 1175190, versiones: { "R-Line": { precio_desde: "$1,175,190", precio_lista_num: 1175190 } } },
+  "Transporter Combi 5 Asientos": { precio_desde: "$783,529", precio_lista_num: 783529, versiones: {} },
+  "Transporter Combi 8 Asientos": { precio_desde: "$742,723", precio_lista_num: 742723, versiones: {} },
+  "Transporter Combi 9 Asientos": { precio_desde: "$870,000", precio_lista_num: 870000, versiones: {} },
 };
 
 const fmt   = (n) => n ? `$${Number(n).toLocaleString("es-MX")} MXN` : "—";
