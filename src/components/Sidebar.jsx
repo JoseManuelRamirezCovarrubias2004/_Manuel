@@ -20,6 +20,7 @@ import {
     Tag,
     QrCode,
     UserSearch,
+    BrainCircuit,
 } from "lucide-react";
 
 import ryr from "../assets/ryr.png";
@@ -176,7 +177,12 @@ export default function Sidebar() {
                 icon: Tag,
                 show: hasAnyPermission(["USUARIOS_ADMIN"]),
             },
-
+            {
+                to: "/configuracion_ia",
+                label: "Panel de Inteligencias Artificiales",
+                icon: BrainCircuit,
+                show: hasAnyPermission(["USUARIOS_ADMIN"]),
+            },
             {
                 to: "/qr",
                 label: "QR",

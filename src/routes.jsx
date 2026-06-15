@@ -93,6 +93,8 @@ import JDPowerServicio from "./pages/encuestaJDpowerservicio/JDPowerServicio";
 import WhatsLayout from "./pages/EnvioWhats/EnvioLayout";
 import WhatsIndex from "./pages/EnvioWhats/EnvioIndex";
 
+import ConfigIA from "./pages/IA/ConfigIA";
+
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
 function tienePermiso(permisos = [], permisosPermitidos = []) {
@@ -347,7 +349,7 @@ export const router = createBrowserRouter(
                             ],
                         },
 
-                                {
+                        {
                             path: "comercial",
                             element: (
                                 <RequirePermission
@@ -844,6 +846,15 @@ export const router = createBrowserRouter(
                                     element: <CatalogoPreciosIndex />,
                                 },
                             ],
+                        },
+
+                        {
+                            path: "configuracion_ia",
+                            element: (
+                                <RequirePermission anyOf={["USUARIOS_ADMIN"]}>
+                                    <ConfigIA />
+                                </RequirePermission>
+                            ),
                         },
 
                         {

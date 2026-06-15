@@ -1,3 +1,4 @@
+//volkswagen
 // src/pages/Digitaltes/DigitalesContacto.jsx
 import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
@@ -1075,7 +1076,7 @@ export default function DigitalesContacto() {
     );
 
     const [q, setQ] = useState("");
-    const [chatFilter, setChatFilter] = useState("todos"); 
+    const [chatFilter, setChatFilter] = useState("todos");
     const [loadingList, setLoadingList] = useState(false);
     const [loadingChat, setLoadingChat] = useState(false);
     const [chats, setChats] = useState([]);
