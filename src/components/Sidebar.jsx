@@ -170,7 +170,6 @@ export default function Sidebar() {
                 icon: UserSearch,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]),
             },
-
             {
                 to: "/catalogo_precios",
                 label: "Catálogo Precios",
@@ -189,7 +188,6 @@ export default function Sidebar() {
                 icon: QrCode,
                 show: hasAnyPermission(["USUARIOS_ADMIN"]),
             },
-
             {
                 to: "/configuracion",
                 label: "Configuración",
