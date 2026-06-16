@@ -1161,11 +1161,19 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
     );
 }
 
+<<<<<<< HEAD
 /* TIMELINE VIEW */
 function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
     teams, projects, teamId, projectId, currentUser, allTasks }) {
     const ganttRef = useRef(null);
     const leftRef  = useRef(null);
+=======
+/* TIMELINE VIEW*/
+function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
+    teams, projects, teamId, projectId, currentUser, allTasks }) {
+    const ganttRef   = useRef(null);
+    const leftRef    = useRef(null);
+>>>>>>> 0c1e9f89bd5ffbc08ce47c4c257bc175dcd531a3
 
     const today = new Date(); today.setHours(0,0,0,0);
     const [expandedRows, setExpandedRows] = useState({});
@@ -1680,6 +1688,371 @@ try {
 
     const cellStyle = { borderRight: `1px solid rgba(19,30,92,0.08)`, overflow: "hidden", flexShrink: 0 };
 
+<<<<<<< HEAD
+=======
+    function getBarOffsets(key, origStartOff, origDur) {
+        if (dragOverrides[key]) return dragOverrides[key];
+        return { startOff: origStartOff, dur: origDur };
+    }
+     
+async function exportToPDF() {
+    // ── Portrait A4 ──────────────────────────────────────────
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const W = doc.internal.pageSize.getWidth();   // 210
+    const H = doc.internal.pageSize.getHeight();  // 297
+    const margin = 18;
+    const contentW = W - margin * 2;
+    const BLUE  = [19, 30, 92];
+    const GRAY  = [120, 125, 145];
+    const BLACK = [30, 30, 40];
+ 
+    // ── Helpers tipografía VW ─────────────────────────────────
+    // VW Head Bold  → helvetica bold
+    // VW Text Light → helvetica normal
+    function setHead(size, color = BLACK) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(size);
+        doc.setTextColor(...color);
+    }
+    function setLight(size, color = BLACK) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(size);
+        doc.setTextColor(...color);
+    }
+    function setItalic(size, color = GRAY) {
+        doc.setFont("helvetica", "oblique");
+        doc.setFontSize(size);
+        doc.setTextColor(...color);
+    }
+ 
+    // ── Footer ────────────────────────────────────────────────
+    function drawFooter(pageNum, totalPages) {
+        const fechaImp = new Date().toLocaleDateString("es-MX", {
+            year: "numeric", month: "long", day: "2-digit"
+        });
+        const usuario = currentUser?.name || "Sistema";
+        setLight(7.5, GRAY);
+        doc.line(margin, H - 12, W - margin, H - 12);
+        doc.text(
+            `${fechaImp}; generado por ${usuario}. Referencia ISO 10.1`,
+            margin, H - 7
+        );
+        doc.text(`Pag. ${pageNum} / ${totalPages}`, W - margin, H - 7, { align: "right" });
+    }
+ 
+    // ── Línea separadora ─────────────────────────────────────
+    function separator(y, color = [210, 213, 228]) {
+        doc.setDrawColor(...color);
+        doc.setLineWidth(0.3);
+        doc.line(margin, y, W - margin, y);
+    }
+ 
+    // ── Label + contenido (devuelve nueva Y) ─────────────────
+    function block(label, content, y, labelSize = 8, contentSize = 9.5) {
+        if (!content || !content.trim()) return y;
+        setHead(labelSize, BLUE);
+        doc.text(label, margin, y);
+        y += 5;
+        setLight(contentSize, BLACK);
+        const lines = doc.splitTextToSize(content, contentW);
+        doc.text(lines, margin, y);
+        return y + lines.length * (contentSize * 0.42) + 5;
+    }
+ 
+    // ─────────────────────────────────────────────────────────
+    // PÁGINA 1 — PORTADA DEL PROYECTO
+    // ─────────────────────────────────────────────────────────
+    const selectedTeam    = teams.find(t => Number(t.id) === Number(teamId));
+    const selectedProject = projects.find(p => Number(p.id) === Number(projectId));
+ 
+    // Rango de fechas del proyecto
+    const allDates = allTasks
+        .flatMap(t => [t.start_date, t.due_date])
+        .filter(Boolean)
+        .map(d => new Date(String(d)))
+        .filter(d => !isNaN(d))
+        .sort((a, b) => a - b);
+    const proyectoInicio = allDates[0]
+        ? allDates[0].toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
+        : null;
+    const proyectoFin = allDates[allDates.length - 1]
+        ? allDates[allDates.length - 1].toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
+        : null;
+ 
+    // Header azul portada
+    doc.setFillColor(...BLUE);
+    doc.rect(0, 0, W, 14, "F");
+    setLight(8, [255, 255, 255]);
+    doc.text("Time For Action", margin, 9.5);
+ 
+    let y = 30;
+ 
+    // Nombre del equipo
+    setLight(9, GRAY);
+    doc.text(selectedTeam?.name || "Grupo Automotriz R&R", margin, y);
+    y += 10;
+ 
+    // Nombre del proyecto — VW Head Bold grande
+    setHead(28, [...BLUE]);
+    const projLines = doc.splitTextToSize(selectedProject?.name || "Proyecto", contentW);
+    doc.text(projLines, margin, y);
+    y += projLines.length * 12 + 3;
+ 
+    // Fechas — itálica light
+    if (proyectoInicio && proyectoFin) {
+        setItalic(9, GRAY);
+        doc.text(`${proyectoInicio} - ${proyectoFin}`, margin, y);
+        y += 10;
+    }
+ 
+    separator(y);
+    y += 8;
+ 
+    // Resumen IA — llamada a API Anthropic
+    let resumenIA = "";
+    try {
+        const problemasTexto = allTasks 
+            .slice(0, 8)
+            .map(t => [t.descripcion_problema, t.desarrollo_estrategia, t.resultados].filter(Boolean).join(". "))
+            .filter(Boolean)
+            .join(" | ");
+ 
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: "claude-sonnet-4-6",
+                max_tokens: 1000,
+                messages: [{
+                    role: "user",
+                    content: `Genera un resumen ejecutivo en español de máximo 4 oraciones sobre este proyecto de mejora continua. 
+Usa lenguaje profesional y conciso. No uses listas, solo párrafo continuo.
+Datos del proyecto: ${selectedProject?.name || "Proyecto"}
+Planes de acción analizados: ${tasks.length}
+Contenido: ${problemasTexto.slice(0, 1500)}`
+                }]
+            })
+        });
+        const data = await resp.json();
+        resumenIA = data?.content?.[0]?.text?.trim() || "";
+    } catch (e) {
+        resumenIA = `Este proyecto contiene ${tasks.length} planes de acción orientados a la mejora continua de procesos internos.`;
+    }
+ 
+    setLight(10.5, BLACK);
+    const resumenLines = doc.splitTextToSize(resumenIA, contentW);
+    doc.text(resumenLines, margin, y);
+    y += resumenLines.length * 4.8 + 10;
+ 
+    // Stats rápidos
+    const porHacer  = allTasks.filter(t => t.list_name === "Por hacer").length;
+    const enProceso = allTasks.filter(t => t.list_name === "En proceso").length;
+    const hecho     = allTasks.filter(t => t.list_name === "Hecho").length;
+    
+    separator(y);
+    y += 8;
+ 
+    const statCols = [
+        { label: "Total de planes", val: String(allTasks.length) },
+        { label: "Por hacer",       val: String(porHacer) },
+        { label: "En proceso",      val: String(enProceso) },
+        { label: "Completados",     val: String(hecho) },
+    ];
+    const statW = contentW / statCols.length;
+    statCols.forEach((s, i) => {
+        const sx = margin + i * statW + statW / 2;
+        setHead(18, [...BLUE]);
+        doc.text(s.val, sx, y + 8, { align: "center" });
+        setLight(8, GRAY);
+        doc.text(s.label, sx, y + 14, { align: "center" });
+    });
+ 
+    // ─────────────────────────────────────────────────────────
+    // PÁGINAS DE PLANES — una por tarea (portrait, vertical)
+    // ─────────────────────────────────────────────────────────
+    // DESPUÉS
+    const PRIO_ORDER = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+    const tasksList = [...withDate, ...noDate].sort((a, b) =>
+    (PRIO_ORDER[a.priority] ?? 2) - (PRIO_ORDER[b.priority] ?? 2)
+);
+    const totalPages = 1 + tasksList.length;
+
+ 
+    // Dibujar footer de portada
+    drawFooter(1, totalPages);
+ 
+    tasksList.forEach((task, idx) => {
+        doc.addPage();
+ 
+        const pageNum = idx + 2;
+        const subtasks = Array.isArray(task.subtareas) ? task.subtareas : [];
+        const doneCount = subtasks.filter(s => s.done).length;
+ 
+        // ── Color de estado ──
+        const stateColor =
+            task.list_name === "Hecho"      ? [16, 185, 129] :
+            task.list_name === "En proceso" ? [79, 110, 247] :
+            [...BLUE];
+ 
+        // ── Banda color superior ──
+        doc.setFillColor(...stateColor);
+        doc.rect(0, 0, W, 6, "F");
+ 
+        // ── Header azul ──
+        doc.setFillColor(...BLUE);
+        doc.rect(0, 6, W, 14, "F");
+        setLight(8, [255, 255, 255]);
+        doc.text("Time For Action", margin, 15.5);
+        setLight(8, [255, 255, 255]);
+        doc.text(selectedProject?.name || "", W - margin, 15.5, { align: "right" });
+ 
+        let cy = 30;
+ 
+        // ── Título del plan — VW Head Bold grande ──
+        setHead(22, [...BLUE]);
+        const titleLines = doc.splitTextToSize(task.title || "Sin título", contentW);
+        doc.text(titleLines, margin, cy);
+        cy += titleLines.length * 9 + 3;
+ 
+        // ── Estatus / Columna / Prioridad — itálica light ──
+        setItalic(8.5, GRAY);
+        const prioLabel = { LOW:"Baja", MEDIUM:"Media", HIGH:"Alta", URGENT:"Urgente" }[task.priority] || task.priority;
+        doc.text(
+            `Estatus: ${task.list_name || "-"}  |  Prioridad: ${prioLabel || "-"}`,
+            margin, cy
+        );
+        cy += 6;
+ 
+        // ── Fechas ──
+        const sStr = task.start_date ? String(task.start_date).slice(0, 10) : null;
+        const eStr = task.due_date   ? String(task.due_date).slice(0, 10)   : null;
+        if (sStr || eStr) {
+            setItalic(8, GRAY);
+            doc.text(`${sStr || "-"} - ${eStr || "-"}`, margin, cy);
+            cy += 6;
+        }
+ 
+        separator(cy);
+        cy += 7;
+ 
+        // ── Causa raíz ──
+        if (task.causa || task.raiz) {
+        const causaTxt = [task.causa, task.raiz].filter(Boolean).join(", ");
+        setHead(8, [...BLUE]);
+        doc.text("Causa raiz:", margin, cy);
+        cy += 5;
+        setLight(9, BLACK);
+        const causaLines = doc.splitTextToSize(causaTxt, contentW);
+        doc.text(causaLines, margin, cy);
+        cy += causaLines.length * 4.5 + 6;
+    }
+ 
+        separator(cy, [230, 232, 242]);
+        cy += 7;
+ 
+        // ── Descripción del Problema ──
+        cy = block("Descripción del Problema", task.descripcion_problema, cy, 8, 9.5);
+ 
+        // ── Desarrollo de la Estrategia ──
+        cy = block("Desarrollo de la estrategia", task.desarrollo_estrategia, cy, 8, 9.5);
+ 
+        // ── Subtareas ──
+        if (subtasks.length > 0) {
+            setHead(8, [...BLUE]);
+            doc.text(`Subtareas  (${doneCount}/${subtasks.length} completadas)`, margin, cy);
+            cy += 5;
+ 
+            // Barra de progreso
+            const barW = contentW * 0.4;
+            doc.setFillColor(220, 224, 240);
+            doc.roundedRect(margin, cy, barW, 3, 1, 1, "F");
+            if (subtasks.length > 0 && doneCount > 0) {
+                doc.setFillColor(16, 185, 129);
+                doc.roundedRect(margin, cy, barW * (doneCount / subtasks.length), 3, 1, 1, "F");
+            }
+            cy += 7;
+ 
+            subtasks.forEach(sub => {
+                const mark = sub.done ? "[x]" : "[ ]";
+                const { rawStart, rawEnd } = getSubDates(sub);
+                const subInicio = rawStart ? String(rawStart).slice(0, 10) : "";
+                const subFin    = rawEnd   ? String(rawEnd).slice(0, 10)   : "";
+                const fechaSub  = (subInicio || subFin)
+                    ? `   Inicio: ${subInicio || "-"}  Fin: ${subFin || "-"}`
+                    : "";
+                const subTxt = `${mark} ${sub.title || sub.titulo || ""}${fechaSub}`;
+                setLight(sub.done ? 8.5 : 9, sub.done ? GRAY : BLACK);
+                if (sub.done) doc.setFont("helvetica", "normal");
+                const subLines = doc.splitTextToSize(subTxt, contentW - 4);
+                doc.text(subLines, margin + 2, cy);
+                cy += subLines.length * 4.2 + 2;
+            });
+            cy += 4;
+        }
+ 
+        // ── Resultados ──
+        cy = block("Resultados", task.resultados, cy, 8, 9.5);
+ 
+        // ── Asignados (si hay) ──
+        if (Array.isArray(task.asignados) && task.asignados.length > 0) {
+            separator(cy, [230, 232, 242]);
+            cy += 6;
+            setHead(8, [...BLUE]);
+            doc.text("Asignado a", margin, cy);
+            cy += 5;
+            setLight(9, BLACK);
+            const nombresAsig = task.asignados.map(a => a.name || a.email || "-").join("  |  ");
+            doc.text(nombresAsig, margin, cy);
+            cy += 7;
+        }
+ 
+        // ── Evidencias (si hay) ──
+        if (Array.isArray(task.evidencias) && task.evidencias.length > 0) {
+    separator(cy, [230, 232, 242]);
+    cy += 6;
+    setHead(8, [...BLUE]);
+    doc.text(`Evidencias (${task.evidencias.length})`, margin, cy);
+    cy += 6;
+    task.evidencias.forEach(ev => {
+        const url = ev.proxy_url || ev.archivo_url || "";
+        const rawName = url.split("/").pop() || "Archivo";
+        // Limpiar el nombre: quitar query strings y decodificar
+        const name = decodeURIComponent(rawName.split("?")[0]).slice(0, 60);
+        // Fondo gris claro para cada evidencia
+        doc.setFillColor(245, 246, 250);
+        doc.roundedRect(margin, cy - 3.5, contentW, 7, 1, 1, "F");
+        // Icono tipo archivo
+        const ext = name.split(".").pop().toLowerCase();
+        const icon = ext === "pdf" ? "[PDF]" : ["jpg","jpeg","png","webp"].includes(ext) ? "[IMG]" : "[DOC]";
+        setHead(7.5, [...BLUE]);
+        doc.text(icon, margin + 2, cy + 1);
+        // Nombre como link clickeable
+        setLight(8, BLACK);
+        doc.text(name, margin + 14, cy + 1);
+        if (url) {
+            doc.link(margin + 14, cy - 3, contentW - 16, 7, { url });
+        }
+        cy += 9;
+    });
+}
+ 
+        drawFooter(pageNum, totalPages);
+    });
+ 
+    // ─────────────────────────────────────────────────────────
+    // GUARDAR
+    // ─────────────────────────────────────────────────────────
+    const nombreProyecto = (selectedProject?.name || "TimeForAction")
+        .replace(/[^a-zA-Z0-9_\-]/g, "_")
+        .slice(0, 40);
+    doc.save(`${nombreProyecto}_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+    
+
+    // Calcular altura total del contenido para el gantt 
+    const totalContentHeight = withDate.reduce((acc, task) => acc + rowHeight(task), 0);
+
+>>>>>>> 0c1e9f89bd5ffbc08ce47c4c257bc175dcd531a3
     return (
         <div className="w-full space-y-4">
             {withDate.length > 0 && (
@@ -2338,8 +2711,18 @@ export default function TimeForAction() {
             {view==="kanban"&&<KanbanView tasks={filtered} lists={lists} onEdit={openEdit} onDelete={handleDeleteTask} onCreateInCol={listId=>openCreate(listId)} loading={loading}/>}
             {view==="tabla"&&<TablaView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} loading={loading}/>}
             {view==="timeline"&&<TimelineView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} onUpdateDates={handleUpdateDates} loading={loading}
+<<<<<<< HEAD
                 teams={teams} projects={projects} teamId={teamId} projectId={projectId} currentUser={currentUser} allTasks={tasks}/>}
 
+=======
+            teams={teams}
+            projects={projects}
+            teamId={teamId}
+            projectId={projectId}
+            currentUser={currentUser}
+            allTasks={tasks}
+        />}
+>>>>>>> 0c1e9f89bd5ffbc08ce47c4c257bc175dcd531a3
             <TaskModal open={modalOpen} onClose={()=>setModalOpen(false)} task={editingTask} lists={lists} teamId={teamId} onSaved={loadBoard}/>
             <TeamsModal open={teamsModalOpen} onClose={()=>setTeamsModalOpen(false)} onCreated={async()=>{
                 await fetchTeams();
