@@ -691,4 +691,6 @@ export const api = {
     http(path, {
       method: "DELETE",
     }),
+
+  iaLineas: () => http("/digitales/ia/lineas/"),
 };

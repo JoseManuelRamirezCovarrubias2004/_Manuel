@@ -241,7 +241,9 @@ function Modal({ open, title, onClose, children, footer }) {
 export default function ConfigIA() {
     const [tab, setTab] = useState("config");
 
-    const [numeroSeleccionado, setNumeroSeleccionado] = useState(NUMEROS[0].numero);
+    const [lineasIA, setLineasIA] = useState([]);
+    const [numeroSeleccionado, setNumeroSeleccionado] = useState("");
+
     const [swiftActivo, setSwiftActivo] = useState(false);
     const [horarios, setHorarios] = useState(horarioInicial());
     const [mostrarHorarios, setMostrarHorarios] = useState(false);
@@ -304,6 +306,22 @@ export default function ConfigIA() {
                 .includes(q);
         });
     }, [vehiculos, qCatalogo, soloActivos]);
+
+    async function cargarLineasIA() {
+        try {
+            const res = await api.iaLineas();
+            const items = Array.isArray(res?.items) ? res.items : [];
+
+            setLineasIA(items);
+
+            if (!numeroSeleccionado && items.length) {
+                setNumeroSeleccionado(items[0].numero);
+            }
+        } catch (error) {
+            console.error(error);
+            setMsgConfig("No se pudieron cargar las líneas de WhatsApp.");
+        }
+    }
 
     async function cargarConfig(numero = numeroSeleccionado) {
         const numeroNormalizado = normalizaTelefonoMx(numero);
@@ -409,7 +427,7 @@ export default function ConfigIA() {
 
         try {
             const res = await api.get(
-                `/digitales/catalogo/vehiculos/?activo=${soloActivos ? "true" : "false"}&limit=1000`
+                `/digitales/catalogo/vehiculos/?activo=${soloActivos ? "true" : "todos"}&limit=1000`
             );
 
             setVehiculos(Array.isArray(res?.items) ? res.items : []);
@@ -578,6 +596,11 @@ export default function ConfigIA() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [soloActivos]);
 
+    useEffect(() => {
+        cargarLineasIA();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     return (
         <div className="min-h-screen bg-gray-100 p-4 md:p-6">
             <div className="mb-6 rounded-xl bg-[#0a1f44] px-6 py-6 text-white md:px-8">
@@ -630,11 +653,11 @@ export default function ConfigIA() {
                                 </label>
 
                                 <select
-                                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-[#131E5C]/20"
                                     value={numeroSeleccionado}
                                     onChange={(e) => setNumeroSeleccionado(e.target.value)}
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-[#0a1f44] outline-none focus:ring-2 focus:ring-[#131E5C]/20"
                                 >
-                                    {NUMEROS.map((item) => (
+                                    {lineasIA.map((item) => (
                                         <option key={item.numero} value={item.numero}>
                                             {item.label} · {item.numero}
                                         </option>
@@ -795,6 +818,19 @@ export default function ConfigIA() {
                                     <Save className="h-4 w-4" />
                                 )}
                                 Guardar configuración
+                            </button>
+                            <button
+                                type="button"
+                                onClick={publicarConfig}
+                                disabled={guardandoConfig}
+                                className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                                {guardandoConfig ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <CheckCircle2 className="h-4 w-4" />
+                                )}
+                                Publicar y encender IA
                             </button>
                         </div>
 

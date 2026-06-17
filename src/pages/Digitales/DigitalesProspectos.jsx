@@ -63,7 +63,16 @@ const origenMeta = {
 };
 
 const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Edgar Omar Nogera Solis"];
-const ESTADOS_PROSPECTO = ["Descalificado", "Contactado", "Sin Respuesta"];
+
+const ESTADOS_PROSPECTO = [
+    "Contactado",
+    "Calificado",
+    "Pendiente de Cotización",
+    "Requiere Asesor",
+    "Financiamiento",
+    "Sin Respuesta",
+    "Descalificado",
+];
 
 const VEHICULOS = [
     "Virtus",
@@ -312,13 +321,49 @@ function BadgeEstado({ value }) {
 
 function badgeCls(value) {
     const map = {
-        descalificado: "bg-blue-600/15 text-blue-800 font-bold border-blue-300/25",
         contactado: "bg-emerald-500/15 text-emerald-800 border-emerald-300/25",
+        "calificado": "bg-violet-500/15 text-violet-800 border-violet-300/25",
+        "pendiente de cotización": "bg-amber-500/20 text-amber-900 border-amber-300/40",
+        "requiere asesor": "bg-orange-500/20 text-orange-900 border-orange-300/40",
+        financiamiento: "bg-sky-500/15 text-sky-800 border-sky-300/30",
         "sin respuesta": "bg-red-500/15 text-red-800 border-red-300/25",
+        descalificado: "bg-slate-500/15 text-slate-700 border-slate-300/25",
     };
 
     const key = String(value || "").trim().toLowerCase();
-    return map[key] || "bg-black/10 text-white/85 border-white/20";
+    return map[key] || "bg-black/10 text-[#131E5C] border-black/10";
+}
+
+function getAccionRequerida(row) {
+    if (row.cotizacion_pendiente) {
+        return {
+            label: "Cotización pendiente",
+            cls: "bg-amber-100 text-amber-900 border-amber-300",
+        };
+    }
+
+    if (row.requiere_asesor) {
+        return {
+            label: "Requiere asesor",
+            cls: "bg-orange-100 text-orange-900 border-orange-300",
+        };
+    }
+
+    if (String(row.forma_pago || "").toLowerCase().includes("credito")) {
+        return {
+            label: "Financiamiento",
+            cls: "bg-sky-100 text-sky-900 border-sky-300",
+        };
+    }
+
+    if (row.ia_pausada) {
+        return {
+            label: "IA pausada",
+            cls: "bg-slate-100 text-slate-700 border-slate-300",
+        };
+    }
+
+    return null;
 }
 
 function LineaPicker({ value, onChange }) {
@@ -567,6 +612,19 @@ function normalizeProspecto(p) {
         fecha_atencion: onlyDate(p.primer_contacto_at) || onlyDate(p.creado),
         fecha_contacto: onlyDate(p.ultimo_contacto_at),
         fecha_reclamacion: onlyDate(p.creado),
+        requiere_asesor: Boolean(p.requiere_asesor),
+        motivo_requiere_asesor: p.motivo_requiere_asesor || "",
+        cotizacion_pendiente: Boolean(p.cotizacion_pendiente),
+        cotizacion_solicitada_at: toDTLocal(p.cotizacion_solicitada_at),
+        enganche_monto: p.enganche_monto || "",
+        presupuesto_mensual: p.presupuesto_mensual || "",
+        buro_estado: p.buro_estado || "",
+        forma_pago: p.forma_pago || "",
+        tipo_cliente: p.tipo_cliente || "",
+        uso_vehiculo: p.uso_vehiculo || "",
+        plazo_compra: p.plazo_compra || "",
+        ia_pausada: Boolean(p.ia_pausada),
+        ia_pausada_motivo: p.ia_pausada_motivo || "",
     };
 }
 
@@ -2144,6 +2202,7 @@ export default function DigitalesProspectos() {
                                         <th className="w-40 px-4 py-3">Canal de Contacto</th>
                                         <th className="px-4 py-3">Resumen</th>
                                         <th className="px-4 py-3">Acciones</th>
+                                        <th className="px-4 py-3">Acción requerida</th>
                                     </tr>
                                 </thead>
 
@@ -2158,6 +2217,7 @@ export default function DigitalesProspectos() {
                                         <>
                                             {paginatedRows.map((row) => {
                                                 const isUpdating = !!updatingEstado[row.id_exp];
+                                                const accion = getAccionRequerida(row);
 
                                                 return (
                                                     <tr
@@ -2295,13 +2355,23 @@ export default function DigitalesProspectos() {
                                                                 </button>
                                                             </div>
                                                         </td>
+                                                        <td className="px-4 py-3">
+                                                            {accion ? (
+                                                                <span className={["inline-flex rounded-full border px-3 py-1 text-xs font-black", accion.cls].join(" ")}>
+                                                                    {accion.label}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-xs font-semibold text-slate-400">—</span>
+                                                            )}
+                                                        </td>
+
                                                     </tr>
                                                 );
                                             })}
 
                                             {paginatedRows.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={11} className="px-4 py-10 text-center text-[#131E5C]">
+                                                    <td colSpan={12} className="px-4 py-10 text-center text-[#131E5C]">
                                                         No hay resultados con esos filtros.
                                                     </td>
                                                 </tr>
