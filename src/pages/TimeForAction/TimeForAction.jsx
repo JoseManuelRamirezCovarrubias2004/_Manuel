@@ -10,6 +10,9 @@ import {
     AlertTriangle, UserPlus, Mail, Check, EyeOff
 } from "lucide-react";
 import { apiClickup } from "../../lib/apiClickup";
+import { VW_HEAD_BOLD, VW_TEXT_LIGHT } from "../../assets/fonts/vwFonts.js";
+
+// ─────────────────────────────────────────────────────────────
 
 const BRAND_BLUE = "#131E5C";
 
@@ -72,31 +75,20 @@ const opcionesRaiz = {
         "Fallos en la trazabilidad de piezas",
     ],
     Infraestructura: [
-    "Problemas de orden",
-    "Problemas de limpieza",
-    "Instalaciones pequeñas",
-    "Problemas de suministro de servicios básicos",
-    "Equipos obsoletos",
-    "Falta de áreas de descanso adecuadas",
-    "Problemas de seguridad",
-    "Deficiencias en el almacenamiento",
-    "Falta de estacionamiento para clientes",
-    "Infraestructura inadecuada para la exhibición de vehículos",
-    "Problemas de accesibilidad para personas con discapacidades",
-    "Insuficiente espacio para talleres de reparación",
-    "Iluminación inadecuada en áreas de trabajo",
-    "Sistemas de ventilación deficientes",
-    "Señalización ineficaz dentro de las instalaciones",
-    "Falta de mantenimiento preventivo",
-    "Problemas con sistemas de climatización",
-    "Infraestructuras tecnológicas desactualizadas",
-    "Falta de salas de reuniones adecuadas",
-    "Instalaciones sanitarias insuficientes",
-    "Falta de zonas verdes",
-    "Problemas de acústica en oficinas",
-    "Instalaciones eléctricas inadecuadas",
-    "Falta de sistemas de gestión ambiental",
-],
+        "Problemas de orden","Problemas de limpieza","Instalaciones pequeñas",
+        "Problemas de suministro de servicios básicos","Equipos obsoletos",
+        "Falta de áreas de descanso adecuadas","Problemas de seguridad",
+        "Deficiencias en el almacenamiento","Falta de estacionamiento para clientes",
+        "Infraestructura inadecuada para la exhibición de vehículos",
+        "Problemas de accesibilidad para personas con discapacidades",
+        "Insuficiente espacio para talleres de reparación",
+        "Iluminación inadecuada en áreas de trabajo","Sistemas de ventilación deficientes",
+        "Señalización ineficaz dentro de las instalaciones","Falta de mantenimiento preventivo",
+        "Problemas con sistemas de climatización","Infraestructuras tecnológicas desactualizadas",
+        "Falta de salas de reuniones adecuadas","Instalaciones sanitarias insuficientes",
+        "Falta de zonas verdes","Problemas de acústica en oficinas",
+        "Instalaciones eléctricas inadecuadas","Falta de sistemas de gestión ambiental",
+    ],
     "Talento Humano": [
         "Falta de capacitación","Falta de adiestramiento","Problemas de comunicación","Desmotivación",
         "Conflictos laborales","Alta rotación de personal","Falta de reconocimiento",
@@ -248,7 +240,6 @@ function ConfirmDialog({ open, title, message, onConfirm, onCancel, loading }) {
     );
 }
 
-
 function TeamsModal({ open, onClose, onCreated }) {
     const [teams,setTeams]=useState([]);
     const [loading,setLoading]=useState(false);
@@ -270,21 +261,14 @@ function TeamsModal({ open, onClose, onCreated }) {
     const [hiddenInvites,setHiddenInvites]=useState({});
     const [acceptingInvite,setAcceptingInvite]=useState({});
 
-    // ── FIX MEMBERS: extraer array de cualquier forma que devuelva el servidor 
     function extractArray(data) {
         if (!data) return [];
         if (Array.isArray(data)) return data;
-        // { members: [...] }
         if (Array.isArray(data.members)) return data.members;
-        // { usuarios: [...] }
         if (Array.isArray(data.usuarios)) return data.usuarios;
-        // { data: [...] }
         if (Array.isArray(data.data)) return data.data;
-        // { results: [...] }
         if (Array.isArray(data.results)) return data.results;
-        // { team: { members: [...] } }
         if (data.team && Array.isArray(data.team.members)) return data.team.members;
-        // Si es objeto con keys numéricas 
         const vals = Object.values(data);
         const firstArr = vals.find(v => Array.isArray(v));
         if (firstArr) return firstArr;
@@ -292,7 +276,6 @@ function TeamsModal({ open, onClose, onCreated }) {
     }
 
     function normalizeMember(m) {
-        // Soportar objeto anidado usuario/user
         const inner = m.usuario || m.user || m;
         return {
             id:    m.id     || m.user_id   || m.usuario_id || inner.id || inner.id_usuario,
@@ -313,121 +296,122 @@ function TeamsModal({ open, onClose, onCreated }) {
         };
     }
 
-    const fetchTeams=useCallback(async()=>{
+    const fetchTeams = useCallback(async () => {
         setLoading(true);
-        try{
-            const data=await apiClickup.listTeams();
-            const arr=Array.isArray(data)?data:[];
+        try {
+            const data = await apiClickup.listTeams();
+            const arr = Array.isArray(data) ? data : [];
             setTeams(arr);
-            if(arr.length>0&&!selectedTeam) setSelectedTeam(arr[0]);
-        }catch(e){console.error(e);}
-        finally{setLoading(false);}
-    },[]);
+            if (arr.length > 0 && !selectedTeam) setSelectedTeam(arr[0]);
+        } catch(e) { console.error(e); }
+        finally { setLoading(false); }
+    }, []);
 
-    const loadTeamData=useCallback(async(teamId)=>{
-        if(!teamId)return;
-        setLoadingInvites(p=>({...p,[teamId]:true}));
-        try{
-            const [membersRaw, invitesRaw] = await Promise.allSettled([
-    apiClickup.listMembers(teamId),
-    apiClickup.listInvites(teamId)
-]);
+    const loadTeamData = useCallback(async (teamId) => {
+        if (!teamId) return;
+        setLoadingInvites(p => ({ ...p, [teamId]: true }));
+        try {
+            // FIX: usar Promise.allSettled correctamente leyendo .value solo si status === "fulfilled"
+            const [membersResult, invitesResult] = await Promise.allSettled([
+                apiClickup.listMembers(teamId),
+                apiClickup.listInvites(teamId),
+            ]);
 
-            // FIX: extraer array independientemente de la estructura devuelta
-            const membersArr = extractArray(membersRaw);
-            const invitesArr = extractArray(invitesRaw);
+            const membersRaw = membersResult.status === "fulfilled" ? membersResult.value : [];
+            const invitesRaw = invitesResult.status === "fulfilled" ? invitesResult.value : [];
 
-            console.log("[TeamsModal] membersRaw:", membersRaw, "→ array:", membersArr);
-            console.log("[TeamsModal] invitesRaw:", invitesRaw, "→ array:", invitesArr);
+            const normalizedMembers = extractArray(membersRaw).map(normalizeMember);
+            const normalizedInvites = extractArray(invitesRaw).map(normalizeInvite);
 
-            const normalizedMembers = membersArr.map(normalizeMember);
-            const normalizedInvites = invitesArr.map(normalizeInvite);
-            setMembersByTeam(p=>({...p,[teamId]:normalizedMembers}));
-            setInvitesByTeam(p=>({...p,[teamId]:normalizedInvites}));
-        }catch(e){
+            setMembersByTeam(p => ({ ...p, [teamId]: normalizedMembers }));
+            setInvitesByTeam(p => ({ ...p, [teamId]: normalizedInvites }));
+        } catch(e) {
             console.error("[TeamsModal] loadTeamData error:", e);
-            setMembersByTeam(p=>({...p,[teamId]:[]}));
-            setInvitesByTeam(p=>({...p,[teamId]:[]}));
+            setMembersByTeam(p => ({ ...p, [teamId]: [] }));
+            setInvitesByTeam(p => ({ ...p, [teamId]: [] }));
+        } finally {
+            setLoadingInvites(p => ({ ...p, [teamId]: false }));
         }
-        finally{setLoadingInvites(p=>({...p,[teamId]:false}));}
-    },[]);
+    }, []);
 
-    useEffect(()=>{if(open)fetchTeams();},[open,fetchTeams]);
-    useEffect(()=>{if(selectedTeam?.id)loadTeamData(selectedTeam.id);},[selectedTeam]);
+    useEffect(() => { if (open) fetchTeams(); }, [open, fetchTeams]);
+    useEffect(() => { if (selectedTeam?.id) loadTeamData(selectedTeam.id); }, [selectedTeam]);
 
-    useEffect(()=>{
-        const timer=setTimeout(async()=>{
-            if(!inviteSearch.trim()||inviteSearch.length<2){setInviteResults([]);return;}
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (!inviteSearch.trim() || inviteSearch.length < 2) { setInviteResults([]); return; }
             setInviteSearching(true);
-            try{const r=await apiClickup.searchUsers(inviteSearch);setInviteResults(Array.isArray(r)?r:[]);}
-            catch(e){setInviteResults([]);}
-            finally{setInviteSearching(false);}
-        },500);
-        return()=>clearTimeout(timer);
-    },[inviteSearch]);
+            try { const r = await apiClickup.searchUsers(inviteSearch); setInviteResults(Array.isArray(r) ? r : []); }
+            catch(e) { setInviteResults([]); }
+            finally { setInviteSearching(false); }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [inviteSearch]);
 
-    async function createTeam(){
-        if(!name.trim())return;
+    async function createTeam() {
+        if (!name.trim()) return;
         setCreating(true);
-        try{await apiClickup.createTeam({name:name.trim(),description:descripcion.trim()});setName("");setDescripcion("");await fetchTeams();onCreated?.();}
-        catch(e){alert(e.message||"Error al crear equipo");}
-        finally{setCreating(false);}
+        try {
+            await apiClickup.createTeam({ name: name.trim(), description: descripcion.trim() });
+            setName(""); setDescripcion("");
+            await fetchTeams(); onCreated?.();
+        } catch(e) { alert(e.message || "Error al crear equipo"); }
+        finally { setCreating(false); }
     }
 
-    async function deleteTeam(){
-        if(!confirmDelete)return;
+    async function deleteTeam() {
+        if (!confirmDelete) return;
         setDeleting(true);
-        try{await apiClickup.deleteTeam(Number(confirmDelete.id));setConfirmDelete(null);await fetchTeams();onCreated?.();}
-        catch(e){alert(e.message||"Error al eliminar equipo");}
-        finally{setDeleting(false);}
+        try {
+            await apiClickup.deleteTeam(Number(confirmDelete.id));
+            setConfirmDelete(null);
+            await fetchTeams(); onCreated?.();
+        } catch(e) { alert(e.message || "Error al eliminar equipo"); }
+        finally { setDeleting(false); }
     }
 
-    async function sendInvite(){
-        if(!selectedTeam||!selectedUser){alert("Selecciona un usuario primero");return;}
+    async function sendInvite() {
+        if (!selectedTeam || !selectedUser) { alert("Selecciona un usuario primero"); return; }
         setSendingInvite(true);
-        try{
-            await apiClickup.invite(selectedTeam.id,{usuario_id:Number(selectedUser.id),rol:inviteRole});
+        try {
+            await apiClickup.invite(selectedTeam.id, { usuario_id: Number(selectedUser.id), rol: inviteRole });
             await loadTeamData(selectedTeam.id);
-            setSelectedUser(null);setInviteSearch("");setInviteResults([]);setInviteRole("MEMBER");
+            setSelectedUser(null); setInviteSearch(""); setInviteResults([]); setInviteRole("MEMBER");
             alert(`Invitación enviada a ${selectedUser.name}`);
-        }catch(e){alert(e.message||"Error al enviar invitación");}
-        finally{setSendingInvite(false);}
+        } catch(e) { alert(e.message || "Error al enviar invitación"); }
+        finally { setSendingInvite(false); }
     }
 
     async function acceptInvite(inv) {
-  if (!selectedTeam) return;
-  setAcceptingInvite(p => ({ ...p, [inv.id]: true }));
-  try {
-    await apiClickup.acceptInvite(selectedTeam.id, inv.id);
-    // Ocultar la invitación inmediatamente en UI
-    setHiddenInvites(p => ({ ...p, [inv.id]: true }));
-    // Recargar miembros e invitaciones del equipo
-    await loadTeamData(selectedTeam.id);
-    // Notificar recargue el board/proyectos
-    onCreated?.();
-  } catch (e) {
-    // Si el error es ACCEPTED, igual la tratamos como éxito y ocultamos
-    if (e.message?.includes("ACCEPTED") || e.status === 400) {
-      setHiddenInvites(p => ({ ...p, [inv.id]: true }));
-      await loadTeamData(selectedTeam.id);
-      onCreated?.();
-    } else {
-      alert(e.message || "No se pudo aceptar la invitación");
+        if (!selectedTeam) return;
+        setAcceptingInvite(p => ({ ...p, [inv.id]: true }));
+        try {
+            await apiClickup.acceptInvite(selectedTeam.id, inv.id);
+            setHiddenInvites(p => ({ ...p, [inv.id]: true }));
+            await loadTeamData(selectedTeam.id);
+            onCreated?.();
+        } catch(e) {
+            if (e.message?.includes("ACCEPTED") || e.status === 400) {
+                setHiddenInvites(p => ({ ...p, [inv.id]: true }));
+                await loadTeamData(selectedTeam.id);
+                onCreated?.();
+            } else {
+                alert(e.message || "No se pudo aceptar la invitación");
+            }
+        } finally {
+            setAcceptingInvite(p => ({ ...p, [inv.id]: false }));
+        }
     }
-  } finally {
-    setAcceptingInvite(p => ({ ...p, [inv.id]: false }));
-  }
-}
 
     function hideInvite(invId) {
-        setHiddenInvites(p=>({...p,[invId]:true}));
+        setHiddenInvites(p => ({ ...p, [invId]: true }));
     }
 
-    if(!open)return null;
-    const inputBase="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-[#131E5C]";
+    if (!open) return null;
+    const inputBase = "w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-[#131E5C]";
     const visibleInvites = (invitesByTeam[selectedTeam?.id] || []).filter(inv => !hiddenInvites[inv.id]);
 
-    return(
+    return (
         <>
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}/>
@@ -449,30 +433,33 @@ function TeamsModal({ open, onClose, onCreated }) {
                                 {creating?<Loader2 className="h-4 w-4 animate-spin"/>:<Plus className="h-4 w-4"/>}{creating?"Creando...":"Crear equipo"}
                             </button>
                         </div>
-                        {loading?<div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-16 animate-pulse rounded-xl bg-slate-100"/>)}</div>
-                        :teams.length===0?<div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin equipos registrados</div>
-                        :<div className="space-y-2">{teams.map(t=>(
-                            <div key={t.id} onClick={()=>setSelectedTeam(t)}
-                                className={cls("flex items-center justify-between rounded-xl border p-3 cursor-pointer transition",
-                                    selectedTeam?.id===t.id?"border-[#131E5C] bg-[#131E5C]/5 ring-1 ring-[#131E5C]/20":"border-black/10 bg-white hover:bg-slate-50")}>
-                                <div className="min-w-0 flex-1">
-                                    <div className="text-sm font-bold text-[#131E5C] truncate">{t.name}</div>
-                                    {t.description&&<div className="text-xs text-black/40 truncate">{t.description}</div>}
-                                </div>
-                                <button onClick={e=>{e.stopPropagation();setConfirmDelete(t);}}
-                                    className="ml-2 shrink-0 inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100">
-                                    <Trash2 className="h-3.5 w-3.5"/>
-                                </button>
-                            </div>
-                        ))}</div>}
+                        {loading
+                            ? <div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-16 animate-pulse rounded-xl bg-slate-100"/>)}</div>
+                            : teams.length===0
+                                ? <div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin equipos registrados</div>
+                                : <div className="space-y-2">{teams.map(t=>(
+                                    <div key={t.id} onClick={()=>setSelectedTeam(t)}
+                                        className={cls("flex items-center justify-between rounded-xl border p-3 cursor-pointer transition",
+                                            selectedTeam?.id===t.id?"border-[#131E5C] bg-[#131E5C]/5 ring-1 ring-[#131E5C]/20":"border-black/10 bg-white hover:bg-slate-50")}>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-sm font-bold text-[#131E5C] truncate">{t.name}</div>
+                                            {t.description&&<div className="text-xs text-black/40 truncate">{t.description}</div>}
+                                        </div>
+                                        <button onClick={e=>{e.stopPropagation();setConfirmDelete(t);}}
+                                            className="ml-2 shrink-0 inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100">
+                                            <Trash2 className="h-3.5 w-3.5"/>
+                                        </button>
+                                    </div>
+                                ))}</div>
+                        }
                     </div>
                     <div className="w-3/5 p-5 overflow-y-auto">
-                        {!selectedTeam?(
+                        {!selectedTeam ? (
                             <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
                                 <UsersRound className="h-12 w-12 text-black/20 mb-3"/>
                                 <div className="text-sm text-black/40">Selecciona un equipo</div>
                             </div>
-                        ):(
+                        ) : (
                             <div className="space-y-4">
                                 <div>
                                     <div className="text-xs font-extrabold uppercase tracking-widest text-black/35">Miembros</div>
@@ -481,10 +468,10 @@ function TeamsModal({ open, onClose, onCreated }) {
                                 <div className="p-3 rounded-xl bg-slate-50">
                                     <div className="text-xs font-extrabold text-[#131E5C] mb-2">Invitar miembro</div>
                                     <input value={inviteSearch} onChange={e=>setInviteSearch(e.target.value)} className={cls(inputBase,"mb-2")} placeholder="Buscar usuario por nombre o correo..."/>
-                                    {inviteSearching&&<div className="flex justify-center py-2"><Loader2 className="h-5 w-5 animate-spin text-black/40"/></div>}
-                                    {inviteResults.length>0&&!inviteSearching&&(
+                                    {inviteSearching && <div className="flex justify-center py-2"><Loader2 className="h-5 w-5 animate-spin text-black/40"/></div>}
+                                    {inviteResults.length > 0 && !inviteSearching && (
                                         <div className="mb-2 border rounded-xl overflow-hidden max-h-40 overflow-y-auto">
-                                            {inviteResults.map(user=>(
+                                            {inviteResults.map(user => (
                                                 <button key={user.id} onClick={()=>{setSelectedUser(user);setInviteSearch("");setInviteResults([]);}}
                                                     className="w-full text-left px-3 py-2 hover:bg-slate-100 border-b last:border-b-0">
                                                     <div className="text-sm font-semibold text-[#131E5C]">{user.name}</div>
@@ -493,7 +480,7 @@ function TeamsModal({ open, onClose, onCreated }) {
                                             ))}
                                         </div>
                                     )}
-                                    {selectedUser&&(
+                                    {selectedUser && (
                                         <div className="mb-2 p-2 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between">
                                             <div><div className="text-sm font-bold text-emerald-800">{selectedUser.name}</div><div className="text-xs text-emerald-600">{selectedUser.email}</div></div>
                                             <button onClick={()=>{setSelectedUser(null);setInviteSearch("");}} className="text-emerald-600 hover:text-emerald-800"><X className="h-4 w-4"/></button>
@@ -520,11 +507,11 @@ function TeamsModal({ open, onClose, onCreated }) {
                                         Miembros ({membersByTeam[selectedTeam.id]?.length||0})
                                     </div>
                                     {loadingInvites[selectedTeam.id]
-                                        ?<div className="text-center py-4"><Loader2 className="h-5 w-5 animate-spin text-black/30 mx-auto"/></div>
-                                        :!membersByTeam[selectedTeam.id]||membersByTeam[selectedTeam.id].length===0
-                                            ?<div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin miembros</div>
-                                            :<div className="space-y-2 max-h-64 overflow-y-auto">
-                                                {membersByTeam[selectedTeam.id].map((m,idx)=>(
+                                        ? <div className="text-center py-4"><Loader2 className="h-5 w-5 animate-spin text-black/30 mx-auto"/></div>
+                                        : !membersByTeam[selectedTeam.id] || membersByTeam[selectedTeam.id].length === 0
+                                            ? <div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin miembros</div>
+                                            : <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {membersByTeam[selectedTeam.id].map((m, idx) => (
                                                     <div key={m.id||idx} className="flex items-center gap-3 rounded-xl border border-black/10 bg-white px-3 py-2">
                                                         <UserAvatar user={m} size="sm"/>
                                                         <div className="flex-1 min-w-0">
@@ -544,35 +531,24 @@ function TeamsModal({ open, onClose, onCreated }) {
                                         <Mail className="h-3.5 w-3.5"/>
                                         Invitaciones pendientes ({visibleInvites.length})
                                     </div>
-                                    {visibleInvites.length===0
-                                        ?<div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin invitaciones pendientes</div>
-                                        :<div className="space-y-2 max-h-36 overflow-y-auto">
-                                            {visibleInvites.map(inv=>(
+                                    {visibleInvites.length === 0
+                                        ? <div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin invitaciones pendientes</div>
+                                        : <div className="space-y-2 max-h-36 overflow-y-auto">
+                                            {visibleInvites.map(inv => (
                                                 <div key={inv.id} className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
                                                     <div className="min-w-0 flex-1">
                                                         <div className="text-sm font-bold text-amber-800 truncate">{inv.name}</div>
-                                                        {inv.email&&<div className="text-xs text-amber-600 truncate">{inv.email}</div>}
+                                                        {inv.email && <div className="text-xs text-amber-600 truncate">{inv.email}</div>}
                                                         <div className="text-xs text-amber-600">Rol: {inv.role}</div>
                                                     </div>
                                                     <div className="flex items-center gap-1.5 ml-2 shrink-0">
-                                                        <button
-                                                            onClick={()=>acceptInvite(inv)}
-                                                            disabled={!!acceptingInvite[inv.id]}
-                                                            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50"
-                                                        >
-                                                            {acceptingInvite[inv.id]
-                                                                ?<Loader2 className="h-3 w-3 animate-spin"/>
-                                                                :<Check className="h-3 w-3"/>
-                                                            }
-                                                            Aceptar
+                                                        <button onClick={()=>acceptInvite(inv)} disabled={!!acceptingInvite[inv.id]}
+                                                            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50">
+                                                            {acceptingInvite[inv.id]?<Loader2 className="h-3 w-3 animate-spin"/>:<Check className="h-3 w-3"/>}Aceptar
                                                         </button>
-                                                        <button
-                                                            onClick={()=>hideInvite(inv.id)}
-                                                            title="Ocultar notificación"
-                                                            className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] font-extrabold text-amber-700 hover:bg-amber-100"
-                                                        >
-                                                            <EyeOff className="h-3 w-3"/>
-                                                            Ocultar
+                                                        <button onClick={()=>hideInvite(inv.id)} title="Ocultar notificación"
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] font-extrabold text-amber-700 hover:bg-amber-100">
+                                                            <EyeOff className="h-3 w-3"/>Ocultar
                                                         </button>
                                                     </div>
                                                 </div>
@@ -604,7 +580,6 @@ function PdfThumb({ url, file }) {
 
         async function render() {
             try {
-                // Cargar PDF.js si no está disponible
                 if (!window.pdfjsLib) {
                     await new Promise((resolve, reject) => {
                         const s = document.createElement("script");
@@ -622,7 +597,6 @@ function PdfThumb({ url, file }) {
                 let arrayBuffer = null;
 
                 if (file instanceof File) {
-                    // ── Archivo nuevo: leer directamente con FileReader ──
                     arrayBuffer = await new Promise((resolve, reject) => {
                         const reader = new FileReader();
                         reader.onload = (e) => resolve(e.target.result);
@@ -630,32 +604,21 @@ function PdfThumb({ url, file }) {
                         reader.readAsArrayBuffer(file);
                     });
                 } else if (url) {
-                    // ── Archivo guardado: fetch con token ──
                     try {
                         const authRaw = localStorage.getItem("auth") || "{}";
                         const authData = JSON.parse(authRaw);
-                        const token =
-                            authData?.token ||
-                            authData?.access_token ||
-                            authData?.accessToken ||
-                            "";
+                        const token = authData?.token || authData?.access_token || authData?.accessToken || "";
                         const r = await fetch(url, {
                             mode: "cors",
                             credentials: "include",
                             headers: token ? { Authorization: `Bearer ${token}` } : {},
                         });
                         if (r.ok) arrayBuffer = await r.arrayBuffer();
-                    } catch {
-                        /* silenciar */
-                    }
+                    } catch { /* silenciar */ }
                 }
 
                 if (cancelled) return;
-
-                if (!arrayBuffer) {
-                    setStatus("error");
-                    return;
-                }
+                if (!arrayBuffer) { setStatus("error"); return; }
 
                 const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 if (cancelled) return;
@@ -673,22 +636,16 @@ function PdfThumb({ url, file }) {
                 canvas.width = scaled.width;
                 canvas.height = scaled.height;
 
-                await page.render({
-                    canvasContext: canvas.getContext("2d"),
-                    viewport: scaled,
-                }).promise;
-
+                await page.render({ canvasContext: canvas.getContext("2d"), viewport: scaled }).promise;
                 if (!cancelled) setStatus("done");
-            } catch (e) {
+            } catch(e) {
                 console.warn("[PdfThumb]", e);
                 if (!cancelled) setStatus("error");
             }
         }
 
         render();
-        return () => {
-            cancelled = true;
-        };
+        return () => { cancelled = true; };
     }, [url, file]);
 
     if (status === "error")
@@ -699,28 +656,29 @@ function PdfThumb({ url, file }) {
             </div>
         );
 
-   return (
-            <div className="relative w-full h-full flex items-center justify-center bg-white overflow-hidden">
-                {status === "loading" && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-100">
-                        <span className="text-2xl animate-pulse">📄</span>
-                        <span className="text-[9px] text-black/30 font-semibold">Cargando...</span>
-                    </div>
-                )}
-                <canvas
-                    ref={canvasRef}
-                    style={{
-                        display: status === "done" ? "block" : "none",
-                        maxWidth: "100%",
-                        maxHeight: "100%",
-                        width: "auto",
-                        height: "auto",
-                    }}
-                />
-            </div>
-        );
+    return (
+        <div className="relative w-full h-full flex items-center justify-center bg-white overflow-hidden">
+            {status === "loading" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-100">
+                    <span className="text-2xl animate-pulse">📄</span>
+                    <span className="text-[9px] text-black/30 font-semibold">Cargando...</span>
+                </div>
+            )}
+            <canvas
+                ref={canvasRef}
+                style={{
+                    display: status === "done" ? "block" : "none",
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    width: "auto",
+                    height: "auto",
+                }}
+            />
+        </div>
+    );
 }
-/* TASK MODAL*/
+
+/* TASK MODAL */
 function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     const [title,setTitle]=useState("");
     const [listId,setListId]=useState("");
@@ -740,7 +698,7 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     const [assigneeSearch,setAssigneeSearch]=useState("");
     const [assigneeResults,setAssigneeResults]=useState([]);
     const [searchingAssignees,setSearchingAssignees]=useState(false);
-    const [evidenciasExistentes, setEvidenciasExistentes] = useState([]);
+    const [evidenciasExistentes,setEvidenciasExistentes]=useState([]);
 
     const toInputDate = (val) => {
         if (!val) return "";
@@ -753,81 +711,85 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
         return "";
     };
 
-    useEffect(()=>{
-        if(!open)return;
-        setTitle(task?.title||"");
-        setListId(task?.list?String(task.list):(lists[0]?.id?String(lists[0].id):""));
-        setPriority(task?.priority||"MEDIUM");
-        setStart(task?.start_date?toInputDate(task.start_date):"");
-        setDue(task?.due_date?toInputDate(task.due_date):"");
-        setProblema(task?.descripcion_problema||"");
-        setCausa(task?.causa||"");
-        setRaiz(task?.raiz||"");
-        setEstrategia(task?.desarrollo_estrategia||"");
-        setResultados(task?.resultados||"");
-        setSubtasks(Array.isArray(task?.subtareas)?task.subtareas.map(s=>({
-            id:s.id||Math.random(),
-            title:s.title||s.titulo||"",
-            done:!!s.done,
+    useEffect(() => {
+        if (!open) return;
+        setTitle(task?.title || "");
+        setListId(task?.list ? String(task.list) : (lists[0]?.id ? String(lists[0].id) : ""));
+        setPriority(task?.priority || "MEDIUM");
+        setStart(task?.start_date ? toInputDate(task.start_date) : "");
+        setDue(task?.due_date ? toInputDate(task.due_date) : "");
+        setProblema(task?.descripcion_problema || "");
+        setCausa(task?.causa || "");
+        setRaiz(task?.raiz || "");
+        setEstrategia(task?.desarrollo_estrategia || "");
+        setResultados(task?.resultados || "");
+        setSubtasks(Array.isArray(task?.subtareas) ? task.subtareas.map(s => ({
+            id: s.id || Math.random(),
+            title: s.title || s.titulo || "",
+            done: !!s.done,
             start_date: toInputDate(s.start_date || s.fecha_inicio || s.startDate || s.fechaInicio || s.inicio || ""),
             due_date:   toInputDate(s.due_date   || s.fecha_fin   || s.dueDate   || s.fechaFin   || s.fin   || ""),
-        })):[]);
-        setEvidencias([]);  // los File nuevos siguen vacíos, correcto
+        })) : []);
+        setEvidencias([]);
         setEvidenciasExistentes(Array.isArray(task?.evidencias) ? task.evidencias : []);
-        setAssignedUsers(Array.isArray(task?.asignados)?task.asignados.map(a=>({id:a.user_id,name:a.name,email:a.email})):[]);
-    },[open,task,lists]);
+        setAssignedUsers(Array.isArray(task?.asignados) ? task.asignados.map(a => ({ id: a.user_id, name: a.name, email: a.email })) : []);
+    }, [open, task, lists]);
 
-    function addSubtask(){
-        const t=newSub.trim();
-        if(!t)return;
-        setSubtasks(prev=>[...prev,{id:Math.random(),title:t,done:false,start_date:"",due_date:""}]);
+    function addSubtask() {
+        const t = newSub.trim();
+        if (!t) return;
+        setSubtasks(prev => [...prev, { id: Math.random(), title: t, done: false, start_date: "", due_date: "" }]);
         setNewSub("");
     }
 
-    function updateSubDate(id,field,val){
-        setSubtasks(prev=>prev.map(s=>s.id===id?{...s,[field]:val}:s));
+    function updateSubDate(id, field, val) {
+        setSubtasks(prev => prev.map(s => s.id === id ? { ...s, [field]: val } : s));
     }
 
-    useEffect(()=>{
-        const timer=setTimeout(async()=>{
-            if(!assigneeSearch.trim()||assigneeSearch.length<2){setAssigneeResults([]);return;}
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (!assigneeSearch.trim() || assigneeSearch.length < 2) { setAssigneeResults([]); return; }
             setSearchingAssignees(true);
-            try{const r=await apiClickup.searchUsers(assigneeSearch);setAssigneeResults(Array.isArray(r)?r:[]);}
-            catch(e){setAssigneeResults([]);}
-            finally{setSearchingAssignees(false);}
-        },500);
-        return()=>clearTimeout(timer);
-    },[assigneeSearch]);
+            try { const r = await apiClickup.searchUsers(assigneeSearch); setAssigneeResults(Array.isArray(r) ? r : []); }
+            catch(e) { setAssigneeResults([]); }
+            finally { setSearchingAssignees(false); }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [assigneeSearch]);
 
-    async function handleSave(){
-        if(!title.trim()||!listId||!teamId)return;
+    async function handleSave() {
+        if (!title.trim() || !listId || !teamId) return;
         setSaving(true);
-        try{
-            const payload={
-                lista:Number(listId),titulo:title.trim(),prioridad:priority,
-                inicio:start?`${start}T00:00:00Z`:null,
-                vence:due?`${due}T00:00:00Z`:null,
-                descripcion_problema:problema.trim(),causa:causa.trim(),raiz:raiz.trim(),
-                desarrollo_estrategia:estrategia.trim(),resultados:resultados.trim(),
-                subtareas:subtasks.map(s=>({titulo:s.title,done:s.done,start_date:s.start_date||null,due_date:s.due_date||null})),
-                asignados_ids:assignedUsers.map(u=>u.id),
+        try {
+            const payload = {
+                lista: Number(listId), titulo: title.trim(), prioridad: priority,
+                inicio: start ? `${start}T00:00:00Z` : null,
+                vence: due ? `${due}T00:00:00Z` : null,
+                descripcion_problema: problema.trim(), causa: causa.trim(), raiz: raiz.trim(),
+                desarrollo_estrategia: estrategia.trim(), resultados: resultados.trim(),
+                subtareas: subtasks.map(s => ({ titulo: s.title, done: s.done, start_date: s.start_date || null, due_date: s.due_date || null })),
+                asignados_ids: assignedUsers.map(u => u.id),
             };
-            let currentTaskId=task?.id;
-            if(task?.id){await apiClickup.updateTask(Number(teamId),Number(task.id),payload);}
-            else{const nt=await apiClickup.createTask(Number(teamId),payload);if(nt?.id)currentTaskId=nt.id;}
-            if(evidencias.length&&currentTaskId){
-                await apiClickup.uploadTaskEvidence(Number(teamId),Number(currentTaskId),{tipo:"RESOLUTION",comentario:"Evidencias del plan de acción",archivos:evidencias});
+            let currentTaskId = task?.id;
+            if (task?.id) {
+                await apiClickup.updateTask(Number(teamId), Number(task.id), payload);
+            } else {
+                const nt = await apiClickup.createTask(Number(teamId), payload);
+                if (nt?.id) currentTaskId = nt.id;
             }
-            onSaved?.();onClose();
-        }catch(e){console.error(e);alert(e.message||"Error al guardar");}
-        finally{setSaving(false);}
+            if (evidencias.length && currentTaskId) {
+                await apiClickup.uploadTaskEvidence(Number(teamId), Number(currentTaskId), { tipo: "RESOLUTION", comentario: "Evidencias del plan de acción", archivos: evidencias });
+            }
+            onSaved?.(); onClose();
+        } catch(e) { console.error(e); alert(e.message || "Error al guardar"); }
+        finally { setSaving(false); }
     }
 
-    if(!open)return null;
-    const inputBase="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-[#131E5C]";
-    const doneCount=subtasks.filter(s=>s.done).length;
+    if (!open) return null;
+    const inputBase = "w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-[#131E5C]";
+    const doneCount = subtasks.filter(s => s.done).length;
 
-    return(
+    return (
         <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}/>
             <div className="relative z-10 w-full max-w-4xl overflow-hidden rounded-t-3xl border border-black/10 bg-white shadow-2xl sm:rounded-2xl flex flex-col max-h-[90vh]">
@@ -868,7 +830,7 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
                                 <div className="mb-3 flex items-center justify-between">
                                     <div className="text-xs font-extrabold text-[#131E5C]">
                                         ✓ Subtareas
-                                        {subtasks.length>0&&<span className="ml-1.5 rounded-full bg-[#131E5C]/10 px-2 py-0.5 text-[10px]">{doneCount}/{subtasks.length}</span>}
+                                        {subtasks.length > 0 && <span className="ml-1.5 rounded-full bg-[#131E5C]/10 px-2 py-0.5 text-[10px]">{doneCount}/{subtasks.length}</span>}
                                     </div>
                                     <span className="text-[10px] text-black/35">Puedes asignarles fechas para el Gantt</span>
                                 </div>
@@ -876,11 +838,11 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
                                     <input value={newSub} onChange={e=>setNewSub(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSubtask()} className={cls(inputBase,"flex-1")} placeholder="Nueva subtarea..."/>
                                     <button onClick={addSubtask} className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-extrabold text-white" style={{backgroundColor:BRAND_BLUE}}><Plus className="h-4 w-4"/></button>
                                 </div>
-                                {subtasks.length===0?(
+                                {subtasks.length === 0 ? (
                                     <div className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs text-black/40">Sin subtareas. Agrega una arriba.</div>
-                                ):(
+                                ) : (
                                     <div className="grid gap-2">
-                                        {subtasks.map(s=>(
+                                        {subtasks.map(s => (
                                             <SubtaskRow key={s.id} sub={s}
                                                 onToggle={id=>setSubtasks(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))}
                                                 onDelete={id=>setSubtasks(p=>p.filter(x=>x.id!==id))}
@@ -898,9 +860,9 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
                             </div>
                             <div className="rounded-xl border border-black/10 bg-slate-50 p-4">
                                 <div className="mb-3 text-xs font-extrabold text-[#131E5C] flex items-center gap-2"><UsersRound className="h-3.5 w-3.5"/>Asignado a</div>
-                                {assignedUsers.length>0&&(
+                                {assignedUsers.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mb-3">
-                                        {assignedUsers.map(user=>(
+                                        {assignedUsers.map(user => (
                                             <div key={user.id} className="flex items-center gap-2 rounded-full bg-[#131E5C]/10 px-3 py-1.5">
                                                 <UserAvatar user={user} size="sm"/>
                                                 <span className="text-sm font-semibold text-[#131E5C]">{user.name}</span>
@@ -911,148 +873,128 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
                                 )}
                                 <div className="relative">
                                     <input value={assigneeSearch} onChange={e=>setAssigneeSearch(e.target.value)} className={cls(inputBase,"pr-8")} placeholder="Buscar usuario para asignar..."/>
-                                    {searchingAssignees&&<Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-black/40"/>}
+                                    {searchingAssignees && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-black/40"/>}
                                 </div>
-                                {assigneeResults.length>0&&(
+                                {assigneeResults.length > 0 && (
                                     <div className="mt-1 border rounded-xl overflow-hidden max-h-48 overflow-y-auto">
-                                        {assigneeResults.map(user=>{
-                                            const already=assignedUsers.some(u=>u.id===user.id);
-                                            return(
+                                        {assigneeResults.map(user => {
+                                            const already = assignedUsers.some(u => u.id === user.id);
+                                            return (
                                                 <button key={user.id} onClick={()=>{if(!already){setAssignedUsers(p=>[...p,user]);}setAssigneeSearch("");setAssigneeResults([]);}} disabled={already}
                                                     className={cls("w-full text-left px-3 py-2 hover:bg-slate-100 border-b last:border-b-0",already&&"opacity-50 bg-slate-50")}>
                                                     <div className="flex items-center gap-3">
                                                         <UserAvatar user={user} size="sm"/>
                                                         <div><div className="text-sm font-semibold text-[#131E5C]">{user.name}</div><div className="text-xs text-black/50">{user.email}</div></div>
-                                                        {already&&<span className="text-xs text-emerald-600 ml-auto">✓ Ya asignado</span>}
+                                                        {already && <span className="text-xs text-emerald-600 ml-auto">✓ Ya asignado</span>}
                                                     </div>
                                                 </button>
                                             );
                                         })}
                                     </div>
                                 )}
-                                {assignedUsers.length===0&&<p className="text-xs text-black/40 mt-2 text-center">No hay usuarios asignados.</p>}
+                                {assignedUsers.length === 0 && <p className="text-xs text-black/40 mt-2 text-center">No hay usuarios asignados.</p>}
                             </div>
                         </div>
                     </section>
 
                     <div className="border-t border-black/[0.06]"/>
 
-                   <section>
-    <div className="mb-3 text-xs font-extrabold uppercase tracking-widest text-black/35">Evidencias</div>
+                    <section>
+                        <div className="mb-3 text-xs font-extrabold uppercase tracking-widest text-black/35">Evidencias</div>
 
-    {/* Archivos ya guardados */}
-    {evidenciasExistentes.length > 0 && (
-        <div className="mb-3">
-            <div className="text-xs font-extrabold text-black/50 mb-2">Archivos guardados ({evidenciasExistentes.length})</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {evidenciasExistentes.map((ev) => {
-                    const url = ev.proxy_url || ev.archivo_url || "";
-                    const name = url.split("/").pop() || "Archivo";
-                    const isImg   = /\.(png|jpg|jpeg|webp|gif)$/i.test(url);
-                    const isPdf   = /\.pdf$/i.test(url);
-                    const isVideo = /\.(mp4|mov|webm)$/i.test(url);
-                    const isAudio = /\.(mp3|wav|m4a)$/i.test(url);
-                    return (
-                        <div key={ev.id} className="rounded-xl border border-black/10 bg-white overflow-hidden flex flex-col">
-                            <div className="w-full h-24 bg-slate-100 flex items-center justify-center overflow-hidden">
-                                {isImg ? (
-                                    <img src={url} alt={name} className="w-full h-full object-cover"/>
-                                ) : isPdf ? (
-                                    <PdfThumb url={url}/>
-                                ) : isVideo ? (
-                                    <div className="flex flex-col items-center gap-1">
-                                        <span className="text-3xl">🎬</span>
-                                        <span className="text-[10px] font-black text-purple-500 uppercase tracking-wider">Video</span>
-                                    </div>
-                                ) : isAudio ? (
-                                    <div className="flex flex-col items-center gap-1">
-                                        <span className="text-3xl">🎵</span>
-                                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-wider">Audio</span>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center gap-1">
-                                        <span className="text-3xl">📎</span>
-                                        <span className="text-[10px] font-black text-black/40 uppercase tracking-wider">{name.split(".").pop()}</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="px-2 py-1.5 flex items-center justify-between gap-1 border-t border-black/5">
-                                <span className="text-[10px] font-semibold text-black/60 truncate flex-1" title={name}>{name}</span>
-                                {url && (
-                                    <a href={url} target="_blank" rel="noopener noreferrer"
-                                        className="shrink-0 rounded-lg border border-black/10 bg-slate-50 px-2 py-0.5 text-[10px] font-extrabold text-[#131E5C] hover:bg-slate-100">
-                                        Ver
-                                    </a>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    )}
-
-    {/* Subir nuevos archivos */}
-    <div className="rounded-xl border border-dashed border-black/20 bg-slate-50 p-4 text-center">
-        <Paperclip className="mx-auto mb-2 h-7 w-7 text-black/30"/>
-        <label className="cursor-pointer text-sm font-extrabold text-[#131E5C] hover:underline">Seleccionar archivos
-            <input type="file" multiple accept=".png,.jpg,.jpeg,.pdf,.mp4,.mov,.webm,.mp3,.wav,.m4a" className="hidden"
-                onChange={e => setEvidencias(p => [...p, ...Array.from(e.target.files || [])])}/>
-        </label>
-        <p className="mt-1 text-xs text-black/40">Imágenes, PDF, video y audio</p>
-    </div>
-
-    {/* Archivos nuevos con miniatura */}
-    {evidencias.length > 0 && (
-        <div className="mt-3">
-            <div className="text-xs font-extrabold text-black/50 mb-2">{evidencias.length} archivo(s) nuevos</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {evidencias.map((f, i) => {
-                    const isImg   = f.type.startsWith("image/");
-                    const isPdf   = f.type === "application/pdf";
-                    const isVideo = f.type.startsWith("video/");
-                    const isAudio = f.type.startsWith("audio/");
-                    const emoji     = isPdf ? "📄" : isVideo ? "🎬" : isAudio ? "🎵" : "📎";
-                    const labelColor = isPdf ? "text-red-500" : isVideo ? "text-purple-500" : isAudio ? "text-blue-500" : "text-black/40";
-                    const labelText  = isPdf ? "PDF" : isVideo ? "Video" : isAudio ? "Audio" : f.name.split(".").pop().toUpperCase();
-                    return (
-                        <div key={i} className="rounded-xl border border-black/10 bg-white overflow-hidden flex flex-col">
-                            <div className="w-full h-24 bg-slate-100 flex items-center justify-center overflow-hidden relative">
-                                {isImg ? (
-                                    <img
-                                src={URL.createObjectURL(f)}
-                                alt={f.name}
-                                className="w-full h-full object-cover"
-                                onLoad={e => URL.revokeObjectURL(e.target.src)}
-                            />
-                        ) : isPdf ? (
-                            <PdfThumb file={f} />
-                        ) : (
-                            <div className="flex flex-col items-center gap-1">
-                                <span className="text-3xl">{emoji}</span>
-                                <span className={`text-[10px] font-black uppercase tracking-wider ${labelColor}`}>{labelText}</span>
+                        {evidenciasExistentes.length > 0 && (
+                            <div className="mb-3">
+                                <div className="text-xs font-extrabold text-black/50 mb-2">Archivos guardados ({evidenciasExistentes.length})</div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {evidenciasExistentes.map((ev) => {
+                                        const url = ev.proxy_url || ev.archivo_url || "";
+                                        const name = url.split("/").pop() || "Archivo";
+                                        const isImg   = /\.(png|jpg|jpeg|webp|gif)$/i.test(url);
+                                        const isPdf   = /\.pdf$/i.test(url);
+                                        const isVideo = /\.(mp4|mov|webm)$/i.test(url);
+                                        const isAudio = /\.(mp3|wav|m4a)$/i.test(url);
+                                        return (
+                                            <div key={ev.id} className="rounded-xl border border-black/10 bg-white overflow-hidden flex flex-col">
+                                                <div className="w-full h-24 bg-slate-100 flex items-center justify-center overflow-hidden">
+                                                    {isImg ? (
+                                                        <img src={url} alt={name} className="w-full h-full object-cover"/>
+                                                    ) : isPdf ? (
+                                                        <PdfThumb url={url}/>
+                                                    ) : isVideo ? (
+                                                        <div className="flex flex-col items-center gap-1"><span className="text-3xl">🎬</span><span className="text-[10px] font-black text-purple-500 uppercase tracking-wider">Video</span></div>
+                                                    ) : isAudio ? (
+                                                        <div className="flex flex-col items-center gap-1"><span className="text-3xl">🎵</span><span className="text-[10px] font-black text-blue-500 uppercase tracking-wider">Audio</span></div>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-1"><span className="text-3xl">📎</span><span className="text-[10px] font-black text-black/40 uppercase tracking-wider">{name.split(".").pop()}</span></div>
+                                                    )}
+                                                </div>
+                                                <div className="px-2 py-1.5 flex items-center justify-between gap-1 border-t border-black/5">
+                                                    <span className="text-[10px] font-semibold text-black/60 truncate flex-1" title={name}>{name}</span>
+                                                    {url && (
+                                                        <a href={url} target="_blank" rel="noopener noreferrer"
+                                                            className="shrink-0 rounded-lg border border-black/10 bg-slate-50 px-2 py-0.5 text-[10px] font-extrabold text-[#131E5C] hover:bg-slate-100">
+                                                            Ver
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
-                                <span className="absolute top-1.5 left-1.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider">
-                                    Nuevo
-                                </span>
-                            </div>
-                            <div className="px-2 py-1.5 flex items-center justify-between gap-1 border-t border-black/5">
-                                <span className="text-[10px] font-semibold text-black/60 truncate flex-1" title={f.name}>{f.name}</span>
-                                <button onClick={() => setEvidencias(p => p.filter((_, j) => j !== i))}
-                                    className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 p-1 text-rose-600 hover:bg-rose-100">
-                                    <X className="h-3 w-3"/>
-                                </button>
-                            </div>
+
+                        <div className="rounded-xl border border-dashed border-black/20 bg-slate-50 p-4 text-center">
+                            <Paperclip className="mx-auto mb-2 h-7 w-7 text-black/30"/>
+                            <label className="cursor-pointer text-sm font-extrabold text-[#131E5C] hover:underline">Seleccionar archivos
+                                <input type="file" multiple accept=".png,.jpg,.jpeg,.pdf,.mp4,.mov,.webm,.mp3,.wav,.m4a" className="hidden"
+                                    onChange={e => setEvidencias(p => [...p, ...Array.from(e.target.files || [])])}/>
+                            </label>
+                            <p className="mt-1 text-xs text-black/40">Imágenes, PDF, video y audio</p>
                         </div>
-                    );
-                })}
-            </div>
-        </div>
-    )}
-</section>
+
+                        {evidencias.length > 0 && (
+                            <div className="mt-3">
+                                <div className="text-xs font-extrabold text-black/50 mb-2">{evidencias.length} archivo(s) nuevos</div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {evidencias.map((f, i) => {
+                                        const isImg   = f.type.startsWith("image/");
+                                        const isPdf   = f.type === "application/pdf";
+                                        const isVideo = f.type.startsWith("video/");
+                                        const isAudio = f.type.startsWith("audio/");
+                                        const emoji      = isPdf ? "📄" : isVideo ? "🎬" : isAudio ? "🎵" : "📎";
+                                        const labelColor = isPdf ? "text-red-500" : isVideo ? "text-purple-500" : isAudio ? "text-blue-500" : "text-black/40";
+                                        const labelText  = isPdf ? "PDF" : isVideo ? "Video" : isAudio ? "Audio" : f.name.split(".").pop().toUpperCase();
+                                        return (
+                                            <div key={i} className="rounded-xl border border-black/10 bg-white overflow-hidden flex flex-col">
+                                                <div className="w-full h-24 bg-slate-100 flex items-center justify-center overflow-hidden relative">
+                                                    {isImg ? (
+                                                        <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover" onLoad={e=>URL.revokeObjectURL(e.target.src)}/>
+                                                    ) : isPdf ? (
+                                                        <PdfThumb file={f}/>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <span className="text-3xl">{emoji}</span>
+                                                            <span className={`text-[10px] font-black uppercase tracking-wider ${labelColor}`}>{labelText}</span>
+                                                        </div>
+                                                    )}
+                                                    <span className="absolute top-1.5 left-1.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider">Nuevo</span>
+                                                </div>
+                                                <div className="px-2 py-1.5 flex items-center justify-between gap-1 border-t border-black/5">
+                                                    <span className="text-[10px] font-semibold text-black/60 truncate flex-1" title={f.name}>{f.name}</span>
+                                                    <button onClick={()=>setEvidencias(p=>p.filter((_,j)=>j!==i))}
+                                                        className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 p-1 text-rose-600 hover:bg-rose-100">
+                                                        <X className="h-3 w-3"/>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </section>
                 </div>
-                
 
                 <div className="flex items-center justify-end gap-2 border-t border-black/[0.07] bg-slate-50/80 px-5 py-3.5 shrink-0">
                     <button onClick={onClose} className="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-extrabold text-black/70 hover:bg-slate-50">Cancelar</button>
@@ -1065,13 +1007,13 @@ function TaskModal({ open, onClose, task, lists, teamId, onSaved }) {
     );
 }
 
-/*KANBAN CARD */
+/* KANBAN CARD */
 function KanbanCard({ task, onEdit, onDelete }) {
     const [expanded,setExpanded]=useState(false);
     const subtasks=Array.isArray(task.subtareas)?task.subtareas:[];
     const done=subtasks.filter(s=>s.done).length;
     const pct=subtasks.length?Math.round((done/subtasks.length)*100):0;
-    return(
+    return (
         <article className="rounded-2xl border border-black/10 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
             <div className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -1096,7 +1038,7 @@ function KanbanCard({ task, onEdit, onDelete }) {
                         {task.raiz&&<span>{task.raiz}</span>}
                     </div>
                 )}
-                {subtasks.length>0&&(
+                {subtasks.length > 0 && (
                     <div className="mt-3">
                         <button onClick={()=>setExpanded(v=>!v)} className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#131E5C] hover:underline">
                             {expanded?<ChevronDown className="h-3.5 w-3.5"/>:<ChevronRight className="h-3.5 w-3.5"/>}Subtareas ({done}/{subtasks.length})
@@ -1129,9 +1071,9 @@ function KanbanCard({ task, onEdit, onDelete }) {
 }
 
 function KanbanView({ tasks, lists, onEdit, onDelete, onCreateInCol, loading }) {
-    if(loading)return(
+    if (loading) return (
         <div className="grid gap-4 sm:grid-cols-3">
-            {STATUS_COLS.map(col=>(
+            {STATUS_COLS.map(col => (
                 <div key={col} className="rounded-2xl border border-black/10 bg-white p-4">
                     <div className="mb-3 h-5 w-24 animate-pulse rounded bg-black/5"/>
                     <div className="grid gap-3">{[1,2,3].map(i=><div key={i} className="h-32 animate-pulse rounded-2xl bg-black/5"/>)}</div>
@@ -1139,13 +1081,13 @@ function KanbanView({ tasks, lists, onEdit, onDelete, onCreateInCol, loading }) 
             ))}
         </div>
     );
-    return(
+    return (
         <div className="grid gap-4 sm:grid-cols-3">
-            {STATUS_COLS.map(col=>{
-                const c=STATUS_COLORS[col];
-                const colTasks=tasks.filter(t=>t.list_name===col);
-                const list=lists.find(l=>l.name===col);
-                return(
+            {STATUS_COLS.map(col => {
+                const c = STATUS_COLORS[col];
+                const colTasks = tasks.filter(t => t.list_name === col);
+                const list = lists.find(l => l.name === col);
+                return (
                     <div key={col} className="flex flex-col rounded-2xl border border-black/10 bg-slate-50/80 overflow-hidden">
                         <div className="flex items-center justify-between px-4 py-3 border-b border-black/[0.07]">
                             <div className="flex items-center gap-2">
@@ -1156,8 +1098,10 @@ function KanbanView({ tasks, lists, onEdit, onDelete, onCreateInCol, loading }) 
                             {list&&<button onClick={()=>onCreateInCol(list.id)} className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-black/10 bg-white text-black/50 hover:bg-slate-100 hover:text-[#131E5C]"><Plus className="h-3.5 w-3.5"/></button>}
                         </div>
                         <div className="flex-1 overflow-y-auto p-3 space-y-3 max-h-[60vh]">
-                            {colTasks.length===0?<div className="rounded-xl border border-dashed border-black/10 p-6 text-center text-xs text-black/30">Sin planes en esta columna</div>
-                            :colTasks.map(task=><KanbanCard key={task.id} task={task} onEdit={onEdit} onDelete={onDelete}/>)}
+                            {colTasks.length === 0
+                                ? <div className="rounded-xl border border-dashed border-black/10 p-6 text-center text-xs text-black/30">Sin planes en esta columna</div>
+                                : colTasks.map(task=><KanbanCard key={task.id} task={task} onEdit={onEdit} onDelete={onDelete}/>)
+                            }
                         </div>
                     </div>
                 );
@@ -1174,7 +1118,7 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
         return data.sort((a,b)=>{const va=String(a?.[sort.key]||"").toLowerCase();const vb=String(b?.[sort.key]||"").toLowerCase();return va<vb?-1*mult:va>vb?1*mult:0;});
     },[tasks,sort]);
     const SortIcon=({k})=>(<span className="opacity-60 ml-1">{sort.key===k?(sort.dir==="asc"?<ChevronUp className="h-3.5 w-3.5 inline"/>:<ChevronDown className="h-3.5 w-3.5 inline"/>):<ArrowUpDown className="h-3.5 w-3.5 inline"/>}</span>);
-    return(
+    return (
         <div className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
             <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
@@ -1189,25 +1133,27 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-black/[0.06]">
-                        {loading?Array.from({length:5}).map((_,i)=>(
+                        {loading ? Array.from({length:5}).map((_,i) => (
                             <tr key={i} className="animate-pulse">{Array.from({length:9}).map((_,j)=><td key={j} className="px-4 py-3"><div className="h-4 w-24 rounded bg-slate-100"/></td>)}</tr>
-                        )):sorted.length===0?<tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-black/40">Sin planes con estos filtros.</td></tr>
-                        :sorted.map(task=>{
-                            const subs=Array.isArray(task.subtareas)?task.subtareas:[];const done=subs.filter(s=>s.done).length;
-                            return(
-                                <tr key={task.id} className="hover:bg-slate-50/60 cursor-pointer" onDoubleClick={()=>onEdit(task)}>
-                                    <td className="px-4 py-3 font-bold text-[#131E5C] max-w-[200px]"><span className="line-clamp-2">{task.title||"—"}</span></td>
-                                    <td className="px-4 py-3"><StatusBadge name={task.list_name}/></td>
-                                    <td className="px-4 py-3"><PriorityBadge value={task.priority}/></td>
-                                    <td className="px-4 py-3 text-xs text-black/50">{task.start_date?String(task.start_date).slice(0,10):"—"}</td>
-                                    <td className="px-4 py-3 text-xs text-black/50">{task.due_date?String(task.due_date).slice(0,10):"—"}</td>
-                                    <td className="px-4 py-3 text-xs text-black/60 max-w-[160px]"><span className="line-clamp-1">{task.causa||"—"}</span></td>
-                                    <td className="px-4 py-3"><div className="flex items-center gap-1">{task.assigned&&task.assigned.slice(0,2).map((a,i)=><UserAvatar key={i} user={a} size="sm"/>)}{task.assigned&&task.assigned.length>2&&<span className="text-[10px] text-black/40">+{task.assigned.length-2}</span>}</div></td>
-                                    <td className="px-4 py-3">{subs.length>0?<div className="flex items-center gap-2"><div className="h-1.5 w-16 rounded-full bg-black/5 overflow-hidden"><div className="h-full rounded-full bg-emerald-500" style={{width:`${(done/subs.length)*100}%`}}/></div><span className="text-xs text-black/40">{done}/{subs.length}</span></div>:<span className="text-xs text-black/30">—</span>}</td>
-                                    <td className="px-4 py-3"><div className="flex items-center gap-1.5"><button onClick={()=>onEdit(task)} className="rounded-lg border border-black/10 p-1.5 text-black/60 hover:bg-slate-100"><Pencil className="h-3.5 w-3.5"/></button><button onClick={()=>onDelete(task)} className="rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100"><Trash2 className="h-3.5 w-3.5"/></button></div></td>
-                                </tr>
-                            );
-                        })}
+                        )) : sorted.length === 0
+                            ? <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-black/40">Sin planes con estos filtros.</td></tr>
+                            : sorted.map(task => {
+                                const subs=Array.isArray(task.subtareas)?task.subtareas:[];const done=subs.filter(s=>s.done).length;
+                                return (
+                                    <tr key={task.id} className="hover:bg-slate-50/60 cursor-pointer" onDoubleClick={()=>onEdit(task)}>
+                                        <td className="px-4 py-3 font-bold text-[#131E5C] max-w-[200px]"><span className="line-clamp-2">{task.title||"—"}</span></td>
+                                        <td className="px-4 py-3"><StatusBadge name={task.list_name}/></td>
+                                        <td className="px-4 py-3"><PriorityBadge value={task.priority}/></td>
+                                        <td className="px-4 py-3 text-xs text-black/50">{task.start_date?String(task.start_date).slice(0,10):"—"}</td>
+                                        <td className="px-4 py-3 text-xs text-black/50">{task.due_date?String(task.due_date).slice(0,10):"—"}</td>
+                                        <td className="px-4 py-3 text-xs text-black/60 max-w-[160px]"><span className="line-clamp-1">{task.causa||"—"}</span></td>
+                                        <td className="px-4 py-3"><div className="flex items-center gap-1">{task.assigned&&task.assigned.slice(0,2).map((a,i)=><UserAvatar key={i} user={a} size="sm"/>)}{task.assigned&&task.assigned.length>2&&<span className="text-[10px] text-black/40">+{task.assigned.length-2}</span>}</div></td>
+                                        <td className="px-4 py-3">{subs.length>0?<div className="flex items-center gap-2"><div className="h-1.5 w-16 rounded-full bg-black/5 overflow-hidden"><div className="h-full rounded-full bg-emerald-500" style={{width:`${(done/subs.length)*100}%`}}/></div><span className="text-xs text-black/40">{done}/{subs.length}</span></div>:<span className="text-xs text-black/30">—</span>}</td>
+                                        <td className="px-4 py-3"><div className="flex items-center gap-1.5"><button onClick={()=>onEdit(task)} className="rounded-lg border border-black/10 p-1.5 text-black/60 hover:bg-slate-100"><Pencil className="h-3.5 w-3.5"/></button><button onClick={()=>onDelete(task)} className="rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100"><Trash2 className="h-3.5 w-3.5"/></button></div></td>
+                                    </tr>
+                                );
+                            })
+                        }
                     </tbody>
                 </table>
             </div>
@@ -1215,11 +1161,19 @@ function TablaView({ tasks, onEdit, onDelete, loading }) {
     );
 }
 
+<<<<<<< HEAD
+/* TIMELINE VIEW */
+function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
+    teams, projects, teamId, projectId, currentUser, allTasks }) {
+    const ganttRef = useRef(null);
+    const leftRef  = useRef(null);
+=======
 /* TIMELINE VIEW*/
 function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
     teams, projects, teamId, projectId, currentUser, allTasks }) {
     const ganttRef   = useRef(null);
     const leftRef    = useRef(null);
+>>>>>>> 0c1e9f89bd5ffbc08ce47c4c257bc175dcd531a3
 
     const today = new Date(); today.setHours(0,0,0,0);
     const [expandedRows, setExpandedRows] = useState({});
@@ -1229,9 +1183,9 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
     const [dragState, setDragState] = useState(null);
     const [dragOverrides, setDragOverrides] = useState({});
 
-    const ACCENT    = BRAND_BLUE;
-    const PANEL_BG  = "#f8f9fc";
-    const PANEL_HDR = "#eef0f6";
+    const ACCENT   = BRAND_BLUE;
+    const PANEL_BG = "#f8f9fc";
+    const PANEL_HDR= "#eef0f6";
 
     function barColor(task) {
         if (task.list_name === "Hecho")      return "#10b981";
@@ -1257,7 +1211,6 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
 
     const { minDate, totalDays, weeks } = useMemo(() => {
         let min = new Date(today), max = new Date(today);
-
         const expand = (dateStr) => {
             if (!dateStr) return;
             const d = new Date(String(dateStr));
@@ -1265,7 +1218,6 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
             if (d < min) min = new Date(d);
             if (d > max) max = new Date(d);
         };
-
         withDate.forEach(t => {
             expand(t.start_date);
             expand(t.due_date);
@@ -1275,10 +1227,8 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
                 expand(rawEnd);
             });
         });
-
         min.setDate(min.getDate() - 7);
         max.setDate(max.getDate() + 14);
-
         const totalDays = Math.ceil((max - min) / 86400000);
         const weeks = [];
         const cur = new Date(min);
@@ -1290,19 +1240,18 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
         return { minDate: min, totalDays, weeks };
     }, [withDate, today]);
 
-    const DAY_W    = 38;
-    const HDR_H    = 64;   
-    const WEEK_H   = 36;
-    const DAY_H    = 28;
-    const COL_PLAN = 240;
-    const COL_PROB = 180;
-    const COL_ESTRA= 180;
-    const FIXED_W  = COL_PLAN + COL_PROB + COL_ESTRA;
-    const ROW_BASE = 90;   
-    const SUB_H    = 28;   
-    const SUB_HEADER_H = 28; 
+    const DAY_W     = 38;
+    const HDR_H     = 64;
+    const WEEK_H    = 36;
+    const DAY_H     = 28;
+    const COL_PLAN  = 240;
+    const COL_PROB  = 180;
+    const COL_ESTRA = 180;
+    const FIXED_W   = COL_PLAN + COL_PROB + COL_ESTRA;
+    const ROW_BASE  = 90;
+    const SUB_H     = 28;
+    const SUB_HEADER_H = 28;
 
-    
     function rowHeight(task) {
         const subs = Array.isArray(task.subtareas) ? task.subtareas : [];
         if (!expandedRows[task.id] || subs.length === 0) return ROW_BASE;
@@ -1317,7 +1266,7 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
         }
     }, [todayOffset]);
 
-    // Sincronizar scroll vertical entre panel izquierdo y gantt
+    // Sincronizar scroll vertical
     useEffect(() => {
         const gantt = ganttRef.current;
         const left  = leftRef.current;
@@ -1344,16 +1293,14 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
         };
     }, []);
 
-    // ── FIX DRAG: al soltar convertir offset→fecha y persistir 
     useEffect(() => {
-        function onMouseMove(e) {
+        function onMouseMoveWithSave(e) {
             if (!dragRef.current) return;
             const { origStartOff, origDur, startX, type, key } = dragRef.current;
-            const deltaX = e.clientX - startX;
+            const deltaX    = e.clientX - startX;
             const deltaDays = Math.round(deltaX / DAY_W);
-
             let newStartOff = origStartOff;
-            let newDur = origDur;
+            let newDur      = origDur;
 
             if (type === "move") {
                 newStartOff = Math.max(0, Math.min(origStartOff + deltaDays, totalDays - origDur));
@@ -1362,56 +1309,32 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
                 if (newStartOff + newDur > totalDays) newDur = totalDays - newStartOff;
             } else if (type === "resize-left") {
                 const maxShift = origDur - 1;
-                const shift = Math.min(deltaDays, maxShift);
-                newStartOff = Math.max(0, origStartOff + shift);
-                newDur = origDur - (newStartOff - origStartOff);
+                const shift    = Math.min(deltaDays, maxShift);
+                newStartOff    = Math.max(0, origStartOff + shift);
+                newDur         = origDur - (newStartOff - origStartOff);
             }
 
             setDragOverrides(p => ({ ...p, [key]: { startOff: newStartOff, dur: newDur } }));
-        }
-
-        function offsetToISODate(offset) {
-            const d = new Date(minDate);
-            d.setDate(d.getDate() + offset);
-            return d.toISOString().slice(0, 10);
+            dragRef.current._lastOverride = { startOff: newStartOff, dur: newDur };
         }
 
         function onMouseUp() {
             if (dragRef.current) {
-                const { key, taskId, subIdx } = dragRef.current;
+                const { taskId, subIdx } = dragRef.current;
                 const override = dragRef.current._lastOverride;
                 if (override && onUpdateDates) {
-                    const newStart = offsetToISODate(override.startOff);
-                    const newEnd   = offsetToISODate(override.startOff + override.dur - 1);
-                    // Llamar al callback para persistir (taskId, subIdx=-1 para tarea principal)
+                    const offsetToISO = (offset) => {
+                        const d = new Date(minDate);
+                        d.setDate(d.getDate() + offset);
+                        return d.toISOString().slice(0, 10);
+                    };
+                    const newStart = offsetToISO(override.startOff);
+                    const newEnd   = offsetToISO(override.startOff + override.dur - 1);
                     onUpdateDates(taskId, subIdx, newStart, newEnd);
                 }
             }
             dragRef.current = null;
             setDragState(null);
-        }
-
-        function onMouseMoveWithSave(e) {
-            if (!dragRef.current) return;
-            onMouseMove(e);
-            
-            const { origStartOff, origDur, startX, type } = dragRef.current;
-            const deltaX = e.clientX - startX;
-            const deltaDays = Math.round(deltaX / DAY_W);
-            let newStartOff = origStartOff;
-            let newDur = origDur;
-            if (type === "move") {
-                newStartOff = Math.max(0, Math.min(origStartOff + deltaDays, totalDays - origDur));
-            } else if (type === "resize-right") {
-                newDur = Math.max(1, origDur + deltaDays);
-                if (newStartOff + newDur > totalDays) newDur = totalDays - newStartOff;
-            } else if (type === "resize-left") {
-                const maxShift = origDur - 1;
-                const shift = Math.min(deltaDays, maxShift);
-                newStartOff = Math.max(0, origStartOff + shift);
-                newDur = origDur - (newStartOff - origStartOff);
-            }
-            dragRef.current._lastOverride = { startOff: newStartOff, dur: newDur };
         }
 
         window.addEventListener("mousemove", onMouseMoveWithSave);
@@ -1443,13 +1366,314 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
 
     function toOffsets(startDate, dueDate) {
         let startOff = Math.floor((startDate - minDate) / 86400000);
-        let dur = Math.max(1, Math.ceil((dueDate - startDate) / 86400000) + 1);
-        startOff = Math.max(0, Math.min(startOff, totalDays - 1));
-        dur = Math.min(dur, totalDays - startOff);
+        let dur      = Math.max(1, Math.ceil((dueDate - startDate) / 86400000) + 1);
+        startOff     = Math.max(0, Math.min(startOff, totalDays - 1));
+        dur          = Math.min(dur, totalDays - startOff);
         return { startOff, dur };
     }
-      
-     
+
+    function getBarOffsets(key, origStartOff, origDur) {
+        if (dragOverrides[key]) return dragOverrides[key];
+        return { startOff: origStartOff, dur: origDur };
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  EXPORTAR PDF con resumen IA (OpenAI)
+    // ─────────────────────────────────────────────────────────
+    async function exportToPDF() {
+        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        const W   = doc.internal.pageSize.getWidth();
+        const H   = doc.internal.pageSize.getHeight();
+        const margin   = 18;
+        const contentW = W - margin * 2;
+        const BLUE  = [19, 30, 92];
+        const GRAY  = [120, 125, 145];
+        const BLACK = [30, 30, 40];
+
+        // ── Fuentes VW (opcionales) ───────────────────────────
+        let usarVW = false;
+        try {
+            if (VW_HEAD_BOLD && VW_HEAD_BOLD.length > 1000 &&
+                VW_TEXT_LIGHT && VW_TEXT_LIGHT.length > 1000) {
+                doc.addFileToVFS("VWHeadBold.ttf", VW_HEAD_BOLD);
+                doc.addFont("VWHeadBold.ttf", "VWHead", "bold");
+                doc.addFileToVFS("VWTextLight.ttf", VW_TEXT_LIGHT);
+                doc.addFont("VWTextLight.ttf", "VWText", "normal");
+                usarVW = true;
+            }
+        } catch(e) {
+            console.warn("Fuentes VW no disponibles:", e);
+        }
+
+        function setHead(size, color = BLACK) {
+            doc.setFont(usarVW ? "VWHead" : "helvetica", "bold");
+            doc.setFontSize(size);
+            doc.setTextColor(...color);
+        }
+        function setLight(size, color = BLACK) {
+            doc.setFont(usarVW ? "VWText" : "helvetica", "normal");
+            doc.setFontSize(size);
+            doc.setTextColor(...color);
+        }
+        function setItalic(size, color = GRAY) {
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(size);
+            doc.setTextColor(...color);
+        }
+
+        function drawFooter(pageNum, totalPages) {
+            const fechaImp = new Date().toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "2-digit" });
+            const usuario  = currentUser?.name || "Sistema";
+            setLight(7.5, GRAY);
+            doc.line(margin, H - 12, W - margin, H - 12);
+            doc.text(`${fechaImp}; generado por ${usuario}. Referencia ISO 10.1`, margin, H - 7);
+            doc.text(`Pag. ${pageNum} / ${totalPages}`, W - margin, H - 7, { align: "right" });
+        }
+
+        function separator(y, color = [210, 213, 228]) {
+            doc.setDrawColor(...color);
+            doc.setLineWidth(0.3);
+            doc.line(margin, y, W - margin, y);
+        }
+
+        function block(label, content, y, labelSize = 8, contentSize = 9.5) {
+            if (!content || !content.trim()) return y;
+            setHead(labelSize, BLUE);
+            doc.text(label, margin, y);
+            y += 5;
+            setLight(contentSize, BLACK);
+            const lines = doc.splitTextToSize(content, contentW);
+            doc.text(lines, margin, y);
+            return y + lines.length * (contentSize * 0.42) + 5;
+        }
+
+        // ── Datos del proyecto ────────────────────────────────
+        const selectedTeam    = teams.find(t => Number(t.id) === Number(teamId));
+        const selectedProject = projects.find(p => Number(p.id) === Number(projectId));
+
+        const allDates = allTasks
+            .flatMap(t => [t.start_date, t.due_date])
+            .filter(Boolean)
+            .map(d => new Date(String(d)))
+            .filter(d => !isNaN(d))
+            .sort((a, b) => a - b);
+        const proyectoInicio = allDates[0]?.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" }) || null;
+        const proyectoFin    = allDates[allDates.length - 1]?.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" }) || null;
+
+        const porHacer  = allTasks.filter(t => t.list_name === "Por hacer").length;
+        const enProceso = allTasks.filter(t => t.list_name === "En proceso").length;
+        const hecho     = allTasks.filter(t => t.list_name === "Hecho").length;
+
+       // ── Resumen ejecutivo vía backend ──────────────────────
+let resumenIA = "";
+try {
+    const authRaw = localStorage.getItem("auth") || "{}";
+    const authData = JSON.parse(authRaw);
+    const token = authData?.token || authData?.access_token || authData?.accessToken || "";
+
+    const resp = await fetch("http://localhost:8000/api/clickup/ia/resumen/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+            tareas: allTasks.slice(0, 8).map(t => ({
+                descripcion_problema:   t.descripcion_problema   || "",
+                desarrollo_estrategia:  t.desarrollo_estrategia  || "",
+                resultados:             t.resultados             || "",
+            })),
+            proyecto_nombre: selectedProject?.name  || "Proyecto",
+            equipo_nombre:   selectedTeam?.name     || "Grupo Automotriz R&R",
+            total:           allTasks.length,
+            hecho:           hecho,
+        }),
+    });
+
+    if (resp.ok) {
+        const data = await resp.json();
+        resumenIA = data?.resumen?.trim() || "";
+    }
+} catch(e) {
+    console.warn("Resumen IA no disponible:", e);
+}
+
+        // ── Fallback si OpenAI no responde ───────────────────
+        if (!resumenIA) {
+            const causasFrecuentes = [...new Set(allTasks.map(t => t.causa).filter(Boolean))].slice(0, 3).join(", ");
+            resumenIA =
+                `El proyecto "${selectedProject?.name || "sin nombre"}" del equipo "${selectedTeam?.name || "Grupo Automotriz R&R"}" ` +
+                `cuenta con ${allTasks.length} planes de acción registrados, de los cuales ${hecho} han sido completados, ` +
+                `${enProceso} están en proceso y ${porHacer} están pendientes de iniciar. ` +
+                (causasFrecuentes ? `Las principales causas identificadas corresponden a: ${causasFrecuentes}. ` : "") +
+                `El seguimiento de estos planes contribuye a la mejora continua de los procesos operativos y comerciales de la organización.`;
+        }
+
+        // ── PORTADA ───────────────────────────────────────────
+        doc.setFillColor(...BLUE);
+        doc.rect(0, 0, W, 14, "F");
+        setLight(8, [255, 255, 255]);
+        doc.text("Time For Action", margin, 9.5);
+
+        let y = 30;
+        setLight(9, GRAY);
+        doc.text(selectedTeam?.name || "Grupo Automotriz R&R", margin, y);
+        y += 10;
+
+        setHead(28, [...BLUE]);
+        const projLines = doc.splitTextToSize(selectedProject?.name || "Proyecto", contentW);
+        doc.text(projLines, margin, y);
+        y += projLines.length * 12 + 3;
+
+        if (proyectoInicio && proyectoFin) {
+            setItalic(9, GRAY);
+            doc.text(`${proyectoInicio} - ${proyectoFin}`, margin, y);
+            y += 10;
+        }
+
+        separator(y);
+        y += 8;
+
+        setLight(10.5, BLACK);
+        const resumenLines = doc.splitTextToSize(resumenIA, contentW);
+        doc.text(resumenLines, margin, y);
+        y += resumenLines.length * 4.8 + 10;
+        if (y > H - 60) y = H - 60;
+
+        separator(y);
+        y += 8;
+
+        const statCols = [
+            { label: "Total de planes", val: String(allTasks.length) },
+            { label: "Por hacer",       val: String(porHacer) },
+            { label: "En proceso",      val: String(enProceso) },
+            { label: "Completados",     val: String(hecho) },
+        ];
+        const statW = contentW / statCols.length;
+        statCols.forEach((s, i) => {
+            const sx = margin + i * statW + statW / 2;
+            setHead(18, [...BLUE]);
+            doc.text(s.val, sx, y + 8, { align: "center" });
+            setLight(8, GRAY);
+            doc.text(s.label, sx, y + 14, { align: "center" });
+        });
+
+        // ── PÁGINAS DE PLANES ─────────────────────────────────
+        const PRIO_ORDER = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+        const tasksList  = [...withDate, ...noDate].sort((a, b) =>
+            (PRIO_ORDER[a.priority] ?? 2) - (PRIO_ORDER[b.priority] ?? 2)
+        );
+        const totalPages = 1 + tasksList.length;
+
+        drawFooter(1, totalPages);
+
+        tasksList.forEach((task, idx) => {
+            doc.addPage();
+            const pageNum  = idx + 2;
+            const subtasks = Array.isArray(task.subtareas) ? task.subtareas : [];
+            const doneCount= subtasks.filter(s => s.done).length;
+
+            let cy = 18;
+
+            setHead(22, [...BLUE]);
+            const titleLines = doc.splitTextToSize(task.title || "Sin título", contentW);
+            doc.text(titleLines, margin, cy);
+            cy += titleLines.length * 9 + 3;
+
+            setItalic(8.5, GRAY);
+            const prioLabel = { LOW:"Baja", MEDIUM:"Media", HIGH:"Alta", URGENT:"Urgente" }[task.priority] || task.priority;
+            doc.text(`Estatus: ${task.list_name || "-"}  |  Prioridad: ${prioLabel || "-"}`, margin, cy);
+            cy += 6;
+
+            const sStr = task.start_date ? String(task.start_date).slice(0, 10) : null;
+            const eStr = task.due_date   ? String(task.due_date).slice(0, 10)   : null;
+            if (sStr || eStr) {
+                setItalic(8, GRAY);
+                doc.text(`${sStr || "-"} - ${eStr || "-"}`, margin, cy);
+                cy += 6;
+            }
+
+            separator(cy); cy += 7;
+
+            if (task.causa || task.raiz) {
+                const causaTxt = [task.causa, task.raiz].filter(Boolean).join(", ");
+                setHead(8, [...BLUE]);
+                doc.text("Causa raíz:", margin, cy); cy += 5;
+                setLight(9, BLACK);
+                const causaLines = doc.splitTextToSize(causaTxt, contentW);
+                doc.text(causaLines, margin, cy);
+                cy += causaLines.length * 4.5 + 6;
+            }
+
+            separator(cy, [230, 232, 242]); cy += 7;
+            cy = block("Descripción del Problema", task.descripcion_problema, cy, 8, 9.5);
+            cy = block("Desarrollo de la estrategia", task.desarrollo_estrategia, cy, 8, 9.5);
+
+            if (subtasks.length > 0) {
+                setHead(8, [...BLUE]);
+                doc.text(`Subtareas  (${doneCount}/${subtasks.length} completadas)`, margin, cy); cy += 5;
+                const barW = contentW * 0.4;
+                doc.setFillColor(220, 224, 240);
+                doc.roundedRect(margin, cy, barW, 3, 1, 1, "F");
+                if (doneCount > 0) {
+                    doc.setFillColor(16, 185, 129);
+                    doc.roundedRect(margin, cy, barW * (doneCount / subtasks.length), 3, 1, 1, "F");
+                }
+                cy += 7;
+                subtasks.forEach(sub => {
+                    const mark = sub.done ? "[x]" : "[ ]";
+                    const { rawStart, rawEnd } = getSubDates(sub);
+                    const subInicio = rawStart ? String(rawStart).slice(0, 10) : "";
+                    const subFin    = rawEnd   ? String(rawEnd).slice(0, 10)   : "";
+                    const fechaSub  = (subInicio || subFin) ? `   Inicio: ${subInicio || "-"}  Fin: ${subFin || "-"}` : "";
+                    const subTxt    = `${mark} ${sub.title || sub.titulo || ""}${fechaSub}`;
+                    setLight(sub.done ? 8.5 : 9, sub.done ? GRAY : BLACK);
+                    const subLines = doc.splitTextToSize(subTxt, contentW - 4);
+                    doc.text(subLines, margin + 2, cy);
+                    cy += subLines.length * 4.2 + 2;
+                });
+                cy += 4;
+            }
+
+            cy = block("Resultados", task.resultados, cy, 8, 9.5);
+
+            if (Array.isArray(task.asignados) && task.asignados.length > 0) {
+                separator(cy, [230, 232, 242]); cy += 6;
+                setHead(8, [...BLUE]);
+                doc.text("Asignado a", margin, cy); cy += 5;
+                setLight(9, BLACK);
+                doc.text(task.asignados.map(a => a.name || a.email || "-").join("  |  "), margin, cy);
+                cy += 7;
+            }
+
+            if (Array.isArray(task.evidencias) && task.evidencias.length > 0) {
+                separator(cy, [230, 232, 242]); cy += 6;
+                setHead(8, [...BLUE]);
+                doc.text(`Evidencias (${task.evidencias.length})`, margin, cy); cy += 6;
+                task.evidencias.forEach(ev => {
+                    const url  = ev.proxy_url || ev.archivo_url || "";
+                    const name = decodeURIComponent(url.split("/").pop().split("?")[0]).slice(0, 60) || "Archivo";
+                    doc.setFillColor(245, 246, 250);
+                    doc.roundedRect(margin, cy - 3.5, contentW, 7, 1, 1, "F");
+                    const ext  = name.split(".").pop().toLowerCase();
+                    const icon = ext === "pdf" ? "[PDF]" : ["jpg","jpeg","png","webp"].includes(ext) ? "[IMG]" : "[DOC]";
+                    setHead(7.5, [...BLUE]);
+                    doc.text(icon, margin + 2, cy + 1);
+                    setLight(8, BLACK);
+                    doc.text(name, margin + 14, cy + 1);
+                    if (url) doc.link(margin + 14, cy - 3, contentW - 16, 7, { url });
+                    cy += 9;
+                });
+            }
+
+            drawFooter(pageNum, totalPages);
+        });
+
+        const nombreProyecto = (selectedProject?.name || "TimeForAction")
+            .replace(/[^a-zA-Z0-9_\-]/g, "_").slice(0, 40);
+        doc.save(`${nombreProyecto}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    }
+
     if (loading) return (
         <div className="rounded-2xl border border-black/10 bg-white p-6 space-y-3">
             {[1,2,3,4].map(i => <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-100"/>)}
@@ -1464,6 +1688,8 @@ function TimelineView({ tasks, onEdit, onDelete, onUpdateDates, loading,
 
     const cellStyle = { borderRight: `1px solid rgba(19,30,92,0.08)`, overflow: "hidden", flexShrink: 0 };
 
+<<<<<<< HEAD
+=======
     function getBarOffsets(key, origStartOff, origDur) {
         if (dragOverrides[key]) return dragOverrides[key];
         return { startOff: origStartOff, dur: origDur };
@@ -1826,6 +2052,7 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
     // Calcular altura total del contenido para el gantt 
     const totalContentHeight = withDate.reduce((acc, task) => acc + rowHeight(task), 0);
 
+>>>>>>> 0c1e9f89bd5ffbc08ce47c4c257bc175dcd531a3
     return (
         <div className="w-full space-y-4">
             {withDate.length > 0 && (
@@ -1850,33 +2077,19 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
                             ))}
                         </div>
                         <div className="flex items-center gap-3">
-    <span className="text-[10px] text-white/50">{withDate.length} planes · arrastra las barras para ajustar fechas</span>
-    <button
-        onClick={() => exportToPDF()}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 transition"
-    >
-        <Paperclip className="h-3.5 w-3.5" />
-        Exportar PDF
-    </button>
-</div>
+                            <span className="text-[10px] text-white/50">{withDate.length} planes · arrastra las barras para ajustar fechas</span>
+                            <button onClick={() => exportToPDF()}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 transition">
+                                <Paperclip className="h-3.5 w-3.5"/>Exportar PDF
+                            </button>
+                        </div>
                     </div>
 
-                    {/* FIX: contenedor con altura máxima fija solo para el wrapper, scroll único */}
                     <div className="flex" style={{ background: PANEL_BG, maxHeight: "72vh", overflow: "hidden" }}>
 
-                        {/* COLUMNAS FIJAS — FIX: overflow-y hidden, scroll controlado por gantt */}
-                        <div
-                            ref={leftRef}
-                            style={{
-                                width: FIXED_W,
-                                flexShrink: 0,
-                                overflowY: "auto",
-                                overflowX: "hidden",
-                                scrollbarWidth: "none",
-                                msOverflowStyle: "none",
-                            }}
-                        >
-                            {/* Header sticky */}
+                        {/* COLUMNAS FIJAS */}
+                        <div ref={leftRef}
+                            style={{ width: FIXED_W, flexShrink: 0, overflowY: "auto", overflowX: "hidden", scrollbarWidth: "none", msOverflowStyle: "none" }}>
                             <div className="sticky top-0 z-30 flex" style={{ height: HDR_H, background: PANEL_HDR, borderBottom: `1px solid ${ACCENT}15` }}>
                                 {[
                                     [COL_PLAN,  "Plan de acción"],
@@ -1889,7 +2102,6 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
                                 ))}
                             </div>
 
-                            {/* Filas */}
                             {withDate.map(task => {
                                 const rh         = rowHeight(task);
                                 const subtasks   = Array.isArray(task.subtareas) ? task.subtareas : [];
@@ -1929,7 +2141,6 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
                                                             {isOverdue && <span className="text-[8px] font-extrabold text-rose-500 bg-rose-50 border border-rose-200 rounded px-1">VENCIDA</span>}
                                                         </div>
                                                     )}
-                                                    {/* FIX: subtareas en panel izquierdo con scroll propio si son muchas */}
                                                     {isExpanded && subtasks.length > 0 && (
                                                         <div className="mt-2 border-t pt-2" style={{ borderColor: `${ACCENT}08` }}>
                                                             <div className="flex items-center gap-1.5 mb-2">
@@ -1992,7 +2203,7 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
                         <div ref={ganttRef} style={{ flex: 1, overflowX: "auto", overflowY: "auto", minWidth: 0 }}>
                             <div style={{ minWidth: totalDays * DAY_W, position: "relative" }}>
 
-                                {/* Cabecera semanas — sticky */}
+                                {/* Cabecera semanas */}
                                 <div className="flex sticky z-40" style={{ top: 0, height: WEEK_H, borderBottom: `1px solid ${ACCENT}12`, background: PANEL_HDR }}>
                                     {weeks.map((w, i) => (
                                         <div key={i} className="flex items-center justify-center shrink-0 text-[10px] font-bold"
@@ -2002,7 +2213,7 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
                                     ))}
                                 </div>
 
-                                {/* Cabecera días — sticky */}
+                                {/* Cabecera días */}
                                 <div className="flex sticky z-40" style={{ top: WEEK_H, height: DAY_H, borderBottom: `1px solid ${ACCENT}10`, background: "white" }}>
                                     {Array.from({ length: totalDays }).map((_, idx) => {
                                         const d = new Date(minDate); d.setDate(d.getDate() + idx);
@@ -2038,7 +2249,7 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
                                         if (!startDate || !dueDate) return null;
 
                                         const rawOffsets = toOffsets(startDate, dueDate);
-                                        const taskKey = `task_${task.id}`;
+                                        const taskKey    = `task_${task.id}`;
                                         const { startOff, dur } = getBarOffsets(taskKey, rawOffsets.startOff, rawOffsets.dur);
                                         if (dur <= 0) return null;
 
@@ -2053,10 +2264,8 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
 
                                         return (
                                             <div key={task.id} style={{ height: rh, minHeight: rh, borderBottom: `1px solid ${ACCENT}06`, position: "relative" }}>
-
                                                 {/* Barra principal */}
-                                                <div
-                                                    className="absolute z-10 rounded-lg"
+                                                <div className="absolute z-10 rounded-lg"
                                                     style={{
                                                         left: startOff * DAY_W + 3,
                                                         width: Math.max(dur * DAY_W - 6, 60),
@@ -2071,21 +2280,14 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
                                                         transition: isDragging ? "none" : "box-shadow 0.15s",
                                                         userSelect: "none",
                                                     }}
-                                                    onMouseDown={e => startDrag(e, taskKey, "move", startOff, dur, task.id, -1)}
-                                                >
-                                                    {/* Handle resize izquierdo */}
-                                                    <div
-                                                        className="absolute left-0 top-0 bottom-0 w-2 z-20 flex items-center justify-center"
-                                                        style={{ cursor: "w-resize" }}
-                                                        onMouseDown={e => startDrag(e, taskKey, "resize-left", startOff, dur, task.id, -1)}
-                                                    >
+                                                    onMouseDown={e => startDrag(e, taskKey, "move", startOff, dur, task.id, -1)}>
+                                                    <div className="absolute left-0 top-0 bottom-0 w-2 z-20 flex items-center justify-center" style={{ cursor: "w-resize" }}
+                                                        onMouseDown={e => startDrag(e, taskKey, "resize-left", startOff, dur, task.id, -1)}>
                                                         <div style={{ width: 2, height: 16, borderRadius: 2, background: `${bc}60` }}/>
                                                     </div>
-
                                                     <div className="flex flex-col justify-center h-full px-4 overflow-hidden">
                                                         <span className="text-[11px] font-bold truncate" style={{ color: bc }}>{task.title}</span>
                                                         <span className="text-[9px] truncate" style={{ color: `${ACCENT}40` }}>
-                                                            {/* FIX: mostrar fechas del override si existe */}
                                                             {dragOverrides[taskKey]
                                                                 ? (() => {
                                                                     const s = new Date(minDate); s.setDate(s.getDate() + dragOverrides[taskKey].startOff);
@@ -2101,13 +2303,8 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
                                                             <div className="h-full" style={{ width: `${progress}%`, background: bc }}/>
                                                         </div>
                                                     )}
-
-                                                    {/* Handle resize derecho */}
-                                                    <div
-                                                        className="absolute right-0 top-0 bottom-0 w-2 z-20 flex items-center justify-center"
-                                                        style={{ cursor: "e-resize" }}
-                                                        onMouseDown={e => startDrag(e, taskKey, "resize-right", startOff, dur, task.id, -1)}
-                                                    >
+                                                    <div className="absolute right-0 top-0 bottom-0 w-2 z-20 flex items-center justify-center" style={{ cursor: "e-resize" }}
+                                                        onMouseDown={e => startDrag(e, taskKey, "resize-right", startOff, dur, task.id, -1)}>
                                                         <div style={{ width: 2, height: 16, borderRadius: 2, background: `${bc}60` }}/>
                                                     </div>
                                                 </div>
@@ -2118,30 +2315,26 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
                                                     let subRawStartOff, subRawDur;
 
                                                     if (rawStart || rawEnd) {
-                                                        const ss = rawStart ? new Date(String(rawStart)) : new Date(String(rawEnd));
-                                                        const se = rawEnd   ? new Date(String(rawEnd))   : new Date(String(rawStart));
+                                                        const ss  = rawStart ? new Date(String(rawStart)) : new Date(String(rawEnd));
+                                                        const se  = rawEnd   ? new Date(String(rawEnd))   : new Date(String(rawStart));
                                                         const res = toOffsets(ss, se);
                                                         subRawStartOff = res.startOff;
                                                         subRawDur      = res.dur;
                                                     } else {
                                                         const totalSubs = subtasks.length;
                                                         const perSub    = Math.max(1, Math.floor(rawOffsets.dur / totalSubs));
-                                                        subRawStartOff = rawOffsets.startOff + i * perSub;
-                                                        subRawDur      = i === totalSubs - 1 ? rawOffsets.dur - i * perSub : perSub;
+                                                        subRawStartOff  = rawOffsets.startOff + i * perSub;
+                                                        subRawDur       = i === totalSubs - 1 ? rawOffsets.dur - i * perSub : perSub;
                                                     }
 
                                                     const subKey = `sub_${task.id}_${i}`;
                                                     const { startOff: subStartOff, dur: subDur } = getBarOffsets(subKey, subRawStartOff, subRawDur);
-                                                    // FIX: topPos alineado con SUB_H del panel izquierdo
-                                                    const topPos    = ROW_BASE + SUB_HEADER_H + i * SUB_H;
-                                                    const subColor  = sub.done ? "#10b981" : `${ACCENT}70`;
+                                                    const topPos  = ROW_BASE + SUB_HEADER_H + i * SUB_H;
+                                                    const subColor= sub.done ? "#10b981" : `${ACCENT}70`;
                                                     const isSubDrag = dragState?.key === subKey;
 
                                                     return (
-                                                        <div
-                                                            key={i}
-                                                            className="absolute z-10 rounded flex items-center"
-                                                            title={sub.title || sub.titulo}
+                                                        <div key={i} className="absolute z-10 rounded flex items-center" title={sub.title || sub.titulo}
                                                             style={{
                                                                 left:   subStartOff * DAY_W + 6,
                                                                 width:  Math.max(subDur * DAY_W - 12, 36),
@@ -2154,16 +2347,12 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
                                                                 transition: isSubDrag ? "none" : "box-shadow 0.15s",
                                                                 userSelect: "none",
                                                             }}
-                                                            onMouseDown={e => startDrag(e, subKey, "move", subStartOff, subDur, task.id, i)}
-                                                        >
+                                                            onMouseDown={e => startDrag(e, subKey, "move", subStartOff, subDur, task.id, i)}>
                                                             <span className="text-[9px] font-bold truncate px-2" style={{ color: subColor, flex: 1 }}>
                                                                 {sub.done ? "✓ " : "○ "}{sub.title || sub.titulo}
                                                             </span>
-                                                            <div
-                                                                className="absolute right-0 top-0 bottom-0 w-1.5 z-20"
-                                                                style={{ cursor: "e-resize" }}
-                                                                onMouseDown={e => startDrag(e, subKey, "resize-right", subStartOff, subDur, task.id, i)}
-                                                            />
+                                                            <div className="absolute right-0 top-0 bottom-0 w-1.5 z-20" style={{ cursor: "e-resize" }}
+                                                                onMouseDown={e => startDrag(e, subKey, "resize-right", subStartOff, subDur, task.id, i)}/>
                                                         </div>
                                                     );
                                                 })}
@@ -2256,7 +2445,6 @@ Contenido: ${problemasTexto.slice(0, 1500)}`
     );
 }
 
-
 export default function TimeForAction() {
     const [teamId,setTeamId]=useState(()=>{const v=localStorage.getItem("clickup_team_id");return v?Number(v):null;});
     const [projectId,setProjectId]=useState(()=>{const v=localStorage.getItem("clickup_project_id");return v?Number(v):null;});
@@ -2286,142 +2474,128 @@ export default function TimeForAction() {
         try{const auth=localStorage.getItem("auth");if(auth){const p=JSON.parse(auth);const u=p?.user||p?.usuario;if(u)setCurrentUser({id:u.id_usuario||u.id,name:u.nombre_completo||u.nombre,email:u.correo||u.email});}}catch(e){}
     },[]);
 
-    const fetchTeams=useCallback(async()=>{
-    try{
-        const data=await apiClickup.listTeams();
-        const arr=Array.isArray(data)?data:[];
-        setTeams(arr);
-        if(!teamId && arr[0]) setTeamId(Number(arr[0].id));
-        if(teamId && arr.length>0 && !arr.find(t=>Number(t.id)===Number(teamId))) {
-            setTeamId(Number(arr[0].id));
-            setProjectId(null);
-        }
-    }catch(e){console.error(e);}
-},[teamId]);
+    const fetchTeams = useCallback(async () => {
+        try {
+            const data = await apiClickup.listTeams();
+            const arr  = Array.isArray(data) ? data : [];
+            setTeams(arr);
+            if (!teamId && arr[0]) setTeamId(Number(arr[0].id));
+            if (teamId && arr.length > 0 && !arr.find(t => Number(t.id) === Number(teamId))) {
+                setTeamId(Number(arr[0].id));
+                setProjectId(null);
+            }
+        } catch(e) { console.error(e); }
+    }, [teamId]);
 
     useEffect(()=>{fetchTeams();},[]);
-    useEffect(()=>{if(!teamId)return;apiClickup.listProjects(teamId).then(data=>{const arr=Array.isArray(data)?data:[];setProjects(arr);if(!projectId&&arr[0])setProjectId(Number(arr[0].id));}).catch(console.error);},[teamId]);
+    useEffect(()=>{
+        if(!teamId)return;
+        apiClickup.listProjects(teamId).then(data=>{
+            const arr=Array.isArray(data)?data:[];
+            setProjects(arr);
+            if(!projectId&&arr[0])setProjectId(Number(arr[0].id));
+        }).catch(console.error);
+    },[teamId]);
 
-    const loadBoard=useCallback(async()=>{
-        if(!teamId||!projectId)return;setLoading(true);
-        try{const res=await apiClickup.getBoard(Number(teamId),Number(projectId));const rawLists=res?.lists||[];const tasksByList=res?.tasks_by_list||{};setLists(rawLists);setTasks(rawLists.flatMap(l=>(tasksByList[l.id]||[]).map(t=>({...t,list_name:l.name,list_id:l.id}))));}
-        catch(e){console.error(e);}finally{setLoading(false);}
+    const loadBoard = useCallback(async () => {
+        if(!teamId||!projectId)return;
+        setLoading(true);
+        try {
+            const res         = await apiClickup.getBoard(Number(teamId),Number(projectId));
+            const rawLists    = res?.lists||[];
+            const tasksByList = res?.tasks_by_list||{};
+            setLists(rawLists);
+            setTasks(rawLists.flatMap(l=>(tasksByList[l.id]||[]).map(t=>({...t,list_name:l.name,list_id:l.id}))));
+        } catch(e){console.error(e);}
+        finally{setLoading(false);}
     },[teamId,projectId]);
 
     useEffect(()=>{loadBoard();},[loadBoard]);
-    useEffect(() => {
-  if (!teamId) return;
-  apiClickup.listNotifications().then(notifs => {
-    const hasInvites = notifs.some(n =>
-      n.type === "TEAM_INVITE" || n.type === "INVITATION" || n.type === "TASK_ASSIGNED"
-    );
-    if (hasInvites) loadBoard();
-  }).catch(() => {});
-}, [teamId]);
 
-useEffect(() => {
-    const handler = async (e) => {
-        const { teamId: tid, projectId: pid, taskId } = e.detail || {};
-        if (tid) { setTeamId(Number(tid)); localStorage.setItem("clickup_team_id", String(tid)); }
-        if (pid) { setProjectId(Number(pid)); localStorage.setItem("clickup_project_id", String(pid)); }
-        setTimeout(async () => {
-            await loadBoard();
-            if (taskId) {
-                setTasks(prev => {
-                    const found = prev.find(t => Number(t.id) === Number(taskId));
-                    if (found) { setEditingTask(found); setModalOpen(true); }
-                    return prev;
-                });
-            }
-        }, 800);
-    };
-    window.addEventListener("clickup:navigate", handler);
-    return () => window.removeEventListener("clickup:navigate", handler);
-}, [loadBoard]);
+    useEffect(()=>{
+        if(!teamId)return;
+        apiClickup.listNotifications().then(notifs=>{
+            const hasInvites=notifs.some(n=>n.type==="TEAM_INVITE"||n.type==="INVITATION"||n.type==="TASK_ASSIGNED");
+            if(hasInvites)loadBoard();
+        }).catch(()=>{});
+    },[teamId]);
 
+    useEffect(()=>{
+        const handler=async(e)=>{
+            const{teamId:tid,projectId:pid,taskId}=e.detail||{};
+            if(tid){setTeamId(Number(tid));localStorage.setItem("clickup_team_id",String(tid));}
+            if(pid){setProjectId(Number(pid));localStorage.setItem("clickup_project_id",String(pid));}
+            setTimeout(async()=>{
+                await loadBoard();
+                if(taskId){setTasks(prev=>{const found=prev.find(t=>Number(t.id)===Number(taskId));if(found){setEditingTask(found);setModalOpen(true);}return prev;});}
+            },800);
+        };
+        window.addEventListener("clickup:navigate",handler);
+        return()=>window.removeEventListener("clickup:navigate",handler);
+    },[loadBoard]);
 
-
-    // ── FIX TIMELINE: handler para persistir fechas tras arrastrar ──
     const handleUpdateDates = useCallback(async (taskId, subIdx, newStart, newEnd) => {
         const task = tasks.find(t => t.id === taskId);
         if (!task || !teamId) return;
-
         try {
             if (subIdx === -1) {
-                // Tarea principal
                 const payload = {
-                    lista: Number(task.list_id),
-                    titulo: task.title,
-                    prioridad: task.priority,
-                    inicio: `${newStart}T00:00:00Z`,
-                    vence: `${newEnd}T00:00:00Z`,
+                    lista: Number(task.list_id), titulo: task.title, prioridad: task.priority,
+                    inicio: `${newStart}T00:00:00Z`, vence: `${newEnd}T00:00:00Z`,
                     descripcion_problema: task.descripcion_problema || "",
-                    causa: task.causa || "",
-                    raiz: task.raiz || "",
+                    causa: task.causa || "", raiz: task.raiz || "",
                     desarrollo_estrategia: task.desarrollo_estrategia || "",
                     resultados: task.resultados || "",
                     subtareas: Array.isArray(task.subtareas) ? task.subtareas.map(s => ({
-                        titulo: s.title || s.titulo,
-                        done: !!s.done,
-                        start_date: s.start_date || null,
-                        due_date: s.due_date || null,
+                        titulo: s.title || s.titulo, done: !!s.done,
+                        start_date: s.start_date || null, due_date: s.due_date || null,
                     })) : [],
                     asignados_ids: Array.isArray(task.asignados) ? task.asignados.map(a => a.user_id || a.id) : [],
                 };
                 await apiClickup.updateTask(Number(teamId), Number(taskId), payload);
-                // Actualizar estado local inmediatamente para que la fecha mostrada cambie
-                setTasks(prev => prev.map(t => t.id === taskId
-                    ? { ...t, start_date: newStart, due_date: newEnd }
-                    : t
-                ));
+                setTasks(prev => prev.map(t => t.id === taskId ? { ...t, start_date: newStart, due_date: newEnd } : t));
             } else {
-                // Subtarea: actualizar fechas en la subtarea correspondiente
                 const updatedSubtareas = (Array.isArray(task.subtareas) ? task.subtareas : []).map((s, i) =>
                     i === subIdx ? { ...s, start_date: newStart, due_date: newEnd } : s
                 );
                 const payload = {
-                    lista: Number(task.list_id),
-                    titulo: task.title,
-                    prioridad: task.priority,
+                    lista: Number(task.list_id), titulo: task.title, prioridad: task.priority,
                     inicio: task.start_date ? `${String(task.start_date).slice(0,10)}T00:00:00Z` : null,
-                    vence: task.due_date   ? `${String(task.due_date).slice(0,10)}T00:00:00Z`   : null,
+                    vence: task.due_date    ? `${String(task.due_date).slice(0,10)}T00:00:00Z`   : null,
                     descripcion_problema: task.descripcion_problema || "",
-                    causa: task.causa || "",
-                    raiz: task.raiz || "",
+                    causa: task.causa || "", raiz: task.raiz || "",
                     desarrollo_estrategia: task.desarrollo_estrategia || "",
                     resultados: task.resultados || "",
                     subtareas: updatedSubtareas.map(s => ({
-                        titulo: s.title || s.titulo,
-                        done: !!s.done,
-                        start_date: s.start_date || null,
-                        due_date: s.due_date || null,
+                        titulo: s.title || s.titulo, done: !!s.done,
+                        start_date: s.start_date || null, due_date: s.due_date || null,
                     })),
                     asignados_ids: Array.isArray(task.asignados) ? task.asignados.map(a => a.user_id || a.id) : [],
                 };
                 await apiClickup.updateTask(Number(teamId), Number(taskId), payload);
-                setTasks(prev => prev.map(t => t.id === taskId
-                    ? { ...t, subtareas: updatedSubtareas }
-                    : t
-                ));
+                setTasks(prev => prev.map(t => t.id === taskId ? { ...t, subtareas: updatedSubtareas } : t));
             }
-        } catch (e) {
+        } catch(e) {
             console.error("Error al actualizar fechas desde timeline:", e);
-            // Si falla, recargar para resincronizar
             await loadBoard();
         }
     }, [tasks, teamId, loadBoard]);
 
-    const filtered=useMemo(()=>{
-    const qn=q.trim().toLowerCase();
-    return tasks.filter(t=>{
-        const matchQ=!qn||(t.title||"").toLowerCase().includes(qn)||(t.descripcion_problema||"").toLowerCase().includes(qn)||(t.causa||"").toLowerCase().includes(qn)||(t.desarrollo_estrategia||"").toLowerCase().includes(qn);
-        const matchS=filterStatus==="Todos"||t.list_name===filterStatus;
-        const matchMy=!showMyTasksOnly||!currentUser||(t.assigned&&t.assigned.some(a=>Number(a.user_id)===Number(currentUser.id)||Number(a.id)===Number(currentUser.id)));
-        return matchQ&&matchS&&matchMy;
-    });
-},[tasks,q,filterStatus,showMyTasksOnly,currentUser]);
+    const filtered = useMemo(() => {
+        const qn = q.trim().toLowerCase();
+        return tasks.filter(t => {
+            const matchQ  = !qn||(t.title||"").toLowerCase().includes(qn)||(t.descripcion_problema||"").toLowerCase().includes(qn)||(t.causa||"").toLowerCase().includes(qn)||(t.desarrollo_estrategia||"").toLowerCase().includes(qn);
+            const matchS  = filterStatus==="Todos"||t.list_name===filterStatus;
+            const matchMy = !showMyTasksOnly||!currentUser||(t.assigned&&t.assigned.some(a=>Number(a.user_id)===Number(currentUser.id)||Number(a.id)===Number(currentUser.id)));
+            return matchQ&&matchS&&matchMy;
+        });
+    },[tasks,q,filterStatus,showMyTasksOnly,currentUser]);
 
-    const statCounts=useMemo(()=>{const out={};for(const col of STATUS_COLS)out[col]=filtered.filter(t=>t.list_name===col).length;return out;},[filtered]);
+    const statCounts = useMemo(() => {
+        const out={};
+        for(const col of STATUS_COLS) out[col]=filtered.filter(t=>t.list_name===col).length;
+        return out;
+    },[filtered]);
 
     function openCreate(listIdDefault=null){setEditingTask(listIdDefault?{list:listIdDefault,id:null}:null);setModalOpen(true);}
     function openEdit(task){setEditingTask(task);setModalOpen(true);}
@@ -2435,8 +2609,18 @@ useEffect(() => {
 
     async function deleteCurrentProject(){
         if(!projectId||!teamId)return;setDeletingProject(true);
-        try{await apiClickup.deleteProject(teamId,projectId);setConfirmDeleteProject(false);const data=await apiClickup.listProjects(teamId);const arr=Array.isArray(data)?data:[];setProjects(arr);const next=arr[0]?Number(arr[0].id):null;setProjectId(next);if(next)localStorage.setItem("clickup_project_id",String(next));else localStorage.removeItem("clickup_project_id");}
-        catch(e){alert(e.message||"Error al eliminar proyecto");}finally{setDeletingProject(false);}
+        try{
+            await apiClickup.deleteProject(teamId,projectId);
+            setConfirmDeleteProject(false);
+            const data=await apiClickup.listProjects(teamId);
+            const arr=Array.isArray(data)?data:[];
+            setProjects(arr);
+            const next=arr[0]?Number(arr[0].id):null;
+            setProjectId(next);
+            if(next)localStorage.setItem("clickup_project_id",String(next));
+            else localStorage.removeItem("clickup_project_id");
+        }catch(e){alert(e.message||"Error al eliminar proyecto");}
+        finally{setDeletingProject(false);}
     }
 
     const viewTabs=[{id:"kanban",label:"Kanban",Icon:LayoutGrid},{id:"tabla",label:"Tabla",Icon:Table2},{id:"timeline",label:"Línea de tiempo",Icon:GitBranch}];
@@ -2459,33 +2643,29 @@ useEffect(() => {
                 <div className="flex items-center gap-2">
                     <label className="text-xs font-extrabold text-black/50 shrink-0">Equipo</label>
                     <select value={teamId||""} onChange={e=>{
-    const newTeamId=Number(e.target.value);
-    setTeamId(newTeamId);
-    setProjectId(null);
-    localStorage.setItem("clickup_team_id",String(newTeamId));
-    localStorage.removeItem("clickup_project_id");
-    // Cargar proyectos del nuevo equipo
-    apiClickup.listProjects(newTeamId).then(data=>{
-        const arr=Array.isArray(data)?data:[];
-        setProjects(arr);
-        if(arr[0]){
-            setProjectId(Number(arr[0].id));
-            localStorage.setItem("clickup_project_id",String(arr[0].id));
-        }
-    }).catch(console.error);
-}} className="rounded-xl border border-black/10 bg-slate-50 px-3 py-1.5 text-sm font-bold outline-none focus:border-[#131E5C]">
-    {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-</select>
+                        const newTeamId=Number(e.target.value);
+                        setTeamId(newTeamId);
+                        setProjectId(null);
+                        localStorage.setItem("clickup_team_id",String(newTeamId));
+                        localStorage.removeItem("clickup_project_id");
+                        apiClickup.listProjects(newTeamId).then(data=>{
+                            const arr=Array.isArray(data)?data:[];
+                            setProjects(arr);
+                            if(arr[0]){setProjectId(Number(arr[0].id));localStorage.setItem("clickup_project_id",String(arr[0].id));}
+                        }).catch(console.error);
+                    }} className="rounded-xl border border-black/10 bg-slate-50 px-3 py-1.5 text-sm font-bold outline-none focus:border-[#131E5C]">
+                        {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <label className="text-xs font-extrabold text-black/50 shrink-0">Proyecto</label>
-                    {editingProject?(
+                    {editingProject ? (
                         <div className="flex items-center gap-1.5">
                             <input value={projectName} onChange={e=>setProjectName(e.target.value)} className="rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm font-bold outline-none focus:border-[#131E5C]" placeholder="Nombre del proyecto"/>
                             <button onClick={async()=>{if(!projectName.trim()||!projectId||!teamId)return;try{await apiClickup.updateProject(teamId,projectId,{name:projectName.trim(),description:""});const data=await apiClickup.listProjects(teamId);setProjects(Array.isArray(data)?data:[]);setEditingProject(false);}catch(e){alert(e.message||"Error");}}} className="rounded-xl bg-[#131E5C] px-3 py-1.5 text-xs font-extrabold text-white hover:opacity-90">Guardar</button>
                             <button onClick={()=>setEditingProject(false)} className="rounded-xl border border-black/10 bg-white px-3 py-1.5 text-xs font-extrabold text-black/60 hover:bg-slate-50">Cancelar</button>
                         </div>
-                    ):(
+                    ) : (
                         <div className="flex items-center gap-1.5">
                             <select value={projectId||""} onChange={e=>{setProjectId(Number(e.target.value));localStorage.setItem("clickup_project_id",e.target.value);}} className="rounded-xl border border-black/10 bg-slate-50 px-3 py-1.5 text-sm font-bold outline-none focus:border-[#131E5C]">
                                 {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
@@ -2531,6 +2711,10 @@ useEffect(() => {
             {view==="kanban"&&<KanbanView tasks={filtered} lists={lists} onEdit={openEdit} onDelete={handleDeleteTask} onCreateInCol={listId=>openCreate(listId)} loading={loading}/>}
             {view==="tabla"&&<TablaView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} loading={loading}/>}
             {view==="timeline"&&<TimelineView tasks={filtered} onEdit={openEdit} onDelete={handleDeleteTask} onUpdateDates={handleUpdateDates} loading={loading}
+<<<<<<< HEAD
+                teams={teams} projects={projects} teamId={teamId} projectId={projectId} currentUser={currentUser} allTasks={tasks}/>}
+
+=======
             teams={teams}
             projects={projects}
             teamId={teamId}
@@ -2538,22 +2722,13 @@ useEffect(() => {
             currentUser={currentUser}
             allTasks={tasks}
         />}
+>>>>>>> 0c1e9f89bd5ffbc08ce47c4c257bc175dcd531a3
             <TaskModal open={modalOpen} onClose={()=>setModalOpen(false)} task={editingTask} lists={lists} teamId={teamId} onSaved={loadBoard}/>
-            <TeamsModal
-  open={teamsModalOpen}
-  onClose={() => setTeamsModalOpen(false)}
-  onCreated={async () => {
-    // Recargar equipos, proyectos y board
-    await fetchTeams();
-    if (teamId) {
-      const data = await apiClickup.listProjects(teamId);
-      const arr = Array.isArray(data) ? data : [];
-      setProjects(arr);
-      if (!projectId && arr[0]) setProjectId(Number(arr[0].id));
-    }
-    await loadBoard();
-  }}
-/>
+            <TeamsModal open={teamsModalOpen} onClose={()=>setTeamsModalOpen(false)} onCreated={async()=>{
+                await fetchTeams();
+                if(teamId){const data=await apiClickup.listProjects(teamId);const arr=Array.isArray(data)?data:[];setProjects(arr);if(!projectId&&arr[0])setProjectId(Number(arr[0].id));}
+                await loadBoard();
+            }}/>
             <ConfirmDialog open={!!confirmDeleteTask} title="Eliminar plan de acción" message={`¿Seguro que deseas eliminar "${confirmDeleteTask?.title}"? Esta acción no se puede deshacer.`} onConfirm={confirmTaskDelete} onCancel={()=>setConfirmDeleteTask(null)} loading={deletingTask}/>
             <ConfirmDialog open={confirmDeleteProject} title="Eliminar proyecto" message={`¿Seguro que deseas eliminar "${currentProject?.name}"? Se eliminarán todos sus planes.`} onConfirm={deleteCurrentProject} onCancel={()=>setConfirmDeleteProject(false)} loading={deletingProject}/>
 
