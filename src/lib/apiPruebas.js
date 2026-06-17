@@ -630,4 +630,65 @@ export const api = {
     http(path, {
       method: "DELETE",
     }),
+
+  iaConfigGet: (numeroAsesor) =>
+    http(`/digitales/ia/config/${encodeURIComponent(numeroAsesor)}/`),
+
+  iaConfigPatch: (numeroAsesor, payload) =>
+    http(`/digitales/ia/config/${encodeURIComponent(numeroAsesor)}/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withRequestContext(payload)),
+    }),
+
+  iaConfigPublicar: (numeroAsesor) =>
+    http(`/digitales/ia/config/${encodeURIComponent(numeroAsesor)}/publicar/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withRequestContext({})),
+    }),
+
+  iaPausarConversacion: ({ tel, motivo = "manual" }) =>
+    http("/digitales/ia/conversacion/pausar/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withRequestContext({ tel, motivo })),
+    }),
+
+  iaReactivarConversacion: ({ tel }) =>
+    http("/digitales/ia/conversacion/reactivar/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withRequestContext({ tel })),
+    }),
+
+  catalogoVehiculos: () => http("/digitales/catalogo/vehiculos/"),
+
+  catalogoVehiculoPatch: (id, payload) =>
+    http(`/digitales/catalogo/vehiculos/${id}/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withRequestContext(payload)),
+    }),
+
+  get: (path) => http(path),
+
+  post: (path, payload) =>
+    http(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    }),
+
+  patch: (path, payload) =>
+    http(path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    }),
+
+  delete: (path) =>
+    http(path, {
+      method: "DELETE",
+    }),
 };
