@@ -665,6 +665,46 @@ export default function HojaRegistros() {
         return getAsesoresPorAgencia(agenciaActual, isAdmin);
     }, [draft, isAdmin, userAgencia]);
 
+
+    const getColorTipoServicio = (tipo) => {
+
+    const texto = String(tipo).trim().toLowerCase();
+
+    // Mantenimientos → azul
+    if (
+        texto.includes("mtto") ||
+        texto.includes("mantenimiento")
+    ) {
+        return "bg-blue-100 text-blue-700 border border-blue-300";
+    }
+
+    // Diagnósticos → gris
+    if (
+        texto.includes("diagnostico") ||
+        texto.includes("diagn")
+    ) {
+        return "bg-slate-100 text-slate-700 border border-slate-300";
+    }
+
+    // Campañas → rojo
+    if (
+        texto.includes("campaña") ||
+        texto.includes("camp")
+    ) {
+        return "bg-red-100 text-red-700 border border-red-300";
+    }
+
+    // Reparaciones → rojo
+    if (
+        texto.includes("reparacion") ||
+        texto.includes("repar")
+    ) {
+        return "bg-red-100 text-red-700 border border-red-300";
+    }
+
+    return "bg-gray-100 text-gray-700 border border-gray-300";
+};
+
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
         const desdeInt = ymdToInt(filters.desde);
@@ -1129,7 +1169,7 @@ async function handleSaveCita(cita) {
 
                        <button
                         onClick={()=>setAgenciaSeleccionada("VW Cordoba")}
-                        className={`ml-24 rounded-lg px-3 py-2 text-xs font-bold ${
+                        className={`ml-30 rounded-lg px-3 py-2 text-xs font-bold ${
                         agenciaSeleccionada==="VW Cordoba"
                         ?"bg-[#131E5C] text-white"
                         :"bg-gray-100"
@@ -1470,6 +1510,7 @@ async function handleSaveCita(cita) {
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
                 onSaveCita={handleSaveCita}
+                abrirEditar={abrirEditar}
             />
         )}
             {/* MODAL para crear/editar ingreso */}
@@ -1715,21 +1756,92 @@ async function handleSaveCita(cita) {
                         </Field>
 
                         <Field label="Tipo de servicio" icon={ClipboardList}>
-                            <select
-                                value={draft.tipo_cita || ""}
-                                onChange={(event) =>
-                                    setDraft((prev) => ({ ...prev, tipo_cita: event.target.value }))
-                                }
-                                className={[inputBase, inputOk].join(" ")}
-                            >
-                                <option value="">Selecciona...</option>
 
-                                {TIPOS_SERVICIO.map((tipo) => (
-                                    <option key={tipo} value={tipo}>
-                                        {tipo}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="border rounded-xl p-3 max-h-[180px] overflow-y-auto">
+
+                            {TIPOS_SERVICIO.map((tipo) => (
+
+                            <label
+                            key={tipo}
+                            className="
+                            flex
+                            items-center
+                            gap-2
+                            py-2
+                            cursor-pointer
+                            hover:bg-slate-50
+                            rounded-lg
+                            px-2
+                            "
+                            >
+
+                            <input
+                            type="checkbox"
+                            checked={
+                            (draft.tipo_cita || []).includes(tipo)
+                            }
+                            onChange={(event)=>{
+
+                            let nuevosTipos=[...(draft.tipo_cita || [])];
+
+                            if(event.target.checked){
+
+                            nuevosTipos.push(tipo);
+
+                            }else{
+
+                            nuevosTipos=nuevosTipos.filter(
+                            t=>t!==tipo
+                            );
+
+                            }
+
+                            setDraft(prev=>({
+                            ...prev,
+                            tipo_cita:nuevosTipos
+                            }));
+
+                            }}
+                            className="h-4 w-4"
+                            />
+
+                            <span className="text-sm">
+                            {tipo}
+                            </span>
+
+                            </label>
+
+                            ))}
+
+                            </div>
+
+                            {/* seleccionados */}
+                            {draft.tipo_cita?.length>0 && (
+
+                            <div className="mt-3 flex flex-wrap gap-2">
+
+                            {draft.tipo_cita.map((tipo) => (
+
+                            <span
+                            key={tipo}
+                            className={`
+                            px-3
+                            py-1
+                            rounded-full
+                            text-xs
+                            font-bold
+                            ${getColorTipoServicio(tipo)}
+                            `}
+                            >
+                            {tipo}
+                            </span>
+
+                            ))}
+
+                            </div>
+
+                            )}
+
                         </Field>
 
                         <Field label="VIN" icon={CarFront}>

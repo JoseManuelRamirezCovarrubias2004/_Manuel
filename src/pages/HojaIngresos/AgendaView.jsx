@@ -1,5 +1,5 @@
 // src/pages/HojaIngresos/AgendaView.jsx
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect} from "react";
 import {
   Calendar,
   Clock,
@@ -247,69 +247,177 @@ function ModalCita({ open, cita, asesor, hora, onClose, onSave }) {
   );
 }
 function CeldaCita({ cita, esFuturo, onClick }) {
+
   if (!cita) {
     return (
-      <div className="w-full h-full min-h-[50px] bg-white border border-gray-100 rounded-lg flex items-center justify-center" />
+      <div className="
+        w-full 
+        h-full 
+        min-h-[50px] 
+        bg-white 
+        border 
+        border-gray-100 
+        rounded-lg
+      " />
     );
   }
 
-  // 👇 Usar cliente_nombre (el campo que tiene el nombre del cliente)
-  const nombreCliente = cita.cliente_nombre || cita.nombre_cliente || "Sin nombre";
+
+  const nombreCliente =
+    cita.cliente_nombre ||
+    cita.nombre_cliente ||
+    "Sin nombre";
+
+  // 👇 AGREGA ESTO
+  const horaCita = (fecha) => {
+    if (!fecha) return "";
+
+    const date = new Date(fecha);
+
+    return date.toLocaleTimeString(
+      "es-MX",
+      {
+        hour: "2-digit",
+        minute: "2-digit"
+      }
+    );
+  };
+
 
   return (
     <button
       onClick={() => onClick(cita)}
-      className={`w-full h-full rounded-lg p-1.5 text-left hover:shadow-md transition-all group ${
-        esFuturo 
-          ? "bg-yellow-50/80 border border-yellow-200 hover:border-yellow-400 hover:bg-yellow-50" 
-          : "bg-blue-50/80 border border-blue-200 hover:border-blue-400 hover:bg-blue-50"
-      }`}
+      className={`
+        w-full
+        h-[170px]
+        rounded-2xl
+        p-3
+        text-left
+        hover:shadow-lg
+        transition-all
+        overflow-hidden
+        ${
+          esFuturo
+            ? "bg-yellow-50 border border-yellow-200 hover:border-yellow-400"
+            : "bg-green-50 border border-green-200 hover:border-green-400"
+        }
+      `}
       title="Clic para editar"
     >
-      {/* 👇 NOMBRE DEL CLIENTE */}
-      <div className="font-bold text-[11px] text-[#131E5C] truncate">
-        {nombreCliente}
-      </div>
-      
-      {/* 👇 TIPO DE SERVICIO (opcional) */}
-      {cita.tipo_cita && (
-        <div className="text-[8px] text-gray-500 truncate">
-          {cita.tipo_cita}
+
+      {/* Cliente + estado */}
+      <div className="flex justify-between items-start gap-2">
+
+        <div className="
+          font-extrabold
+          text-[15px]
+          leading-tight
+          text-[#131E5C]
+          line-clamp-2
+        ">
+          {nombreCliente}
         </div>
-      )}
-      
-      <div className="flex flex-wrap gap-0.5 mt-1">
-        {cita.longDrive && (
-          <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1 py-0.5 text-[8px] font-bold text-orange-700">
-            <Car className="h-2 w-2" />
-            LD
-          </span>
-        )}
-        
-        <span className={`inline-flex items-center gap-0.5 rounded-full px-1 py-0.5 text-[8px] font-bold ${
-          cita.citado 
-            ? "bg-emerald-100 text-emerald-700" 
-            : "bg-red-100 text-red-700"
-        }`}>
+
+
+        <span className={`
+          rounded-full
+          px-2
+          py-1
+          text-[10px]
+          font-bold
+          whitespace-nowrap
+          ${
+            cita.citado
+            ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+            : "bg-red-100 text-red-700 border border-red-200"
+          }
+        `}>
           {cita.citado ? "Citado" : "No citado"}
         </span>
-        
-        {(cita.asistido || cita.asistencia) !== undefined && (
-          <span className={`inline-flex items-center gap-0.5 rounded-full px-1 py-0.5 text-[8px] font-bold ${
-            (cita.asistido || cita.asistencia) 
-              ? "bg-emerald-100 text-emerald-700" 
-              : "bg-red-100 text-red-700"
-          }`}>
-            {(cita.asistido || cita.asistencia) ? "✓" : "✗"}
-          </span>
-        )}
+
       </div>
+
+
+      {/* Hora */}
+      <div className="mt-3">
+        <span className="
+          inline-flex
+          items-center
+          gap-1
+          rounded-full
+          bg-white
+          border
+          px-3
+          py-1
+          text-xs
+          font-bold
+          text-gray-700
+        ">
+          🕒 {horaCita(cita.fecha_ingreso || cita.fecha_cita)}
+        </span>
+      </div>
+
+
+      {/* Servicio */}
+      {cita.tipo_cita && (
+        <div className="mt-2">
+
+          <span className="
+            inline-flex
+            items-center
+            rounded-full
+            bg-green-100
+            border
+            border-green-300
+            px-3
+            py-1
+            text-xs
+            font-bold
+            text-green-800
+          ">
+            🔧 {cita.tipo_cita}
+          </span>
+
+        </div>
+      )}
+
+
+      <div className="my-3 border-t border-green-200" />
+
+
+      {/* Datos */}
+      <div className="
+        flex
+        flex-col
+        gap-1
+        text-[11px]
+        font-semibold
+        text-[#131E5C]
+      ">
+
+        <span>
+          🚗 {cita.modelo || "Vehículo"}
+        </span>
+
+        <span>
+          🛞 {cita.kilometraje || "0"} km
+        </span>
+
+        <span>
+          ☎ {cita.telefono || "Sin teléfono"}
+        </span>
+
+      </div>
+
+
     </button>
   );
 }
+
 export default function AgendaView({
   citas = [],
   onSaveCita,
+  abrirEditar,
   selectedDate = new Date().toISOString().split("T")[0],
   setSelectedDate = () => {},
   agenciaSeleccionada = "VW Cordoba",
@@ -321,10 +429,66 @@ export default function AgendaView({
     hora: null,
     cita: null
   });
+
+   // 👇 PEGA ESTO AQUÍ
+  const [horaActual, setHoraActual] = useState(new Date());
+
+  useEffect(() => {
+    const intervalo = setInterval(() => {
+      setHoraActual(new Date());
+    }, 60000);
+
+    return () => clearInterval(intervalo);
+  }, []);
+
   const asesores = useMemo(() => {
     return ASESORES_POR_AGENCIA[agenciaSeleccionada] || [];
     
   }, [agenciaSeleccionada]);
+
+  const posicionLineaTiempo = useMemo(() => {
+
+  const hoy = new Date().toISOString().split("T")[0];
+
+  if (selectedDate !== hoy) return null;
+
+  const hora = horaActual.getHours();
+  const minutos = horaActual.getMinutes();
+
+  const minutosActuales = (hora * 60) + minutos;
+
+  const inicioAgenda = 8 * 60;
+  const finAgenda = (15 * 60) + 30;
+
+  if (
+    minutosActuales < inicioAgenda ||
+    minutosActuales > finAgenda
+  ) {
+    return null;
+  }
+
+  const minutosDesdeInicio =
+    minutosActuales - inicioAgenda;
+
+  const totalMinutosAgenda =
+    finAgenda - inicioAgenda;
+
+  const anchoAsesor = 220;
+  const anchoSlot = 90;
+
+  const totalSlots = HORARIOS.length;
+
+  const anchoAgenda =
+    totalSlots * anchoSlot;
+
+  return (
+    anchoAsesor +
+    (minutosDesdeInicio / totalMinutosAgenda) *
+    anchoAgenda
+  );
+
+}, [horaActual, selectedDate]);
+
   const getHoraFromFecha = (fecha) => {
     if (!fecha) return null;
     const date = new Date(fecha);
@@ -491,7 +655,7 @@ const getCita = (asesorNombre, horaSlot) => {
                 
                 {/* No ahora */}
                 <div className="flex items-center gap-1.5 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-100">
-                    <span className="text-[11px] font-semibold text-gray-600">No ahora</span>
+                    <span className="text-[11px] font-semibold text-gray-600">No show</span>
                     <span className="text-sm font-extrabold text-yellow-600">{estadisticas.noAhora}</span>
                 </div>
                 
@@ -538,6 +702,7 @@ const getCita = (asesorNombre, horaSlot) => {
       {/* Tabla de agenda */}
      <div
         className="
+        relative
         overflow-auto
         rounded-2xl
         border
@@ -553,8 +718,45 @@ const getCita = (asesorNombre, horaSlot) => {
         [&::-webkit-scrollbar-thumb]:rounded-full
         "
         >
+        
+        {/* 👇 PEGA ESTO AQUÍ */}
+        {posicionLineaTiempo !== null && (
 
-        <table className="min-w-[1400px] border-separate border-spacing-0">
+        <div
+        className="
+        absolute
+        top-0
+        bottom-0
+        w-[3px]
+        bg-blue-500
+        z-[60]
+        pointer-events-none
+        "
+        style={{
+        left: `${posicionLineaTiempo}px`
+        }}
+        >
+
+        <div
+        className="
+        absolute
+        -top-2
+        left-1/2
+        -translate-x-1/2
+        w-4
+        h-4
+        rounded-full
+        bg-blue-500
+        border-2
+        border-white
+        "
+        />
+
+        </div>
+
+        )}
+
+        <table className="min-w-[1400px] table-fixed border-separate border-spacing-0">
 
         <thead>
 
@@ -700,21 +902,15 @@ const getCita = (asesorNombre, horaSlot) => {
         shadow-sm
         `}
         />
-
         <div>
-
         <div className="font-bold text-[#131E5C]">
         {asesor.nombre}
         </div>
-
         <div className="text-[11px] text-slate-400">
         Asesor de servicio
         </div>
-
         </div>
-
         </div>
-
         </td>
 
         {HORARIOS.map((slot)=>{
@@ -723,14 +919,12 @@ const getCita = (asesorNombre, horaSlot) => {
         asesor.nombre,
         slot
         );
-
         return(
-
         <td
         key={`${asesor.id}-${slot}`}
         className="
-        w-[120px]
-        h-[110px]
+        w-[90px]
+        h-[120px]
         align-top
         p-2
         border-b
@@ -744,11 +938,14 @@ const getCita = (asesorNombre, horaSlot) => {
         duration-300
         "
         >
+       <CeldaCita
+         cita={cita}
+        esFuturo={false}
+        onClick={(citaSeleccionada) => {
 
-        <CeldaCita
-        cita={cita}
-        esFuturo={estadisticas.esFuturo}
-        onClick={handleCellClick}
+            abrirEditar(citaSeleccionada);
+
+        }}
         />
 
         </td>
