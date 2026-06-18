@@ -265,6 +265,47 @@ function prettyStatus(status) {
     return value || "—";
 }
 
+function labelBloqueoIa(value) {
+    const map = {
+        numero_asesor_invalido: "Número asesor inválido",
+        configuracion_ia_no_existe: "Configuración IA no existe",
+        configuracion_ia_inactiva: "Configuración IA apagada",
+        fuera_de_horario: "Fuera de horario",
+        expediente_no_encontrado: "Expediente no encontrado",
+        expediente_ia_pausada: "Expediente IA pausada",
+        conversacion_ia_inactiva: "Conversación IA inactiva",
+        conversacion_ia_pausada: "Conversación IA pausada",
+    };
+
+    return map[value] || String(value || "Bloqueo desconocido");
+}
+
+function getIaEstadoVisual(estadoIa) {
+    const bloqueos = Array.isArray(estadoIa?.bloqueos) ? estadoIa.bloqueos : [];
+
+    if (!estadoIa) {
+        return {
+            label: "IA sin diagnóstico",
+            detail: "Abre un chat para consultar el estado operativo.",
+            cls: "border-slate-200 bg-slate-50 text-slate-700",
+        };
+    }
+
+    if (estadoIa.puede_responder) {
+        return {
+            label: "IA lista para responder",
+            detail: "Configuración activa, conversación habilitada y dentro de horario.",
+            cls: "border-emerald-200 bg-emerald-50 text-emerald-800",
+        };
+    }
+
+    return {
+        label: "IA no responderá",
+        detail: bloqueos.length ? bloqueos.map(labelBloqueoIa).join(" · ") : "Hay un bloqueo operativo sin clasificar.",
+        cls: "border-amber-200 bg-amber-50 text-amber-900",
+    };
+}
+
 function parseWhatsAppFormat(texto) {
     let resultado = String(texto || "");
 
@@ -1086,6 +1127,8 @@ export default function DigitalesContacto() {
     const deferredQ = useDeferredValue(q);
     const [activeTel, setActiveTel] = useState("");
     const [prospecto, setProspecto] = useState(null);
+    const [iaEstado, setIaEstado] = useState(null);
+    const [loadingIaAction, setLoadingIaAction] = useState(false);
     const [mensajes, setMensajes] = useState([]);
     const [draftMsg, setDraftMsg] = useState("");
     const [mobileView, setMobileView] = useState("list");
@@ -1264,6 +1307,7 @@ export default function DigitalesContacto() {
 
         mensajesCacheRef.current.set(key, {
             prospecto: payload.prospecto || prospecto || null,
+            ia_estado: payload.ia_estado || iaEstado || null,
             mensajes: normalizados,
             paginacion: payload.paginacion || {},
             updatedAt: Date.now(),
@@ -1277,6 +1321,7 @@ export default function DigitalesContacto() {
         if (!cached) return false;
 
         setProspecto(cached.prospecto || null);
+        setIaEstado(cached.ia_estado || null);
         setMensajes(cached.mensajes || []);
         setChatHasMore(Boolean(cached.paginacion?.has_more));
         setOldestMessageId(cached.paginacion?.oldest_id || cached.mensajes?.[0]?.id || null);
@@ -1319,6 +1364,9 @@ export default function DigitalesContacto() {
             agencia: chat.agencia || "",
             linea: chat.linea || "",
             estado: chat.estado || "",
+            ia_estado: chat.ia_estado || null,
+            ia_pausada: Boolean(chat.ia_pausada),
+            ia_bloqueos: Array.isArray(chat.ia_bloqueos) ? chat.ia_bloqueos : [],
             unread: Number(chat.unread || 0),
             last: {
                 text: chat.last_text || "",
@@ -1343,6 +1391,7 @@ export default function DigitalesContacto() {
 
         if (!hadCache) {
             setProspecto(null);
+            setIaEstado(null);
             setMensajes([]);
             setChatHasMore(false);
             setOldestMessageId(null);
@@ -1364,6 +1413,7 @@ export default function DigitalesContacto() {
             guardarChatEnCache(target, data);
 
             setProspecto(data.prospecto || null);
+            setIaEstado(data.ia_estado || null);
             setMensajes(items);
             setChatHasMore(Boolean(paginacion.has_more));
             setOldestMessageId(paginacion.oldest_id || items[0]?.id || null);
@@ -1381,6 +1431,7 @@ export default function DigitalesContacto() {
             if (chatRequestRef.current !== requestId) return;
 
             setProspecto(null);
+            setIaEstado(null);
             setMensajes([]);
             setChatHasMore(false);
             setOldestMessageId(null);
@@ -1405,6 +1456,7 @@ export default function DigitalesContacto() {
         const paginacion = data.paginacion || {};
 
         setProspecto(data.prospecto || null);
+        setIaEstado(data.ia_estado || null);
 
         setMensajes((prev) => {
             const withoutLocalPending = prev.filter((message) => !message.local_pending);
@@ -1420,6 +1472,54 @@ export default function DigitalesContacto() {
 
         if (!isDirectChatMode) {
             await refreshChats().catch(() => { });
+        }
+    }
+
+    async function recargarEstadoIa() {
+        if (!activeTel) return;
+
+        try {
+            const res = await api.iaEstadoConversacion({ tel: activeTel });
+            setIaEstado(res?.estado_ia || null);
+        } catch (error) {
+            console.error("Error consultando estado IA:", error);
+        }
+    }
+
+    async function pausarIaActiva() {
+        if (!activeTel || loadingIaAction) return;
+
+        setLoadingIaAction(true);
+
+        try {
+            const res = await api.iaPausarConversacion({
+                tel: activeTel,
+                motivo: "manual_desde_chat",
+            });
+            setIaEstado(res?.estado_ia || null);
+            await refreshActiveChat(activeTel).catch(() => { });
+        } catch (error) {
+            console.error(error);
+            alert(error?.message || "No se pudo pausar la IA.");
+        } finally {
+            setLoadingIaAction(false);
+        }
+    }
+
+    async function reactivarIaActiva() {
+        if (!activeTel || loadingIaAction) return;
+
+        setLoadingIaAction(true);
+
+        try {
+            const res = await api.iaReactivarConversacion({ tel: activeTel });
+            setIaEstado(res?.estado_ia || null);
+            await refreshActiveChat(activeTel).catch(() => { });
+        } catch (error) {
+            console.error(error);
+            alert(error?.message || "No se pudo reactivar la IA.");
+        } finally {
+            setLoadingIaAction(false);
         }
     }
 
@@ -2136,6 +2236,7 @@ export default function DigitalesContacto() {
         if (activeTel && mensajes.length) {
             guardarChatEnCache(activeTel, {
                 prospecto,
+                ia_estado: iaEstado,
                 mensajes,
                 paginacion: {
                     has_more: chatHasMore,
@@ -2143,7 +2244,7 @@ export default function DigitalesContacto() {
                 },
             });
         }
-    }, [mensajes, activeTel, prospecto, chatHasMore, oldestMessageId]);
+    }, [mensajes, activeTel, prospecto, iaEstado, chatHasMore, oldestMessageId]);
 
     useEffect(() => {
         if (!shouldStickToBottomRef.current) return;
@@ -2374,13 +2475,13 @@ export default function DigitalesContacto() {
         };
     }, [isDirectChatMode]);
 
-   const llamarProspecto = () => {
-    if (!activeTel) {
-        alert("Selecciona un chat primero");
-        return;
-    }
-    window.open(`https://wa.me/${activeTel}`, "_blank");
-};
+    const llamarProspecto = () => {
+        if (!activeTel) {
+            alert("Selecciona un chat primero");
+            return;
+        }
+        window.open(`https://wa.me/${activeTel}`, "_blank");
+    };
 
     return (
         <div className="w-full min-w-0">
@@ -2389,7 +2490,7 @@ export default function DigitalesContacto() {
                     className="px-4 py-4 text-white sm:px-5"
                     style={{ backgroundColor: BRAND_BLUE }}
                 >
-                   <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                         <button
                             onClick={() => setMobileView("list")}
                             className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15 lg:hidden"
@@ -2400,7 +2501,7 @@ export default function DigitalesContacto() {
                             Chats
                         </button>
 
-                        
+
                         <button
                             onClick={() => navigate("/comercial/prospectos")}
                             className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15"
@@ -2566,6 +2667,20 @@ export default function DigitalesContacto() {
                                                                     {chat.estado || "Sin estado"}
                                                                 </span>
 
+                                                                {chat.ia_estado || chat.ia_pausada || chat.ia_bloqueos?.length ? (
+                                                                    <span
+                                                                        className={cls(
+                                                                            "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-extrabold",
+                                                                            chat.ia_estado?.puede_responder
+                                                                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                                                : "border-amber-200 bg-amber-50 text-amber-800",
+                                                                        )}
+                                                                        title={(chat.ia_bloqueos || chat.ia_estado?.bloqueos || []).map(labelBloqueoIa).join(" · ")}
+                                                                    >
+                                                                        {chat.ia_estado?.puede_responder ? "IA lista" : "IA bloqueada"}
+                                                                    </span>
+                                                                ) : null}
+
                                                                 {chat.agencia ? (
                                                                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">
                                                                         <Building2 className="h-3.5 w-3.5" />
@@ -2662,7 +2777,7 @@ export default function DigitalesContacto() {
                                                 >
                                                     {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta, "Sin campaña detectada")}                                                </select>
 
-                                               <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={saveQuickEdit}
                                                         disabled={savingQuickEdit}
@@ -2837,6 +2952,77 @@ export default function DigitalesContacto() {
                                 ) : null}
                             </div>
                         </div>
+
+                        {activeTel ? (() => {
+                            const visual = getIaEstadoVisual(iaEstado);
+                            const expEstado = iaEstado?.expediente || {};
+                            const convEstado = iaEstado?.conversacion || {};
+                            const cfgEstado = iaEstado?.configuracion || {};
+
+                            return (
+                                <div className={cls("border-b px-4 py-3", visual.cls)}>
+                                    <div className="mx-auto flex max-w-5xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                        <div className="min-w-0">
+                                            <div className="text-sm font-black">
+                                                {visual.label}
+                                            </div>
+                                            <div className="mt-0.5 text-xs font-semibold opacity-80">
+                                                {visual.detail}
+                                            </div>
+                                            <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold">
+                                                <span className="rounded-full bg-white/70 px-2 py-0.5">
+                                                    Config activa: {cfgEstado.activo ? "Sí" : "No"}
+                                                </span>
+                                                <span className="rounded-full bg-white/70 px-2 py-0.5">
+                                                    En horario: {cfgEstado.en_horario ? "Sí" : "No"}
+                                                </span>
+                                                <span className="rounded-full bg-white/70 px-2 py-0.5">
+                                                    Expediente pausado: {expEstado.ia_pausada ? "Sí" : "No"}
+                                                </span>
+                                                <span className="rounded-full bg-white/70 px-2 py-0.5">
+                                                    Conversación activa: {convEstado.ia_activa ? "Sí" : "No"}
+                                                </span>
+                                                <span className="rounded-full bg-white/70 px-2 py-0.5">
+                                                    Conversación pausada: {convEstado.ia_pausada ? "Sí" : "No"}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex shrink-0 flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={recargarEstadoIa}
+                                                disabled={loadingIaAction}
+                                                className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-black text-[#131E5C] hover:bg-neutral-50 disabled:opacity-60"
+                                            >
+                                                Revisar IA
+                                            </button>
+
+                                            {iaEstado?.puede_responder ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={pausarIaActiva}
+                                                    disabled={loadingIaAction}
+                                                    className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-700 hover:bg-red-50 disabled:opacity-60"
+                                                >
+                                                    Pausar IA
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={reactivarIaActiva}
+                                                    disabled={loadingIaAction}
+                                                    className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                                                >
+                                                    Reactivar IA
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })() : null}
+
                         <div
                             ref={messagesScrollRef}
                             onScroll={onMessagesScroll}

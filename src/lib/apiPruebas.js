@@ -22,8 +22,6 @@ function cleanToken(value) {
 
 function isJwt(token) {
   const value = cleanToken(token);
-
-  // Un JWT normalmente tiene 3 partes: header.payload.signature
   return value.split(".").length === 3;
 }
 
@@ -41,7 +39,6 @@ function getAuthObject() {
     if (!raw) return null;
 
     const parsed = tryParseJson(raw);
-
     if (!parsed || typeof parsed !== "object") return null;
 
     return parsed;
@@ -263,6 +260,7 @@ async function refreshAccessToken() {
 
 function normalizaTelefonoMx(tel) {
   const digits = String(tel || "").replace(/\D/g, "");
+
   if (!digits) return "";
 
   if (digits.startsWith("521") && digits.length === 13) {
@@ -282,6 +280,7 @@ function normalizaTelefonoMx(tel) {
 
 function getCrmUsername() {
   const user = getStoredUserObject();
+
   if (!user) return "";
 
   return String(
@@ -297,6 +296,7 @@ function getCrmUsername() {
 
 function getWhatsAppNumberFromSources() {
   const user = getStoredUserObject();
+
   if (!user) return "";
 
   const numero = normalizaTelefonoMx(
@@ -310,7 +310,7 @@ function getWhatsAppNumberFromSources() {
   return numero || "";
 }
 
-function withRequestContext(payload) {
+function withRequestContext(payload = {}) {
   const numero = getWhatsAppNumberFromSources();
   const usuario = getCrmUsername();
 
@@ -329,8 +329,8 @@ function buildQuery(params) {
     qs.set(key, String(value));
   });
 
-  const s = qs.toString();
-  return s ? `?${s}` : "";
+  const query = qs.toString();
+  return query ? `?${query}` : "";
 }
 
 function appendContextToFormData(fd) {
@@ -430,6 +430,36 @@ async function http(
 }
 
 export const api = {
+  // Helpers genéricos
+  get: (path) => http(path),
+
+  post: (path, payload) =>
+    http(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    }),
+
+  patch: (path, payload) =>
+    http(path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    }),
+
+  put: (path, payload) =>
+    http(path, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    }),
+
+  delete: (path) =>
+    http(path, {
+      method: "DELETE",
+    }),
+
+  // Prospectos digitales
   digitalesListProspectos: () => http("/digitales/api/prospectos/"),
 
   digitalesGetProspecto: (id) => http(`/digitales/api/prospectos/${id}/`),
@@ -469,6 +499,7 @@ export const api = {
   digitalesCampanasMeta: (days = 30) =>
     http(`/digitales/api/campanas-meta/?days=${encodeURIComponent(days)}`),
 
+  // Chats WhatsApp
   digitalesChats: () => {
     const numero = getWhatsAppNumberFromSources();
     const usuario = getCrmUsername();
@@ -540,18 +571,7 @@ export const api = {
     );
   },
 
-  digitalesPlantillas: () => {
-    const numero = getWhatsAppNumberFromSources();
-    const usuario = getCrmUsername();
-
-    return http(
-      `/digitales/mensajes/plantillas/${buildQuery({
-        numero_asesor: numero,
-        usuario,
-      })}`,
-    );
-  },
-
+  // Envío de mensajes
   digitalesEnviarMensaje: ({ to, text }) =>
     http("/digitales/mensajes/enviar/", {
       method: "POST",
@@ -603,33 +623,27 @@ export const api = {
       body: JSON.stringify(withRequestContext({ to, message_id })),
     }),
 
-  get: (path) => http(path),
+  digitalesPlantillas: () => {
+    const numero = getWhatsAppNumberFromSources();
+    const usuario = getCrmUsername();
 
-  post: (path, payload) =>
-    http(path, {
+    return http(
+      `/digitales/mensajes/plantillas/${buildQuery({
+        numero_asesor: numero,
+        usuario,
+      })}`,
+    );
+  },
+
+  digitalesLlamarWhatsapp: ({ telefono, sdp_offer = "" }) =>
+    http("/digitales/llamar-whatsapp/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload || {}),
+      body: JSON.stringify(withRequestContext({ telefono, sdp_offer })),
     }),
 
-  patch: (path, payload) =>
-    http(path, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload || {}),
-    }),
-
-  put: (path, payload) =>
-    http(path, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload || {}),
-    }),
-
-  delete: (path) =>
-    http(path, {
-      method: "DELETE",
-    }),
+  // Configuración IA
+  iaLineas: () => http("/digitales/ia/lineas/"),
 
   iaConfigGet: (numeroAsesor) =>
     http(`/digitales/ia/config/${encodeURIComponent(numeroAsesor)}/`),
@@ -648,21 +662,68 @@ export const api = {
       body: JSON.stringify(withRequestContext({})),
     }),
 
-  iaPausarConversacion: ({ tel, motivo = "manual" }) =>
-    http("/digitales/ia/conversacion/pausar/", {
+  iaPausarConversacion: ({ tel, motivo = "manual", numero_asesor = "" }) => {
+    const payload = {
+      tel,
+      motivo,
+      ...(numero_asesor ? { numero_asesor } : {}),
+    };
+
+    return http("/digitales/ia/conversacion/pausar/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({ tel, motivo })),
-    }),
+      body: JSON.stringify(withRequestContext(payload)),
+    });
+  },
 
-  iaReactivarConversacion: ({ tel }) =>
-    http("/digitales/ia/conversacion/reactivar/", {
+  iaReactivarConversacion: ({ tel, numero_asesor = "" }) => {
+    const payload = {
+      tel,
+      ...(numero_asesor ? { numero_asesor } : {}),
+    };
+
+    return http("/digitales/ia/conversacion/reactivar/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({ tel })),
-    }),
+      body: JSON.stringify(withRequestContext(payload)),
+    });
+  },
 
-  catalogoVehiculos: () => http("/digitales/catalogo/vehiculos/"),
+  iaEstadoConversacion: ({ tel, numero_asesor = "" }) => {
+    const numero = numero_asesor || getWhatsAppNumberFromSources();
+    const usuario = getCrmUsername();
+
+    return http(
+      `/digitales/ia/conversacion/estado/${buildQuery({
+        tel,
+        numero_asesor: numero,
+        usuario,
+      })}`,
+    );
+  },
+
+  // Catálogo IA
+  catalogoVehiculos: ({
+    activo = "true",
+    limit = 1000,
+    modelo = "",
+    marca = "",
+  } = {}) =>
+    http(
+      `/digitales/catalogo/vehiculos/${buildQuery({
+        activo,
+        limit,
+        modelo,
+        marca,
+      })}`,
+    ),
+
+  catalogoVehiculoCreate: (payload) =>
+    http("/digitales/catalogo/vehiculos/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withRequestContext(payload)),
+    }),
 
   catalogoVehiculoPatch: (id, payload) =>
     http(`/digitales/catalogo/vehiculos/${id}/`, {
@@ -671,26 +732,15 @@ export const api = {
       body: JSON.stringify(withRequestContext(payload)),
     }),
 
-  get: (path) => http(path),
-
-  post: (path, payload) =>
-    http(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload || {}),
-    }),
-
-  patch: (path, payload) =>
-    http(path, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload || {}),
-    }),
-
-  delete: (path) =>
-    http(path, {
+  catalogoVehiculoDelete: (id) =>
+    http(`/digitales/catalogo/vehiculos/${id}/`, {
       method: "DELETE",
     }),
+};
 
-  iaLineas: () => http("/digitales/ia/lineas/"),
+export {
+  http,
+  normalizaTelefonoMx,
+  getCrmUsername,
+  getWhatsAppNumberFromSources,
 };

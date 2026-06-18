@@ -286,6 +286,24 @@ export default function ConfigIA() {
             .join(" · ");
     }, [horarios]);
 
+    const lineaActual = useMemo(() => {
+        return lineasIA.find((item) => item.numero === numeroSeleccionado) || null;
+    }, [lineasIA, numeroSeleccionado]);
+
+    const totalDiasActivos = useMemo(() => {
+        return DIAS.filter((d) => horarios?.[d.id]?.activo).length;
+    }, [horarios]);
+
+    const totalVehiculosActivos = useMemo(() => {
+        return vehiculos.filter((item) => item.activo).length;
+    }, [vehiculos]);
+
+    const bloqueosLinea = useMemo(() => {
+        return Array.isArray(lineaActual?.bloqueos_linea) ? lineaActual.bloqueos_linea : [];
+    }, [lineaActual]);
+
+    const lineaPuedeResponder = Boolean(lineaActual?.puede_responder_linea);
+
     const vehiculosFiltrados = useMemo(() => {
         const q = qCatalogo.trim().toLowerCase();
 
@@ -413,6 +431,7 @@ export default function ConfigIA() {
                 {}
             );
 
+            await cargarLineasIA();
             setMsgConfig("Configuración publicada correctamente.");
         } catch (error) {
             console.error(error);
@@ -645,6 +664,48 @@ export default function ConfigIA() {
 
             {tab === "config" ? (
                 <div className="grid gap-4">
+                    <div className="grid gap-3 md:grid-cols-4">
+                        <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
+                            <div className="text-xs font-black uppercase text-gray-400">Línea</div>
+                            <div className="mt-1 truncate text-sm font-black text-[#0a1f44]">
+                                {lineaActual?.asesor_digital || "Sin línea"}
+                            </div>
+                            <div className="truncate text-xs text-gray-500">
+                                {lineaActual?.agencia || "—"} · {numeroSeleccionado || "—"}
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
+                            <div className="text-xs font-black uppercase text-gray-400">Estado operativo</div>
+                            <div className={["mt-1 text-sm font-black", lineaPuedeResponder ? "text-emerald-700" : "text-red-600"].join(" ")}>
+                                {lineaPuedeResponder ? "Puede responder" : "No responderá"}
+                            </div>
+                            <div className="truncate text-xs text-gray-500">
+                                {bloqueosLinea.length ? bloqueosLinea.join(" · ") : "Configuración activa y dentro de horario"}
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
+                            <div className="text-xs font-black uppercase text-gray-400">Horario</div>
+                            <div className="mt-1 text-sm font-black text-[#0a1f44]">
+                                {totalDiasActivos} días activos
+                            </div>
+                            <div className="truncate text-xs text-gray-500">
+                                {lineaActual?.en_horario ? "En horario ahora" : "Fuera de horario ahora"}
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
+                            <div className="text-xs font-black uppercase text-gray-400">Catálogo IA</div>
+                            <div className="mt-1 text-sm font-black text-[#0a1f44]">
+                                {totalVehiculosActivos} vehículos activos
+                            </div>
+                            <div className="truncate text-xs text-gray-500">
+                                Fuente real de precios
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="rounded-xl bg-white px-6 py-5 shadow">
                         <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
                             <div className="min-w-[240px]">
