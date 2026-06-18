@@ -1,4 +1,3 @@
-//volkswagen
 // src/pages/Digitaltes/DigitalesContacto.jsx
 import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
@@ -93,6 +92,14 @@ const PAUTAS_ORIGEN = [
     "Otro",
 ];
 
+const CHAT_FILTERS = [
+    { key: "todos", label: "Todos" },
+    { key: "no_leidos", label: "No leídos" },
+    { key: "pendiente_cotizacion", label: "Pend. cotización", estados: ["pendiente cotización", "pendiente de cotizacion", "pendiente cotizacion"] },
+    { key: "seguimiento", label: "Seguimiento", estados: ["seguimiento"] },
+    { key: "lead_calificado", label: "Lead calificado", estados: ["lead calificado", "lead_calificado"] },
+];
+
 
 function normalizeCampanasMetaOptions(response) {
     const rawItems = Array.isArray(response)
@@ -169,9 +176,9 @@ function renderOptionsConValorActual(
 
 function getStatusDotColor(estado) {
     const value = String(estado || "").toLowerCase();
-    if (value === "descalificado") return "#3B82F6"; // azul
-    if (value === "sin respuesta" || value === "sin_respuesta" || value === "") return "#EF4444"; // rojo
-    return "#22C55E"; // verde — respondió / tiene estado activo
+    if (value === "descalificado") return "#3B82F6";
+    if (value === "sin respuesta" || value === "sin_respuesta" || value === "") return "#EF4444";
+    return "#22C55E";
 }
 
 function cls(...items) {
@@ -1167,15 +1174,12 @@ export default function DigitalesContacto() {
     const [newBubbleText, setNewBubbleText] = useState("");
     const [newBubbleTitle, setNewBubbleTitle] = useState("");
 
-    // Edición rápida del prospecto
     const [showQuickEdit, setShowQuickEdit] = useState(false);
     const [quickEditDraft, setQuickEditDraft] = useState({});
     const [savingQuickEdit, setSavingQuickEdit] = useState(false);
 
-    // Feedback de copia de teléfono
     const [copiedTel, setCopiedTel] = useState(false);
 
-    // Acción de marcar chat como no leído
     const [markingUnreadTel, setMarkingUnreadTel] = useState("");
     const [chatMenu, setChatMenu] = useState(null);
 
@@ -1234,8 +1238,19 @@ export default function DigitalesContacto() {
             ? mergeChatsConProspectos(chats, prospectosIndex)
             : chats;
 
+        const filterDef = CHAT_FILTERS.find((f) => f.key === chatFilter);
+
         return base.filter((chat) => {
             if (chatFilter === "no_leidos" && !(chat.unread > 0)) return false;
+
+            if (filterDef?.estados) {
+                const estadoNorm = normalizeText(chat.estado);
+                const coincide = filterDef.estados.some((e) =>
+                    estadoNorm.includes(normalizeText(e))
+                );
+                if (!coincide) return false;
+            }
+
             if (!query) return true;
 
             const nombre = normalizeText(chat.nombre);
@@ -1288,7 +1303,7 @@ export default function DigitalesContacto() {
                 try {
                     URL.revokeObjectURL(attachment.previewUrl);
                 } catch {
-                    // sin acción
+                    
                 }
             }
         }
@@ -1697,8 +1712,6 @@ export default function DigitalesContacto() {
                     : chat,
             ),
         );
-
-        // La lista se refresca por polling. Aquí evitamos bloquear el cambio de chat.
     }
 
     function onPickEmoji(emojiObj) {
@@ -2216,7 +2229,6 @@ export default function DigitalesContacto() {
         activeTelRef.current = activeTel;
     }, [activeTel]);
 
-    // Sincronizar el draft de edición rápida cada vez que carga un nuevo prospecto
     useEffect(() => {
         if (!prospecto) return;
         setQuickEditDraft({
@@ -2486,21 +2498,24 @@ export default function DigitalesContacto() {
     return (
         <div className="w-full min-w-0">
             <div className="relative overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
+                {/* ── HEADER BARRA SUPERIOR ─────────────────────────────────── */}
                 <div
                     className="px-4 py-4 text-white sm:px-5"
                     style={{ backgroundColor: BRAND_BLUE }}
                 >
                     <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setMobileView("list")}
-                            className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15 lg:hidden"
-                            type="button"
-                            title="Ver chats"
-                        >
-                            <ChevronLeft className="h-4 w-4" />
-                            Chats
-                        </button>
-
+                        {/* Botón "Chats" solo visible en modo normal (móvil) */}
+                        {!isDirectChatMode ? (
+                            <button
+                                onClick={() => setMobileView("list")}
+                                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15 lg:hidden"
+                                type="button"
+                                title="Ver chats"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                                Chats
+                            </button>
+                        ) : null}
 
                         <button
                             onClick={() => navigate("/comercial/prospectos")}
@@ -2514,6 +2529,7 @@ export default function DigitalesContacto() {
                     </div>
                 </div>
 
+                {/* ── LAYOUT PRINCIPAL ──────────────────────────────────────── */}
                 <div
                     className={cls(
                         "grid min-h-0 h-[calc(100dvh-118px)] overflow-hidden transition-[grid-template-columns] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -2524,14 +2540,16 @@ export default function DigitalesContacto() {
                                 : "grid-cols-1 lg:grid-cols-[310px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]"
                     )}
                 >
+                    {/* ── SIDEBAR DE CHATS ──────────────────────────────────── */}
+                    {/* CAMBIO: En modo directo siempre "hidden" sin importar breakpoint */}
                     <aside
                         className={cls(
-                            "min-h-0 border-r border-black/10 bg-neutral-50 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:flex lg:flex-col",
+                            "min-h-0 border-r border-black/10 bg-neutral-50 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
                             isDirectChatMode
                                 ? "hidden"
                                 : mobileView === "chat"
-                                    ? "hidden lg:flex"
-                                    : "flex flex-col",
+                                    ? "hidden lg:flex lg:flex-col"
+                                    : "flex flex-col lg:flex lg:flex-col",
                         )}
                     >
                         {chatSidebarCollapsed ? (
@@ -2565,7 +2583,6 @@ export default function DigitalesContacto() {
                                     </div>
                                     <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-neutral-100 px-3 py-2">
                                         <Search className="h-4 w-4 text-[#131E5C]" />
-
                                         <input
                                             value={q}
                                             onChange={(event) => setQ(event.target.value)}
@@ -2575,30 +2592,38 @@ export default function DigitalesContacto() {
                                     </div>
 
                                     <div className="mt-2 flex gap-2">
-                                        <button
-                                            onClick={() => setChatFilter("todos")}
-                                            className={cls(
-                                                "flex-1 rounded-lg border py-1.5 text-xs font-extrabold transition",
-                                                chatFilter === "todos"
-                                                    ? "border-[#131E5C] bg-[#131E5C] text-white"
-                                                    : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
-                                            )}
-                                            type="button"
-                                        >
-                                            Todos
-                                        </button>
-                                        <button
-                                            onClick={() => setChatFilter("no_leidos")}
-                                            className={cls(
-                                                "flex-1 rounded-lg border py-1.5 text-xs font-extrabold transition",
-                                                chatFilter === "no_leidos"
-                                                    ? "border-[#131E5C] bg-[#131E5C] text-white"
-                                                    : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
-                                            )}
-                                            type="button"
-                                        >
-                                            No leídos
-                                        </button>
+                                        {CHAT_FILTERS.slice(0, 2).map((f) => (
+                                            <button
+                                                key={f.key}
+                                                onClick={() => setChatFilter(f.key)}
+                                                className={cls(
+                                                    "flex-1 rounded-lg border py-1.5 text-xs font-extrabold transition",
+                                                    chatFilter === f.key
+                                                        ? "border-[#131E5C] bg-[#131E5C] text-white"
+                                                        : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
+                                                )}
+                                                type="button"
+                                            >
+                                                {f.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="mt-1.5 flex gap-1.5">
+                                        {CHAT_FILTERS.slice(2).map((f) => (
+                                            <button
+                                                key={f.key}
+                                                onClick={() => setChatFilter(f.key)}
+                                                className={cls(
+                                                    "flex-1 rounded-lg border py-1.5 text-[11px] font-extrabold transition leading-tight",
+                                                    chatFilter === f.key
+                                                        ? "border-[#131E5C] bg-[#131E5C] text-white"
+                                                        : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
+                                                )}
+                                                type="button"
+                                            >
+                                                {f.label}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
 
@@ -2705,12 +2730,14 @@ export default function DigitalesContacto() {
                         )}
                     </aside>
 
+                    {/* ── SECCIÓN PRINCIPAL DEL CHAT ────────────────────────── */}
                     <section
                         className={cls(
                             "relative flex min-h-0 flex-col bg-white transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                            mobileView === "list" ? "hidden lg:flex" : "flex",
+                            isDirectChatMode ? "flex" : mobileView === "list" ? "hidden lg:flex" : "flex",
                         )}
                     >
+                        {/* ── HEADER DEL CHAT ─────────────────────────────────── */}
                         <div className="border-b border-black/10 bg-white px-3 py-3 sm:px-4">
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-start justify-between gap-3">
@@ -2718,89 +2745,133 @@ export default function DigitalesContacto() {
                                         <Avatar name={activeChat?.nombre || "Prospecto"} />
 
                                         <div className="min-w-0 flex-1">
-                                            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_.8fr_1fr_auto_auto]">
-                                                <input
-                                                    value={activeChat?.nombre || "Selecciona un chat" || quickEditDraft.nombre || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))
-                                                    }
-                                                    placeholder="Nombre"
-                                                    className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                />
+                                            {/* CAMBIO: Los inputs de edición SOLO se muestran en modo normal */}
+                                            {!isDirectChatMode ? (
+                                                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_.8fr_1fr_auto_auto]">
+                                                    <input
+                                                        value={activeChat?.nombre || "Selecciona un chat" || quickEditDraft.nombre || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))
+                                                        }
+                                                        placeholder="Nombre"
+                                                        className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                    />
 
-                                                <select
-                                                    value={quickEditDraft.auto_interes || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))
-                                                    }
-                                                    className="h-8 min-w-0 max-w-35 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                >
-                                                    {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
-                                                </select>
-
-                                                <select
-                                                    value={quickEditDraft.estado || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))
-                                                    }
-                                                    className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                >
-                                                    {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
-                                                </select>
-
-                                                <select
-                                                    value={quickEditDraft.canal_contacto || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))
-                                                    }
-                                                    className="h-8 min-w-0 max-w-30 rounded-lg border border-black/10 bg-white px-1 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                >
-                                                    {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
-                                                </select>
-
-                                                <select
-                                                    value={quickEditDraft.business || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, business: e.target.value }))
-                                                    }
-                                                    className="h-8 min-w-0 max-w-25 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                >
-                                                    {renderOptionsConValorActual(BUSINESS_OPTIONS, quickEditDraft.business)}
-                                                </select>
-
-                                                <select
-                                                    value={quickEditDraft.pauta || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))
-                                                    }
-                                                    className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                >
-                                                    {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta, "Sin campaña detectada")}                                                </select>
-
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={saveQuickEdit}
-                                                        disabled={savingQuickEdit}
-                                                        className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                                                        style={{ backgroundColor: BRAND_BLUE }}
-                                                        type="button"
-                                                        title="Guardar cambios"
+                                                    <select
+                                                        value={quickEditDraft.auto_interes || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))
+                                                        }
+                                                        className="h-8 min-w-0 max-w-35 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
                                                     >
-                                                        <Save className="h-3.5 w-3.5" />
-                                                    </button>
+                                                        {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
+                                                    </select>
 
+                                                    <select
+                                                        value={quickEditDraft.estado || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))
+                                                        }
+                                                        className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                    >
+                                                        {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
+                                                    </select>
+
+                                                    <select
+                                                        value={quickEditDraft.canal_contacto || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))
+                                                        }
+                                                        className="h-8 min-w-0 max-w-30 rounded-lg border border-black/10 bg-white px-1 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                    >
+                                                        {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
+                                                    </select>
+
+                                                    <select
+                                                        value={quickEditDraft.business || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, business: e.target.value }))
+                                                        }
+                                                        className="h-8 min-w-0 max-w-25 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                    >
+                                                        {renderOptionsConValorActual(BUSINESS_OPTIONS, quickEditDraft.business)}
+                                                    </select>
+
+                                                    <select
+                                                        value={quickEditDraft.pauta || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))
+                                                        }
+                                                        className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                    >
+                                                        {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta, "Sin campaña detectada")}
+                                                    </select>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={saveQuickEdit}
+                                                            disabled={savingQuickEdit}
+                                                            className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                                            style={{ backgroundColor: BRAND_BLUE }}
+                                                            type="button"
+                                                            title="Guardar cambios"
+                                                        >
+                                                            <Save className="h-3.5 w-3.5" />
+                                                        </button>
+
+                                                        <button
+                                                            onClick={abrirPlantillas}
+                                                            disabled={!activeTel}
+                                                            className="inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                            type="button"
+                                                            title="Enviar plantilla"
+                                                        >
+                                                            <LayoutTemplate className="h-3.5 w-3.5" />
+                                                        </button>
+
+                                                        <button
+                                                            onClick={llamarProspecto}
+                                                            disabled={!activeTel}
+                                                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                            type="button"
+                                                            title="Llamar"
+                                                        >
+                                                            <Phone className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                /* Modo directo: solo nombre y teléfono, sin inputs de edición */
+                                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                    <span className="text-sm font-extrabold text-[#131E5C]">
+                                                        {activeChat?.nombre || "Prospecto"}
+                                                    </span>
+                                                    {activeTel ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={copyTel}
+                                                            className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-xs font-semibold text-slate-500 transition hover:bg-neutral-100"
+                                                            title="Copiar número"
+                                                        >
+                                                            {copiedTel ? (
+                                                                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                                            ) : (
+                                                                <Copy className="h-3.5 w-3.5" />
+                                                            )}
+                                                            <span className={copiedTel ? "font-bold text-emerald-600" : ""}>
+                                                                {formateaTelUi(activeTel)}
+                                                            </span>
+                                                        </button>
+                                                    ) : null}
                                                     <button
                                                         onClick={abrirPlantillas}
                                                         disabled={!activeTel}
-                                                        className={cls(
-                                                            "inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60",
-                                                        )}
+                                                        className="inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
                                                         type="button"
                                                         title="Enviar plantilla"
                                                     >
                                                         <LayoutTemplate className="h-3.5 w-3.5" />
                                                     </button>
-
                                                     <button
                                                         onClick={llamarProspecto}
                                                         disabled={!activeTel}
@@ -2811,53 +2882,56 @@ export default function DigitalesContacto() {
                                                         <Phone className="h-4 w-4" />
                                                     </button>
                                                 </div>
-                                            </div>
+                                            )}
 
-                                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500 sm:text-xs">
-                                                <button
-                                                    type="button"
-                                                    onClick={copyTel}
-                                                    className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 sm:px-1"
-                                                    title="Copiar número"
-                                                >
-                                                    {copiedTel ? (
-                                                        <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                                    ) : (
-                                                        <Copy className="h-3.5 w-3.5" />
-                                                    )}
+                                            {/* CAMBIO: Metadatos (teléfono, fechas) SOLO en modo normal */}
+                                            {!isDirectChatMode ? (
+                                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500 sm:text-xs">
+                                                    <button
+                                                        type="button"
+                                                        onClick={copyTel}
+                                                        className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 sm:px-1"
+                                                        title="Copiar número"
+                                                    >
+                                                        {copiedTel ? (
+                                                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                                        ) : (
+                                                            <Copy className="h-3.5 w-3.5" />
+                                                        )}
+                                                        <span className={copiedTel ? "font-bold text-emerald-600" : ""}>
+                                                            {activeTel ? formateaTelUi(activeTel) : "—"}
+                                                        </span>
+                                                    </button>
 
-                                                    <span className={copiedTel ? "font-bold text-emerald-600" : ""}>
-                                                        {activeTel ? formateaTelUi(activeTel) : "—"}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => marcarChatComoNoLeido(activeTel)}
+                                                        disabled={!activeTel || markingUnreadTel === activeTel}
+                                                        className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-1"
+                                                        title="Marcar este chat como no leído"
+                                                    >
+                                                        <MailOpen className="h-3.5 w-3.5" />
+                                                        <span>
+                                                            {markingUnreadTel === activeTel ? "Marcando..." : "Marcar no leído"}
+                                                        </span>
+                                                    </button>
+
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <Clock className="h-3.5 w-3.5" />
+                                                        {loadingChat ? "Cargando..." : "Listo"}
                                                     </span>
-                                                </button>
 
-                                                <button
-                                                    type="button"
-                                                    onClick={() => marcarChatComoNoLeido(activeTel)}
-                                                    disabled={!activeTel || markingUnreadTel === activeTel}
-                                                    className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-1"
-                                                    title="Marcar este chat como no leído"
-                                                >
-                                                    <MailOpen className="h-3.5 w-3.5" />
-                                                    <span>
-                                                        {markingUnreadTel === activeTel ? "Marcando..." : "Marcar no leído"}
+                                                    <span className="hidden text-[11px] font-bold text-slate-500 xl:inline">
+                                                        Registro: {fmtDT(prospecto?.creado)} · Primer contacto: {fmtDT(prospecto?.primer_contacto_at)} · Último contacto: {fmtDT(prospecto?.ultimo_contacto_at)}
                                                     </span>
-                                                </button>
-
-                                                <span className="inline-flex items-center gap-1">
-                                                    <Clock className="h-3.5 w-3.5" />
-                                                    {loadingChat ? "Cargando..." : "Listo"}
-                                                </span>
-
-                                                <span className="hidden text-[11px] font-bold text-slate-500 xl:inline">
-                                                    Registro: {fmtDT(prospecto?.creado)} · Primer contacto: {fmtDT(prospecto?.primer_contacto_at)} · Último contacto: {fmtDT(prospecto?.ultimo_contacto_at)}
-                                                </span>
-                                            </div>
+                                                </div>
+                                            ) : null}
                                         </div>
                                     </div>
                                 </div>
 
-                                {activeTel ? (
+                                {/* Panel móvil colapsable SOLO en modo normal */}
+                                {activeTel && !isDirectChatMode ? (
                                     <details className="group rounded-2xl border border-black/10 bg-neutral-50 p-2 sm:p-3 lg:hidden">
                                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-1 py-1">
                                             <span className="text-xs font-extrabold uppercase tracking-wide text-[#131E5C]/70">
@@ -2937,9 +3011,7 @@ export default function DigitalesContacto() {
                                                 <button
                                                     onClick={abrirPlantillas}
                                                     disabled={!activeTel}
-                                                    className={cls(
-                                                        "inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60",
-                                                    )}
+                                                    className="inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
                                                     type="button"
                                                     title="Enviar plantilla"
                                                 >
@@ -2953,6 +3025,7 @@ export default function DigitalesContacto() {
                             </div>
                         </div>
 
+                        {/* ── BANNER ESTADO IA ──────────────────────────────────── */}
                         {activeTel ? (() => {
                             const visual = getIaEstadoVisual(iaEstado);
                             const expEstado = iaEstado?.expediente || {};
@@ -2960,69 +3033,78 @@ export default function DigitalesContacto() {
                             const cfgEstado = iaEstado?.configuracion || {};
 
                             return (
-                                <div className={cls("border-b px-4 py-3", visual.cls)}>
-                                    <div className="mx-auto flex max-w-5xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                        <div className="min-w-0">
-                                            <div className="text-sm font-black">
+                                <details className={cls("group border-b", visual.cls)}>
+                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5">
+                                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                                            <span
+                                                className={cls(
+                                                    "h-2 w-2 shrink-0 rounded-full",
+                                                    iaEstado?.puede_responder ? "bg-emerald-500" : iaEstado ? "bg-amber-500" : "bg-slate-400"
+                                                )}
+                                            />
+                                            <span className="text-xs font-extrabold">
                                                 {visual.label}
-                                            </div>
-                                            <div className="mt-0.5 text-xs font-semibold opacity-80">
-                                                {visual.detail}
-                                            </div>
-                                            <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold">
-                                                <span className="rounded-full bg-white/70 px-2 py-0.5">
-                                                    Config activa: {cfgEstado.activo ? "Sí" : "No"}
-                                                </span>
-                                                <span className="rounded-full bg-white/70 px-2 py-0.5">
-                                                    En horario: {cfgEstado.en_horario ? "Sí" : "No"}
-                                                </span>
-                                                <span className="rounded-full bg-white/70 px-2 py-0.5">
-                                                    Expediente pausado: {expEstado.ia_pausada ? "Sí" : "No"}
-                                                </span>
-                                                <span className="rounded-full bg-white/70 px-2 py-0.5">
-                                                    Conversación activa: {convEstado.ia_activa ? "Sí" : "No"}
-                                                </span>
-                                                <span className="rounded-full bg-white/70 px-2 py-0.5">
-                                                    Conversación pausada: {convEstado.ia_pausada ? "Sí" : "No"}
-                                                </span>
-                                            </div>
+                                            </span>
+                                            <span className="hidden truncate text-[11px] font-semibold opacity-75 sm:inline">
+                                                — {visual.detail}
+                                            </span>
                                         </div>
+                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-60 transition-transform duration-200 group-open:rotate-180" />
+                                    </summary>
 
-                                        <div className="flex shrink-0 flex-wrap gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={recargarEstadoIa}
-                                                disabled={loadingIaAction}
-                                                className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-black text-[#131E5C] hover:bg-neutral-50 disabled:opacity-60"
-                                            >
-                                                Revisar IA
-                                            </button>
+                                    <div className="border-t border-black/10 px-4 py-3">
+                                        <div className="mx-auto flex max-w-5xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                            <div className="min-w-0">
+                                                <div className="text-xs font-semibold opacity-80">
+                                                    {visual.detail}
+                                                </div>
+                                                <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold">
+                                                    <span className="rounded-full bg-white/70 px-2 py-0.5">
+                                                        Config activa: {cfgEstado.activo ? "Sí" : "No"}
+                                                    </span>
+                                                    <span className="rounded-full bg-white/70 px-2 py-0.5">
+                                                        En horario: {cfgEstado.en_horario ? "Sí" : "No"}
+                                                    </span>
+                                                    <span className="rounded-full bg-white/70 px-2 py-0.5">
+                                                        Expediente pausado: {expEstado.ia_pausada ? "Sí" : "No"}
+                                                    </span>
+                                                    <span className="rounded-full bg-white/70 px-2 py-0.5">
+                                                        Conversación activa: {convEstado.ia_activa ? "Sí" : "No"}
+                                                    </span>
+                                                    <span className="rounded-full bg-white/70 px-2 py-0.5">
+                                                        Conversación pausada: {convEstado.ia_pausada ? "Sí" : "No"}
+                                                    </span>
+                                                </div>
+                                            </div>
 
-                                            {iaEstado?.puede_responder ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={pausarIaActiva}
-                                                    disabled={loadingIaAction}
-                                                    className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-700 hover:bg-red-50 disabled:opacity-60"
-                                                >
-                                                    Pausar IA
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    onClick={reactivarIaActiva}
-                                                    disabled={loadingIaAction}
-                                                    className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
-                                                >
-                                                    Reactivar IA
-                                                </button>
-                                            )}
+                                            <div className="flex shrink-0 flex-wrap gap-2">
+                                                {iaEstado?.puede_responder ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={pausarIaActiva}
+                                                        disabled={loadingIaAction}
+                                                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-700 hover:bg-red-50 disabled:opacity-60"
+                                                    >
+                                                        Pausar IA
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={reactivarIaActiva}
+                                                        disabled={loadingIaAction}
+                                                        className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                                                    >
+                                                        Reactivar IA
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                </details>
                             );
                         })() : null}
 
+                        {/* ── ÁREA DE MENSAJES ──────────────────────────────────── */}
                         <div
                             ref={messagesScrollRef}
                             onScroll={onMessagesScroll}
@@ -3080,6 +3162,7 @@ export default function DigitalesContacto() {
                             </div>
                         </div>
 
+                        {/* ── COMPOSITOR ───────────────────────────────────────── */}
                         <div
                             className={cls(
                                 "border-t border-black/10 bg-white px-3 py-3",
@@ -3096,12 +3179,10 @@ export default function DigitalesContacto() {
                                         <div className="rounded-2xl border border-dashed border-[#131E5C]/40 bg-white px-6 py-4 shadow-lg">
                                             <div className="flex items-center gap-3">
                                                 <Paperclip className="h-5 w-5 text-[#131E5C]" />
-
                                                 <div className="text-sm font-extrabold text-[#131E5C]">
                                                     Suelta para adjuntar archivos
                                                 </div>
                                             </div>
-
                                             <div className="mt-1 text-xs font-semibold text-slate-500">
                                                 Se adjuntarán al mensaje, máximo 10.
                                             </div>
@@ -3261,7 +3342,6 @@ export default function DigitalesContacto() {
                                     </div>
                                 ) : null}
 
-
                                 <div className="flex items-end gap-2 rounded-2xl border border-black/10 bg-white p-2 shadow-sm">
                                     <div className="relative" ref={emojiRef}>
                                         <button
@@ -3365,8 +3445,9 @@ export default function DigitalesContacto() {
                         </div>
                     </section>
                 </div>
-            </div >
+            </div>
 
+            {/* ── MENÚ CONTEXTUAL ───────────────────────────────────────────── */}
             {chatMenu ? (
                 <div
                     className="fixed z-[90] min-w-[210px] overflow-hidden rounded-xl border border-black/10 bg-white py-1 shadow-2xl"
@@ -3388,6 +3469,7 @@ export default function DigitalesContacto() {
                 </div>
             ) : null}
 
+            {/* ── MODAL PLANTILLAS ──────────────────────────────────────────── */}
             <Modal
                 open={openTpl}
                 title={tplSelected ? `Plantilla: ${tplSelected.title}` : "Plantillas"}
@@ -3539,6 +3621,6 @@ export default function DigitalesContacto() {
                     </div>
                 )}
             </Modal>
-        </div >
+        </div>
     );
 }
