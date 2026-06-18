@@ -171,12 +171,6 @@ export default function Sidebar() {
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]),
             },
             {
-                to: "/catalogo_precios",
-                label: "Catálogo Precios",
-                icon: Tag,
-                show: hasAnyPermission(["USUARIOS_ADMIN"]),
-            },
-            {
                 to: "/configuracion_ia",
                 label: "Panel de Inteligencias Artificiales",
                 icon: BrainCircuit,
