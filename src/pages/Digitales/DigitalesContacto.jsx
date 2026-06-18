@@ -3061,6 +3061,7 @@ export default function DigitalesContacto() {
                                 </details>
                             );
                         })() : null}
+                        
                         {/* ── ÁREA DE MENSAJES ──────────────────────────────────── */}
                         <div
                             ref={messagesScrollRef}

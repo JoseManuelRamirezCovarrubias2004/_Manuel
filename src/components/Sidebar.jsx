@@ -21,10 +21,14 @@ import {
     QrCode,
     UserSearch,
     BrainCircuit,
+    Bug,
+    Lightbulb,
 } from "lucide-react";
 
 import ryr from "../assets/ryr.png";
 import { useAuth } from "../auth/AuthContext";
+import ClickupNotificationsBell from "./ClickupNotificationsBell";
+import { apiClickup } from "../lib/apiClickup";
 
 function cls(...a) {
     return a.filter(Boolean).join(" ");
@@ -80,16 +84,62 @@ export default function Sidebar() {
 
     const [collapsed, setCollapsed] = useState(false);
 
-    // Drawer móvil: lo dejamos montado para animar salida
+  
     const [mobileOpen, setMobileOpen] = useState(false);
     const [mobileMounted, setMobileMounted] = useState(false);
 
-    // Abre/cierra con animación
+    
+    const [openBugModal, setOpenBugModal] = useState(false);
+    const [tipoReporte, setTipoReporte] = useState("BUG");
+    const [titulo, setTitulo] = useState("");
+    const [descripcionBug, setDescripcionBug] = useState("");
+    const [imagenes, setImagenes] = useState([]);
+    const [saving, setSaving] = useState(false);
+
+    const handleFilesChange = (e) => {
+        const files = Array.from(e.target.files || []);
+        setImagenes(files);
+    };
+
+    const resetForm = () => {
+        setTipoReporte("BUG");
+        setTitulo("");
+        setDescripcionBug("");
+        setImagenes([]);
+    };
+
+    const handleSubmitBug = async (e) => {
+        e.preventDefault();
+
+        if (!titulo.trim() || !descripcionBug.trim()) return;
+
+        setSaving(true);
+        try {
+            await apiClickup.createReport({
+                tipo: tipoReporte,
+                titulo,
+                descripcion: descripcionBug,
+                imagenes,
+            });
+
+            resetForm();
+            setOpenBugModal(false);
+            window.dispatchEvent(new Event("clickup:refresh"));
+            alert("Reporte enviado correctamente. Se creó una tarea en ClickUp.");
+        } catch (error) {
+            alert(error.message || "No se pudo enviar el reporte.");
+        } finally {
+            setSaving(false);
+        }
+    };
+    
+
+    
     useEffect(() => {
         if (mobileOpen) setMobileMounted(true);
     }, [mobileOpen]);
 
-    // Cerrar en resize a desktop
+   
     useEffect(() => {
         const onResize = () => {
             if (window.innerWidth >= 768) {
@@ -102,7 +152,7 @@ export default function Sidebar() {
         return () => window.removeEventListener("resize", onResize);
     }, []);
 
-    // Evita scroll del body con el menú abierto
+    
     useEffect(() => {
         if (!mobileOpen) return;
         const prev = document.body.style.overflow;
@@ -149,14 +199,14 @@ export default function Sidebar() {
                 icon: Car,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_VENTAS", "CRM_DIGITALES", "CRM_CALIDAD"]),
             },
-            // long drive / credito
+            
             {
                 to: "/financieros",
                 label: "Servicios Financieros",
                 icon: TrendingUp,
                 show: hasAnyPermission(["CRM_FINANCIEROS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]),
             },
-            // encuestas
+       
             {
                 to: "/postventa",
                 label: "PostVenta",
@@ -252,7 +302,7 @@ export default function Sidebar() {
                 </div>
 
                 {/* Nav */}
-                <nav className={cls("px-4", !showText && !isMobile && "px-2")}>
+                <nav className={cls("px-4 flex-1 overflow-y-auto", !showText && !isMobile && "px-2")}>
                     <div
                         className={cls(
                             "mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400",
@@ -320,21 +370,91 @@ export default function Sidebar() {
                     </div>
                 </nav>
 
-                <div className="mt-auto" />
+    
+                <div className={cls("mt-auto border-t border-slate-200 px-4 py-3", !showText && !isMobile && "px-2")}>
+                    <div className={cls("flex flex-col gap-1", !showText && !isMobile && "items-center")}>
+                        <div className={cls("flex items-center", showText ? "gap-3 px-3 py-2" : "justify-center py-2")}>
+                            <ClickupNotificationsBell />
+                            <FadeSlide show={showText} className="text-sm font-medium text-slate-700">
+                                Notificaciones
+                            </FadeSlide>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setOpenBugModal(true);
+                                if (isMobile) setMobileOpen(false);
+                            }}
+                            title="Sugerencias y errores"
+                            aria-label="Sugerencias y errores"
+                            className={cls(
+                                linkBase,
+                                "text-blue-500 hover:bg-blue-600 hover:text-white",
+                                !showText && !isMobile && "justify-center px-0"
+                            )}
+                        >
+                            <Mailbox size={18} className="shrink-0" />
+                            <FadeSlide show={showText} className="text-sm">
+                                Sugerencias y errores
+                            </FadeSlide>
+                        </button>
+
+                        {canSeeSettings ? (
+                            <NavLink
+                                to="/configuracion"
+                                title="Usuarios"
+                                aria-label="Usuarios"
+                                onClick={() => {
+                                    if (isMobile) setMobileOpen(false);
+                                }}
+                                className={({ isActive }) =>
+                                    cls(
+                                        linkBase,
+                                        isActive
+                                            ? "bg-[#0f2866] text-white shadow-sm"
+                                            : "text-slate-700 hover:bg-slate-200 hover:text-[#131E5C]",
+                                        !showText && !isMobile && "justify-center px-0"
+                                    )
+                                }
+                            >
+                                <UserCircle2 size={18} className="shrink-0" />
+                                <FadeSlide show={showText} className="text-sm">
+                                    Usuarios
+                                </FadeSlide>
+                            </NavLink>
+                        ) : null}
+
+                        <button
+                            type="button"
+                            onClick={logout}
+                            title="Cerrar sesión"
+                            aria-label="Cerrar sesión"
+                            className={cls(
+                                linkBase,
+                                "text-red-500 hover:bg-red-600 hover:text-white",
+                                !showText && !isMobile && "justify-center px-0"
+                            )}
+                        >
+                            <CirclePower size={18} className="shrink-0" />
+                            <FadeSlide show={showText} className="text-sm">
+                                Cerrar sesión
+                            </FadeSlide>
+                        </button>
+                    </div>
+                </div>
             </div>
         );
     };
 
     return (
         <>
-            {/* Topbar MOBILE: ahora también tiene los botones (solo iconos) */}
+         
             <div className="md:hidden sticky top-0 z-40 border-b border-slate-200 bg-white">
                 <div className="flex items-center justify-between px-3 py-3">
-                    <div className="flex items-center gap-2">
-                        <IconBtn onClick={() => setMobileOpen(true)} title="Abrir menú" className="text-slate-700 hover:bg-slate-50">
-                            <Menu size={18} />
-                        </IconBtn>
-                    </div>
+                    <IconBtn onClick={() => setMobileOpen(true)} title="Abrir menú" className="text-slate-700 hover:bg-slate-50">
+                        <Menu size={18} />
+                    </IconBtn>
 
                     <NavLink to="/" className="flex items-center gap-2">
                         <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#0f2866] overflow-hidden">
@@ -343,30 +463,7 @@ export default function Sidebar() {
                         <div className="text-sm font-semibold text-slate-800">R&R</div>
                     </NavLink>
 
-                    <div className="flex items-center gap-2">
-                        {canSeeSettings ? (
-                            <NavLink
-                                to="/configuracion"
-                                title="Usuarios"
-                                aria-label="Usuarios"
-                                className={cls(
-                                    "inline-flex h-10 w-10 items-center justify-center rounded-xl",
-                                    "border border-slate-200 bg-white",
-                                    "transition active:scale-[0.98] hover:bg-slate-200 hover:shadow-sm"
-                                )}
-                            >
-                                <UserCircle2 size={18} />
-                            </NavLink>
-                        ) : null}
-
-                        <IconBtn
-                            onClick={logout}
-                            title="Cerrar sesión"
-                            className="text-red-600 hover:bg-red-600 hover:text-white"
-                        >
-                            <CirclePower size={18} />
-                        </IconBtn>
-                    </div>
+                    <ClickupNotificationsBell />
                 </div>
             </div>
 
@@ -423,6 +520,125 @@ export default function Sidebar() {
                     </div>
                 </div>
             ) : null}
+
+           
+            {openBugModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    onClick={() => setOpenBugModal(false)}
+                >
+                    <div
+                        className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl"
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                    >
+                        <div className="mb-4 flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-slate-800">Reportar error o sugerencia</h2>
+                            <button
+                                onClick={() => setOpenBugModal(false)}
+                                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                                aria-label="Cerrar"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmitBug} className="space-y-4">
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Tipo</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setTipoReporte("BUG")}
+                                        className={[
+                                            "flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold",
+                                            tipoReporte === "BUG"
+                                                ? "border-red-300 bg-red-50 text-red-700"
+                                                : "border-slate-300 bg-white text-slate-700"
+                                        ].join(" ")}
+                                    >
+                                        <Bug size={16} />
+                                        Error
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setTipoReporte("SUGGESTION")}
+                                        className={[
+                                            "flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold",
+                                            tipoReporte === "SUGGESTION"
+                                                ? "border-amber-300 bg-amber-50 text-amber-700"
+                                                : "border-slate-300 bg-white text-slate-700"
+                                        ].join(" ")}
+                                    >
+                                        <Lightbulb size={16} />
+                                        Sugerencia
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Título</label>
+                                <input
+                                    value={titulo}
+                                    onChange={(e) => setTitulo(e.target.value)}
+                                    placeholder="Ej: El modal de clientes no guarda"
+                                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Descripción</label>
+                                <textarea
+                                    value={descripcionBug}
+                                    onChange={(e) => setDescripcionBug(e.target.value)}
+                                    rows={5}
+                                    placeholder="Describe el problema, pasos para reproducirlo, resultado actual y resultado esperado."
+                                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">
+                                    Evidencias iniciales
+                                </label>
+                                <input
+                                    type="file"
+                                    accept="image/*,.pdf,.doc,.docx,.txt,.mp4"
+                                    multiple
+                                    onChange={handleFilesChange}
+                                    className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-slate-200"
+                                />
+                                {imagenes.length > 0 ? (
+                                    <p className="mt-2 text-xs text-slate-500">
+                                        {imagenes.length} archivo(s) seleccionado(s)
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setOpenBugModal(false)}
+                                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
+                                    disabled={saving}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={saving || !titulo.trim() || !descripcionBug.trim()}
+                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
+                                >
+                                    {saving ? "Enviando..." : "Enviar"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </>
     );
 }
