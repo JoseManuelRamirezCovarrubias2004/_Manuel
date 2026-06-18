@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import {
     ArrowUpDown,
     Building2,
+    Calendar,
     CalendarCheck,
     CalendarDays,
     CarFront,
@@ -28,6 +29,7 @@ import {
 
 import { apiHojaIngresos } from "../../lib/apiHojaIngresos";
 import { useAuth } from "../../auth/AuthContext";
+import AgendaView from "./AgendaView";
 
 const BRAND_BLUE = "#131E5C";
 
@@ -313,7 +315,6 @@ function crearDraftBase(userAgencia = "", isAdmin = true) {
         venta_mano_obra: "",
     };
 }
-
 function SkeletonRow({ columns = 13 }) {
     return (
         <tr className="animate-pulse">
@@ -325,7 +326,6 @@ function SkeletonRow({ columns = 13 }) {
         </tr>
     );
 }
-
 function ModalSkeleton() {
     return (
         <div className="grid gap-3 md:grid-cols-3">
@@ -515,6 +515,32 @@ export default function HojaRegistros() {
     });
 
     const [touchedSave, setTouchedSave] = useState(false);
+
+    const [viewMode, setViewMode] = useState("tabla"); // "tabla" o "agenda"
+    
+    const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+    );
+
+    const [agenciaSeleccionada, setAgenciaSeleccionada] = useState(
+        "VW Cordoba"
+    );
+
+
+    const changeDate = (days) => {
+
+        const fecha = new Date(selectedDate);
+
+        fecha.setDate(
+            fecha.getDate() + days
+        );
+
+        setSelectedDate(
+            fecha.toISOString().split("T")[0]
+        );
+
+    };
+
 
     const inputBase =
         "w-full rounded-lg border px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none transition";
@@ -751,14 +777,20 @@ export default function HojaRegistros() {
             row,
         });
     }
-
     function abrirNuevo() {
         setTouchedSave(false);
         setMode("create");
-        setDraft(crearDraftBase(userAgencia, isAdmin));
+        const draft = crearDraftBase(userAgencia, isAdmin);
+        
+        // Si estamos en modo agenda, pre-seleccionar fecha actual
+        if (viewMode === "agenda") {
+            const ahora = new Date();
+            draft.fecha_ingreso = ahora.toISOString().slice(0, 16);
+        }
+        
+        setDraft(draft);
         setOpenModal(true);
     }
-
     async function abrirEditar(row) {
         if (!row?.id) return;
 
@@ -989,323 +1021,466 @@ export default function HojaRegistros() {
             </button>
         );
     }
+async function handleSaveCita(cita) {
+    try {
+        setSaving(true);
 
+        const payload = {
+            ...cita,
+
+            cliente_nombre: cita.cliente_nombre || "",
+            cliente_telefono: normalizeStr(cita.cliente_telefono),
+            cliente_correo_electronico: cita.cliente_correo_electronico || "",
+
+            agencia: cita.agencia || agenciaSeleccionada,
+            fecha_ingreso: fromDTLocalToISO(cita.fecha_ingreso),
+
+            asistencia: !!cita.asistencia,
+            citado: !!cita.citado,
+
+            no_orden: cita.no_orden || "",
+            diss: cita.diss || "",
+            pauta: cita.pauta || "",
+            torre: cita.torre || "",
+            asesor: cita.asesor || "",
+            agendado_por: cita.agendado_por || "",
+
+            tipo_cita: cita.tipo_cita || "",
+            comentarios: cita.comentarios || "",
+
+            vin: cita.vin || "",
+            anio_vehiculo: cita.anio_vehiculo || "",
+            modelo: cita.modelo || "",
+
+            medio_concertacion: cita.medio_concertacion || "",
+            pauta_origen: cita.pauta_origen || "",
+
+            venta_mano_obra:
+                cita.venta_mano_obra === ""
+                    ? "0"
+                    : cita.venta_mano_obra,
+        };
+
+
+        if (cita.id) {
+            await apiHojaIngresos.update(cita.id, payload);
+        } else {
+            await apiHojaIngresos.create(payload);
+        }
+
+
+        await refreshList();
+
+        alert("Cita guardada correctamente");
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            "No se pudo guardar la cita: " + error.message
+        );
+
+    } finally {
+
+        setSaving(false);
+
+    }
+}
     return (
         <div className="w-full">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                    <h2 className="truncate text-lg font-extrabold text-[#131E5C]">
-                        Hoja de ingresos
-                    </h2>
-                    <p className="text-sm text-slate-400">
-                        Doble clic para editar. Clic derecho para eliminar.
-                    </p>
+           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                {/* FECHAS Y AGENCIAS */}
+                {viewMode === "agenda" && (
+                    <div className="flex items-center gap-2">
+                        <button
+                        onClick={() => changeDate(-1)}
+                        className="rounded-lg border border-[#131E5C] px-3 py-2 text-xs font-bold text-[#131E5C]"
+                        >
+                        ← Ayer
+                        </button>
 
-                    {!isAdmin && userAgencia ? (
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
-                            Agencia asignada:{" "}
-                            <span className="text-[#131E5C]">{userAgencias.join(", ")}</span>
-                        </p>
-                    ) : null}
+
+                        <button
+                        onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
+                        className="rounded-lg bg-[#131E5C] px-3 py-2 text-xs font-bold text-white"
+                        >
+                        Hoy
+                        </button>
+
+
+                        <button
+                        onClick={() => changeDate(1)}
+                        className="rounded-lg border border-[#131E5C] px-3 py-2 text-xs font-bold text-[#131E5C]"
+                        >
+                        Mañana →
+                        </button>
+                        <div className="flex items-center gap-1 rounded-lg border border-[#131E5C] px-2 py-2">
+                        <Calendar className="h-4 w-4"/>
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e)=>setSelectedDate(e.target.value)}
+                            className="text-xs font-bold outline-none"
+                        />
+
+                        </div>
+
+                       <button
+                        onClick={()=>setAgenciaSeleccionada("VW Cordoba")}
+                        className={`ml-24 rounded-lg px-3 py-2 text-xs font-bold ${
+                        agenciaSeleccionada==="VW Cordoba"
+                        ?"bg-[#131E5C] text-white"
+                        :"bg-gray-100"
+                        }`}
+                        >
+                        VW Cordoba
+                        </button>
+
+
+                        <button
+                        onClick={()=>setAgenciaSeleccionada("VW Orizaba")}
+                        className={`rounded-lg px-3 py-2 text-xs font-bold ${
+                        agenciaSeleccionada==="VW Orizaba"
+                        ?"bg-[#131E5C] text-white"
+                        :"bg-gray-100"
+                        }`}
+                        >
+                        VW Orizaba
+                        </button>
+                    </div>
+                )
+                }
+                {/* BOTONES DERECHA */}
+                <div className="flex gap-2 ml-auto">
+                    <div className="flex gap-2 ml-auto">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode("agenda")}
+                            className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-bold ${
+                                viewMode === "agenda"
+                                ? "bg-[#131E5C] text-white"
+                                : "border border-[#131E5C] bg-white text-[#131E5C]"
+                            }`}
+                        >
+                            <CalendarDays className="h-4 w-4" />
+                            Agenda
+                        </button>
+
+
+                        <button
+                            type="button"
+                            onClick={() => setViewMode("tabla")}
+                            className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-bold ${
+                                viewMode === "tabla"
+                                ? "bg-[#131E5C] text-white"
+                                : "border border-[#131E5C] bg-white text-[#131E5C]"
+                            }`}
+                        >
+                            <ClipboardList className="h-4 w-4" />
+                            Hoja de ingresos
+                        </button>
+
+
+                        <button
+                            type="button"
+                            onClick={abrirNuevo}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#131E5C] px-4 py-2 text-sm font-bold text-white"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Nueva cita
+                        </button>
+
+                    </div>
                 </div>
-
-                <button
-                    type="button"
-                    onClick={abrirNuevo}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#131E5C] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#131E5C]/90"
-                >
-                    <Plus className="h-4 w-4" />
-                    Nuevo ingreso
-                </button>
             </div>
+            {/* FILTROS - SOLO visibles en modo tabla */}
+            {viewMode === "tabla" && (
+                <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="grid gap-3 md:grid-cols-12">
+                        <div className="md:col-span-6">
+                            <FilterBlock label="Búsqueda">
+                                <div className="flex items-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2">
+                                    <Search className="h-4 w-4 text-[#131E5C]" />
+                                    <input
+                                        value={filters.q}
+                                        onChange={(event) => setFilters((prev) => ({ ...prev, q: event.target.value }))}
+                                        placeholder="Buscar cliente, teléfono, VIN, asesor, orden..."
+                                        className="w-full text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400"
+                                    />
+                                    {filters.q && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setFilters((prev) => ({ ...prev, q: "" }))}
+                                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-red-500"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            </FilterBlock>
+                        </div>
 
-            <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                <div className="grid gap-3 md:grid-cols-12">
-                    <div className="md:col-span-6">
-                        <FilterBlock label="Búsqueda">
-                            <div className="flex items-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2">
-                                <Search className="h-4 w-4 text-[#131E5C]" />
+                        <div className="md:col-span-3">
+                            <FilterBlock label="Dealer">
+                                <select
+                                    value={filters.agencia}
+                                    onChange={(event) => setFilters((prev) => ({ ...prev, agencia: event.target.value }))}
+                                    className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none"
+                                >
+                                    {dealers.map((dealer) => (
+                                        <option key={dealer} value={dealer}>{dealer}</option>
+                                    ))}
+                                </select>
+                            </FilterBlock>
+                        </div>
 
-                                <input
-                                    value={filters.q}
-                                    onChange={(event) =>
-                                        setFilters((prev) => ({ ...prev, q: event.target.value }))
-                                    }
-                                    placeholder="Buscar cliente, teléfono, VIN, asesor, orden..."
-                                    className="w-full text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400"
-                                />
-
-                                {filters.q ? (
+                        <div className="md:col-span-3">
+                            <FilterBlock label="Acciones">
+                                <div className="grid grid-cols-2 gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => setFilters((prev) => ({ ...prev, q: "" }))}
-                                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-red-500"
+                                        onClick={setHoy}
+                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+                                    >
+                                        <CalendarDays className="h-4 w-4" />
+                                        Hoy
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={resetFilters}
+                                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm font-bold text-[#131E5C] hover:bg-[#131E5C] hover:text-white"
                                     >
                                         <X className="h-4 w-4" />
+                                        Limpiar
                                     </button>
-                                ) : null}
-                            </div>
-                        </FilterBlock>
-                    </div>
+                                </div>
+                            </FilterBlock>
+                        </div>
 
-                    <div className="md:col-span-3">
-                        <FilterBlock label="Dealer">
-                            <select
-                                value={filters.agencia}
-                                onChange={(event) =>
-                                    setFilters((prev) => ({
-                                        ...prev,
-                                        agencia: event.target.value,
-                                    }))
-                                }
-                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none"
-                            >
-                                {dealers.map((dealer) => (
-                                    <option key={dealer} value={dealer}>
-                                        {dealer}
-                                    </option>
-                                ))}
-                            </select>
-                        </FilterBlock>
-                    </div>
+                        <div className="md:col-span-6">
+                            <FilterBlock label="Desde">
+                                <input
+                                    type="date"
+                                    value={filters.desde}
+                                    onChange={(event) => setFilters((prev) => ({ ...prev, desde: event.target.value }))}
+                                    className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none"
+                                />
+                            </FilterBlock>
+                        </div>
 
-                    <div className="md:col-span-3">
-                        <FilterBlock label="Acciones">
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={setHoy}
-                                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"
-                                >
-                                    <CalendarDays className="h-4 w-4" />
-                                    Hoy
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={resetFilters}
-                                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm font-bold text-[#131E5C] hover:bg-[#131E5C] hover:text-white"
-                                >
-                                    <X className="h-4 w-4" />
-                                    Limpiar
-                                </button>
-                            </div>
-                        </FilterBlock>
-                    </div>
-
-                    <div className="md:col-span-6">
-                        <FilterBlock label="Desde">
-                            <input
-                                type="date"
-                                value={filters.desde}
-                                onChange={(event) =>
-                                    setFilters((prev) => ({
-                                        ...prev,
-                                        desde: event.target.value,
-                                    }))
-                                }
-                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none"
-                            />
-                        </FilterBlock>
-                    </div>
-
-                    <div className="md:col-span-6">
-                        <FilterBlock label="Hasta">
-                            <input
-                                type="date"
-                                value={filters.hasta}
-                                onChange={(event) =>
-                                    setFilters((prev) => ({
-                                        ...prev,
-                                        hasta: event.target.value,
-                                    }))
-                                }
-                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none"
-                            />
-                        </FilterBlock>
-                    </div>
-                </div>
-            </div>
-
-            <div className="hidden rounded-lg bg-white shadow-lg lg:block">
-                <div className="w-full overflow-x-auto">
-                    <table className="min-w-[1700px] text-left text-sm rounded-lg ">
-                        <thead className="sticky top-0 z-10 bg-[#131E5C] rounded-lg text-xs text-white">
-                            <tr>
-                                {columns.map((column) => (
-                                    <th key={column.key} className="whitespace-nowrap px-4 py-3">
-                                        {column.sortable ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleSort(column.key)}
-                                                className="inline-flex items-center gap-1 font-bold"
-                                            >
-                                                {column.label}
-                                                {sort.key === column.key ? (
-                                                    sort.dir === "asc" ? (
-                                                        <ChevronUp className="h-4 w-4" />
-                                                    ) : (
-                                                        <ChevronDown className="h-4 w-4" />
-                                                    )
-                                                ) : (
-                                                    <ArrowUpDown className="h-4 w-4 opacity-60" />
-                                                )}
-                                            </button>
-                                        ) : (
-                                            <span className="font-bold">{column.label}</span>
-                                        )}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-
-                        <tbody className="divide-y divide-black/10">
-                            {loadingList ? (
-                                Array.from({ length: 8 }).map((_, index) => (
-                                    <SkeletonRow key={index} columns={columns.length} />
-                                ))
-                            ) : sorted.length === 0 ? (
-                                <tr>
-                                    <td colSpan={columns.length}>
-                                        <EmptyState />
-                                    </td>
-                                </tr>
-                            ) : (
-                                sorted.map((row, index) => (
-                                    <tr
-                                        key={row.id}
-                                        onDoubleClick={() => abrirEditar(row)}
-                                        onContextMenu={(event) => onRowContextMenu(event, row)}
-                                        title="Doble clic para editar"
-                                        className={[
-                                            "cursor-pointer",
-                                            index % 2 === 0
-                                                ? "bg-white hover:bg-blue-50/40"
-                                                : "bg-slate-50/60 hover:bg-blue-50/40",
-                                        ].join(" ")}
-                                    >
-                                        <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
-                                            {formatDate(row.fecha_ingreso)}
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-4 py-3">
-                                            <div className="font-bold text-[#131E5C]">
-                                                {getClienteNombre(row)}
-                                            </div>
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-4 py-3">
-                                            <BooleanButton row={row} field="asistencia" />
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-4 py-3">
-                                            <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
-                                        </td>
-
-
-                                        <td className="max-w-[260px] px-4 py-3 text-[#131E5C]">
-                                            <span className="line-clamp-2">{row.pauta || "—"}</span>
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-4 py-3">
-                                            <BooleanButton row={row} field="citado" />
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
-                                            {row.torre || "—"}
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
-                                            {row.tipo_cita || "—"}
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
-                                            {row.vin || "—"}
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
-                                            {row.medio_concertacion || "—"}
-                                        </td>
-
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-
-                    <ContextMenu
-                        ctxMenu={ctxMenu}
-                        onDelete={eliminar}
-                        onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })}
-                    />
-                </div>
-            </div>
-
-            <div className="grid gap-3 lg:hidden">
-                {loadingList ? (
-                    <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
-                        <div className="flex items-center gap-2 font-bold text-[#131E5C]">
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            Cargando...
+                        <div className="md:col-span-6">
+                            <FilterBlock label="Hasta">
+                                <input
+                                    type="date"
+                                    value={filters.hasta}
+                                    onChange={(event) => setFilters((prev) => ({ ...prev, hasta: event.target.value }))}
+                                    className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none"
+                                />
+                            </FilterBlock>
                         </div>
                     </div>
-                ) : sorted.length === 0 ? (
-                    <div className="rounded-3xl border border-black/10 bg-white p-10 text-center text-slate-600">
-                        No hay resultados con esos filtros.
+                </div>
+            )}
+
+            {/* CONTENIDO CONDICIONAL: TABLA o AGENDA */}
+            {viewMode === "tabla" ? (
+                <>
+                    {/* TABLA DESKTOP */}
+                    <div className="hidden rounded-lg bg-white shadow-lg lg:block">
+                        <div className="w-full overflow-x-auto">
+                            <table className="min-w-[1700px] text-left text-sm rounded-lg ">
+                                <thead className="sticky top-0 z-10 bg-[#131E5C] rounded-lg text-xs text-white">
+                                    <tr>
+                                        {columns.map((column) => (
+                                            <th key={column.key} className="whitespace-nowrap px-4 py-3">
+                                                {column.sortable ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleSort(column.key)}
+                                                        className="inline-flex items-center gap-1 font-bold"
+                                                    >
+                                                        {column.label}
+                                                        {sort.key === column.key ? (
+                                                            sort.dir === "asc" ? (
+                                                                <ChevronUp className="h-4 w-4" />
+                                                            ) : (
+                                                                <ChevronDown className="h-4 w-4" />
+                                                            )
+                                                        ) : (
+                                                            <ArrowUpDown className="h-4 w-4 opacity-60" />
+                                                        )}
+                                                    </button>
+                                                ) : (
+                                                    <span className="font-bold">{column.label}</span>
+                                                )}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+
+                                <tbody className="divide-y divide-black/10">
+                                    {loadingList ? (
+                                        Array.from({ length: 8 }).map((_, index) => (
+                                            <SkeletonRow key={index} columns={columns.length} />
+                                        ))
+                                    ) : sorted.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={columns.length}>
+                                                <EmptyState />
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        sorted.map((row, index) => (
+                                            <tr
+                                                key={row.id}
+                                                onDoubleClick={() => abrirEditar(row)}
+                                                onContextMenu={(event) => onRowContextMenu(event, row)}
+                                                title="Doble clic para editar"
+                                                className={[
+                                                    "cursor-pointer",
+                                                    index % 2 === 0
+                                                        ? "bg-white hover:bg-blue-50/40"
+                                                        : "bg-slate-50/60 hover:bg-blue-50/40",
+                                                ].join(" ")}
+                                            >
+                                                <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
+                                                    {formatDate(row.fecha_ingreso)}
+                                                </td>
+
+                                                <td className="whitespace-nowrap px-4 py-3">
+                                                    <div className="font-bold text-[#131E5C]">
+                                                        {getClienteNombre(row)}
+                                                    </div>
+                                                </td>
+
+                                                <td className="whitespace-nowrap px-4 py-3">
+                                                    <BooleanButton row={row} field="asistencia" />
+                                                </td>
+
+                                                <td className="whitespace-nowrap px-4 py-3">
+                                                    <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
+                                                </td>
+
+                                                <td className="max-w-[260px] px-4 py-3 text-[#131E5C]">
+                                                    <span className="line-clamp-2">{row.pauta || "—"}</span>
+                                                </td>
+
+                                                <td className="whitespace-nowrap px-4 py-3">
+                                                    <BooleanButton row={row} field="citado" />
+                                                </td>
+
+                                                <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
+                                                    {row.torre || "—"}
+                                                </td>
+
+                                                <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
+                                                    {row.tipo_cita || "—"}
+                                                </td>
+
+                                                <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
+                                                    {row.vin || "—"}
+                                                </td>
+
+                                                <td className="whitespace-nowrap px-4 py-3 text-[#131E5C]">
+                                                    {row.medio_concertacion || "—"}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+
+                            <ContextMenu
+                                ctxMenu={ctxMenu}
+                                onDelete={eliminar}
+                                onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })}
+                            />
+                        </div>
                     </div>
-                ) : (
-                    sorted.map((row) => (
-                        <button
-                            key={row.id}
-                            type="button"
-                            onClick={() => abrirEditar(row)}
-                            className="rounded-3xl border border-black/10 bg-white p-4 text-left shadow-sm hover:bg-slate-50"
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <div className="truncate text-sm font-extrabold text-[#131E5C]">
-                                        {getClienteNombre(row)}
-                                    </div>
 
-                                    <div className="mt-1 text-xs text-slate-600">
-                                        {row.agencia || "—"} • {getTelefono(row)}
-                                    </div>
-
-                                    <div className="mt-1 text-xs text-slate-600">
-                                        {formatDate(row.fecha_ingreso)}
-                                    </div>
-
-                                    <div className="mt-2">
-                                        <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
-                                    </div>
+                    {/* VISTA MÓVIL */}
+                    <div className="grid gap-3 lg:hidden">
+                        {loadingList ? (
+                            <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+                                <div className="flex items-center gap-2 font-bold text-[#131E5C]">
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    Cargando...
                                 </div>
-
-                                <span
-                                    className={[
-                                        "inline-flex rounded-full border px-3 py-1 text-xs font-bold",
-                                        boolFromAny(row.citado)
-                                            ? "border-emerald-300 bg-emerald-100 text-emerald-700"
-                                            : "border-red-300 bg-red-100 text-red-700",
-                                    ].join(" ")}
+                            </div>
+                        ) : sorted.length === 0 ? (
+                            <div className="rounded-3xl border border-black/10 bg-white p-10 text-center text-slate-600">
+                                No hay resultados con esos filtros.
+                            </div>
+                        ) : (
+                            sorted.map((row) => (
+                                <button
+                                    key={row.id}
+                                    type="button"
+                                    onClick={() => abrirEditar(row)}
+                                    className="rounded-3xl border border-black/10 bg-white p-4 text-left shadow-sm hover:bg-slate-50"
                                 >
-                                    Citado: {boolFromAny(row.citado) ? "Sí" : "No"}
-                                </span>
-                            </div>
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="truncate text-sm font-extrabold text-[#131E5C]">
+                                                {getClienteNombre(row)}
+                                            </div>
 
-                            <div className="mt-3 text-sm text-slate-700 line-clamp-3">
-                                {row.comentarios || row.pauta || "—"}
-                            </div>
+                                            <div className="mt-1 text-xs text-slate-600">
+                                                {row.agencia || "—"} • {getTelefono(row)}
+                                            </div>
 
-                            <div className="mt-3 text-xs text-slate-500">Toca para editar</div>
-                        </button>
-                    ))
-                )}
-            </div>
+                                            <div className="mt-1 text-xs text-slate-600">
+                                                {formatDate(row.fecha_ingreso)}
+                                            </div>
 
+                                            <div className="mt-2">
+                                                <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
+                                            </div>
+                                        </div>
+
+                                        <span
+                                            className={[
+                                                "inline-flex rounded-full border px-3 py-1 text-xs font-bold",
+                                                boolFromAny(row.citado)
+                                                    ? "border-emerald-300 bg-emerald-100 text-emerald-700"
+                                                    : "border-red-300 bg-red-100 text-red-700",
+                                            ].join(" ")}
+                                        >
+                                            Citado: {boolFromAny(row.citado) ? "Sí" : "No"}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-3 text-sm text-slate-700 line-clamp-3">
+                                        {row.comentarios || row.pauta || "—"}
+                                    </div>
+
+                                    <div className="mt-3 text-xs text-slate-500">Toca para editar</div>
+                                </button>
+                            ))
+                        )}
+                    </div>
+                </>
+       ) : (
+            <AgendaView
+                citas={rows}
+                agenciaSeleccionada={agenciaSeleccionada}
+                setAgenciaSeleccionada={setAgenciaSeleccionada}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
+                onSaveCita={handleSaveCita}
+            />
+        )}
+            {/* MODAL para crear/editar ingreso */}
             <Modal
-                open={openModal}
-                title={mode === "create" ? "Nuevo ingreso" : `Editar ingreso #${draft?.id}`}
-                onClose={cerrarModal}
+                 open={openModal}
+            title={
+                viewMode === "tabla" 
+                    ? (mode === "create" ? "Nuevo ingreso" : `Editar ingreso #${draft?.id}`)
+                    : (mode === "create" ? "Nueva cita" : `Editar cita #${draft?.id}`)
+            }
+            onClose={cerrarModal}
                 footer={
                     <>
                         <button
