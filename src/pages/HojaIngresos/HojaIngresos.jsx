@@ -304,7 +304,7 @@ function crearDraftBase(userAgencia = "", isAdmin = true) {
         cliente_telefono: "",
         cliente_correo_electronico: "",
 
-        tipo_cita: "",
+        tipo_cita:  [],
         declaracion_textual_cliente: "",
         comentarios: "",
         vin: "",
@@ -873,7 +873,9 @@ export default function HojaRegistros() {
                 cliente_correo_electronico:
                     data.correo_electronico || data?.cliente?.correo_electronico || "",
 
-                tipo_cita: data.tipo_cita || "",
+                tipo_cita: data.tipo_cita
+                    ? String(data.tipo_cita).split(",").map((t) => t.trim()).filter(Boolean)
+                    : [],
                 declaracion_textual_cliente: data.declaracion_textual_cliente || "",
                 comentarios: data.comentarios || "",
 
@@ -924,7 +926,9 @@ export default function HojaRegistros() {
             agendado_por: draft.agendado_por || "",
             nombre_cliente: draft.cliente_nombre || "",
 
-            tipo_cita: draft.tipo_cita || "",
+            tipo_cita: Array.isArray(draft.tipo_cita)
+                ? draft.tipo_cita.join(", ")
+                : (draft.tipo_cita || ""),
             declaracion_textual_cliente: draft.declaracion_textual_cliente || "",
             comentarios: draft.comentarios || "",
 
@@ -1085,7 +1089,9 @@ async function handleSaveCita(cita) {
             asesor: cita.asesor || "",
             agendado_por: cita.agendado_por || "",
 
-            tipo_cita: cita.tipo_cita || "",
+           tipo_cita: Array.isArray(cita.tipo_cita)
+                ? cita.tipo_cita.join(", ")
+                : (cita.tipo_cita || ""),
             comentarios: cita.comentarios || "",
 
             vin: cita.vin || "",
