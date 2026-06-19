@@ -1816,11 +1816,24 @@ async function handleSaveCita(cita) {
                             </div>
 
                             {/* seleccionados */}
-                            {draft.tipo_cita?.length>0 && (
+                            {
+                            (
+                            Array.isArray(draft.tipo_cita)
+                                ? draft.tipo_cita
+                                : draft.tipo_cita
+                                ? [draft.tipo_cita]
+                                : []
+                            ).length > 0 && (
 
                             <div className="mt-3 flex flex-wrap gap-2">
 
-                            {draft.tipo_cita.map((tipo) => (
+                            {(
+                            Array.isArray(draft.tipo_cita)
+                                ? draft.tipo_cita
+                                : draft.tipo_cita
+                                ? [draft.tipo_cita]
+                                : []
+                            ).map((tipo) => (
 
                             <span
                             key={tipo}
@@ -1841,7 +1854,6 @@ async function handleSaveCita(cita) {
                             </div>
 
                             )}
-
                         </Field>
 
                         <Field label="VIN" icon={CarFront}>

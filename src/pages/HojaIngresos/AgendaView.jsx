@@ -436,7 +436,7 @@ export default function AgendaView({
   useEffect(() => {
     const intervalo = setInterval(() => {
       setHoraActual(new Date());
-    }, 60000);
+    }, 1000);
 
     return () => clearInterval(intervalo);
   }, []);
@@ -447,45 +447,41 @@ export default function AgendaView({
   }, [agenciaSeleccionada]);
 
   const posicionLineaTiempo = useMemo(() => {
+  const ahora = new Date();
 
-  const hoy = new Date().toISOString().split("T")[0];
+  // Extraer hora y minutos directamente en zona México
+  const horas = parseInt(
+    ahora.toLocaleString("en-US", {
+      timeZone: "America/Mexico_City",
+      hour: "numeric",
+      hour12: false,
+    })
+  );
+  const minutos = parseInt(
+    ahora.toLocaleString("en-US", {
+      timeZone: "America/Mexico_City",
+      minute: "numeric",
+    })
+  );
 
-  if (selectedDate !== hoy) return null;
+  // Comparar fecha seleccionada con hoy en México
+  const hoyMexico = ahora.toLocaleDateString("en-CA", {
+    timeZone: "America/Mexico_City",
+  }); // formato YYYY-MM-DD
 
-  const hora = horaActual.getHours();
-  const minutos = horaActual.getMinutes();
+  if (selectedDate !== hoyMexico) return null;
 
-  const minutosActuales = (hora * 60) + minutos;
-
+  const minutosActuales = horas * 60 + minutos;
   const inicioAgenda = 8 * 60;
-  const finAgenda = (15 * 60) + 30;
+  const finAgenda = 15 * 60 + 30;
 
-  if (
-    minutosActuales < inicioAgenda ||
-    minutosActuales > finAgenda
-  ) {
-    return null;
-  }
+  if (minutosActuales < inicioAgenda || minutosActuales > finAgenda) return null;
 
-  const minutosDesdeInicio =
-    minutosActuales - inicioAgenda;
-
-  const totalMinutosAgenda =
-    finAgenda - inicioAgenda;
-
+  const minutosDesdeInicio = minutosActuales - inicioAgenda;
   const anchoAsesor = 220;
   const anchoSlot = 90;
 
-  const totalSlots = HORARIOS.length;
-
-  const anchoAgenda =
-    totalSlots * anchoSlot;
-
-  return (
-    anchoAsesor +
-    (minutosDesdeInicio / totalMinutosAgenda) *
-    anchoAgenda
-  );
+  return anchoAsesor + (minutosDesdeInicio / 30) * anchoSlot;
 
 }, [horaActual, selectedDate]);
 
