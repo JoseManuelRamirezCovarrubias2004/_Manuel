@@ -643,7 +643,7 @@ function ClockDial({ franjas, onUpdate, totalIAMins }) {
 }
 
 // ─── HorariosBlock ────────────────────────────────────────────────────────────
-function HorariosBlock({ horarios, onChange, lineasIA = [] }) {
+function HorariosBlock({ horarios, onChange, lineasIA = [], onSave, saving }) {
     const [expanded, setExpanded] = useState(false);
     const [diaActivo, setDiaActivo] = useState("lun");
 
@@ -721,7 +721,7 @@ function HorariosBlock({ horarios, onChange, lineasIA = [] }) {
     return (
         <div className="rounded-2xl border border-[#E4E7F0] bg-white overflow-hidden">
 
-            {/* Header */}
+           {/* Header */}
             <div className="flex items-center justify-between gap-3 px-5 py-4">
                 <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#131E5C]/8">
@@ -736,11 +736,20 @@ function HorariosBlock({ horarios, onChange, lineasIA = [] }) {
                         </p>
                     </div>
                 </div>
-                <button onClick={() => setExpanded((v) => !v)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#E4E7F0] px-3 py-1.5 text-xs font-semibold text-[#515778] hover:bg-[#F7F8FC] transition-all">
-                    {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                    {expanded ? "Cerrar" : "Configurar"}
-                </button>
+                <div className="flex items-center gap-2">
+                    {expanded && onSave && (
+                        <button onClick={onSave} disabled={saving}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#131E5C] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#0a1340] disabled:opacity-60 transition-all">
+                            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                            Guardar
+                        </button>
+                    )}
+                    <button onClick={() => setExpanded((v) => !v)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#E4E7F0] px-3 py-1.5 text-xs font-semibold text-[#515778] hover:bg-[#F7F8FC] transition-all">
+                        {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        {expanded ? "Cerrar" : "Configurar"}
+                    </button>
+                </div>
             </div>
 
             {/* Pills preview */}
@@ -1130,7 +1139,7 @@ export default function ConfigIA() {
 
             {/* Top bar */}
             <div className="sticky top-0 z-40 border-b border-[#E4E7F0] bg-white/95 backdrop-blur-sm">
-                <div className="mx-auto max-full px-4 sm:px-6">
+                <div className="mx-auto max-w-full px-4 sm:px-6">
                     <div className="flex h-14 items-center justify-between gap-4">
                         <div className="flex items-center gap-3 min-w-0">
                             <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: C.navy }}>
@@ -1176,7 +1185,7 @@ export default function ConfigIA() {
                 </div>
             </div>
 
-            <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+            <div className="mx-auto max-w-full px-4 py-6 sm:px-6 lg:px-8">
 
                 {/* TAB: CONFIGURACIÓN */}
                 {tab === "config" && (
@@ -1229,7 +1238,8 @@ export default function ConfigIA() {
                                     </div>
                                 </div>
 
-                                <HorariosBlock horarios={horarios} onChange={setHorarios} lineasIA={lineasIA} />
+                                <HorariosBlock horarios={horarios} onChange={setHorarios} lineasIA={lineasIA}
+                                    onSave={() => guardarConfig()} saving={guardandoConfig} />
 
                                 <div className="rounded-2xl border border-[#E4E7F0] bg-white overflow-hidden">
                                     <div className="flex items-center gap-3 px-5 py-4 border-b border-[#E4E7F0]">
