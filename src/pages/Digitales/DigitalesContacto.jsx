@@ -295,24 +295,21 @@ function getIaEstadoVisual(estadoIa) {
             label: "IA sin diagnóstico",
             detail: "Abre un chat para consultar el estado operativo.",
             cls: "border-slate-200 bg-slate-50 text-slate-700",
-            dot: "bg-slate-400",
         };
     }
 
     if (estadoIa.puede_responder) {
         return {
-            label: "IA lista",
+            label: "IA lista para responder",
             detail: "Configuración activa, conversación habilitada y dentro de horario.",
             cls: "border-emerald-200 bg-emerald-50 text-emerald-800",
-            dot: "bg-emerald-500",
         };
     }
 
     return {
-        label: "IA bloqueada",
+        label: "IA no responderá",
         detail: bloqueos.length ? bloqueos.map(labelBloqueoIa).join(" · ") : "Hay un bloqueo operativo sin clasificar.",
         cls: "border-amber-200 bg-amber-50 text-amber-900",
-        dot: "bg-amber-500",
     };
 }
 
@@ -752,7 +749,12 @@ function normalizeMessage(message = {}) {
         id: message.id || message.wa_message_id || crypto.randomUUID(),
         text: message.text || message.body || message.caption || "",
         attachments: normalizeMessageAttachments(message),
-        is_ai: Boolean(message.is_ai || message?.raw?.openai_model),
+        is_ai: Boolean(
+            message.is_ai ||
+            message?.raw?.openai_model ||
+            message?.raw?.ia_model ||
+            message?.raw?.ia_provider
+        ),
     };
 }
 
@@ -1095,15 +1097,20 @@ function MessageBubble({
                         }}
                     />
 
-                    {isAi ? (
-                        <div className="mt-2">
-                            <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-extrabold">
-                                IA
+                    <div className={cls("mt-1 flex items-center justify-end gap-1.5 text-[11px] font-bold", mine ? "text-white/75" : "text-slate-500")}>
+                        {isAi ? (
+                            <span
+                                className={cls(
+                                    "inline-flex items-center gap-1 rounded-full px-3 py-1 text-[13px] font-extrabold leading-none tracking-wide",
+                                    mine
+                                        ? "bg-white/30 text-white ring-1 ring-white/40"
+                                        : "bg-violet-100 text-violet-700 ring-1 ring-violet-300"
+                                )}
+                                title="Mensaje generado por IA"
+                            >
+                                ✦ IA
                             </span>
-                        </div>
-                    ) : null}
-
-                    <div className={cls("mt-1 flex items-center justify-end gap-2 text-[11px] font-bold", mine ? "text-white/75" : "text-slate-500")}>
+                        ) : null}
                         <span>{time}</span>
                         {mine ? <span>{statusText}</span> : null}
                     </div>
@@ -2544,6 +2551,7 @@ export default function DigitalesContacto() {
                     )}
                 >
                     {/* ── SIDEBAR DE CHATS ──────────────────────────────────── */}
+                    {/* CAMBIO: En modo directo siempre "hidden" sin importar breakpoint */}
                     <aside
                         className={cls(
                             "min-h-0 border-r border-black/10 bg-neutral-50 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -2593,7 +2601,6 @@ export default function DigitalesContacto() {
                                         />
                                     </div>
 
-                                    {/* ── FILA 1: Todos · No leídos ── */}
                                     <div className="mt-2 flex gap-2">
                                         {CHAT_FILTERS.slice(0, 2).map((f) => (
                                             <button
@@ -2611,15 +2618,13 @@ export default function DigitalesContacto() {
                                             </button>
                                         ))}
                                     </div>
-
-                                    {/* ── FILA 2: Pend. cotización · Seguimiento · Lead calificado ── */}
                                     <div className="mt-1.5 flex gap-1.5">
                                         {CHAT_FILTERS.slice(2).map((f) => (
                                             <button
                                                 key={f.key}
                                                 onClick={() => setChatFilter(f.key)}
                                                 className={cls(
-                                                    "flex-1 rounded-lg border py-1.5 text-[10px] font-extrabold transition leading-tight text-center",
+                                                    "flex-1 rounded-lg border py-1.5 text-[11px] font-extrabold transition leading-tight",
                                                     chatFilter === f.key
                                                         ? "border-[#131E5C] bg-[#131E5C] text-white"
                                                         : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
@@ -2750,79 +2755,124 @@ export default function DigitalesContacto() {
                                         <Avatar name={activeChat?.nombre || "Prospecto"} />
 
                                         <div className="min-w-0 flex-1">
-                                            {/* Fila de inputs/dropdowns — siempre visible */}
-                                            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_.8fr_1fr_auto_auto]">
-                                                <input
-                                                    value={activeChat?.nombre || quickEditDraft.nombre || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))
-                                                    }
-                                                    placeholder="Nombre"
-                                                    className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                />
+                                            {/* CAMBIO: Los inputs de edición SOLO se muestran en modo normal */}
+                                            {!isDirectChatMode ? (
+                                                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_.8fr_1fr_auto_auto]">
+                                                    <input
+                                                        value={activeChat?.nombre || "Selecciona un chat" || quickEditDraft.nombre || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))
+                                                        }
+                                                        placeholder="Nombre"
+                                                        className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                    />
 
-                                                <select
-                                                    value={quickEditDraft.auto_interes || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))
-                                                    }
-                                                    className="h-8 min-w-0 max-w-35 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                >
-                                                    {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
-                                                </select>
-
-                                                <select
-                                                    value={quickEditDraft.estado || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))
-                                                    }
-                                                    className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                >
-                                                    {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
-                                                </select>
-
-                                                <select
-                                                    value={quickEditDraft.canal_contacto || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))
-                                                    }
-                                                    className="h-8 min-w-0 max-w-30 rounded-lg border border-black/10 bg-white px-1 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                >
-                                                    {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
-                                                </select>
-
-                                                <select
-                                                    value={quickEditDraft.business || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, business: e.target.value }))
-                                                    }
-                                                    className="h-8 min-w-0 max-w-25 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                >
-                                                    {renderOptionsConValorActual(BUSINESS_OPTIONS, quickEditDraft.business)}
-                                                </select>
-
-                                                <select
-                                                    value={quickEditDraft.pauta || ""}
-                                                    onChange={(e) =>
-                                                        setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))
-                                                    }
-                                                    className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                >
-                                                    {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta, "Sin campaña detectada")}
-                                                </select>
-
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={saveQuickEdit}
-                                                        disabled={savingQuickEdit}
-                                                        className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                                                        style={{ backgroundColor: BRAND_BLUE }}
-                                                        type="button"
-                                                        title="Guardar cambios"
+                                                    <select
+                                                        value={quickEditDraft.auto_interes || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))
+                                                        }
+                                                        className="h-8 min-w-0 max-w-35 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
                                                     >
-                                                        <Save className="h-3.5 w-3.5" />
-                                                    </button>
+                                                        {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
+                                                    </select>
 
+                                                    <select
+                                                        value={quickEditDraft.estado || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))
+                                                        }
+                                                        className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                    >
+                                                        {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
+                                                    </select>
+
+                                                    <select
+                                                        value={quickEditDraft.canal_contacto || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))
+                                                        }
+                                                        className="h-8 min-w-0 max-w-30 rounded-lg border border-black/10 bg-white px-1 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                    >
+                                                        {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
+                                                    </select>
+
+                                                    <select
+                                                        value={quickEditDraft.business || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, business: e.target.value }))
+                                                        }
+                                                        className="h-8 min-w-0 max-w-25 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                    >
+                                                        {renderOptionsConValorActual(BUSINESS_OPTIONS, quickEditDraft.business)}
+                                                    </select>
+
+                                                    <select
+                                                        value={quickEditDraft.pauta || ""}
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))
+                                                        }
+                                                        className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                    >
+                                                        {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta, "Sin campaña detectada")}
+                                                    </select>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={saveQuickEdit}
+                                                            disabled={savingQuickEdit}
+                                                            className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                                            style={{ backgroundColor: BRAND_BLUE }}
+                                                            type="button"
+                                                            title="Guardar cambios"
+                                                        >
+                                                            <Save className="h-3.5 w-3.5" />
+                                                        </button>
+
+                                                        <button
+                                                            onClick={abrirPlantillas}
+                                                            disabled={!activeTel}
+                                                            className="inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                            type="button"
+                                                            title="Enviar plantilla"
+                                                        >
+                                                            <LayoutTemplate className="h-3.5 w-3.5" />
+                                                        </button>
+
+                                                        <button
+                                                            onClick={llamarProspecto}
+                                                            disabled={!activeTel}
+                                                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                            type="button"
+                                                            title="Llamar"
+                                                        >
+                                                            <Phone className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                /* Modo directo: solo nombre y teléfono, sin inputs de edición */
+                                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                    <span className="text-sm font-extrabold text-[#131E5C]">
+                                                        {activeChat?.nombre || "Prospecto"}
+                                                    </span>
+                                                    {activeTel ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={copyTel}
+                                                            className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-xs font-semibold text-slate-500 transition hover:bg-neutral-100"
+                                                            title="Copiar número"
+                                                        >
+                                                            {copiedTel ? (
+                                                                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                                            ) : (
+                                                                <Copy className="h-3.5 w-3.5" />
+                                                            )}
+                                                            <span className={copiedTel ? "font-bold text-emerald-600" : ""}>
+                                                                {formateaTelUi(activeTel)}
+                                                            </span>
+                                                        </button>
+                                                    ) : null}
                                                     <button
                                                         onClick={abrirPlantillas}
                                                         disabled={!activeTel}
@@ -2832,7 +2882,6 @@ export default function DigitalesContacto() {
                                                     >
                                                         <LayoutTemplate className="h-3.5 w-3.5" />
                                                     </button>
-
                                                     <button
                                                         onClick={llamarProspecto}
                                                         disabled={!activeTel}
@@ -2843,54 +2892,56 @@ export default function DigitalesContacto() {
                                                         <Phone className="h-4 w-4" />
                                                     </button>
                                                 </div>
-                                            </div>
+                                            )}
 
-                                            {/* Fila de metadatos — siempre visible */}
-                                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500 sm:text-xs">
-                                                <button
-                                                    type="button"
-                                                    onClick={copyTel}
-                                                    className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 sm:px-1"
-                                                    title="Copiar número"
-                                                >
-                                                    {copiedTel ? (
-                                                        <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                                    ) : (
-                                                        <Copy className="h-3.5 w-3.5" />
-                                                    )}
-                                                    <span className={copiedTel ? "font-bold text-emerald-600" : ""}>
-                                                        {activeTel ? formateaTelUi(activeTel) : "—"}
+                                            {/* CAMBIO: Metadatos (teléfono, fechas) SOLO en modo normal */}
+                                            {!isDirectChatMode ? (
+                                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500 sm:text-xs">
+                                                    <button
+                                                        type="button"
+                                                        onClick={copyTel}
+                                                        className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 sm:px-1"
+                                                        title="Copiar número"
+                                                    >
+                                                        {copiedTel ? (
+                                                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                                        ) : (
+                                                            <Copy className="h-3.5 w-3.5" />
+                                                        )}
+                                                        <span className={copiedTel ? "font-bold text-emerald-600" : ""}>
+                                                            {activeTel ? formateaTelUi(activeTel) : "—"}
+                                                        </span>
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => marcarChatComoNoLeido(activeTel)}
+                                                        disabled={!activeTel || markingUnreadTel === activeTel}
+                                                        className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-1"
+                                                        title="Marcar este chat como no leído"
+                                                    >
+                                                        <MailOpen className="h-3.5 w-3.5" />
+                                                        <span>
+                                                            {markingUnreadTel === activeTel ? "Marcando..." : "Marcar no leído"}
+                                                        </span>
+                                                    </button>
+
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <Clock className="h-3.5 w-3.5" />
+                                                        {loadingChat ? "Cargando..." : "Listo"}
                                                     </span>
-                                                </button>
 
-                                                <button
-                                                    type="button"
-                                                    onClick={() => marcarChatComoNoLeido(activeTel)}
-                                                    disabled={!activeTel || markingUnreadTel === activeTel}
-                                                    className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-1"
-                                                    title="Marcar este chat como no leído"
-                                                >
-                                                    <MailOpen className="h-3.5 w-3.5" />
-                                                    <span>
-                                                        {markingUnreadTel === activeTel ? "Marcando..." : "Marcar no leído"}
+                                                    <span className="hidden text-[11px] font-bold text-slate-500 xl:inline">
+                                                        Registro: {fmtDT(prospecto?.creado)} · Primer contacto: {fmtDT(prospecto?.primer_contacto_at)} · Último contacto: {fmtDT(prospecto?.ultimo_contacto_at)}
                                                     </span>
-                                                </button>
-
-                                                <span className="inline-flex items-center gap-1">
-                                                    <Clock className="h-3.5 w-3.5" />
-                                                    {loadingChat ? "Cargando..." : "Listo"}
-                                                </span>
-
-                                                <span className="hidden text-[11px] font-bold text-slate-500 xl:inline">
-                                                    Registro: {fmtDT(prospecto?.creado)} · Primer contacto: {fmtDT(prospecto?.primer_contacto_at)} · Último contacto: {fmtDT(prospecto?.ultimo_contacto_at)}
-                                                </span>
-                                            </div>
+                                                </div>
+                                            ) : null}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Panel móvil colapsable — siempre visible cuando hay chat activo */}
-                                {activeTel ? (
+                                {/* Panel móvil colapsable SOLO en modo normal */}
+                                {activeTel && !isDirectChatMode ? (
                                     <details className="group rounded-2xl border border-black/10 bg-neutral-50 p-2 sm:p-3 lg:hidden">
                                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-1 py-1">
                                             <span className="text-xs font-extrabold uppercase tracking-wide text-[#131E5C]/70">
@@ -2898,7 +2949,7 @@ export default function DigitalesContacto() {
                                             </span>
 
                                             <input
-                                                value={activeChat?.nombre || quickEditDraft.nombre || ""}
+                                                value={activeChat?.nombre || "Selecciona un chat" || quickEditDraft.nombre || ""}
                                                 onChange={(e) =>
                                                     setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))
                                                 }
@@ -2984,7 +3035,7 @@ export default function DigitalesContacto() {
                             </div>
                         </div>
 
-                        {/* ── BANNER ESTADO IA ─────────────────────────────────── */}
+                        {/* ── BANNER ESTADO IA ──────────────────────────────────── */}
                         {activeTel ? (() => {
                             const visual = getIaEstadoVisual(iaEstado);
                             const expEstado = iaEstado?.expediente || {};
@@ -2992,25 +3043,26 @@ export default function DigitalesContacto() {
                             const cfgEstado = iaEstado?.configuracion || {};
 
                             return (
-                                <details className="group border-b border-black/8">
-                                    <summary className={cls(
-                                        "flex cursor-pointer list-none items-center gap-2 px-4 py-1.5 transition-colors",
-                                        "hover:bg-black/[0.02]"
-                                    )}>
-                                        <span className={cls("h-1.5 w-1.5 shrink-0 rounded-full", visual.dot)} />
-                                        <span className={cls(
-                                            "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-extrabold tracking-wide",
-                                            visual.cls,
-                                        )}>
-                                            {visual.label}
-                                        </span>
-                                        <span className="hidden truncate text-[11px] font-medium text-slate-400 group-open:hidden sm:block">
-                                            {visual.detail}
-                                        </span>
-                                        <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+                                <details className={cls("group border-b", visual.cls)}>
+                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5">
+                                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                                            <span
+                                                className={cls(
+                                                    "h-2 w-2 shrink-0 rounded-full",
+                                                    iaEstado?.puede_responder ? "bg-emerald-500" : iaEstado ? "bg-amber-500" : "bg-slate-400"
+                                                )}
+                                            />
+                                            <span className="text-xs font-extrabold">
+                                                {visual.label}
+                                            </span>
+                                            <span className="hidden truncate text-[11px] font-semibold opacity-75 sm:inline">
+                                                — {visual.detail}
+                                            </span>
+                                        </div>
+                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-60 transition-transform duration-200 group-open:rotate-180" />
                                     </summary>
 
-                                    <div className={cls("border-t border-black/8 px-4 py-3", visual.cls)}>
+                                    <div className="border-t border-black/10 px-4 py-3">
                                         <div className="mx-auto flex max-w-5xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                             <div className="min-w-0">
                                                 <div className="text-xs font-semibold opacity-80">
@@ -3061,7 +3113,7 @@ export default function DigitalesContacto() {
                                 </details>
                             );
                         })() : null}
-                        
+
                         {/* ── ÁREA DE MENSAJES ──────────────────────────────────── */}
                         <div
                             ref={messagesScrollRef}
