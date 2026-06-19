@@ -23,6 +23,7 @@ import {
     BrainCircuit,
     Bug,
     Lightbulb,
+    Send,
 } from "lucide-react";
 
 import ryr from "../assets/ryr.png";
@@ -84,11 +85,11 @@ export default function Sidebar() {
 
     const [collapsed, setCollapsed] = useState(false);
 
-  
+
     const [mobileOpen, setMobileOpen] = useState(false);
     const [mobileMounted, setMobileMounted] = useState(false);
 
-    
+
     const [openBugModal, setOpenBugModal] = useState(false);
     const [tipoReporte, setTipoReporte] = useState("BUG");
     const [titulo, setTitulo] = useState("");
@@ -132,14 +133,14 @@ export default function Sidebar() {
             setSaving(false);
         }
     };
-    
 
-    
+
+
     useEffect(() => {
         if (mobileOpen) setMobileMounted(true);
     }, [mobileOpen]);
 
-   
+
     useEffect(() => {
         const onResize = () => {
             if (window.innerWidth >= 768) {
@@ -152,7 +153,7 @@ export default function Sidebar() {
         return () => window.removeEventListener("resize", onResize);
     }, []);
 
-    
+
     useEffect(() => {
         if (!mobileOpen) return;
         const prev = document.body.style.overflow;
@@ -185,11 +186,10 @@ export default function Sidebar() {
                 icon: HandCoins,
                 show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
             },
-
             {
                 to: "/encuesta_whats",
                 label: "Envio Encuestas",
-                icon: HandCoins,
+                icon: Send,
                 show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
             },
             //avaluos / ventas cruzadas
@@ -199,14 +199,14 @@ export default function Sidebar() {
                 icon: Car,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_VENTAS", "CRM_DIGITALES", "CRM_CALIDAD"]),
             },
-            
+
             {
                 to: "/financieros",
                 label: "Servicios Financieros",
                 icon: TrendingUp,
                 show: hasAnyPermission(["CRM_FINANCIEROS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]),
             },
-       
+
             {
                 to: "/postventa",
                 label: "PostVenta",
@@ -364,7 +364,7 @@ export default function Sidebar() {
                     </div>
                 </nav>
 
-    
+
                 <div className={cls("mt-auto border-t border-slate-200 px-4 py-3", !showText && !isMobile && "px-2")}>
                     <div className={cls("flex flex-col gap-1", !showText && !isMobile && "items-center")}>
                         <div className={cls("flex items-center", showText ? "gap-3 px-3 py-2" : "justify-center py-2")}>
@@ -443,7 +443,7 @@ export default function Sidebar() {
 
     return (
         <>
-         
+
             <div className="md:hidden sticky top-0 z-40 border-b border-slate-200 bg-white">
                 <div className="flex items-center justify-between px-3 py-3">
                     <IconBtn onClick={() => setMobileOpen(true)} title="Abrir menú" className="text-slate-700 hover:bg-slate-50">
@@ -515,7 +515,7 @@ export default function Sidebar() {
                 </div>
             ) : null}
 
-           
+
             {openBugModal && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
