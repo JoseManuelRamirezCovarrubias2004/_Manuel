@@ -67,6 +67,7 @@ const MOTIVOS_INGRESO = [
 ];
 
 const TIPOS_PERSONA = ["Física", "Moral"];
+const TIPOS_VENTA = ["Nuevo", "Seminuevo", "Comercial"];
 const TIEMPOS_COMPRA = ["Este mes", "De 1 a 3 meses", "De 3 a 6 meses"];
 
 const FORMAS_CAPITALIZACION = [
@@ -191,6 +192,7 @@ const INITIAL_FORM = {
     asesor_ventas: "",
     motivo_ingreso: "",
     tipo_persona: "Física",
+    tipo_venta: "",
     tiempo_compra: "",
     auto_suenos: "",
     deja_auto_cuenta: false,
@@ -976,6 +978,7 @@ export default function TraficoPiso() {
                                         <th className="px-4 py-3"><SortButton label="Prospecto" sortKey="nombre_prospecto" sort={sort} onClick={toggleSort} /></th>
                                         <th className="px-4 py-3">Teléfono</th>
                                         <th className="px-4 py-3"><SortButton label="Asesor" sortKey="asesor_ventas" sort={sort} onClick={toggleSort} /></th>
+                                        <th className="px-4 py-3"><SortButton label="Tipo venta" sortKey="tipo_venta" sort={sort} onClick={toggleSort} /></th>
                                         <th className="px-4 py-3">Ingreso</th>
                                         <th className="px-4 py-3">Compra</th>
                                         <th className="px-4 py-3"><SortButton label="Presupuesto" sortKey="presupuesto_estimado" sort={sort} onClick={toggleSort} /></th>
@@ -1070,6 +1073,7 @@ export default function TraficoPiso() {
                                 <Field label="Asesor de ventas" icon={UserRoundSearch} required hint="Buscar" invalid={isInvalid("asesor_ventas")}><AsesorAutocomplete value={draft.asesor_ventas} invalid={isInvalid("asesor_ventas")} onChange={(value) => updateField("asesor_ventas", value)} /></Field>
                                 <Field label="Ingresó a la agencia porque" icon={MessageSquareText} required invalid={isInvalid("motivo_ingreso")}><Select value={draft.motivo_ingreso} invalid={isInvalid("motivo_ingreso")} onChange={(e) => updateField("motivo_ingreso", e.target.value)}><option value="">Seleccionar...</option>{MOTIVOS_INGRESO.map((x) => <option key={x} value={x}>{x}</option>)}</Select></Field>
                                 <Field label="Tipo de persona" icon={Users} required><div className="grid grid-cols-2 gap-2">{TIPOS_PERSONA.map((tipo) => (<button key={tipo} type="button" onClick={() => updateField("tipo_persona", tipo)} className={["rounded-lg border px-3 py-2 text-sm font-extrabold transition", draft.tipo_persona === tipo ? "border-[#131E5C] bg-[#131E5C] text-white" : "border-black/10 bg-white text-[#131E5C] hover:bg-slate-50"].join(" ")}>{tipo}</button>))}</div></Field>
+                                <Field label="Tipo de venta" icon={CarFront}> <Select value={draft.tipo_venta} onChange={(e) => updateField("tipo_venta", e.target.value)}> <option value="">Seleccionar...</option>  {TIPOS_VENTA.map((x) => <option key={x} value={x}>{x}</option>)}  </Select>  </Field>
                             </div>
                         </Section>
                         <Section title="Intención de compra" icon={CarFront}>

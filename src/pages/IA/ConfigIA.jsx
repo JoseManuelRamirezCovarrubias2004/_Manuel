@@ -1219,21 +1219,11 @@ export default function ConfigIA() {
             {/* Top bar */}
             <div className="sticky top-0 z-40 border-b border-[#E4E7F0] bg-white/95 backdrop-blur-sm">
                 <div className="mx-auto max-w-full px-4 sm:px-6">
-                    <div className="flex h-14 items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: C.navy }}>
-                                <Bot className="h-4 w-4 text-white" />
-                            </div>
-                            <div className="flex items-center gap-1.5 text-sm">
-                                <span className="font-semibold text-[#8891AD]">Digitales</span>
-                                <ChevronRight className="h-3.5 w-3.5 text-[#C8CEDF]" />
-                                <span className="font-bold text-[#1A1F3C]">Agentes IA</span>
-                            </div>
-                        </div>
-                        <nav className="flex items-center gap-1 rounded-xl border border-[#E4E7F0] bg-[#F7F8FC] p-1">
+                    <div className="flex h-14 items-center justify-center gap-3" py-2>
+                        <nav className="flex items-center gap-1 rounded-xl p-1">
                             {[{ id: "config", label: "Configuración", icon: Bot }, { id: "catalogo", label: "Catálogo", icon: Car }].map(({ id, label, icon: Icon }) => (
                                 <button key={id} onClick={() => setTab(id)}
-                                    className={`flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-semibold transition-all duration-150 ${tab === id ? "bg-white text-[#1A1F3C] shadow-sm border border-[#E4E7F0]" : "text-[#8891AD] hover:text-[#1A1F3C]"}`}>
+                                    className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all duration-150 hover:bg-gray-100 hover:shadow-md ${tab === id ? "bg-white text-[#1A1F3C] shadow-sm border border-[#E4E7F0]" : "text-[#8891AD] hover:text-[#1A1F3C]"}`}>
                                     <Icon className="h-3.5 w-3.5" />{label}
                                 </button>
                             ))}
@@ -1242,13 +1232,14 @@ export default function ConfigIA() {
                             {tab === "config" && (
                                 <>
                                     <button onClick={() => cargarConfig(numeroSeleccionado)} disabled={cargandoConfig}
-                                        className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-[#E4E7F0] bg-white px-3 py-2 text-xs font-semibold text-[#515778] hover:bg-[#F7F8FC] disabled:opacity-50 transition-all">
-                                        {cargandoConfig ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                        className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-[#E4E7F0] bg-white px-6 py-2.5 text-sm font-semibold text-[#515778] hover:bg-[#F7F8FC] disabled:opacity-50 transition-all">
+                                        {cargandoConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                                         Sincronizar
                                     </button>
+
                                     <button onClick={publicarConfig} disabled={guardandoConfig}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#131E5C] px-4 py-2 text-xs font-bold text-white hover:bg-[#0a1340] disabled:opacity-50 transition-all shadow-sm">
-                                        {guardandoConfig ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#131E5C] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#0a1340] disabled:opacity-50 transition-all shadow-md shadow-[#131E5C]/20">
+                                        {guardandoConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
                                         Publicar IA
                                     </button>
                                 </>

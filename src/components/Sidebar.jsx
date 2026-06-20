@@ -224,7 +224,7 @@ export default function Sidebar() {
                 to: "/configuracion_ia",
                 label: "Panel de Inteligencias Artificiales",
                 icon: BrainCircuit,
-                show: hasAnyPermission(["USUARIOS_ADMIN"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_DIGITALES"]),
             },
             {
                 to: "/qr",
