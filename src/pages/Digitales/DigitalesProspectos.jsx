@@ -390,47 +390,203 @@ function getEndOfMonth(date) {
 function getEndOfWeek(date) { const s = getStartOfWeek(date); s.setDate(s.getDate() + 6); return s; }
 
 // ─── Lead Score (computed heuristic) ─────────────────────────────────────────
+// ─── Lead Score financiero realista ─────────────────────────────────────────
+
+const PRECIO_REFERENCIA_VW = {
+    virtus: 360000,
+    polo: 350000,
+    jetta: 480000,
+    "jetta gli": 650000,
+    "golf gti": 800000,
+    taos: 560000,
+    nivus: 460000,
+    taigun: 430000,
+    tiguan: 720000,
+    teramont: 1150000,
+    crossport: 980000,
+    saveiro: 330000,
+    amarok: 780000,
+    transporter: 720000,
+    caddy: 590000,
+    crafter: 980000,
+    tera: 390000,
+    seminuevos: 350000,
+};
+
+const ENGANCHE_MINIMO_PCT = 0.20;
+
+// Aproximación conservadora para estimar mensualidad mínima.
+// No es cotización oficial, solo sirve para scoring interno.
+const FACTOR_MENSUALIDAD_APROX = 0.024;
+
+function getPrecioReferenciaVehiculo(row) {
+    const interes = normalizeText(row?.cliente_interes || "");
+
+    if (!interes) return 0;
+
+    const match = Object.entries(PRECIO_REFERENCIA_VW).find(([modelo]) =>
+        interes.includes(normalizeText(modelo))
+    );
+
+    return match ? match[1] : 450000;
+}
+
+function getEngancheMinimoEstimado(row) {
+    const precio = getPrecioReferenciaVehiculo(row);
+
+    if (!precio) return 0;
+
+    return Math.round(precio * ENGANCHE_MINIMO_PCT);
+}
+
+function getMensualidadMinimaEstimada(row) {
+    const precio = getPrecioReferenciaVehiculo(row);
+    const enganche = toNumber(row.enganche_monto);
+
+    if (!precio) return 0;
+
+    const montoFinanciar = Math.max(precio - enganche, 0);
+
+    return Math.round(montoFinanciar * FACTOR_MENSUALIDAD_APROX);
+}
+
+function getPerfilFinancieroDiagnostico(row) {
+    const precio = getPrecioReferenciaVehiculo(row);
+    const enganche = toNumber(row.enganche_monto);
+    const engancheMinimo = getEngancheMinimoEstimado(row);
+    const mensualidad = toNumber(row.presupuesto_mensual);
+    const mensualidadMinima = getMensualidadMinimaEstimada(row);
+
+    const ratioEnganche = engancheMinimo > 0 ? enganche / engancheMinimo : 0;
+    const faltanteEnganche = Math.max(engancheMinimo - enganche, 0);
+
+    return {
+        precio,
+        enganche,
+        engancheMinimo,
+        mensualidad,
+        mensualidadMinima,
+        ratioEnganche,
+        faltanteEnganche,
+        engancheSuficiente: engancheMinimo > 0 && enganche >= engancheMinimo,
+    };
+}
+
 function calcLeadScore(row) {
-    let score = 25;
+    let score = 8;
 
-    if (row.cliente_interes) score += 12;
-    if (row.resumen && row.resumen.length > 20) score += 8;
-    if (toNumber(row.enganche_monto)) score += 8;
-    if (toNumber(row.presupuesto_mensual)) score += 6;
-    if (row.forma_pago) score += 4;
-    if (row.tipo_cliente) score += 3;
-    if (row.plazo_compra) score += 4;
-    if (row.comprobacion_ingresos) score += 4;
+    const estado = normalizeText(row.estado);
+    const buro = normalizeText(row.buro_estado);
+    const formaPago = normalizeText(row.forma_pago);
+    const plazo = normalizeText(row.plazo_compra);
 
-    const buro = String(row.buro_estado || "").toLowerCase();
-    if (buro === "bueno") score += 7;
-    else if (buro === "regular") score += 3;
-    else if (buro === "iniciando") score += 1;
+    const perfil = getPerfilFinancieroDiagnostico(row);
+    const esCredito = formaPago === "credito" || formaPago === "arrendamiento" || !formaPago || formaPago === "desconocido";
 
-    if (row.ultimo_contacto_at) {
-        const h = (Date.now() - new Date(row.ultimo_contacto_at).getTime()) / 36e5;
-        if (h < 2) score += 20;
-        else if (h < 24) score += 12;
-        else if (h < 72) score += 4;
+    // Interés real
+    if (row.cliente_interes) score += 8;
+    else score -= 5;
+
+    // Estado comercial
+    if (estado === "calificado") score += 12;
+    else if (estado === "pendiente de cotizacion" || estado === "pendiente de cotización") score += 9;
+    else if (estado === "financiamiento") score += 8;
+    else if (estado === "contactado") score += 4;
+    else if (estado === "sin respuesta") score -= 14;
+    else if (estado === "descalificado") score -= 40;
+
+    // Enganche contra mínimo estimado del 20%
+    if (esCredito) {
+        if (!perfil.enganche) {
+            score -= 10;
+        } else if (perfil.ratioEnganche >= 1) {
+            score += 24;
+        } else if (perfil.ratioEnganche >= 0.75) {
+            score += 15;
+        } else if (perfil.ratioEnganche >= 0.5) {
+            score += 7;
+        } else if (perfil.ratioEnganche >= 0.25) {
+            score -= 4;
+        } else {
+            score -= 18;
+        }
     }
 
-    const e = String(row.estado || "").toLowerCase();
-    if (e === "calificado") score += 12;
-    else if (e === "contactado") score += 7;
-    else if (e === "sin respuesta") score -= 12;
-    else if (e === "descalificado") score -= 25;
+    // Mensualidad contra estimado aproximado
+    if (esCredito) {
+        if (!perfil.mensualidad) {
+            score -= 6;
+        } else if (perfil.mensualidadMinima && perfil.mensualidad >= perfil.mensualidadMinima) {
+            score += 14;
+        } else if (perfil.mensualidadMinima && perfil.mensualidad >= perfil.mensualidadMinima * 0.75) {
+            score += 6;
+        } else {
+            score -= 8;
+        }
+    }
 
-    if (row.cotizacion_pendiente) score += 8;
-    if (row.requiere_asesor) score += 5;
-    if (row.ia_pausada) score -= 7;
+    // Buró
+    if (buro === "bueno") score += 14;
+    else if (buro === "regular") score += 5;
+    else if (buro === "iniciando") score -= 10;
+    else if (buro === "desconocido" || !buro) score -= 6;
 
-    return Math.min(100, Math.max(0, score));
+    // Forma de pago
+    if (formaPago === "contado") score += 18;
+    else if (formaPago === "credito") score += 5;
+    else if (formaPago === "arrendamiento") score += 6;
+    else score -= 3;
+
+    // Perfil de compra
+    if (plazo === "inmediato") score += 10;
+    else if (plazo === "esta semana") score += 8;
+    else if (plazo === "este mes") score += 5;
+    else if (plazo === "1 a 3 meses") score += 2;
+    else if (plazo === "mas de 6 meses" || plazo === "más de 6 meses") score -= 6;
+
+    if (row.comprobacion_ingresos) score += 6;
+    if (row.tipo_cliente) score += 2;
+    if (row.asesor_solicita) score += 6;
+    else score -= 4;
+
+    // Actividad reciente, pero ya no debe inflar demasiado
+    if (row.ultimo_contacto_at) {
+        const h = (Date.now() - new Date(row.ultimo_contacto_at).getTime()) / 36e5;
+
+        if (h < 2) score += 6;
+        else if (h < 24) score += 4;
+        else if (h < 72) score += 2;
+        else if (h > 168) score -= 6;
+    }
+
+    if (row.cotizacion_pendiente) score += 5;
+    if (row.requiere_asesor) score += 4;
+    if (row.ia_pausada) score -= 5;
+
+    // Topes de realidad financiera
+    if (esCredito && perfil.engancheMinimo && perfil.enganche && perfil.enganche < perfil.engancheMinimo * 0.5) {
+        score = Math.min(score, 45);
+    }
+
+    if (esCredito && (!buro || buro === "desconocido")) {
+        score = Math.min(score, 60);
+    }
+
+    if (buro === "iniciando") {
+        score = Math.min(score, 50);
+    }
+
+    if (!row.asesor_solicita) {
+        score = Math.min(score, 70);
+    }
+
+    return Math.min(100, Math.max(0, Math.round(score)));
 }
 
 function getScoreLabel(score) {
-    if (score >= 75) return { label: "Muy alto", cls: "text-emerald-700 bg-emerald-50 border-emerald-200" };
-    if (score >= 50) return { label: "Alto", cls: "text-amber-700 bg-amber-50 border-amber-200" };
-    if (score >= 30) return { label: "Medio", cls: "text-sky-700 bg-sky-50 border-sky-200" };
+    if (score >= 80) return { label: "Muy alto", cls: "text-emerald-700 bg-emerald-50 border-emerald-200" };
+    if (score >= 60) return { label: "Alto", cls: "text-amber-700 bg-amber-50 border-amber-200" };
+    if (score >= 35) return { label: "Medio", cls: "text-sky-700 bg-sky-50 border-sky-200" };
     return { label: "Bajo", cls: "text-slate-500 bg-slate-50 border-slate-200" };
 }
 
@@ -563,7 +719,7 @@ function SidePanel({ rows, highlighted, onSelectHighlight }) {
         [rows]
     );
 
-    const leadsCalientes = useMemo(() => rows.filter(r => calcLeadScore(r) >= 75).length, [rows]);
+    const leadsCalientes = useMemo(() => rows.filter(r => calcLeadScore(r) >= 80).length, [rows]);
     const pendientesIA = useMemo(() => rows.filter(r => r.cotizacion_pendiente || r.requiere_asesor).length, [rows]);
 
     const topHighlight = useMemo(() => {
@@ -578,7 +734,7 @@ function SidePanel({ rows, highlighted, onSelectHighlight }) {
     const total = rows.length || 1;
 
     return (
-        <aside className="flex flex-col gap-4 w-72 flex-shrink-0">
+        <aside className="flex flex-col gap-4 w-64 flex-shrink-0">
 
             {/* Prospecto destacado */}
             <div className="rounded-2xl border border-black/10 bg-white shadow-sm overflow-hidden">
@@ -594,10 +750,6 @@ function SidePanel({ rows, highlighted, onSelectHighlight }) {
                 {topHighlight ? (
                     <div className="p-4">
                         <div className="flex items-center gap-3 mb-3">
-                            <div className="h-10 w-10 rounded-full bg-[#131E5C]/10 flex items-center justify-center text-sm font-black text-[#131E5C] flex-shrink-0">
-                                {(topHighlight.cliente_nombre?.[0] || "?")}
-                                {(topHighlight.cliente_apellidos?.[0] || "")}
-                            </div>
                             <div className="min-w-0">
                                 <div className="text-sm font-bold text-[#131E5C] truncate">
                                     {`${topHighlight.cliente_nombre} ${topHighlight.cliente_apellidos}`.trim() || "Sin nombre"}
@@ -1393,7 +1545,7 @@ export default function DigitalesProspectos() {
     // KPIs
     const kpis = useMemo(() => {
         const total = sorted.length;
-        const calientes = sorted.filter(r => calcLeadScore(r) >= 75).length;
+        const calientes = sorted.filter(r => calcLeadScore(r) >= 80).length;
         const sinResp = sorted.filter(r => String(r.estado || "").toLowerCase() === "sin respuesta").length;
         const pendIA = sorted.filter(r => r.cotizacion_pendiente || r.requiere_asesor).length;
         const conPerfil = sorted.filter(hasPerfilComercial).length;
@@ -2120,6 +2272,7 @@ export default function DigitalesProspectos() {
                                                 const score = calcLeadScore(row);
                                                 const { label: scoreLabel, cls: scoreCls } = getScoreLabel(score);
                                                 const prioridad = getPrioridad(row);
+                                                const perfilFin = getPerfilFinancieroDiagnostico(row);
                                                 const isUpdating = !!updatingEstado[row.id_exp];
                                                 return (
                                                     <tr key={row.id_exp}
@@ -2161,22 +2314,76 @@ export default function DigitalesProspectos() {
                                                         <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">{row.origen || "—"}</td>
                                                         <td className="px-3 py-2.5">
                                                             <div className="flex items-center gap-1">
-                                                                <div className={cls("h-1.5 w-1.5 rounded-full flex-shrink-0", row.asesor_digital?.toLowerCase().includes("ia") ? "bg-emerald-500" : "bg-slate-300")} />
-                                                                <span className="text-xs text-[#131E5C] truncate max-w-[100px]">{row.asesor_digital || "—"}</span>
+                                                                <div
+                                                                    className={cls(
+                                                                        "h-1.5 w-1.5 rounded-full flex-shrink-0",
+                                                                        row.asesor_digital?.toLowerCase().includes("ia")
+                                                                            ? "bg-emerald-500"
+                                                                            : "bg-slate-300"
+                                                                    )}
+                                                                />
+                                                                <span
+                                                                    className="text-xs text-[#131E5C] truncate max-w-[110px]"
+                                                                    title={row.asesor_digital || ""}
+                                                                >
+                                                                    {row.asesor_digital || "—"}
+                                                                </span>
                                                             </div>
                                                         </td>
+
+                                                        <td className="px-3 py-2.5 min-w-[170px]">
+                                                            {row.asesor_solicita ? (
+                                                                <div>
+                                                                    <div
+                                                                        className="text-xs font-bold text-[#131E5C] truncate max-w-[160px]"
+                                                                        title={row.asesor_solicita}
+                                                                    >
+                                                                        {row.asesor_solicita}
+                                                                    </div>
+                                                                    <div className="mt-0.5 text-[11px] text-slate-400">
+                                                                        Asesor de piso/ventas
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">
+                                                                    Sin asignar
+                                                                </span>
+                                                            )}
+                                                        </td>
+
                                                         <td className="px-3 py-2.5">
                                                             <LeadScoreRing score={score} />
                                                         </td>
-                                                        <td className="px-3 py-2.5 min-w-[190px]">
+                                                        <td className="px-3 py-2.5 min-w-[220px]">
                                                             <div className="text-xs font-bold text-[#131E5C]">
                                                                 Eng. {formatMoneyMXN(row.enganche_monto)}
                                                             </div>
-                                                            <div className="mt-0.5 text-[11px] text-slate-500">
-                                                                Mens. {formatMoneyMXN(row.presupuesto_mensual)} · Buró {valueOrDash(row.buro_estado)}
+
+                                                            <div
+                                                                className={cls(
+                                                                    "mt-0.5 text-[11px] font-semibold",
+                                                                    perfilFin.engancheSuficiente ? "text-emerald-600" : "text-amber-700"
+                                                                )}
+                                                            >
+                                                                Mín. 20%: {formatMoneyMXN(perfilFin.engancheMinimo)}
                                                             </div>
+
+                                                            {perfilFin.faltanteEnganche > 0 ? (
+                                                                <div className="mt-0.5 text-[11px] font-bold text-red-500">
+                                                                    Faltan {formatMoneyMXN(perfilFin.faltanteEnganche)}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="mt-0.5 text-[11px] font-bold text-emerald-600">
+                                                                    Enganche suficiente
+                                                                </div>
+                                                            )}
+
+                                                            <div className="mt-0.5 text-[11px] text-slate-500">
+                                                                Mens. {formatMoneyMXN(row.presupuesto_mensual)} · Est. {formatMoneyMXN(perfilFin.mensualidadMinima)}
+                                                            </div>
+
                                                             <div className="mt-0.5 text-[11px] text-slate-400">
-                                                                {valueOrDash(row.forma_pago)}
+                                                                Buró {valueOrDash(row.buro_estado)} · {valueOrDash(row.forma_pago)}
                                                             </div>
                                                         </td>
                                                         <td className="px-3 py-2.5 min-w-[190px]">

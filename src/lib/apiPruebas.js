@@ -572,11 +572,17 @@ export const api = {
   },
 
   // Envío de mensajes
-  digitalesEnviarMensaje: ({ to, text }) =>
+  digitalesEnviarMensaje: ({ to, text, reply_to_message_id = "" }) =>
     http("/digitales/mensajes/enviar/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({ to, text })),
+      body: JSON.stringify(
+        withRequestContext({
+          to,
+          text,
+          reply_to_message_id,
+        }),
+      ),
     }),
 
   digitalesEnviarPlantilla: (payload) =>
@@ -586,13 +592,22 @@ export const api = {
       body: JSON.stringify(withRequestContext(payload)),
     }),
 
-  digitalesEnviarMedia: ({ to, text = "", files = [] }) => {
+  digitalesEnviarMedia: ({
+    to,
+    text = "",
+    files = [],
+    reply_to_message_id = "",
+  }) => {
     const fd = new FormData();
 
     fd.append("to", String(to || "").trim());
 
     if (text) {
       fd.append("text", String(text));
+    }
+
+    if (reply_to_message_id) {
+      fd.append("reply_to_message_id", String(reply_to_message_id));
     }
 
     appendContextToFormData(fd);

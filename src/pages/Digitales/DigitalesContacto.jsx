@@ -1045,6 +1045,7 @@ function MessageBubble({
     attachments = [],
     isAi = false,
     renderText,
+    onReply,
 }) {
     const shown = renderText ? renderText(text) : text;
     const statusText = prettyStatus(status);
@@ -1150,6 +1151,24 @@ function MessageBubble({
                         <span>{time}</span>
                         {mine ? <span>{statusText}</span> : null}
                     </div>
+                    {onReply ? (
+                        <div className={cls("mt-2 flex", mine ? "justify-end" : "justify-start")}>
+                            <button
+                                type="button"
+                                onClick={onReply}
+                                className={cls(
+                                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition",
+                                    mine
+                                        ? "bg-white/15 text-white hover:bg-white/25"
+                                        : "bg-[#131E5C]/10 text-[#131E5C] hover:bg-[#131E5C]/15"
+                                )}
+                                title="Responder a este mensaje"
+                            >
+                                <Pencil className="h-3 w-3" />
+                                Responder
+                            </button>
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -1160,6 +1179,7 @@ export default function DigitalesContacto() {
     const navigate = useNavigate();
     const location = useLocation();
     const [params] = useSearchParams();
+    const [replyToMsg, setReplyToMsg] = useState(null);
 
     const telParam = params.get("tel") || "";
     const directParam = params.get("direct") || "";
@@ -1714,10 +1734,13 @@ export default function DigitalesContacto() {
 
     function resetComposer() {
         setDraftMsg("");
+
         if (inputRef.current) {
             inputRef.current.value = "";
         }
+
         setEditingMsgId(null);
+        setReplyToMsg(null);
         setOpenEmoji(false);
         cleanupPreviews(attachments);
         setAttachments([]);
@@ -1964,16 +1987,55 @@ export default function DigitalesContacto() {
         ]);
 
         try {
+            const replyMessageId = replyToMsg?.wa_message_id || "";
+
             await api.digitalesEnviarMensaje({
                 to: activeTel,
                 text: text.trim(),
+                reply_to_message_id: replyMessageId,
             });
+
+            setReplyToMsg(null);
 
             await refreshActiveChat(activeTel, { forceBottom: true });
         } catch (error) {
             alert(`Falló: ${error.message}`);
             await refreshActiveChat(activeTel).catch(() => { });
         }
+    }
+
+    function getReplyPreview(message) {
+        if (!message) return "";
+
+        const text = String(message.text || message.body || "").trim();
+
+        if (text) {
+            return text.length > 90 ? `${text.slice(0, 90)}…` : text;
+        }
+
+        const attachmentsCount = Array.isArray(message.attachments)
+            ? message.attachments.length
+            : 0;
+
+        if (attachmentsCount > 0) {
+            return "Archivo adjunto";
+        }
+
+        return "Mensaje seleccionado";
+    }
+
+    function getReplyAuthor(message) {
+        if (!message) return "";
+
+        if (message.mine) {
+            if (message.is_ai || message?.raw?.ia_provider || message?.raw?.ia_model) {
+                return "IA";
+            }
+
+            return "Asesor";
+        }
+
+        return "Cliente";
     }
 
     async function enviarMensaje() {
@@ -1987,6 +2049,7 @@ export default function DigitalesContacto() {
 
         const editId = editingMsgId;
         const currentAttachments = attachments;
+        const replyMessageId = replyToMsg?.wa_message_id || "";
 
         if (editId) {
             if (!hasText) {
@@ -2060,11 +2123,13 @@ export default function DigitalesContacto() {
                     to: activeTel,
                     text: hasText ? text : "",
                     files: currentAttachments.map((attachment) => attachment.file),
+                    reply_to_message_id: replyMessageId,
                 });
             } else {
                 await api.digitalesEnviarMensaje({
                     to: activeTel,
                     text,
+                    reply_to_message_id: replyMessageId,
                 });
             }
 
@@ -3229,24 +3294,60 @@ export default function DigitalesContacto() {
                                         Aún no hay mensajes con este número.
                                     </div>
                                 ) : (
-                                    mensajes.map((message) => (
-                                        <MessageBubble
-                                            key={getMessageKey(message)}
-                                            mine={Boolean(message.mine)}
-                                            text={message.text}
-                                            time={message.time || ""}
-                                            status={message.status || "sent"}
-                                            attachments={message.attachments || []}
-                                            isAi={Boolean(message.is_ai)}
-                                            renderText={renderTextForBubble}
-                                        />
-                                    ))
+                                    mensajes.map((message) => {
+                                        const messageId = message.wa_message_id || "";
+
+                                        return (
+                                            <MessageBubble
+                                                key={getMessageKey(message)}
+                                                mine={Boolean(message.mine)}
+                                                text={message.text}
+                                                time={message.time || ""}
+                                                status={message.status || "sent"}
+                                                attachments={message.attachments || []}
+                                                isAi={Boolean(message.is_ai)}
+                                                renderText={renderTextForBubble}
+                                                onReply={
+                                                    messageId && !message.local_pending
+                                                        ? () => {
+                                                            setReplyToMsg(message);
+                                                            requestAnimationFrame(() => {
+                                                                inputRef.current?.focus?.();
+                                                            });
+                                                        }
+                                                        : null
+                                                }
+                                            />
+                                        );
+                                    })
                                 )}
 
                                 <div ref={endRef} />
                             </div>
                         </div>
+                        {replyToMsg ? (
+                            <div className="border-t border-black/10 bg-[#131E5C]/5 px-4 py-2">
+                                <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-xl border border-[#131E5C]/15 bg-white px-3 py-2 shadow-sm">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">
+                                            Respondiendo a {getReplyAuthor(replyToMsg)}
+                                        </div>
+                                        <div className="truncate text-xs font-semibold text-[#131E5C]">
+                                            {getReplyPreview(replyToMsg)}
+                                        </div>
+                                    </div>
 
+                                    <button
+                                        type="button"
+                                        onClick={() => setReplyToMsg(null)}
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-slate-500 hover:bg-neutral-50"
+                                        title="Cancelar respuesta"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : null}
                         {/* ── COMPOSITOR ───────────────────────────────────────── */}
                         <div
                             className={cls(

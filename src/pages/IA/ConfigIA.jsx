@@ -6,6 +6,7 @@ import {
     Trash2, X, Zap, Clock, Shield, AlertCircle,
     BarChart3, Wifi, WifiOff, ChevronRight, Info,
     ExternalLink, Tag, Calendar, Activity, Layers,
+    BadgePercent,
 } from "lucide-react";
 import { api } from "../../lib/apiPruebas";
 
@@ -20,6 +21,17 @@ const C = {
     text: "#1A1F3C",
     textSub: "#515778",
 };
+const IA_GLOBAL_KEY = "GLOBAL";
+
+function normalizaNumeroConfigIA(value) {
+    const raw = String(value || "").trim();
+
+    if (["GLOBAL", "TODOS", "ALL", "*"].includes(raw.toUpperCase())) {
+        return IA_GLOBAL_KEY;
+    }
+
+    return normalizaTelefonoMx(raw);
+}
 
 // ─── Datos estáticos
 const secciones = [
@@ -50,6 +62,13 @@ const secciones = [
         icon: Shield,
         desc: "Cuándo y cómo debe derivar el agente a un asesor humano.",
         placeholder: "Ej: Si el cliente pide cotización formal, apartar unidad, mensualidad exacta o disponibilidad final, marcar pendiente y canalizar asesor.",
+    },
+    {
+        id: "promociones_eventos",
+        titulo: "Promociones y Eventos",
+        icon: BadgePercent,
+        desc: "Configuracion especial para eventos activos.",
+        placeholder: "Ej: Si el cliente pide inscripcion a vocho fest, promociones actuales, etc.",
     },
     {
         id: "personalidad",
@@ -291,7 +310,11 @@ function PromptField({ seccion, value, onChange, onSave, saving }) {
 
     useEffect(() => { if (!editing) setDraft(value); }, [value, editing]);
 
-    function handleSave() { onChange(draft); setEditing(false); onSave(); }
+    function handleSave() {
+        onChange(draft);
+        setEditing(false);
+        onSave?.(draft);
+    }
     function handleCancel() { setDraft(value); setEditing(false); }
 
     return (
@@ -342,8 +365,8 @@ function PromptField({ seccion, value, onChange, onSave, saving }) {
                         placeholder={seccion.placeholder}
                         rows={4}
                         className={`w-full resize-y rounded-xl text-sm text-[#1A1F3C] leading-relaxed outline-none transition-all duration-200 placeholder:text-[#C8CEDF] ${editing
-                                ? "border border-[#131E5C]/20 bg-white px-4 py-3 focus:ring-2 focus:ring-[#131E5C]/10"
-                                : "border-0 bg-transparent px-0 py-0 cursor-default"
+                            ? "border border-[#131E5C]/20 bg-white px-4 py-3 focus:ring-2 focus:ring-[#131E5C]/10"
+                            : "border-0 bg-transparent px-0 py-0 cursor-default"
                             }`}
                     />
                 )}
@@ -721,7 +744,7 @@ function HorariosBlock({ horarios, onChange, lineasIA = [], onSave, saving }) {
     return (
         <div className="rounded-2xl border border-[#E4E7F0] bg-white overflow-hidden">
 
-           {/* Header */}
+            {/* Header */}
             <div className="flex items-center justify-between gap-3 px-5 py-4">
                 <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#131E5C]/8">
@@ -787,10 +810,10 @@ function HorariosBlock({ horarios, onChange, lineasIA = [], onSave, saving }) {
                                 return (
                                     <button key={dia.id} onClick={() => setDiaActivo(dia.id)}
                                         className={`rounded-full px-3 py-1.5 text-xs font-bold transition-all border ${diaActivo === dia.id
-                                                ? "bg-[#131E5C] text-white border-[#131E5C]"
-                                                : h.activo
-                                                    ? "bg-white text-[#1A1F3C] border-[#C8CEDF] hover:border-[#131E5C]"
-                                                    : "bg-[#F7F8FC] text-[#C8CEDF] border-[#E4E7F0]"
+                                            ? "bg-[#131E5C] text-white border-[#131E5C]"
+                                            : h.activo
+                                                ? "bg-white text-[#1A1F3C] border-[#C8CEDF] hover:border-[#131E5C]"
+                                                : "bg-[#F7F8FC] text-[#C8CEDF] border-[#E4E7F0]"
                                             }`}>
                                         {dia.label.slice(0, 3)}
                                     </button>
@@ -996,49 +1019,105 @@ export default function ConfigIA() {
         try {
             const res = await api.iaLineas();
             const items = Array.isArray(res?.items) ? res.items : [];
-            setLineasIA(items);
-            if (!numeroSeleccionado && items.length) setNumero(items[0].numero);
-        } catch { showToast("No se pudieron cargar las líneas de WhatsApp.", "error"); }
+
+            const globalItem = {
+                numero: IA_GLOBAL_KEY,
+                key: "global",
+                label: "Configuración global - Todas las líneas",
+                asesor_digital: "IA Global",
+                agencia: "Todas las agencias",
+                business: "Todos",
+                ia_configurada: true,
+                ia_activa: items.some((item) => item.ia_activa),
+                en_horario: items.some((item) => item.en_horario),
+                puede_responder_linea: items.some((item) => item.puede_responder_linea),
+                bloqueos_linea: [],
+                config_origen: "global",
+                numero_config: IA_GLOBAL_KEY,
+            };
+
+            const finalItems = [globalItem, ...items];
+
+            setLineasIA(finalItems);
+
+            if (!numeroSeleccionado) {
+                setNumero(IA_GLOBAL_KEY);
+            }
+        } catch {
+            showToast("No se pudieron cargar las líneas de WhatsApp.", "error");
+        }
     }
 
     async function cargarConfig(numero = numeroSeleccionado) {
-        const num = normalizaTelefonoMx(numero);
+        const num = normalizaNumeroConfigIA(numero);
+
         if (!num) return;
+
         setCargandoConfig(true);
+
         try {
             const res = await api.get(`/digitales/ia/config/${encodeURIComponent(num)}/`);
             const item = res?.item || res || {};
+
             setSwiftActivo(Boolean(item.activo));
-            setHorarios(item.horarios && typeof item.horarios === "object" ? item.horarios : horarioInicial());
-            setCampos({ identidad: item.identidad || "", precios: item.precios || "", perfilamiento: item.perfilamiento || "", limites: item.limites || "", personalidad: item.personalidad || "" });
+
+            setHorarios(
+                item.horarios && typeof item.horarios === "object"
+                    ? item.horarios
+                    : horarioInicial()
+            );
+
+            setCampos({
+                identidad: item.identidad || "",
+                precios: item.precios || "",
+                perfilamiento: item.perfilamiento || "",
+                limites: item.limites || "",
+                promociones_eventos: item.promociones_eventos || "",
+                personalidad: item.personalidad || "",
+            });
+
             setCondFijas(item.condiciones_fijas || CONDICIONES_FIJAS);
         } catch {
-            setSwiftActivo(false); setHorarios(horarioInicial());
+            setSwiftActivo(false);
+            setHorarios(horarioInicial());
             setCampos(Object.fromEntries(secciones.map((s) => [s.id, ""])));
             setCondFijas(CONDICIONES_FIJAS);
             showToast("No se pudo cargar la configuración.", "error");
-        } finally { setCargandoConfig(false); }
+        } finally {
+            setCargandoConfig(false);
+        }
     }
 
     async function guardarConfig(extra = {}) {
-        const num = normalizaTelefonoMx(numeroSeleccionado);
+        const num = normalizaNumeroConfigIA(numeroSeleccionado);
+
         if (!num) return;
+
         setGuardandoConfig(true);
+
         try {
+            const payloadSecciones = Object.fromEntries(
+                secciones.map((s) => [s.id, campos[s.id] || ""])
+            );
+
             await api.patch(`/digitales/ia/config/${encodeURIComponent(num)}/`, {
-                activo: swiftActivo, horarios,
-                identidad: campos.identidad || "", precios: campos.precios || "",
-                perfilamiento: campos.perfilamiento || "", limites: campos.limites || "",
-                personalidad: campos.personalidad || "", condiciones_fijas: condicionesFijas || "",
+                activo: swiftActivo,
+                horarios,
+                ...payloadSecciones,
+                condiciones_fijas: condicionesFijas || "",
                 ...extra,
             });
+
             showToast("Configuración guardada correctamente.");
-        } catch (e) { showToast(e?.message || "No se pudo guardar.", "error"); }
-        finally { setGuardandoConfig(false); }
+        } catch (e) {
+            showToast(e?.message || "No se pudo guardar.", "error");
+        } finally {
+            setGuardandoConfig(false);
+        }
     }
 
     async function publicarConfig() {
-        const num = normalizaTelefonoMx(numeroSeleccionado);
+        const num = normalizaNumeroConfigIA(numeroSeleccionado);
         if (!num) return;
         setGuardandoConfig(true);
         try {
@@ -1277,10 +1356,14 @@ export default function ConfigIA() {
                                 </div>
                                 <div className="space-y-3">
                                     {secciones.map((seccion) => (
-                                        <PromptField key={seccion.id} seccion={seccion}
-                                            value={campos[seccion.id]}
+                                        <PromptField
+                                            key={seccion.id}
+                                            seccion={seccion}
+                                            value={campos[seccion.id] || ""}
                                             onChange={(v) => setCampos((p) => ({ ...p, [seccion.id]: v }))}
-                                            onSave={() => guardarConfig()} saving={guardandoConfig} />
+                                            onSave={(v) => guardarConfig({ [seccion.id]: v })}
+                                            saving={guardandoConfig}
+                                        />
                                     ))}
                                 </div>
                                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
