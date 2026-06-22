@@ -17,39 +17,40 @@ import {
     Car,
     TrendingUp,
     ClipboardCheck,
-    Tag,
     QrCode,
     UserSearch,
     BrainCircuit,
     Bug,
     Lightbulb,
     Send,
+    Sparkles,
 } from "lucide-react";
-
+import vwWhite from "../assets/vw_white.png";
 import ryr from "../assets/ryr.png";
 import { useAuth } from "../auth/AuthContext";
 import ClickupNotificationsBell from "./ClickupNotificationsBell";
 import { apiClickup } from "../lib/apiClickup";
 
-function cls(...a) {
-    return a.filter(Boolean).join(" ");
+function cls(...items) {
+    return items.filter(Boolean).join(" ");
 }
 
-const linkBase =
-    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition";
-
-const linkClass = ({ isActive }) =>
-    isActive
-        ? `${linkBase} bg-[#0f2866] text-white shadow-sm`
-        : `${linkBase} text-slate-700 hover:bg-slate-100`;
+const VW = {
+    ink: "#06122E",
+    navy: "#001E50",
+    navy2: "#003B78",
+    blue: "#0A64FF",
+    cyan: "#00B0F0",
+    surface: "#061A43",
+    line: "rgba(255,255,255,0.12)",
+};
 
 function FadeSlide({ show, children, className = "" }) {
     return (
         <span
             className={cls(
-                "inline-block overflow-hidden whitespace-nowrap",
-                "transition-all duration-200 ease-out",
-                show ? "opacity-100 translate-x-0 max-w-[240px]" : "opacity-0 -translate-x-2 max-w-0",
+                "inline-block overflow-hidden whitespace-nowrap transition-all duration-200 ease-out",
+                show ? "max-w-[260px] translate-x-0 opacity-100" : "max-w-0 -translate-x-2 opacity-0",
                 className
             )}
             aria-hidden={!show}
@@ -59,7 +60,7 @@ function FadeSlide({ show, children, className = "" }) {
     );
 }
 
-function IconBtn({ onClick, title, className = "", children }) {
+function IconButton({ onClick, title, className = "", children }) {
     return (
         <button
             type="button"
@@ -67,9 +68,7 @@ function IconBtn({ onClick, title, className = "", children }) {
             title={title}
             aria-label={title}
             className={cls(
-                "inline-flex h-10 w-10 items-center justify-center rounded-xl",
-                "border border-slate-200 bg-white",
-                "transition active:scale-[0.98] hover:shadow-sm",
+                "inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition active:scale-[0.98]",
                 className
             )}
         >
@@ -78,17 +77,47 @@ function IconBtn({ onClick, title, className = "", children }) {
     );
 }
 
+function VWMonogram({ compact = false }) {
+    return (
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
+            <img src={vwWhite} alt="VW" className="h-10 w-12 opacity-95" loading="lazy" />
+        </div>
+    );
+}
+
+function BrandBlock({ showText, user, collapsed, isMobile }) {
+    return (
+        <NavLink to="/" className={cls("flex min-w-0 items-center", showText ? "gap-3" : "justify-center")}>
+            <div
+                className={cls(
+                    "grid shrink-0 place-items-center overflow-hidden rounded-2xl border",
+                    collapsed && !isMobile ? "h-10 w-10" : "h-11 w-11"
+                )}
+                style={{ background: "rgba(255,255,255,0.08)", borderColor: VW.line }}
+            >
+                <img src={ryr} alt="R&R" className="h-full w-full object-contain" />
+            </div>
+
+            <FadeSlide show={showText} className="min-w-0">
+                <div className="flex items-center gap-2">
+                    <span className="truncate text-[13px] font-bold text-white">Grupo Automotriz R&amp;R</span>
+                    <VWMonogram compact />
+                </div>
+                <div className="mt-0.5 truncate text-[11px] font-semibold text-white/52">
+                    {user?.agencia ? user.agencia : "VW Córdoba"}
+                </div>
+            </FadeSlide>
+        </NavLink>
+    );
+}
+
 export default function Sidebar() {
     const { user, hasAnyPermission, logout } = useAuth();
-
     const canSeeSettings = hasAnyPermission(["USUARIOS_ADMIN"]);
 
     const [collapsed, setCollapsed] = useState(false);
-
-
     const [mobileOpen, setMobileOpen] = useState(false);
     const [mobileMounted, setMobileMounted] = useState(false);
-
 
     const [openBugModal, setOpenBugModal] = useState(false);
     const [tipoReporte, setTipoReporte] = useState("BUG");
@@ -97,49 +126,9 @@ export default function Sidebar() {
     const [imagenes, setImagenes] = useState([]);
     const [saving, setSaving] = useState(false);
 
-    const handleFilesChange = (e) => {
-        const files = Array.from(e.target.files || []);
-        setImagenes(files);
-    };
-
-    const resetForm = () => {
-        setTipoReporte("BUG");
-        setTitulo("");
-        setDescripcionBug("");
-        setImagenes([]);
-    };
-
-    const handleSubmitBug = async (e) => {
-        e.preventDefault();
-
-        if (!titulo.trim() || !descripcionBug.trim()) return;
-
-        setSaving(true);
-        try {
-            await apiClickup.createReport({
-                tipo: tipoReporte,
-                titulo,
-                descripcion: descripcionBug,
-                imagenes,
-            });
-
-            resetForm();
-            setOpenBugModal(false);
-            window.dispatchEvent(new Event("clickup:refresh"));
-            alert("Reporte enviado correctamente. Se creó una tarea en ClickUp.");
-        } catch (error) {
-            alert(error.message || "No se pudo enviar el reporte.");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-
-
     useEffect(() => {
         if (mobileOpen) setMobileMounted(true);
     }, [mobileOpen]);
-
 
     useEffect(() => {
         const onResize = () => {
@@ -153,7 +142,6 @@ export default function Sidebar() {
         return () => window.removeEventListener("resize", onResize);
     }, []);
 
-
     useEffect(() => {
         if (!mobileOpen) return;
         const prev = document.body.style.overflow;
@@ -163,213 +151,202 @@ export default function Sidebar() {
         };
     }, [mobileOpen]);
 
+    const resetBugForm = () => {
+        setTipoReporte("BUG");
+        setTitulo("");
+        setDescripcionBug("");
+        setImagenes([]);
+    };
+
+    const handleSubmitBug = async (event) => {
+        event.preventDefault();
+        if (!titulo.trim() || !descripcionBug.trim()) return;
+
+        setSaving(true);
+        try {
+            await apiClickup.createReport({
+                tipo: tipoReporte,
+                titulo: titulo.trim(),
+                descripcion: descripcionBug.trim(),
+                imagenes,
+            });
+
+            resetBugForm();
+            setOpenBugModal(false);
+            window.dispatchEvent(new Event("clickup:refresh"));
+            alert("Reporte enviado correctamente. Se creó una tarea en ClickUp.");
+        } catch (error) {
+            alert(error.message || "No se pudo enviar el reporte.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const links = useMemo(() => {
         const items = [
-            { to: "/", label: "Inicio", icon: LayoutDashboard, show: true },
+            { section: "Comercial", to: "/", label: "Inicio", icon: LayoutDashboard, show: true },
             {
+                section: "Comercial",
                 to: "/calidad",
-                label: "Gestion de Calidad",
+                label: "Gestión de Calidad",
                 icon: BadgeCheck,
                 show: hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
-
             {
+                section: "Comercial",
                 to: "/timeforaction",
                 label: "TimeForAction",
                 icon: Zap,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
-
             {
+                section: "Comercial",
                 to: "/comercial",
-                label: "Gestion Comercial",
+                label: "Gestión Comercial",
                 icon: HandCoins,
                 show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
             },
             {
-                to: "/encuesta_whats",
-                label: "Envio Encuestas",
-                icon: Send,
-                show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+                section: "Comercial",
+                to: "/postventa",
+                label: "Postventa",
+                icon: ClipboardCheck,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
             },
-            //avaluos / ventas cruzadas
             {
+                section: "Comercial",
                 to: "/usados",
                 label: "Autos Usados",
                 icon: Car,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_VENTAS", "CRM_DIGITALES", "CRM_CALIDAD"]),
             },
-
             {
+                section: "Marketing",
+                to: "/encuesta_whats",
+                label: "Envío Encuestas",
+                icon: Send,
+                show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN"]),
+            },
+            {
+                section: "Financiero",
                 to: "/financieros",
                 label: "Servicios Financieros",
                 icon: TrendingUp,
                 show: hasAnyPermission(["CRM_FINANCIEROS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]),
             },
-
             {
-                to: "/postventa",
-                label: "PostVenta",
-                icon: ClipboardCheck,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
-            },
-
-            {
-                to: "/administrativos",
-                label: "Reclutamiento y Seleccion",
-                icon: UserSearch,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]),
-            },
-            {
+                section: "Analítica",
                 to: "/configuracion_ia",
                 label: "Panel de Inteligencias Artificiales",
                 icon: BrainCircuit,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_DIGITALES"]),
             },
             {
-                to: "/qr",
-                label: "QR",
-                icon: QrCode,
-                show: hasAnyPermission(["USUARIOS_ADMIN"]),
+                section: "Configuración",
+                to: "/administrativos",
+                label: "Reclutamiento y Seleccion",
+                icon: UserSearch,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_RRHH", "CRM_CALIDAD"]),
             },
-            {
-                to: "/configuracion",
-                label: "Configuración",
-                icon: Settings2,
-                show: hasAnyPermission(["USUARIOS_ADMIN"]),
-            },
+            { section: "Configuración", to: "/qr", label: "QR", icon: QrCode, show: hasAnyPermission(["USUARIOS_ADMIN"]) },
+            { section: "Configuración", to: "/configuracion", label: "Configuración", icon: Settings2, show: hasAnyPermission(["USUARIOS_ADMIN"]) },
         ];
-        return items.filter((x) => x.show);
+
+        return items.filter((item) => item.show);
     }, [hasAnyPermission]);
 
-    const hasModules = links.length > 0;
+    const sections = useMemo(() => {
+        const order = ["Comercial", "Marketing", "Financiero", "Analítica", "Configuración"];
+        return order
+            .map((section) => ({ section, items: links.filter((item) => item.section === section) }))
+            .filter((group) => group.items.length > 0);
+    }, [links]);
+
+    const NavItem = ({ item, showText, isMobile }) => (
+        <NavLink
+            to={item.to}
+            title={!showText && !isMobile ? item.label : undefined}
+            onClick={() => {
+                if (isMobile) setMobileOpen(false);
+            }}
+            className={({ isActive }) =>
+                cls(
+                    "group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-semibold transition-all",
+                    !showText && !isMobile && "justify-center px-0",
+                    isActive
+                        ? "bg-[#0A64FF] text-white shadow-[0_12px_32px_rgba(10,100,255,0.32)]"
+                        : "text-white/66 hover:bg-white/10 hover:text-white"
+                )
+            }
+        >
+            <item.icon size={18} className="shrink-0" />
+            <FadeSlide show={showText}>{item.label}</FadeSlide>
+        </NavLink>
+    );
 
     const SidebarContent = ({ isMobile = false }) => {
         const showText = isMobile ? true : !collapsed;
 
         return (
-            <div className="flex h-full flex-col">
-                {/* Header */}
-                <div className={cls("px-4 py-4", !showText && !isMobile && "px-2")}>
+            <div
+                className="relative flex h-full flex-col overflow-hidden"
+                style={{
+                    background: `radial-gradient(circle at 20% 0%, rgba(0,176,240,0.18), transparent 26%), linear-gradient(180deg, ${VW.ink} 0%, ${VW.navy} 48%, #00143A 100%)`,
+                }}
+            >
+                <div className="pointer-events-none absolute -right-20 top-24 h-56 w-56 rounded-full bg-[#0A64FF]/20 blur-3xl" />
+                <div className="pointer-events-none absolute bottom-10 left-8 h-44 w-44 rounded-full bg-[#00B0F0]/10 blur-3xl" />
+
+                <div className={cls("relative border-b px-4 py-4", !showText && !isMobile && "px-2")} style={{ borderColor: VW.line }}>
                     <div className={cls("flex items-center", showText ? "justify-between" : "justify-center")}>
-                        {/* Brand */}
-                        <NavLink to="/" className={cls("flex items-center", showText ? "gap-3" : "justify-center")}>
-                            <div
-                                className={cls(
-                                    "grid h-10 w-10 place-items-center rounded-2xl bg-[#0f2866] text-white overflow-hidden shrink-0",
-                                    "transition-transform duration-200 ease-out",
-                                    !showText && !isMobile ? "scale-[0.98]" : "scale-100"
-                                )}
-                            >
-                                <img src={ryr} alt="R&R" className="h-full w-full object-contain" />
-                            </div>
+                        <BrandBlock showText={showText} user={user} collapsed={collapsed} isMobile={isMobile} />
 
-                            <div className="leading-tight">
-                                <FadeSlide show={showText}>
-                                    <div className="text-sm font-semibold">Grupo Automotriz R&R</div>
-                                    <div className="text-xs text-slate-500">{user?.agencia ? user.agencia : "Volkswagen"}</div>
-                                </FadeSlide>
-                            </div>
-                        </NavLink>
-
-                        {/* Collapse (solo desktop) */}
                         {!isMobile ? (
-                            <button
-                                type="button"
-                                onClick={() => setCollapsed((v) => !v)}
-                                className={cls(
-                                    "ml-2 inline-flex items-center justify-center rounded-xl",
-                                    "border border-slate-200 bg-white h-10 w-10",
-                                    "text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition hover:shadow-sm"
-                                )}
+                            <IconButton
+                                onClick={() => setCollapsed((value) => !value)}
                                 title={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
-                                aria-label={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+                                className=" border-white/10 bg-white/[0.08] text-white/70 hover:bg-white/[0.12] hover:text-white"
                             >
-                                {collapsed ? (
-                                    <ChevronsRight size={18} className="transition-transform duration-200 ease-out hover:translate-x-[1px]" />
-                                ) : (
-                                    <ChevronsLeft size={18} className="transition-transform duration-200 ease-out hover:-translate-x-[1px]" />
-                                )}
-                            </button>
+                                {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+                            </IconButton>
                         ) : null}
                     </div>
                 </div>
 
-                {/* Nav */}
-                <nav className={cls("px-4 flex-1 overflow-y-auto", !showText && !isMobile && "px-2")}>
-                    <div
-                        className={cls(
-                            "mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400",
-                            !showText && !isMobile && "text-center px-0"
-                        )}
-                    >
-                        {!showText && !isMobile ? "⋯" : "Módulos"}
-                    </div>
-
-                    {!hasModules ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                            Tu cuenta no tiene módulos asignados. Pide al administrador que te asigne un rol.
+                <nav className="relative flex-1 overflow-y-auto
+                    [&::-webkit-scrollbar]:w-2 
+            [&::-webkit-scrollbar-track]:bg-blue-900 
+            [&::-webkit-scrollbar-thumb]:bg-gray-400 
+            [&::-webkit-scrollbar-thumb]:rounded-full px-4 py-4">
+                    {sections.length === 0 ? (
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3 text-xs text-white/70">
+                            Tu cuenta no tiene módulos asignados.
                         </div>
                     ) : null}
-                    <div className="mt-2 flex flex-col gap-1">
-                        {links.map((item) => (
-                            <div key={item.label}>
-                                {!item.children ? (
-                                    <NavLink
-                                        to={item.to}
-                                        className={linkClass}
-                                        title={!showText && !isMobile ? item.label : undefined}
-                                        onClick={() => {
-                                            if (isMobile) setMobileOpen(false);
-                                        }}
-                                    >
-                                        <item.icon size={18} className="shrink-0" />
 
-                                        <FadeSlide show={showText} className="text-sm">
-                                            {item.label}
-                                        </FadeSlide>
-                                    </NavLink>
-                                ) : (
-                                    <div>
-                                        {/* MENU PRINCIPAL */}
-                                        <div className="flex items-center gap-3 rounded-xl bg-[#10216B] px-4 py-3 text-white">
-                                            <item.icon size={18} className="shrink-0" />
-
-                                            <FadeSlide show={showText} className="text-sm">
-                                                {item.label}
-                                            </FadeSlide>
-                                        </div>
-
-                                        {/* SUBMENU */}
-                                        <div className="ml-6 mt-1 flex flex-col gap-1">
-                                            {item.children.map((child) => (
-                                                <NavLink
-                                                    key={child.to}
-                                                    to={child.to}
-                                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
-                                                    onClick={() => {
-                                                        if (isMobile) setMobileOpen(false);
-                                                    }}
-                                                >
-                                                    <div className="h-2 w-2 rounded-full bg-[#10216B]" />
-
-                                                    <span>{child.label}</span>
-                                                </NavLink>
-                                            ))}
-                                        </div>
+                    <div className="space-y-5">
+                        {sections.map((group) => (
+                            <div key={group.section}>
+                                <FadeSlide show={showText}>
+                                    <div className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.22em] text-white/38">
+                                        {group.section}
                                     </div>
-                                )}
+                                </FadeSlide>
+                                <div className="space-y-1.5">
+                                    {group.items.map((item) => (
+                                        <NavItem key={`${item.section}-${item.to}`} item={item} showText={showText} isMobile={isMobile} />
+                                    ))}
+                                </div>
                             </div>
                         ))}
                     </div>
                 </nav>
 
-
-                <div className={cls("mt-auto border-t border-slate-200 px-4 py-3", !showText && !isMobile && "px-2")}>
-                    <div className={cls("flex flex-col gap-1", !showText && !isMobile && "items-center")}>
-                        <div className={cls("flex items-center", showText ? "gap-3 px-3 py-2" : "justify-center py-2")}>
+                <div className={cls("relative mt-auto border-t px-4 py-3", !showText && !isMobile && "px-2")} style={{ borderColor: VW.line }}>
+                    <div className={cls("flex flex-col gap-1.5", !showText && !isMobile && "items-center")}>
+                        <div className={cls("flex items-center rounded-2xl", showText ? "gap-3 px-3 py-2" : "justify-center py-2")}>
                             <ClickupNotificationsBell />
-                            <FadeSlide show={showText} className="text-sm font-medium text-slate-700">
+                            <FadeSlide show={showText} className="text-[13px] font-semibold text-white/70">
                                 Notificaciones
                             </FadeSlide>
                         </div>
@@ -380,252 +357,199 @@ export default function Sidebar() {
                                 setOpenBugModal(true);
                                 if (isMobile) setMobileOpen(false);
                             }}
-                            title="Sugerencias y errores"
-                            aria-label="Sugerencias y errores"
                             className={cls(
-                                linkBase,
-                                "text-blue-500 hover:bg-blue-600 hover:text-white",
+                                "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-semibold text-white/66 transition hover:bg-white/10 hover:text-white",
                                 !showText && !isMobile && "justify-center px-0"
                             )}
+                            title="Sugerencias y errores"
                         >
                             <Mailbox size={18} className="shrink-0" />
-                            <FadeSlide show={showText} className="text-sm">
-                                Sugerencias y errores
-                            </FadeSlide>
+                            <FadeSlide show={showText}>Sugerencias y errores</FadeSlide>
                         </button>
 
                         {canSeeSettings ? (
                             <NavLink
                                 to="/configuracion"
-                                title="Usuarios"
-                                aria-label="Usuarios"
                                 onClick={() => {
                                     if (isMobile) setMobileOpen(false);
                                 }}
                                 className={({ isActive }) =>
                                     cls(
-                                        linkBase,
-                                        isActive
-                                            ? "bg-[#0f2866] text-white shadow-sm"
-                                            : "text-slate-700 hover:bg-slate-200 hover:text-[#131E5C]",
-                                        !showText && !isMobile && "justify-center px-0"
+                                        "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-semibold transition",
+                                        !showText && !isMobile && "justify-center px-0",
+                                        isActive ? "bg-white text-[#001E50]" : "text-white/66 hover:bg-white/10 hover:text-white"
                                     )
                                 }
+                                title="Usuarios"
                             >
                                 <UserCircle2 size={18} className="shrink-0" />
-                                <FadeSlide show={showText} className="text-sm">
-                                    Usuarios
-                                </FadeSlide>
+                                <FadeSlide show={showText}>Usuarios</FadeSlide>
                             </NavLink>
                         ) : null}
 
                         <button
                             type="button"
                             onClick={logout}
-                            title="Cerrar sesión"
-                            aria-label="Cerrar sesión"
                             className={cls(
-                                linkBase,
-                                "text-red-500 hover:bg-red-600 hover:text-white",
+                                "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-semibold text-red-200 transition hover:bg-red-500 hover:text-white",
                                 !showText && !isMobile && "justify-center px-0"
                             )}
+                            title="Cerrar sesión"
                         >
                             <CirclePower size={18} className="shrink-0" />
-                            <FadeSlide show={showText} className="text-sm">
-                                Cerrar sesión
-                            </FadeSlide>
+                            <FadeSlide show={showText}>Cerrar sesión</FadeSlide>
                         </button>
                     </div>
                 </div>
-            </div>
+            </div >
         );
     };
 
     return (
         <>
-
-            <div className="md:hidden sticky top-0 z-40 border-b border-slate-200 bg-white">
+            <div className="sticky top-0 z-40 border-b border-[#DDE5EF] bg-white/95 backdrop-blur md:hidden">
                 <div className="flex items-center justify-between px-3 py-3">
-                    <IconBtn onClick={() => setMobileOpen(true)} title="Abrir menú" className="text-slate-700 hover:bg-slate-50">
+                    <IconButton onClick={() => setMobileOpen(true)} title="Abrir menú" className="border-[#DDE5EF] bg-white text-[#001E50] hover:bg-[#F4F7FB]">
                         <Menu size={18} />
-                    </IconBtn>
+                    </IconButton>
 
                     <NavLink to="/" className="flex items-center gap-2">
-                        <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#0f2866] overflow-hidden">
+                        <div className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl bg-[#001E50]">
                             <img src={ryr} alt="R&R" className="h-full w-full object-contain" />
                         </div>
-                        <div className="text-sm font-semibold text-slate-800">R&R</div>
+                        <div className="text-sm font-bold text-[#001E50]">R&amp;R · VW</div>
                     </NavLink>
 
                     <ClickupNotificationsBell />
                 </div>
             </div>
 
-            {/* Desktop sidebar */}
             <aside
                 className={cls(
-                    "sticky top-0 hidden h-screen border-r border-slate-200 bg-white md:block",
+                    "sticky top-0 hidden h-screen shrink-0 border-r border-white/10 md:block",
                     "transition-[width] duration-300 ease-[cubic-bezier(.2,.8,.2,1)]",
-                    collapsed ? "w-20" : "w-72"
+                    collapsed ? "w-[84px]" : "w-[286px]"
                 )}
             >
                 <SidebarContent />
             </aside>
 
-            {/* Mobile drawer (montado para animar salida) */}
             {mobileMounted ? (
-                <div className="md:hidden fixed inset-0 z-50">
-                    {/* overlay */}
+                <div className="fixed inset-0 z-50 md:hidden">
                     <button
                         type="button"
-                        className={cls(
-                            "absolute inset-0 bg-black/40",
-                            "transition-opacity duration-200 ease-out",
-                            mobileOpen ? "opacity-100" : "opacity-0"
-                        )}
+                        className={cls("absolute inset-0 bg-black/50 transition-opacity duration-200", mobileOpen ? "opacity-100" : "opacity-0")}
                         onClick={() => setMobileOpen(false)}
                         aria-label="Cerrar menú"
                     />
 
-                    {/* panel */}
                     <div
                         className={cls(
-                            "absolute left-0 top-0 h-full w-[85%] max-w-[320px] bg-white shadow-xl border-r border-slate-200",
-                            "transition-transform duration-250 ease-[cubic-bezier(.2,.8,.2,1)]",
+                            "absolute left-0 top-0 h-full w-[86%] max-w-[330px] shadow-2xl transition-transform duration-250 ease-[cubic-bezier(.2,.8,.2,1)]",
                             mobileOpen ? "translate-x-0" : "-translate-x-full"
                         )}
-                        // cuando termina de cerrar, desmonta
                         onTransitionEnd={() => {
                             if (!mobileOpen) setMobileMounted(false);
                         }}
                     >
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-                            <div className="text-sm font-semibold text-slate-800">Menú</div>
-                            <button
-                                type="button"
-                                onClick={() => setMobileOpen(false)}
-                                className="rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50"
-                                aria-label="Cerrar"
-                            >
-                                <X size={18} />
-                            </button>
+                        <div className="flex h-full flex-col">
+                            <div className="flex items-center justify-between border-b border-white/10 bg-[#06122E] px-4 py-3 text-white">
+                                <div className="text-sm font-bold">Menú CRM</div>
+                                <button
+                                    type="button"
+                                    onClick={() => setMobileOpen(false)}
+                                    className="rounded-xl border border-white/10 bg-white/10 p-2 text-white/80 hover:text-white"
+                                    aria-label="Cerrar"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <SidebarContent isMobile />
                         </div>
-                        <SidebarContent isMobile />
                     </div>
                 </div>
             ) : null}
 
-
             {openBugModal && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-                    onClick={() => setOpenBugModal(false)}
-                >
-                    <div
-                        className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl"
-                        onClick={(e) => e.stopPropagation()}
-                        role="dialog"
-                        aria-modal="true"
-                    >
-                        <div className="mb-4 flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-slate-800">Reportar error o sugerencia</h2>
-                            <button
-                                onClick={() => setOpenBugModal(false)}
-                                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
-                                aria-label="Cerrar"
-                            >
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#000B24]/60 p-4 backdrop-blur-sm" onClick={() => setOpenBugModal(false)}>
+                    <div className="w-full max-w-lg overflow-hidden rounded-[28px] bg-white shadow-2xl" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+                        <div className="flex items-center justify-between px-5 py-4" style={{ background: `linear-gradient(135deg, ${VW.ink}, ${VW.navy})` }}>
+                            <div>
+                                <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">Centro de mejora</div>
+                                <h2 className="mt-1 text-lg font-semibold text-white">Reportar error o sugerencia</h2>
+                            </div>
+                            <button onClick={() => setOpenBugModal(false)} className="rounded-xl bg-white/10 p-2 text-white/75 hover:text-white" aria-label="Cerrar">
                                 <X size={18} />
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmitBug} className="space-y-4">
+                        <form onSubmit={handleSubmitBug} className="space-y-4 p-5">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-slate-700">Tipo</label>
+                                <label className="mb-1.5 block text-sm font-semibold text-slate-700">Tipo</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setTipoReporte("BUG")}
-                                        className={[
-                                            "flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold",
-                                            tipoReporte === "BUG"
-                                                ? "border-red-300 bg-red-50 text-red-700"
-                                                : "border-slate-300 bg-white text-slate-700"
-                                        ].join(" ")}
+                                        className={cls(
+                                            "flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-sm font-bold transition",
+                                            tipoReporte === "BUG" ? "border-red-300 bg-red-50 text-red-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                        )}
                                     >
-                                        <Bug size={16} />
-                                        Error
+                                        <Bug size={16} /> Error
                                     </button>
-
                                     <button
                                         type="button"
                                         onClick={() => setTipoReporte("SUGGESTION")}
-                                        className={[
-                                            "flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold",
-                                            tipoReporte === "SUGGESTION"
-                                                ? "border-amber-300 bg-amber-50 text-amber-700"
-                                                : "border-slate-300 bg-white text-slate-700"
-                                        ].join(" ")}
+                                        className={cls(
+                                            "flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-sm font-bold transition",
+                                            tipoReporte === "SUGGESTION" ? "border-amber-300 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                        )}
                                     >
-                                        <Lightbulb size={16} />
-                                        Sugerencia
+                                        <Lightbulb size={16} /> Sugerencia
                                     </button>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-slate-700">Título</label>
+                                <label className="mb-1.5 block text-sm font-semibold text-slate-700">Título</label>
                                 <input
                                     value={titulo}
-                                    onChange={(e) => setTitulo(e.target.value)}
+                                    onChange={(event) => setTitulo(event.target.value)}
                                     placeholder="Ej: El modal de clientes no guarda"
-                                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                                    className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                     required
                                 />
                             </div>
 
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-slate-700">Descripción</label>
+                                <label className="mb-1.5 block text-sm font-semibold text-slate-700">Descripción</label>
                                 <textarea
                                     value={descripcionBug}
-                                    onChange={(e) => setDescripcionBug(e.target.value)}
+                                    onChange={(event) => setDescripcionBug(event.target.value)}
                                     rows={5}
-                                    placeholder="Describe el problema, pasos para reproducirlo, resultado actual y resultado esperado."
-                                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                                    placeholder="Describe el problema, pasos para reproducirlo y resultado esperado."
+                                    className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                     required
                                 />
                             </div>
 
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-slate-700">
-                                    Evidencias iniciales
-                                </label>
+                                <label className="mb-1.5 block text-sm font-semibold text-slate-700">Evidencias iniciales</label>
                                 <input
                                     type="file"
                                     accept="image/*,.pdf,.doc,.docx,.txt,.mp4"
                                     multiple
-                                    onChange={handleFilesChange}
-                                    className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-slate-200"
+                                    onChange={(event) => setImagenes(Array.from(event.target.files || []))}
+                                    className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold hover:file:bg-slate-200"
                                 />
-                                {imagenes.length > 0 ? (
-                                    <p className="mt-2 text-xs text-slate-500">
-                                        {imagenes.length} archivo(s) seleccionado(s)
-                                    </p>
-                                ) : null}
+                                {imagenes.length > 0 ? <p className="mt-2 text-xs text-slate-500">{imagenes.length} archivo(s) seleccionado(s)</p> : null}
                             </div>
-                            <div className="flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setOpenBugModal(false)}
-                                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
-                                    disabled={saving}
-                                >
+
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button type="button" onClick={() => setOpenBugModal(false)} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" disabled={saving}>
                                     Cancelar
                                 </button>
-                                <button
-                                    type="submit"
-                                    disabled={saving || !titulo.trim() || !descripcionBug.trim()}
-                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
-                                >
+                                <button type="submit" disabled={saving || !titulo.trim() || !descripcionBug.trim()} className="rounded-2xl bg-[#001E50] px-4 py-2 text-sm font-bold text-white hover:bg-[#003B78] disabled:opacity-60">
                                     {saving ? "Enviando..." : "Enviar"}
                                 </button>
                             </div>

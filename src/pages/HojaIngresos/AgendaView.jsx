@@ -1,55 +1,97 @@
-// src/pages/HojaIngresos/AgendaView.jsx
-import { useMemo, useState } from "react";
+//src/pages/HojaIngresos/AgendaView.jsx
+import { useMemo, useState, useEffect } from "react";
 import {
-  CalendarDays,
-  CarFront,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
-  Loader2,
-  Mail,
+  MessageSquareText,
   Phone,
   Plus,
-  Save,
-  Search,
-  ShieldCheck,
-  UserRound,
-  UsersRound,
+  Users,
   Wrench,
-  X,
   XCircle,
+  ChevronRight,
 } from "lucide-react";
 
-const VW = {
-  blue: "#001E50",
-  blue2: "#0A2A66",
-  electric: "#00B0F0",
-  ink: "#111827",
-  text: "#24324B",
-  muted: "#64748B",
-  soft: "#F4F7FB",
+const COLOR = {
+  ink: "#07111F",
+  inkSoft: "#566273",
+  inkFaint: "#8793A5",
+  inkInverse: "#FFFFFF",
+
+  brand: "#001E50",
+  brandDeep: "#000B24",
+  brandMid: "#003B78",
+  brandSoft: "#E9F0FA",
+  brandLine: "#BFD0E7",
+
+  accent: "#00B0F0",
+  accentSoft: "#E7F8FE",
+  accentLine: "#A7E5FA",
+
+  page: "#F4F7FB",
   surface: "#FFFFFF",
-  line: "#D9DEE8",
-  line2: "#EEF1F6",
-  ok: "#008A5B",
-  okSoft: "#E8F6F0",
-  warn: "#B7791F",
-  warnSoft: "#FFF4DE",
-  danger: "#C83A3A",
-  dangerSoft: "#FDECEC",
+  surfaceAlt: "#F8FAFD",
+  line: "#DDE5EF",
+  lineStrong: "#C5D1E1",
+
+  ok: "#0B7A53",
+  okSoft: "#E4F5ED",
+  warn: "#9A6400",
+  warnSoft: "#FBF1DC",
+  danger: "#B42318",
+  dangerSoft: "#FDEAE7",
+  violet: "#4B3F99",
+  violetSoft: "#ECEAF8",
+  teal: "#087780",
+  tealSoft: "#E0F4F5",
 };
 
-const HORARIOS = [
-  "08:00", "08:30",
-  "09:00", "09:30",
-  "10:00", "10:30",
-  "11:00", "11:30",
-  "12:00", "12:30",
-  "13:00", "13:30",
-  "14:00", "14:30",
-  "15:00", "15:30",
+const FONT_DISPLAY = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+const ASESOR_PALETTE = [
+  { bg: "#E8F0FA", line: "#BFD0E7", dot: "#001E50", text: "#001E50" },
+  { bg: "#E0F4F5", line: "#B9E0E3", dot: "#087780", text: "#075D65" },
+  { bg: "#FBF1DC", line: "#EDD59E", dot: "#9A6400", text: "#754D00" },
+  { bg: "#ECEAF8", line: "#D2CDEF", dot: "#4B3F99", text: "#3D337D" },
+  { bg: "#E4F5ED", line: "#B9E2CD", dot: "#0B7A53", text: "#075F40" },
+  { bg: "#FDEAE7", line: "#F3C4BC", dot: "#B42318", text: "#912018" },
 ];
+
+function colorForAsesor(nombre) {
+  if (!nombre) return { bg: "#EEF2F7", line: "#DDE5EF", dot: "#8A95A6", text: "#536070" };
+  let hash = 0;
+  for (let i = 0; i < nombre.length; i += 1) hash = (hash * 31 + nombre.charCodeAt(i)) >>> 0;
+  return ASESOR_PALETTE[hash % ASESOR_PALETTE.length];
+}
+
+function tipoServicioMeta(tipo) {
+  const t = String(tipo || "").toLowerCase();
+  if (t.includes("mtto") || t.includes("mantenimiento")) {
+    return { bg: COLOR.brandSoft, line: COLOR.brandLine, text: COLOR.brand, label: "Mantenimiento" };
+  }
+  if (t.includes("diagn")) {
+    return { bg: "#EEF2F7", line: "#DDE5EF", text: "#3E4858", label: "Diagnóstico" };
+  }
+  if (t.includes("campa")) {
+    return { bg: COLOR.violetSoft, line: "#D2CDEF", text: COLOR.violet, label: "Campaña" };
+  }
+  if (t.includes("repar")) {
+    return { bg: COLOR.dangerSoft, line: "#F3C4BC", text: COLOR.danger, label: "Reparación" };
+  }
+  if (t.includes("garant")) {
+    return { bg: COLOR.tealSoft, line: "#B9E0E3", text: COLOR.teal, label: "Garantía" };
+  }
+  return { bg: "#EEF2F7", line: COLOR.line, text: COLOR.inkSoft, label: tipo || "Servicio" };
+}
+
+const APERTURA_DEFECTO = { hour: 8, minute: 0 };
+const CIERRE_DEFECTO = { hour: 16, minute: 0 };
+
+const ADVISOR_COL_WIDTH = 320;
+const SLOT_WIDTH = 186;
+const ROW_HEIGHT = 192;
+const HEADER_H1 = 46;
+const HEADER_H2 = 32;
 
 const ASESORES_POR_AGENCIA = {
   "VW Cordoba": [
@@ -63,904 +105,583 @@ const ASESORES_POR_AGENCIA = {
   ],
 };
 
-const TIPOS_SERVICIO = [
-  "Mtto. 15 km",
-  "Mtto. 30 km",
-  "Mtto. 45 km",
-  "Mtto. 60 km",
-  "Mtto. 75 km",
-  "Mtto. 90 km",
-  "Diagnóstico",
-  "Reparacion",
-  "Reparacion Mayor",
-  "Reparacion Menor",
-  "Diagnostico por Testigos Encendidos",
-  "Diagnostico por Ruidos y Vibraciones",
-  "Diagnostico por Fallo Electrico-Electronico",
-  "Diagnostico por Fallo Mecanico",
-  "Garantía",
-  "Hojalatería y pintura",
-  "Campaña",
-  "Reclamación",
-  "Otro",
-];
+const MEXICO_TZ = "America/Mexico_City";
 
-const MODELOS = [
-  "AMAROK GP", "BEETLE", "BORA A5", "CADDY", "CLASICO", "CRAFTER", "GOL",
-  "GOL SEDAN", "GOLF", "JETTA", "JETTA A6", "JETTA A7", "PASSAT", "POLO",
-  "SAVEIRO GP", "T CROSS", "TAOS", "TERAMONT", "TIGUAN", "TIGUAN LWB",
-  "TRANSPORTER", "VENTO", "VIRTUS", "NIVUS", "TERA",
-];
-
-const MEDIOS_CONCERTACION = [
-  "WhatsApp",
-  "Llamada entrante",
-  "Llamada saliente",
-  "Facebook",
-  "Base de datos",
-  "Cartera",
-  "Piso",
-  "Web",
-  "Otro",
-];
-
-const ADVISOR_W = 228;
-const SLOT_W = 200;
-const ROW_H = 146;
-const HEADER_H = 82;
-
-function cn(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
-
-function normalizeStr(value) {
-  return String(value ?? "").trim();
-}
-
-function normalizeKey(value) {
-  return normalizeStr(value)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-function pad2(value) {
-  return String(value).padStart(2, "0");
-}
-
-function localDateKey(value = new Date()) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
-
-function formatDateHuman(value) {
-  if (!value) return "—";
-  const [year, month, day] = String(value).split("-").map(Number);
-  if (!year || !month || !day) return value;
-  const date = new Date(year, month - 1, day);
-  return new Intl.DateTimeFormat("es-MX", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  }).format(date);
-}
-
-function addDaysToYMD(value, days) {
-  const [year, month, day] = String(value || localDateKey()).split("-").map(Number);
-  const date = new Date(year, (month || 1) - 1, day || 1);
-  date.setDate(date.getDate() + days);
-  return localDateKey(date);
-}
-
-function getFechaCita(cita) {
-  return cita?.fecha_ingreso || cita?.fecha_cita || cita?.fecha || "";
-}
-
-function getClienteNombre(cita) {
-  return cita?.cliente_nombre || cita?.nombre_cliente || cita?.cliente?.nombre || cita?.cliente || "Sin cliente";
-}
-
-function getTelefono(cita) {
-  return cita?.cliente_telefono || cita?.telefono || cita?.cliente?.telefono || "";
-}
-
-function getCorreo(cita) {
-  return cita?.cliente_correo_electronico || cita?.correo_electronico || cita?.cliente?.correo_electronico || "";
-}
-
-function boolFromAny(value) {
-  if (typeof value === "boolean") return value;
-  const text = String(value ?? "").trim().toLowerCase();
-  return ["true", "1", "si", "sí", "yes"].includes(text);
-}
-
-function slotFromDate(fecha) {
-  if (!fecha) return null;
-  const date = new Date(fecha);
-  if (Number.isNaN(date.getTime())) return null;
-
-  const total = date.getHours() * 60 + date.getMinutes();
-  const start = 8 * 60;
-  const end = 15 * 60 + 30;
-  if (total < start || total > end) return null;
-
-  const rounded = start + Math.floor((total - start) / 30) * 30;
-  return `${pad2(Math.floor(rounded / 60))}:${pad2(rounded % 60)}`;
-}
-
-function timeFromDate(fecha) {
-  if (!fecha) return "—";
-  const date = new Date(fecha);
-  if (Number.isNaN(date.getTime())) return "—";
-  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
-}
-
-function servicioMeta(tipo) {
-  const text = String(tipo || "").toLowerCase();
-
-  if (text.includes("mtto") || text.includes("mantenimiento")) {
-    return { label: "Mantenimiento", bg: "#EAF1FF", text: VW.blue, line: "#BFD0F3" };
+function buildHorarios(inicio, fin) {
+  const slots = [];
+  let totalMin = inicio.hour * 60 + inicio.minute;
+  const finMin = fin.hour * 60 + fin.minute;
+  while (totalMin < finMin) {
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    slots.push(`${h}:${String(m).padStart(2, "0")}`);
+    totalMin += 30;
   }
-  if (text.includes("diagn")) {
-    return { label: "Diagnóstico", bg: "#EEF2F7", text: "#334155", line: "#D5DCE8" };
-  }
-  if (text.includes("garant")) {
-    return { label: "Garantía", bg: "#E7F7F2", text: VW.ok, line: "#B8E5D4" };
-  }
-  if (text.includes("campa")) {
-    return { label: "Campaña", bg: "#F0ECFF", text: "#5B45C4", line: "#D7CDFB" };
-  }
-  if (text.includes("repar")) {
-    return { label: "Reparación", bg: VW.dangerSoft, text: VW.danger, line: "#F3C1C1" };
-  }
-
-  return { label: tipo || "Servicio", bg: VW.soft, text: VW.muted, line: VW.line };
+  return slots;
 }
 
-function advisorColor(nombre) {
-  const palette = [
-    { dot: VW.blue, bg: "#EAF1FF" },
-    { dot: "#007C92", bg: "#E6F6F8" },
-    { dot: "#6D5BD0", bg: "#F0ECFF" },
-    { dot: VW.ok, bg: VW.okSoft },
-    { dot: VW.warn, bg: VW.warnSoft },
-    { dot: VW.danger, bg: VW.dangerSoft },
-  ];
-
-  let hash = 0;
-  const value = normalizeStr(nombre);
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
-  }
-
-  return palette[hash % palette.length] || palette[0];
+function mexicoYMD(fecha) {
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-CA", { timeZone: MEXICO_TZ });
 }
 
-function StatusBadge({ cita }) {
-  const citado = boolFromAny(cita?.citado);
-  const asistencia = boolFromAny(cita?.asistencia ?? cita?.asistido);
+function mexicoHourMinute(fecha) {
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return null;
+  const hour = parseInt(d.toLocaleString("en-US", { timeZone: MEXICO_TZ, hour: "numeric", hour12: false }), 10);
+  const minute = parseInt(d.toLocaleString("en-US", { timeZone: MEXICO_TZ, minute: "numeric" }), 10);
+  return { hour, minute };
+}
 
-  if (asistencia) {
+function slotKeyFromFecha(fecha) {
+  const hm = mexicoHourMinute(fecha);
+  if (!hm) return null;
+  const minutoSlot = hm.minute < 30 ? 0 : 30;
+  return `${hm.hour}:${minutoSlot === 0 ? "00" : "30"}`;
+}
+
+function horaCorta(fecha) {
+  const hm = mexicoHourMinute(fecha);
+  if (!hm) return "";
+  return `${hm.hour}:${String(hm.minute).padStart(2, "0")}`;
+}
+
+function nombreCliente(cita) {
+  return cita?.nombre_cliente || cita?.cliente_nombre || cita?.cliente?.nombre || "Sin nombre";
+}
+
+function telefonoCliente(cita) {
+  return cita?.telefono || cita?.cliente?.telefono || cita?.cliente_telefono || "";
+}
+
+function citaCitada(cita) {
+  return cita?.citado === true || cita?.citado === "true" || cita?.citado === 1;
+}
+
+function citaAsistio(cita) {
+  return cita?.asistido ?? cita?.asistencia;
+}
+
+function MetricTile({ icon: Icon, label, value, tone = "brand" }) {
+  const tones = {
+    brand: { bg: COLOR.brandSoft, text: COLOR.brand },
+    ok: { bg: COLOR.okSoft, text: COLOR.ok },
+    danger: { bg: COLOR.dangerSoft, text: COLOR.danger },
+    accent: { bg: COLOR.accentSoft, text: COLOR.brandMid },
+  };
+  const selected = tones[tone] || tones.brand;
+
+  return (
+    <div
+      className="min-w-[160px] flex-1 rounded-[24px] border px-4 py-3"
+      style={{ background: COLOR.surface, borderColor: COLOR.line, boxShadow: "0 16px 36px rgba(0, 30, 80, 0.06)" }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: COLOR.inkFaint }}>
+          {label}
+        </div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: selected.bg }}>
+          <Icon className="h-4 w-4" style={{ color: selected.text }} />
+        </div>
+      </div>
+      <div className="mt-3 text-[28px] font-semibold leading-none tabular-nums" style={{ color: COLOR.ink, fontFamily: FONT_DISPLAY }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function CargaTurno({ citasDeLaFecha, horasPrincipales, totalAsesores }) {
+  const counts = useMemo(() => {
+    const map = {};
+    horasPrincipales.forEach((h) => (map[h] = 0));
+    citasDeLaFecha.forEach((c) => {
+      const fecha = c.fecha_ingreso || c.fecha_cita;
+      const hm = mexicoHourMinute(fecha);
+      if (!hm) return;
+      const key = `${hm.hour}:00`;
+      if (map[key] !== undefined) map[key] += 1;
+    });
+    return map;
+  }, [citasDeLaFecha, horasPrincipales]);
+
+  const capacidad = Math.max(totalAsesores * 2, 1);
+
+  return (
+    <div className="flex items-end gap-[4px]" style={{ height: 34 }} aria-hidden="true">
+      {horasPrincipales.map((h) => {
+        const n = counts[h] || 0;
+        const ratio = Math.min(n / capacidad, 1);
+        const height = 6 + ratio * 28;
+        const bg = ratio === 0 ? COLOR.line : ratio < 0.65 ? COLOR.accent : COLOR.brand;
+        return <div key={h} title={`${h} · ${n} cita(s)`} style={{ width: 10, height, background: bg, borderRadius: 999 }} />;
+      })}
+    </div>
+  );
+}
+
+function AdvisorAvatar({ nombre, color }) {
+  const iniciales = nombre
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();
+
+  return (
+    <div
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] text-[12px] font-bold"
+      style={{ background: color.bg, color: color.text, border: `1px solid ${color.line}` }}
+    >
+      {iniciales}
+    </div>
+  );
+}
+
+function AdvisorStats({ asesor, color, citasAsesor }) {
+  const total = citasAsesor.length;
+  const citados = citasAsesor.filter((c) => citaCitada(c)).length;
+  const asistidos = citasAsesor.filter((c) => citaAsistio(c) === true).length;
+  const ocupacion = Math.min(Math.round((total / 8) * 100), 100);
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-3">
+      <AdvisorAvatar nombre={asesor.nombre} color={color} />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-semibold leading-tight" style={{ color: COLOR.ink }}>
+          {asesor.nombre}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-3 text-[10.5px] font-semibold tabular-nums">
+          <span style={{ color: COLOR.inkFaint }}>
+            <span style={{ color: COLOR.ink }}>{total}</span> citas
+          </span>
+          <span style={{ color: COLOR.brand }}>{citados} citadas</span>
+          <span style={{ color: COLOR.ok }}>{asistidos} asist.</span>
+        </div>
+        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full" style={{ background: COLOR.line }}>
+          <div className="h-full rounded-full" style={{ width: `${ocupacion}%`, background: color.dot }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ asistio, citado }) {
+  if (asistio === true) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: VW.okSoft, color: VW.ok }}>
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold" style={{ background: COLOR.okSoft, color: COLOR.ok }}>
         <CheckCircle2 className="h-3 w-3" /> Asistió
       </span>
     );
   }
 
-  if (citado) {
+  if (asistio === false) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: "#EAF1FF", color: VW.blue }}>
-        <ShieldCheck className="h-3 w-3" /> Citado
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold" style={{ background: COLOR.dangerSoft, color: COLOR.danger }}>
+        <XCircle className="h-3 w-3" /> No show
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: VW.dangerSoft, color: VW.danger }}>
-      <XCircle className="h-3 w-3" /> Pendiente
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold"
+      style={citado ? { background: COLOR.brandSoft, color: COLOR.brand } : { background: COLOR.warnSoft, color: COLOR.warn }}
+    >
+      {citado ? "Citado" : "Pendiente"}
     </span>
   );
 }
 
-function Metric({ label, value, tone = "blue" }) {
-  const tones = {
-    blue: { bg: "#EAF1FF", text: VW.blue },
-    green: { bg: VW.okSoft, text: VW.ok },
-    amber: { bg: VW.warnSoft, text: VW.warn },
-    red: { bg: VW.dangerSoft, text: VW.danger },
-    gray: { bg: VW.soft, text: VW.text },
-  };
-  const color = tones[tone] || tones.blue;
+function CitaCard({ cita, onClick, compact = false }) {
+  const cliente = nombreCliente(cita);
+  const telefono = telefonoCliente(cita);
+  const servicio = tipoServicioMeta(cita.tipo_cita);
+  const asistio = citaAsistio(cita);
+  const citado = citaCitada(cita);
+  const modelo = cita.modelo || "Modelo sin capturar";
+  const medio = cita.medio_concertacion || "Medio sin capturar";
+  const agencia = cita.agencia || "Sin dealer";
 
-  return (
-    <div className="rounded-2xl border px-4 py-3" style={{ background: color.bg, borderColor: "rgba(0,0,0,0.04)" }}>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: VW.muted }}>{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums" style={{ color: color.text }}>{value}</div>
-    </div>
-  );
-}
+  const tone = asistio === true
+    ? "entregada"
+    : asistio === false
+      ? "noShow"
+      : citado
+        ? "citada"
+        : "pendiente";
 
-function CitaCard({ citas, onOpen }) {
-  if (!citas?.length) return null;
+  const toneClass = {
+    entregada: "border-emerald-300 bg-emerald-50/95",
+    citada: "border-sky-200 bg-sky-50/95",
+    pendiente: "border-amber-300 bg-amber-50/95",
+    noShow: "border-red-300 bg-red-50/95",
+  }[tone];
 
-  const cita = citas[0];
-  const extra = citas.length - 1;
-
-  const servicio = servicioMeta(cita.tipo_cita);
-  const cliente = getClienteNombre(cita);
-  const telefono = getTelefono(cita);
-  const hora = timeFromDate(getFechaCita(cita));
-  const modelo = normalizeStr(cita.modelo || cita.modelo_vehiculo || cita.vehiculo);
-  const orden = normalizeStr(cita.no_orden || cita.preorden || cita.orden);
+  const stripeClass = {
+    entregada: "bg-emerald-500",
+    citada: "bg-[#131E5C]",
+    pendiente: "bg-amber-500",
+    noShow: "bg-red-500",
+  }[tone];
 
   return (
     <button
       type="button"
-      onClick={() => onOpen(cita)}
-      className="
-        group
-        relative
-        h-[112px]
-        w-full
-        overflow-hidden
-        rounded-[18px]
-        border
-        bg-white
-        px-3
-        py-2.5
-        text-left
-        shadow-[0_8px_22px_rgba(0,30,80,0.08)]
-        transition
-        hover:-translate-y-0.5
-        hover:shadow-[0_14px_34px_rgba(0,30,80,0.16)]
-      "
-      style={{
-        borderColor: servicio.line,
-        boxShadow: "0 8px 22px rgba(0,30,80,0.08)",
-      }}
-      title="Clic para editar cita"
+      onClick={() => onClick(cita)}
+      title={`${cliente} · clic para editar`}
+      className={[
+        "relative h-full shrink-0 overflow-hidden rounded-md border text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md",
+        compact ? "w-[154px] p-3" : "w-full p-2.5",
+        toneClass,
+      ].join(" ")}
     >
-      {/* Barra lateral semántica */}
-      <span
-        className="absolute bottom-0 left-0 top-0 w-1"
-        style={{ background: servicio.text }}
-      />
-
-      {/* Encabezado */}
-      <div className="flex items-start justify-between gap-2 pl-1">
-        <div className="min-w-0">
-          <div
-            className="truncate text-[13px] font-black leading-tight"
-            style={{ color: VW.ink }}
-          >
-            {cliente}
-          </div>
-
-          <div
-            className="mt-1 flex min-w-0 items-center gap-1.5 text-[10.5px] font-semibold"
-            style={{ color: VW.muted }}
-          >
-            <Phone className="h-3 w-3 shrink-0" />
-            <span className="truncate">
-              {telefono || "Sin teléfono"}
-            </span>
-          </div>
-        </div>
-
-        <span
-          className="
-            shrink-0
-            rounded-full
-            px-2
-            py-1
-            text-[10.5px]
-            font-black
-            tabular-nums
-          "
-          style={{
-            background: "#EAF1FF",
-            color: VW.blue,
-          }}
-        >
-          {hora}
+      {tone !== "citada" ? (
+        <span className={["absolute bottom-0 left-0 top-0 flex w-3 items-center justify-center rounded-l-md", stripeClass].join(" ")}>
+          {asistio === true ? <CheckCircle2 className="h-3 w-3 text-white" /> : null}
+          {asistio === false ? <XCircle className="h-3 w-3 text-white" /> : null}
+          {tone === "pendiente" ? <Clock3 className="h-3 w-3 text-white" /> : null}
         </span>
-      </div>
-
-      {/* Servicio */}
-      <div className="mt-2 pl-1">
-        <div
-          className="
-            inline-flex
-            max-w-full
-            items-center
-            gap-1.5
-            rounded-full
-            border
-            px-2
-            py-1
-            text-[10.5px]
-            font-black
-          "
-          style={{
-            background: servicio.bg,
-            borderColor: servicio.line,
-            color: servicio.text,
-          }}
-        >
-          <Wrench className="h-3 w-3 shrink-0" />
-          <span className="truncate">
-            {servicio.label}
-          </span>
-        </div>
-      </div>
-
-      {/* Datos inferiores */}
-      <div className="mt-2 flex items-center justify-between gap-2 pl-1">
-        <div
-          className="flex min-w-0 items-center gap-1.5 text-[10.5px] font-semibold"
-          style={{ color: VW.muted }}
-        >
-          <CarFront className="h-3 w-3 shrink-0" />
-          <span className="truncate">
-            {modelo || orden || "Sin vehículo"}
-          </span>
-        </div>
-
-        <StatusBadge cita={cita} />
-      </div>
-
-      {/* Citas adicionales en la misma celda */}
-      {extra > 0 ? (
-        <div
-          className="
-            absolute
-            bottom-2
-            right-2
-            rounded-full
-            px-2
-            py-0.5
-            text-[10px]
-            font-black
-            text-white
-            shadow-sm
-          "
-          style={{ background: VW.blue }}
-        >
-          +{extra}
-        </div>
       ) : null}
-    </button>
-  );
-}
-function QuickCitaModal({ open, slot, agencia, onClose, onSave }) {
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    cliente_nombre: "",
-    cliente_telefono: "",
-    cliente_correo_electronico: "",
-    tipo_cita: "Mtto. 15 km",
-    modelo: "",
-    medio_concertacion: "WhatsApp",
-    comentarios: "",
-    citado: true,
-  });
 
-  if (!open || !slot) return null;
+      <div className={tone !== "citada" ? "pl-3" : ""}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#131E5C]">
+              <Clock3 className="h-3.5 w-3.5" />
+              <span>{horaCorta(cita.fecha_ingreso || cita.fecha_cita)}</span>
+              <span className="text-slate-400">•</span>
+              <span className="truncate">{agencia}</span>
+            </div>
 
-  const setValue = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  async function handleSave() {
-    const cliente = normalizeStr(form.cliente_nombre);
-    const telefono = normalizeStr(form.cliente_telefono).replace(/\D/g, "");
-
-    if (!cliente) {
-      alert("Captura el nombre del cliente.");
-      return;
-    }
-
-    if (telefono && !/^(?:\d{10}|52\d{10})$/.test(telefono)) {
-      alert("El teléfono debe tener 10 dígitos o iniciar con 52 y tener 12 dígitos.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await onSave({
-        agencia,
-        asesor: slot.asesor,
-        fecha_ingreso: `${slot.fecha}T${slot.hora}`,
-        cliente_nombre: cliente,
-        cliente_telefono: telefono,
-        cliente_correo_electronico: normalizeStr(form.cliente_correo_electronico),
-        tipo_cita: form.tipo_cita ? [form.tipo_cita] : [],
-        modelo: form.modelo || "",
-        medio_concertacion: form.medio_concertacion || "WhatsApp",
-        comentarios: form.comentarios || "",
-        citado: !!form.citado,
-        asistencia: false,
-        agendado_por: "Call Center",
-        venta_mano_obra: "0",
-      });
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[80]">
-      <button type="button" className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm" onClick={onClose} aria-label="Cerrar" />
-
-      <div className="absolute inset-0 flex items-end justify-center p-3 sm:items-center">
-        <div className="w-full max-w-2xl overflow-hidden rounded-[28px] bg-white shadow-2xl">
-          <div className="border-b px-6 py-5" style={{ borderColor: VW.line2 }}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: VW.blue }}>
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border text-[10px]" style={{ borderColor: VW.blue }}>VW</span>
-                  Nueva cita de servicio
-                </div>
-                <h3 className="mt-2 text-xl font-semibold" style={{ color: VW.ink }}>
-                  {slot.asesor} · {slot.hora}
-                </h3>
-                <p className="mt-1 text-sm" style={{ color: VW.muted }}>
-                  {formatDateHuman(slot.fecha)} · {agencia}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border bg-white"
-                style={{ borderColor: VW.line }}
-              >
-                <X className="h-4 w-4" />
-              </button>
+            <div className="mt-1 truncate text-xs font-black uppercase tracking-wide text-[#131E5C]">
+              {cliente}
             </div>
           </div>
 
-          <div className="grid gap-4 p-6 md:grid-cols-2" style={{ background: VW.soft }}>
-            <label className="md:col-span-2">
-              <span className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide" style={{ color: VW.text }}>
-                <UserRound className="h-3.5 w-3.5" /> Cliente
-              </span>
-              <input
-                value={form.cliente_nombre}
-                onChange={(event) => setValue("cliente_nombre", event.target.value)}
-                className="h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold outline-none focus:ring-4"
-                style={{ borderColor: VW.line, color: VW.ink, "--tw-ring-color": "rgba(0,176,240,0.16)" }}
-                placeholder="Nombre completo del cliente"
-              />
-            </label>
+          <StatusPill asistio={asistio} citado={citado} />
+        </div>
 
-            <label>
-              <span className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide" style={{ color: VW.text }}>
-                <Phone className="h-3.5 w-3.5" /> Teléfono
-              </span>
-              <input
-                value={form.cliente_telefono}
-                onChange={(event) => setValue("cliente_telefono", event.target.value.replace(/\D/g, "").slice(0, 12))}
-                className="h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold outline-none focus:ring-4"
-                style={{ borderColor: VW.line, color: VW.ink, "--tw-ring-color": "rgba(0,176,240,0.16)" }}
-                placeholder="10 dígitos"
-              />
-            </label>
-
-            <label>
-              <span className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide" style={{ color: VW.text }}>
-                <Mail className="h-3.5 w-3.5" /> Correo
-              </span>
-              <input
-                type="email"
-                value={form.cliente_correo_electronico}
-                onChange={(event) => setValue("cliente_correo_electronico", event.target.value)}
-                className="h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold outline-none focus:ring-4"
-                style={{ borderColor: VW.line, color: VW.ink, "--tw-ring-color": "rgba(0,176,240,0.16)" }}
-                placeholder="correo@dominio.com"
-              />
-            </label>
-
-            <label>
-              <span className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide" style={{ color: VW.text }}>
-                <Wrench className="h-3.5 w-3.5" /> Servicio
-              </span>
-              <select
-                value={form.tipo_cita}
-                onChange={(event) => setValue("tipo_cita", event.target.value)}
-                className="h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold outline-none focus:ring-4"
-                style={{ borderColor: VW.line, color: VW.ink, "--tw-ring-color": "rgba(0,176,240,0.16)" }}
-              >
-                {TIPOS_SERVICIO.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-
-            <label>
-              <span className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide" style={{ color: VW.text }}>
-                <CarFront className="h-3.5 w-3.5" /> Modelo
-              </span>
-              <select
-                value={form.modelo}
-                onChange={(event) => setValue("modelo", event.target.value)}
-                className="h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold outline-none focus:ring-4"
-                style={{ borderColor: VW.line, color: VW.ink, "--tw-ring-color": "rgba(0,176,240,0.16)" }}
-              >
-                <option value="">Selecciona modelo...</option>
-                {MODELOS.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-
-            <label>
-              <span className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide" style={{ color: VW.text }}>
-                <Search className="h-3.5 w-3.5" /> Medio
-              </span>
-              <select
-                value={form.medio_concertacion}
-                onChange={(event) => setValue("medio_concertacion", event.target.value)}
-                className="h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold outline-none focus:ring-4"
-                style={{ borderColor: VW.line, color: VW.ink, "--tw-ring-color": "rgba(0,176,240,0.16)" }}
-              >
-                {MEDIOS_CONCERTACION.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-
-            <label className="flex items-end">
-              <span className="flex h-11 w-full items-center justify-between rounded-2xl border bg-white px-4 text-sm font-bold" style={{ borderColor: VW.line, color: VW.text }}>
-                Marcar como citado
-                <input
-                  type="checkbox"
-                  checked={form.citado}
-                  onChange={(event) => setValue("citado", event.target.checked)}
-                  className="h-4 w-4"
-                  style={{ accentColor: VW.blue }}
-                />
-              </span>
-            </label>
-
-            <label className="md:col-span-2">
-              <span className="mb-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: VW.text }}>Comentarios</span>
-              <textarea
-                value={form.comentarios}
-                onChange={(event) => setValue("comentarios", event.target.value)}
-                className="min-h-[92px] w-full rounded-2xl border bg-white px-4 py-3 text-sm font-medium outline-none focus:ring-4"
-                style={{ borderColor: VW.line, color: VW.ink, "--tw-ring-color": "rgba(0,176,240,0.16)" }}
-                placeholder="Notas internas para recepción o asesor de servicio..."
-              />
-            </label>
+        <div className="mt-2 grid gap-1 text-[10px] font-semibold text-slate-600">
+          <div className="flex items-center gap-1.5">
+            <Wrench className="h-3.5 w-3.5 shrink-0 text-[#131E5C]" />
+            <span className="truncate">{cita.tipo_cita || servicio.label || "Servicio sin capturar"}</span>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t bg-white px-6 py-4 sm:flex-row sm:justify-end" style={{ borderColor: VW.line2 }}>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="inline-flex h-11 items-center justify-center rounded-full border px-5 text-sm font-bold"
-              style={{ borderColor: VW.line, color: VW.text }}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-bold text-white disabled:opacity-60"
-              style={{ background: VW.blue }}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Guardar cita
-            </button>
+          <div className="flex items-center gap-1.5">
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[#131E5C]" />
+            <span className="truncate">{modelo}</span>
           </div>
+
+          {!compact ? (
+            <>
+              <div className="flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5 shrink-0 text-[#131E5C]" />
+                <span className="truncate">{telefono || "Teléfono sin capturar"}</span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <MessageSquareText className="h-3.5 w-3.5 shrink-0 text-[#131E5C]" />
+                <span className="truncate">{medio}</span>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
+    </button>
+  );
+}
+
+function EmptySlot({ onClick, slot }) {
+  return (
+    <div
+      className="group relative h-full w-full overflow-hidden rounded-[22px] border border-dashed transition-all duration-150"
+      style={{ borderColor: COLOR.line, background: "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(248,250,253,0.86))" }}
+    >
+      <div className="absolute inset-0 transition-opacity duration-150 group-hover:opacity-0">
+        <div className="absolute left-1/2 top-3 bottom-3 w-px -translate-x-1/2" style={{ background: COLOR.line }} />
+        <div className="absolute inset-x-4 top-1/2 h-px -translate-y-1/2" style={{ background: COLOR.line }} />
+        <div className="flex h-full items-center justify-center">
+          <span className="rounded-full border px-2.5 py-1 text-[10px] font-bold tabular-nums" style={{ borderColor: COLOR.line, color: COLOR.inkFaint, background: COLOR.surface }}>
+            {slot}
+          </span>
+        </div>
+      </div>
+
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          title={`Agendar a las ${slot}`}
+          className="absolute left-1/2 top-1/2 z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 scale-90 items-center justify-center rounded-full opacity-0 shadow-lg transition-all duration-150 group-hover:scale-100 group-hover:opacity-100"
+          style={{ background: COLOR.brand, color: COLOR.inkInverse }}
+        >
+          <Plus className="h-5 w-5" />
+        </button>
+      ) : null}
     </div>
   );
 }
 
 export default function AgendaView({
   citas = [],
-  onSaveCita,
   abrirEditar,
-  selectedDate = localDateKey(),
-  setSelectedDate = () => { },
+  onSlotClick,
+  selectedDate = new Date().toISOString().split("T")[0],
   agenciaSeleccionada = "VW Cordoba",
-  setAgenciaSeleccionada = () => { },
 }) {
-  const [quickSlot, setQuickSlot] = useState(null);
+  const [reloj, setReloj] = useState(new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setReloj(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const asesores = useMemo(() => ASESORES_POR_AGENCIA[agenciaSeleccionada] || [], [agenciaSeleccionada]);
 
   const citasDeLaFecha = useMemo(() => {
     if (!Array.isArray(citas)) return [];
-
-    return citas.filter((cita) => {
-      const fecha = getFechaCita(cita);
+    return citas.filter((c) => {
+      const fecha = c.fecha_ingreso || c.fecha_cita;
       if (!fecha) return false;
-      const mismaFecha = localDateKey(fecha) === selectedDate;
-      const mismaAgencia = !cita.agencia || normalizeKey(cita.agencia) === normalizeKey(agenciaSeleccionada);
+      const mismaFecha = mexicoYMD(fecha) === selectedDate;
+      const mismaAgencia = !c.agencia || c.agencia === agenciaSeleccionada;
       return mismaFecha && mismaAgencia;
     });
   }, [citas, selectedDate, agenciaSeleccionada]);
 
+  const rangoHorario = useMemo(() => {
+    let cierreMin = CIERRE_DEFECTO.hour * 60 + CIERRE_DEFECTO.minute;
+    citasDeLaFecha.forEach((c) => {
+      const fecha = c.fecha_ingreso || c.fecha_cita;
+      const hm = mexicoHourMinute(fecha);
+      if (!hm) return;
+      const minutoRedondeado = hm.minute < 30 ? 30 : 60;
+      const finCitaMin = hm.hour * 60 + minutoRedondeado;
+      if (finCitaMin > cierreMin) cierreMin = finCitaMin;
+    });
+    return { inicio: APERTURA_DEFECTO, fin: { hour: Math.floor(cierreMin / 60), minute: cierreMin % 60 } };
+  }, [citasDeLaFecha]);
+
+  const horarios = useMemo(() => buildHorarios(rangoHorario.inicio, rangoHorario.fin), [rangoHorario]);
+  const horasPrincipales = useMemo(() => horarios.filter((h) => h.endsWith(":00")), [horarios]);
+
   const citasPorCelda = useMemo(() => {
     const map = new Map();
-
-    citasDeLaFecha.forEach((cita) => {
-      const asesor = normalizeStr(cita.asesor || cita.nombre_asesor);
-      const slot = slotFromDate(getFechaCita(cita));
+    citasDeLaFecha.forEach((c) => {
+      const asesor = c.asesor || c.nombre_asesor;
+      const fecha = c.fecha_ingreso || c.fecha_cita;
+      const slot = slotKeyFromFecha(fecha);
       if (!asesor || !slot) return;
-
-      const key = `${normalizeKey(asesor)}|${slot}`;
+      const key = `${asesor}__${slot}`;
       const current = map.get(key) || [];
-      current.push(cita);
+      current.push(c);
+      current.sort((a, b) => new Date(a.fecha_ingreso || a.fecha_cita).getTime() - new Date(b.fecha_ingreso || b.fecha_cita).getTime());
       map.set(key, current);
     });
-
     return map;
   }, [citasDeLaFecha]);
 
-  const metrics = useMemo(() => {
-    const citados = citasDeLaFecha.filter((cita) => boolFromAny(cita.citado)).length;
-    const asistencias = citasDeLaFecha.filter((cita) => boolFromAny(cita.asistencia ?? cita.asistido)).length;
-    const pendientes = citasDeLaFecha.length - citados;
-    const ocupacion = Math.round((citasDeLaFecha.length / Math.max(asesores.length * HORARIOS.length, 1)) * 100);
+  const estadisticas = useMemo(() => {
+    const hoy = mexicoYMD(new Date());
+    const esFuturo = selectedDate > hoy;
+    const citados = citasDeLaFecha.filter((c) => citaCitada(c)).length;
+    const asistidos = citasDeLaFecha.filter((c) => citaAsistio(c) === true).length;
+    const noShow = esFuturo
+      ? 0
+      : citasDeLaFecha.filter((c) => citaCitada(c) && (citaAsistio(c) === false || citaAsistio(c) == null)).length;
+    return { citados, asistidos, noShow, total: citasDeLaFecha.length };
+  }, [citasDeLaFecha, selectedDate]);
 
-    return { total: citasDeLaFecha.length, citados, asistencias, pendientes, ocupacion };
-  }, [citasDeLaFecha, asesores.length]);
+  const posicionAhora = useMemo(() => {
+    const hoyMexico = mexicoYMD(reloj);
+    if (selectedDate !== hoyMexico) return null;
 
-  const currentLineLeft = useMemo(() => {
-    const today = localDateKey();
-    if (selectedDate !== today) return null;
+    const hm = mexicoHourMinute(reloj);
+    if (!hm) return null;
+    const minutoSlot = hm.minute < 30 ? 0 : 30;
+    const minutosActuales = hm.hour * 60 + minutoSlot;
+    const inicio = rangoHorario.inicio.hour * 60 + rangoHorario.inicio.minute;
+    const fin = rangoHorario.fin.hour * 60 + rangoHorario.fin.minute;
+    if (minutosActuales < inicio || minutosActuales > fin) return null;
 
-    const now = new Date();
-    const start = 8 * 60;
-    const end = 15 * 60 + 30;
-    const current = now.getHours() * 60 + now.getMinutes();
-    if (current < start || current > end) return null;
+    return ADVISOR_COL_WIDTH + ((minutosActuales - inicio) / 30) * SLOT_WIDTH;
+  }, [reloj, selectedDate, rangoHorario]);
 
-    return ADVISOR_W + ((current - start) / 30) * SLOT_W;
+  const fechaLegible = useMemo(() => {
+    const [y, m, d] = selectedDate.split("-").map(Number);
+    if (!y) return "";
+    const date = new Date(y, m - 1, d);
+    const texto = date.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
   }, [selectedDate]);
 
-  const gridTemplateColumns = `${ADVISOR_W}px repeat(${HORARIOS.length}, ${SLOT_W}px)`;
-  const gridMinWidth = ADVISOR_W + HORARIOS.length * SLOT_W;
-
-  async function handleQuickSave(payload) {
-    if (!onSaveCita) return;
-    await onSaveCita(payload);
-  }
+  const totalColumnas = horarios.length;
+  const gridTemplateColumns = `${ADVISOR_COL_WIDTH}px repeat(${totalColumnas}, ${SLOT_WIDTH}px)`;
+  const gridTemplateRows = `${HEADER_H1}px ${HEADER_H2}px repeat(${Math.max(asesores.length, 1)}, ${ROW_HEIGHT}px)`;
 
   return (
-    <div className="space-y-4">
-      <section className="overflow-hidden rounded-[30px] border bg-white shadow-[0_18px_50px_rgba(0,30,80,0.08)]" style={{ borderColor: VW.line2 }}>
-        <div className="border-b px-5 py-5" style={{ borderColor: VW.line2 }}>
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full border text-xs font-black" style={{ borderColor: VW.blue, color: VW.blue }}>
-                  VW
-                </span>
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.28em]" style={{ color: VW.blue }}>
-                    Volkswagen Service Planning
-                  </p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-tight" style={{ color: VW.ink }}>
-                    Agenda de taller
-                  </h2>
-                </div>
-              </div>
-              <p className="mt-3 max-w-2xl text-sm leading-6" style={{ color: VW.muted }}>
-                Vista por asesor y bloques de 30 minutos. Las columnas tienen ancho fijo para mantener la lectura operativa sin deformar la parrilla.
-              </p>
-            </div>
+    <div className="w-full space-y-4" style={{ fontFamily: FONT_DISPLAY }}>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              <Metric label="Total" value={metrics.total} tone="blue" />
-              <Metric label="Citados" value={metrics.citados} tone="green" />
-              <Metric label="Pendientes" value={metrics.pendientes} tone="red" />
-              <Metric label="Asistió" value={metrics.asistencias} tone="gray" />
-              <Metric label="Ocupación" value={`${metrics.ocupacion}%`} tone="amber" />
-            </div>
-          </div>
+      {asesores.length === 0 ? (
+        <div
+          className="flex flex-col items-center justify-center rounded-[28px] border px-4 py-16 text-center"
+          style={{ background: COLOR.surface, borderColor: COLOR.line }}
+        >
+          <Users className="mb-3 h-7 w-7" style={{ color: COLOR.inkFaint }} />
+          <p className="text-[14px] font-semibold" style={{ color: COLOR.inkSoft }}>
+            No hay asesores configurados para {agenciaSeleccionada}
+          </p>
         </div>
-
-        <div className="grid gap-3 border-b px-5 py-4 lg:grid-cols-[1fr_auto]" style={{ background: VW.soft, borderColor: VW.line2 }}>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedDate(addDaysToYMD(selectedDate, -1))}
-              className="inline-flex h-10 items-center gap-2 rounded-full border bg-white px-4 text-sm font-bold"
-              style={{ borderColor: VW.line, color: VW.text }}
-            >
-              <ChevronLeft className="h-4 w-4" /> Día anterior
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedDate(localDateKey())}
-              className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-bold text-white"
-              style={{ background: VW.blue }}
-            >
-              <CalendarDays className="h-4 w-4" /> Hoy
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedDate(addDaysToYMD(selectedDate, 1))}
-              className="inline-flex h-10 items-center gap-2 rounded-full border bg-white px-4 text-sm font-bold"
-              style={{ borderColor: VW.line, color: VW.text }}
-            >
-              Día siguiente <ChevronRight className="h-4 w-4" />
-            </button>
-
-            <label className="inline-flex h-10 items-center gap-2 rounded-full border bg-white px-4" style={{ borderColor: VW.line }}>
-              <CalendarDays className="h-4 w-4" style={{ color: VW.blue }} />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(event) => setSelectedDate(event.target.value)}
-                className="bg-transparent text-sm font-bold outline-none"
-                style={{ color: VW.text }}
-              />
-            </label>
-
-            <span className="ml-1 text-sm font-semibold capitalize" style={{ color: VW.muted }}>
-              {formatDateHuman(selectedDate)}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
-            {Object.keys(ASESORES_POR_AGENCIA).map((agencia) => (
-              <button
-                type="button"
-                key={agencia}
-                onClick={() => setAgenciaSeleccionada(agencia)}
-                className="h-10 rounded-full border px-4 text-sm font-black transition"
-                style={
-                  agenciaSeleccionada === agencia
-                    ? { background: VW.blue, borderColor: VW.blue, color: "#fff" }
-                    : { background: "#fff", borderColor: VW.line, color: VW.text }
-                }
-              >
-                {agencia}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="relative max-h-[calc(100vh-330px)] min-h-[460px] overflow-auto bg-white">
-          <div className="relative" style={{ minWidth: gridMinWidth }}>
-            {currentLineLeft !== null ? (
-              <div
-                className="pointer-events-none absolute bottom-0 top-0 z-30 w-px"
-                style={{ left: currentLineLeft, background: VW.electric }}
-              >
-                <span className="absolute -top-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full border-2 bg-white" style={{ borderColor: VW.electric }} />
-              </div>
-            ) : null}
-
+      ) : (
+        <div
+          className="relative overflow-auto rounded-[28px] border"
+          style={{ background: COLOR.surface, borderColor: COLOR.line, maxHeight: 760, boxShadow: "0 18px 44px rgba(0, 30, 80, 0.08)" }}
+        >
+          <div
+            className="relative"
+            style={{
+              display: "grid",
+              gridTemplateColumns,
+              gridTemplateRows,
+              width: ADVISOR_COL_WIDTH + totalColumnas * SLOT_WIDTH,
+            }}
+          >
             <div
-              className="sticky top-0 z-40 grid border-b"
-              style={{ gridTemplateColumns, borderColor: VW.line2, minWidth: gridMinWidth }}
+              className="sticky left-0 top-0 z-30 flex items-end px-5 pb-3"
+              style={{
+                gridColumn: "1 / 2",
+                gridRow: "1 / 3",
+                background: COLOR.brand,
+                borderRight: "1px solid rgba(255,255,255,0.14)",
+                borderBottom: `1px solid ${COLOR.line}`,
+              }}
             >
-              <div
-                className="sticky left-0 z-50 flex items-center border-r px-5"
-                style={{ height: HEADER_H, background: VW.blue, borderColor: "rgba(255,255,255,0.12)" }}
-              >
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-black text-white">
-                    <UsersRound className="h-4 w-4" /> Asesor
-                  </div>
-                  <div className="mt-1 text-[11px] font-semibold text-white/60">Servicio · Recepción</div>
-                </div>
-              </div>
-
-              {HORARIOS.map((slot) => {
-                const isHour = slot.endsWith(":00");
-                return (
-                  <div
-                    key={slot}
-                    className="flex flex-col items-center justify-center border-r text-center"
-                    style={{ height: HEADER_H, background: VW.blue, borderColor: "rgba(255,255,255,0.12)" }}
-                  >
-                    <div className={cn("font-black tabular-nums text-white", isHour ? "text-sm" : "text-xs text-white/65")}>
-                      {slot}
-                    </div>
-                    {isHour ? <div className="mt-1 h-1 w-8 rounded-full" style={{ background: VW.electric }} /> : null}
-                  </div>
-                );
-              })}
+              <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/85">Asesor</span>
             </div>
 
-            {asesores.length === 0 ? (
-              <div className="flex min-h-[360px] items-center justify-center p-10 text-center" style={{ color: VW.muted }}>
-                No hay asesores configurados para esta agencia.
+            {horasPrincipales.map((hora, i) => (
+              <div
+                key={hora}
+                className="sticky top-0 z-20 flex items-center justify-center text-[13px] font-semibold tabular-nums text-white"
+                style={{
+                  gridColumn: `${2 + i * 2} / span 2`,
+                  gridRow: "1 / 2",
+                  background: COLOR.brand,
+                  borderLeft: i === 0 ? "none" : "1px solid rgba(255,255,255,0.12)",
+                }}
+              >
+                {hora}
               </div>
-            ) : (
-              asesores.map((asesor, rowIndex) => {
-                const color = advisorColor(asesor.nombre);
-                return (
+            ))}
+
+            {horarios.map((slot, i) => {
+              const esMediaHora = slot.endsWith(":30");
+              return (
+                <div
+                  key={slot}
+                  className="sticky z-20 flex items-center justify-center text-[10px] font-semibold tabular-nums"
+                  style={{
+                    gridColumn: `${2 + i} / span 1`,
+                    gridRow: "2 / 3",
+                    top: HEADER_H1,
+                    background: COLOR.surfaceAlt,
+                    color: COLOR.inkFaint,
+                    borderLeft: !esMediaHora ? `1px solid ${COLOR.line}` : "none",
+                    borderBottom: `1px solid ${COLOR.line}`,
+                  }}
+                >
+                  {esMediaHora ? <span className="h-1.5 w-1.5 rounded-full" style={{ background: COLOR.lineStrong }} /> : slot}
+                </div>
+              );
+            })}
+
+            {asesores.map((asesor, rowIdx) => {
+              const color = colorForAsesor(asesor.nombre);
+              const citasAsesor = citasDeLaFecha.filter((c) => (c.asesor || c.nombre_asesor) === asesor.nombre);
+
+              return (
+                <div key={asesor.id} style={{ display: "contents" }}>
                   <div
-                    key={asesor.id || asesor.nombre}
-                    className="grid border-b"
-                    style={{ gridTemplateColumns, minWidth: gridMinWidth, borderColor: VW.line2 }}
+                    className="sticky left-0 z-10 flex items-center px-5"
+                    style={{
+                      gridColumn: "1 / 2",
+                      gridRow: `${3 + rowIdx} / span 1`,
+                      background: rowIdx % 2 === 1 ? COLOR.surfaceAlt : COLOR.surface,
+                      borderRight: `1px solid ${COLOR.line}`,
+                      borderBottom: `1px solid ${COLOR.line}`,
+                    }}
                   >
-                    <div
-                      className="sticky left-0 z-20 flex items-center border-r px-5"
-                      style={{ minHeight: ROW_H, background: "#fff", borderColor: VW.line2 }}
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black" style={{ background: color.bg, color: color.dot }}>
-                          {asesor.nombre.split(" ").map((p) => p[0]).join("").slice(0, 2)}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-black" style={{ color: VW.ink }}>{asesor.nombre}</div>
-                          <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold" style={{ color: VW.muted }}>
-                            <span className="h-2 w-2 rounded-full" style={{ background: color.dot }} /> Asesor de servicio
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {HORARIOS.map((slot) => {
-                      const key = `${normalizeKey(asesor.nombre)}|${slot}`;
-                      const citasCelda = citasPorCelda.get(key) || [];
-                      const ocupado = citasCelda.length > 0;
-
-                      return (
-                        <div
-                          key={`${asesor.id}-${slot}`}
-                          className="group border-r p-2"
-                          style={{
-                            minHeight: ROW_H,
-                            width: SLOT_W,
-                            borderColor: VW.line2,
-                            background: rowIndex % 2 === 0 ? "#FFFFFF" : "#FBFCFE",
-                          }}
-                        >
-                          {ocupado ? (
-                            <CitaCard citas={citasCelda} onOpen={(cita) => abrirEditar?.(cita)} />
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setQuickSlot({ asesor: asesor.nombre, hora: slot, fecha: selectedDate })}
-                              className="flex h-[112px] w-full items-center justify-center rounded-2xl border border-dashed opacity-0 transition hover:bg-white group-hover:opacity-100"
-                              style={{ borderColor: VW.line }}
-                              title={`Crear cita ${asesor.nombre} · ${slot}`}
-                            >
-                              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black" style={{ background: "#EAF1FF", color: VW.blue }}>
-                                <Plus className="h-3.5 w-3.5" /> Cita
-                              </span>
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
+                    <AdvisorStats asesor={asesor} color={color} citasAsesor={citasAsesor} />
                   </div>
-                );
-              })
+
+                  {horarios.map((slot, colIdx) => {
+                    const citasCelda = citasPorCelda.get(`${asesor.nombre}__${slot}`) || [];
+                    const esInicioDeHora = slot.endsWith(":00");
+                    return (
+                      <div
+                        key={`${asesor.id}-${slot}`}
+                        className="p-2"
+                        style={{
+                          gridColumn: `${2 + colIdx} / span 1`,
+                          gridRow: `${3 + rowIdx} / span 1`,
+                          borderRight: `1px solid ${esInicioDeHora ? COLOR.line : COLOR.surfaceAlt}`,
+                          borderBottom: `1px solid ${COLOR.line}`,
+                          background: rowIdx % 2 === 1 ? COLOR.surfaceAlt : COLOR.surface,
+                        }}
+                      >
+                        {citasCelda.length ? (
+                          <div className="flex h-full max-w-full gap-2 overflow-x-auto pb-0.5 pr-1">
+                            {citasCelda.map((cita) => (
+                              <CitaCard
+                                key={cita.id || `${asesor.nombre}-${slot}-${nombreCliente(cita)}`}
+                                cita={cita}
+                                compact={citasCelda.length > 1}
+                                onClick={(c) => abrirEditar && abrirEditar(c)}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <EmptySlot slot={slot} onClick={onSlotClick ? () => onSlotClick(asesor.nombre, slot) : null} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+
+            {posicionAhora !== null && (
+              <div
+                className="pointer-events-none absolute z-[12]"
+                style={{
+                  left: posicionAhora,
+                  top: HEADER_H1 + HEADER_H2,
+                  bottom: 0,
+                  width: 2,
+                  background: COLOR.danger,
+                }}
+              >
+                <div className="absolute -left-[5px] -top-2 h-3 w-3 rounded-full" style={{ background: COLOR.danger, boxShadow: "0 0 0 4px rgba(180,35,24,0.12)" }} />
+              </div>
             )}
           </div>
         </div>
+      )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3 text-xs font-semibold" style={{ background: "#fff", borderColor: VW.line2, color: VW.muted }}>
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: VW.electric }} /> Hora actual</span>
-            <span className="inline-flex items-center gap-2"><span className="h-3 w-1 rounded-full" style={{ background: VW.ok }} /> Asistió / citado</span>
-            <span className="inline-flex items-center gap-2"><span className="h-3 w-1 rounded-full" style={{ background: VW.danger }} /> Pendiente</span>
-          </div>
-          <span>Scroll horizontal disponible cuando la agenda supere el ancho de pantalla.</span>
-        </div>
-      </section>
-
-      <QuickCitaModal
-        open={!!quickSlot}
-        slot={quickSlot}
-        agencia={agenciaSeleccionada}
-        onClose={() => setQuickSlot(null)}
-        onSave={handleQuickSave}
-      />
+      <div className="flex flex-wrap items-center justify-end gap-4 text-[11px] font-semibold" style={{ color: COLOR.inkFaint }}>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full" style={{ background: COLOR.danger }} /> Hora actual
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Wrench className="h-3.5 w-3.5" /> Tarjeta azul = cliente citado
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Plus className="h-3.5 w-3.5" /> Clic en espacio libre para agendar
+        </span>
+      </div>
     </div>
   );
 }

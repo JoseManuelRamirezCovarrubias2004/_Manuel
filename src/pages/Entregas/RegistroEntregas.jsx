@@ -1,5 +1,5 @@
 // src/pages/Entregas/RegistroEntregas.jsx
-import { useMemo, useState, useEffect, useCallback  } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
     Plus,
     Search,
@@ -764,7 +764,7 @@ export default function RegistroEntregas() {
         "Verde Vibrante",
     ];
 
-     const ASESORES = [
+    const ASESORES = [
         "AURA MARLIZETH FERNANDEZ LOPEZ",
         "Bianca Isabel Chavez Alarcon",
         "ERENDIRA SANTOS COYOTZI",
@@ -826,9 +826,17 @@ export default function RegistroEntregas() {
         "Yoseth Ruiz Castellanos",
         "Luis Alberto Ramirez Santamaria",
         "Paul Serrano Vera",
-        "Luis Manuel Alvarez Martinez"
+        "Luis Manuel Alvarez Martinez",
+        "Carlos Arturo Garces Vengas",
+        "Edgar Omar Noguera Solis",
+        "Javier Perez Meraz",
+        "Luis Armando Almora Perez",
+        "Mara Erubey Soto Villegas",
+        "Sergio Ivan Quintana Martinez",
+        "Sergio Rene Delgado Sarmiento",
+        "Yoseth Ruiz Castellanos",
     ];
-    
+
     const MODELOS = [
         "Virtus",
         "Polo",
@@ -1409,7 +1417,7 @@ export default function RegistroEntregas() {
             acc[modelo].total += 1;
             return acc;
         }, {})
-    ).sort((a,b) => b.total - a.total);
+    ).sort((a, b) => b.total - a.total);
 
     const topAsesor = entregasPorAsesor.length ? entregasPorAsesor[0] : null;
 
@@ -1866,7 +1874,7 @@ export default function RegistroEntregas() {
                     </div>
                 </div>
             ) : null}
-            
+
             {/* NUEVA SECCIÓN DE GRÁFICAS - Estilo captura con efectos hover */}
             {viewMode === "graficas" ? (
                 <div className="space-y-6 bg-[#F8FAFC] p-4 rounded-xl">
@@ -1980,7 +1988,7 @@ export default function RegistroEntregas() {
                                         return (
                                             <div key={item.modelo} className="flex flex-col items-center gap-1 h-full justify-end group">
                                                 <span className="text-[11px] font-bold text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity">{item.total}</span>
-                                                <div 
+                                                <div
                                                     className={`w-full rounded-t ${modeloColors[index % modeloColors.length]} opacity-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-y-105 group-hover:brightness-110`}
                                                     style={{ height: `${Math.max(heightPercentage, 6)}%` }}
                                                 ></div>
