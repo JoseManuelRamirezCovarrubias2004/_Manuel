@@ -4,8 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import vwWhite from "../../assets/vw_white.png";
 import ryr from "../../assets/ryr.png";
 import { useAuth } from "../../auth/AuthContext";
-import { BadgeCheck, ShieldCheck, Cog, ThumbsUp, UndoDot, ClipboardPenLine, Wrench, Store } from "lucide-react";
-
+import { BadgeCheck, ShieldCheck, Cog, ThumbsUp, UndoDot, ClipboardPenLine, Wrench, Store, ClipboardX } from "lucide-react";
 const BRAND_BLUE = "#131E5C";
 
 export default function CalidadTopNav() {
@@ -35,17 +34,10 @@ export default function CalidadTopNav() {
             },
 
             {
-    label: "Experiencia de Piso",
-    href: "/calidad/enc_piso",
-    icon: Store,
-    show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
-},
-
-            {
-            label: "Experiencia de Piso",
-            href: "/calidad/enc_piso",
-            icon: Store,
-            show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
+                label: "Experiencia de Piso",
+                href: "/calidad/enc_piso",
+                icon: Store,
+                show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Experiencia de Servicio",
@@ -70,8 +62,15 @@ export default function CalidadTopNav() {
                 href: "/calidad/jdpower-servicio",
                 icon: Wrench,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
-            }, 
-            ];
+            },
+            {
+                label: "No Conformidad",
+                href: "/calidad/no-conformidad",
+                icon: ClipboardX,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
+
+            },
+        ];
 
         return items.filter((x) => x.show);
     }, [hasAnyPermission]);

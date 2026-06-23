@@ -279,7 +279,7 @@ export default function Sidebar() {
             }}
             className={({ isActive }) =>
                 cls(
-                    "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-all",
+                    "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-all hover:text-[15px]",
                     !showText && !isMobile && "justify-center px-0",
                     isActive
                         ? "bg-[#0A64FF] text-white shadow-[0_12px_32px_rgba(10,100,255,0.32)] pl-6"
@@ -434,7 +434,7 @@ export default function Sidebar() {
                     onClick={() => setCollapsed((value) => !value)}
                     title={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
                     aria-label={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
-                    className="absolute right-0 top-[86px] z-[999] inline-flex h-9 w-9 translate-x-1/2 items-center justify-center rounded-full border border-[#E7EDF6] bg-white text-[#001E50] shadow-[0_12px_30px_rgba(0,30,80,0.24)] transition hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                    className="absolute right-0 top-[86px] z-[999] inline-flex h-9 w-9 translate-x-1/2 items-center justify-center rounded-full border-black-300 bg-white text-[#001E50] shadow-md transition hover:-translate-y-0.5 hover:scale-105 active:scale-95"
                 >
                     {collapsed ? (
                         <ChevronsRight size={17} strokeWidth={2.8} />

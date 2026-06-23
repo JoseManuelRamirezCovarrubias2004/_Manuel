@@ -1,24 +1,36 @@
-// src/pages/PostVenta/PostVentaTopNav.jsx
-import { useMemo } from "react";
+// src/components/Topbar.jsx
+import React, { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Globe, CalendarDays, Building2, createLucideIcon, MessageCircle, CreditCard, CarFront, CircleDollarSign, Cog, ThumbsUp, Package, DoorOpen, Wrench } from "lucide-react";
-import vwWhite from "../../assets/vw_white.png";
-import ryr from "../../assets/ryr.png";
-import refaccion from "../../assets/engine.svg";
-import { steeringWheel } from "@lucide/lab";
+import {
+    DoorOpen,
+    Package,
+    Wrench,
+} from "lucide-react";
+
+import vwDark from "../../assets/vw_dark.png";
 import { useAuth } from "../../auth/AuthContext";
-import { Icon } from 'lucide-react';
-import { toolbox } from '@lucide/lab';
 
 const BRAND_BLUE = "#131E5C";
-const SteeringWheelLab = createLucideIcon("SteeringWheelLab", steeringWheel);
 
-export default function PostVentaTopNav() {
+function VWLogo({ logoSrc }) {
+    if (!logoSrc) return null;
+
+    return (
+        <img
+            src={logoSrc}
+            alt="Volkswagen"
+            className="h-16 w-16 object-contain md:h-20 md:w-20"
+            loading="lazy"
+        />
+    );
+}
+
+export default function Topbar({
+    section = "PostVenta",
+    logoSrc = vwDark,
+}) {
     const location = useLocation();
     const { hasAnyPermission } = useAuth();
-
-    const inProspectos = location.pathname.startsWith("/postventa/pedidos_piezas");
-    const canSeeContacto = hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]);
 
     const tabs = useMemo(() => {
         const items = [
@@ -26,82 +38,95 @@ export default function PostVentaTopNav() {
                 label: "Pedidos de Piezas",
                 href: "/postventa/pedidos_piezas",
                 icon: Package,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
+                show: hasAnyPermission([
+                    "USUARIOS_ADMIN",
+                    "CRM_POSTVENTA",
+                    "CRM_CALIDAD",
+                ]),
             },
             {
                 label: "Hoja de Ingresos",
                 href: "/postventa/hoja_ingresos",
                 icon: DoorOpen,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
+                show: hasAnyPermission([
+                    "USUARIOS_ADMIN",
+                    "CRM_POSTVENTA",
+                    "CRM_CALIDAD",
+                    "CRM_CALL_CENTER",
+                ]),
             },
             {
                 label: "Panel Taller",
                 href: "/postventa/taller",
                 icon: Wrench,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
+                show: hasAnyPermission([
+                    "USUARIOS_ADMIN",
+                    "CRM_POSTVENTA",
+                    "CRM_CALIDAD",
+                ]),
             },
         ];
 
-
-        return items.filter((x) => x.show);
-    }, [hasAnyPermission, canSeeContacto, inProspectos]);
+        return items.filter((item) => item.show);
+    }, [hasAnyPermission]);
 
     const isActive = (href) => location.pathname.startsWith(href);
 
     return (
-        <header className="w-full">
-            <div className="relative overflow-hidden rounded-lg shadow-lg" style={{ backgroundColor: BRAND_BLUE }}>
-                <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute -top-20 -left-28 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
-                    <div className="absolute -bottom-24 right-0 h-80 w-80 rounded-full bg-cyan-300/10 blur-3xl" />
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/0 to-black/15" />
-                </div>
+        <header
+            className="sticky top-0 z-40 w-full border-b bg-white"
+            style={{ borderColor: `${BRAND_BLUE}22` }}
+        >
+            <div className="flex min-h-[76px] items-center gap-4 px-4 md:px-6 lg:px-8">
+                {/* Logo + sección */}
+                <div className="flex shrink-0 items-center gap-3 md:gap-4">
+                    <VWLogo logoSrc={logoSrc} />
 
-                <div className="relative px-5 py-5 sm:px-7 sm:py-6">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="min-w-0">
-                            <h1 className="font-vw-header truncate text-lg font-extrabold text-white sm:text-xl">
-                                PostVenta
-                            </h1>
-                            <p className="mt-1 text-sm text-white/80">
-                                Resultados de Encuestas de Satisfaccion de clientes.
-                            </p>
-                        </div>
-
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:justify-end">
-                            <nav className="flex w-full gap-2 sm:w-auto overflow-x-auto">
-                                {tabs.map((t) => {
-                                    const Icon = t.icon;
-                                    const active = isActive(t.href);
-                                    return (
-                                        <Link
-                                            key={t.href}
-                                            to={t.href}
-                                            className={[
-                                                "group inline-flex w-auto shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm transition",
-                                                "border",
-                                                active
-                                                    ? "border-white/35 bg-white/20 text-white shadow-sm"
-                                                    : "border-white/20 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white",
-                                            ].join(" ")}
-                                            aria-current={active ? "page" : undefined}
-                                        >
-                                            <Icon className="h-4 w-4 opacity-90" />
-                                            {t.label}
-                                        </Link>
-                                    );
-                                })}
-                            </nav>
-
-                            <div className="flex items-center justify-between gap-3 sm:justify-end">
-                                <img src={vwWhite} alt="VW" className="h-10 w-auto opacity-95" loading="lazy" />
-                                <img src={ryr} alt="RYR" className="h-10 w-auto opacity-95" loading="lazy" />
-                            </div>
-                        </div>
+                    <div
+                        className="text-[24px] font-extrabold tracking-[-0.04em] md:text-[30px]"
+                        style={{ color: BRAND_BLUE }}
+                    >
+                        {section}
                     </div>
-
-                    <div className="mt-5 h-px w-full bg-gradient-to-r from-white/25 via-white/50 to-white/25" />
                 </div>
+
+                {/* Línea azul después del logo/título */}
+                <div
+                    className="hidden h-[2px] min-w-[60px] flex-1 rounded-full lg:block"
+                    style={{ background: BRAND_BLUE }}
+                />
+
+                {/* Botones del módulo */}
+                <nav className="ml-auto flex max-w-full items-center gap-2 overflow-x-auto py-2">
+                    {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const active = isActive(tab.href);
+
+                        return (
+                            <Link
+                                key={tab.href}
+                                to={tab.href}
+                                aria-current={active ? "page" : undefined}
+                                className={[
+                                    "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition",
+                                    active
+                                        ? "text-white"
+                                        : "bg-white hover:text-white",
+                                ].join(" ")}
+                                style={{
+                                    borderColor: BRAND_BLUE,
+                                    backgroundColor: active ? BRAND_BLUE : "#FFFFFF",
+                                    color: active ? "#FFFFFF" : BRAND_BLUE,
+                                }}
+                            >
+                                <Icon className="h-4 w-4" />
+                                <span className="hidden sm:inline">
+                                    {tab.label}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </nav>
             </div>
         </header>
     );

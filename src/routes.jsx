@@ -98,6 +98,7 @@ import ConfigIA from "./pages/IA/ConfigIA";
 
 import InventarioLayout from "./pages/Inventario/InventarioLayout";
 import InventarioIndex from "./pages/Inventario/InventarioIndex";
+import NoConformidad from "./pages/Calidad/NoConformidad";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
@@ -347,6 +348,19 @@ export const router = createBrowserRouter(
                                     element: (
                                         <RequirePermission anyOf={["CRM_DIGITALES", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_POSTVENTA"]}>
                                             <JDPowerServicio />
+                                        </RequirePermission>
+                                    ),
+                                },
+                                {
+                                    path: "no-conformidad",
+                                    element: (
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
+                                            <NoConformidad />
                                         </RequirePermission>
                                     ),
                                 },
@@ -736,7 +750,7 @@ export const router = createBrowserRouter(
                                     index: true,
                                     element: <PostVentaIndexPorPermisos />,
                                 },
-                            
+
                                 {
                                     path: "pedidos_piezas",
                                     element: (
@@ -784,14 +798,14 @@ export const router = createBrowserRouter(
                         },
 
                         {
-    path: "inventario",
-    element: (
-        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]}>
-            <InventarioLayout />
-        </RequirePermission>
-    ),
-    children: [{ index: true, element: <InventarioIndex /> }],
-},
+                            path: "inventario",
+                            element: (
+                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]}>
+                                    <InventarioLayout />
+                                </RequirePermission>
+                            ),
+                            children: [{ index: true, element: <InventarioIndex /> }],
+                        },
 
                         {
                             path: "administrativos",

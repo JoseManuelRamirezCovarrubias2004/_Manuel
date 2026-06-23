@@ -22,6 +22,7 @@ import {
     XCircle,
     Table2,
     LayoutGrid,
+    Clock3,
 } from "lucide-react";
 
 import { apiHojaIngresos } from "../../lib/apiHojaIngresos";
@@ -35,81 +36,68 @@ import AgendaView from "./AgendaView";
 // azul corporativo, mucho aire, tarjetas editoriales y acentos luminosos.
 // ---------------------------------------------------------------------------
 const COLOR = {
-    ink: "#08111F",
-    inkSoft: "#536070",
-    inkFaint: "#8A95A6",
+    brand: "#131E5C",
+    white: "#FFFFFF",
+
+    ink: "#131E5C",
+    inkSoft: "rgba(19, 30, 92, 0.78)",
+    inkFaint: "rgba(19, 30, 92, 0.58)",
     inkInverse: "#FFFFFF",
 
-    brand: "#001E50", // Volkswagen Blue
-    brandDeep: "#000B24",
-    brandMid: "#003B78",
-    brandSoft: "#E8F0FA",
-    brandLine: "#BFD0E7",
-
-    accent: "#00B0F0",
-    accentSoft: "#E5F7FE",
-    accentLine: "#A7E5FA",
-
-    paper: "#F4F7FB",
     surface: "#FFFFFF",
-    surfaceAlt: "#F8FAFD",
-    line: "#DDE5EF",
-    lineStrong: "#B9C7DA",
+    surfaceAlt: "#FFFFFF",
+    paper: "#FFFFFF",
 
-    ok: "#0B7A53",
-    okSoft: "#E4F5ED",
-    okLine: "#B9E2CD",
+    line: "rgba(19, 30, 92, 0.16)",
+    lineStrong: "#131E5C",
 
-    warn: "#9A6400",
-    warnSoft: "#FBF1DC",
-    warnLine: "#EDD59E",
+    brandDeep: "#131E5C",
+    brandMid: "#131E5C",
+    brandSoft: "rgba(19, 30, 92, 0.06)",
+    brandLine: "rgba(19, 30, 92, 0.18)",
 
-    danger: "#B42318",
-    dangerSoft: "#FDEAE7",
-    dangerLine: "#F3C4BC",
+    accent: "#131E5C",
+    accentSoft: "rgba(19, 30, 92, 0.06)",
+    accentLine: "rgba(19, 30, 92, 0.18)",
 
-    violet: "#4B3F99",
-    violetSoft: "#ECEAF8",
-    teal: "#087780",
-    tealSoft: "#E0F4F5",
+    ok: "#131E5C",
+    okSoft: "rgba(19, 30, 92, 0.06)",
+    okLine: "rgba(19, 30, 92, 0.18)",
+
+    warn: "#131E5C",
+    warnSoft: "rgba(19, 30, 92, 0.06)",
+    warnLine: "rgba(19, 30, 92, 0.18)",
+
+    danger: "#131E5C",
+    dangerSoft: "rgba(19, 30, 92, 0.06)",
+    dangerLine: "rgba(19, 30, 92, 0.18)",
+
+    violet: "#131E5C",
+    violetSoft: "rgba(19, 30, 92, 0.06)",
+    teal: "#131E5C",
+    tealSoft: "rgba(19, 30, 92, 0.06)",
 };
 
-const FONT_DISPLAY = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const FONT_DISPLAY = "inherit";
 
 const ASESOR_PALETTE = [
-    { bg: "#E8F0FA", line: "#BFD0E7", dot: "#001E50", text: "#001E50" },
-    { bg: "#E0F4F5", line: "#B9E0E3", dot: "#087780", text: "#075D65" },
-    { bg: "#FBF1DC", line: "#EDD59E", dot: "#9A6400", text: "#754D00" },
-    { bg: "#ECEAF8", line: "#D2CDEF", dot: "#4B3F99", text: "#3D337D" },
-    { bg: "#E4F5ED", line: "#B9E2CD", dot: "#0B7A53", text: "#075F40" },
-    { bg: "#FDEAE7", line: "#F3C4BC", dot: "#B42318", text: "#912018" },
+    { bg: "#FFFFFF", line: "rgba(19, 30, 92, 0.16)", dot: "#131E5C", text: "#131E5C" },
 ];
 
 function colorForAsesor(nombre) {
-    if (!nombre) return { bg: "#EEF2F7", line: "#DDE5EF", dot: "#8A95A6", text: "#536070" };
+    if (!nombre) return { bg: COLOR.surface, line: COLOR.line, dot: COLOR.brand, text: COLOR.brand };
     let hash = 0;
     for (let i = 0; i < nombre.length; i += 1) hash = (hash * 31 + nombre.charCodeAt(i)) >>> 0;
     return ASESOR_PALETTE[hash % ASESOR_PALETTE.length];
 }
 
 function tipoServicioMeta(tipo) {
-    const t = String(tipo || "").toLowerCase();
-    if (t.includes("mtto") || t.includes("mantenimiento")) {
-        return { bg: COLOR.brandSoft, line: COLOR.brandLine, text: COLOR.brand, label: "Mantenimiento" };
-    }
-    if (t.includes("diagn")) {
-        return { bg: "#EEF2F7", line: "#DDE5EF", text: "#3E4858", label: "Diagnóstico" };
-    }
-    if (t.includes("campa")) {
-        return { bg: COLOR.violetSoft, line: "#D2CDEF", text: COLOR.violet, label: "Campaña" };
-    }
-    if (t.includes("repar")) {
-        return { bg: COLOR.dangerSoft, line: COLOR.dangerLine, text: COLOR.danger, label: "Reparación" };
-    }
-    if (t.includes("garant")) {
-        return { bg: COLOR.tealSoft, line: "#B9E0E3", text: COLOR.teal, label: "Garantía" };
-    }
-    return { bg: "#EEF2F7", line: COLOR.line, text: COLOR.inkSoft, label: tipo || "Otro" };
+    return {
+        bg: COLOR.surface,
+        line: COLOR.line,
+        text: COLOR.brand,
+        label: tipo || "Otro",
+    };
 }
 
 
@@ -222,12 +210,6 @@ function formatDate(value) {
     const local = toDTLocal(value);
     return local ? local.replace("T", "  ·  ") : "—";
 }
-
-// La fuente de verdad para el nombre del cliente es `nombre_cliente`
-// (así lo entrega la API). Se conservan los demás como respaldo para no
-// romper datos antiguos, pero el orden de prioridad es el mismo en toda
-// la app — ésta era la causa de que, al editar desde ciertas vistas, el
-// nombre apareciera vacío y se sobrescribiera al guardar.
 function getClienteNombre(row) {
     return row?.nombre_cliente || row?.cliente_nombre || row?.cliente?.nombre || "—";
 }
@@ -235,7 +217,9 @@ function getTelefono(row) {
     return row?.telefono || row?.cliente?.telefono || "—";
 }
 function getCorreo(row) {
-    return row?.correo_electronico || row?.cliente?.correo_electronico || "—";
+    return (
+        row?.correo || row?.correo_electronico || row?.cliente?.correo || row?.cliente?.correo_electronico || "—"
+    );
 }
 
 function crearDraftBase(userAgencia = "", isAdmin = true) {
@@ -340,7 +324,7 @@ function Modal({ open, title, onClose, children, footer }) {
     if (!open) return null;
     return (
         <div className="fixed inset-0 z-[70]">
-            <div className="absolute inset-0 bg-[#000B24]/55 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-[#131E5C]/55 backdrop-blur-sm" onClick={onClose} />
             <div className="absolute inset-0 flex items-end justify-center p-3 sm:items-center">
                 <div
                     className="w-full max-w-6xl overflow-hidden rounded-[32px] border shadow-2xl"
@@ -349,7 +333,7 @@ function Modal({ open, title, onClose, children, footer }) {
                     <div
                         className="flex items-center justify-between gap-3 px-5 py-4"
                         style={{
-                            background: `radial-gradient(circle at 92% 0%, rgba(0,176,240,0.32), transparent 30%), linear-gradient(135deg, ${COLOR.brandDeep}, ${COLOR.brand})`,
+                            background: COLOR.brand,
                         }}
                     >
                         <div className="min-w-0">
@@ -368,7 +352,7 @@ function Modal({ open, title, onClose, children, footer }) {
                         </button>
                     </div>
 
-                    <div className="max-h-[72vh] overflow-auto p-5" style={{ background: `linear-gradient(180deg, ${COLOR.paper}, #FFFFFF)` }}>
+                    <div className="max-h-[72vh] overflow-auto p-5" style={{ background: COLOR.surface }}>
                         {children}
                     </div>
 
@@ -393,7 +377,7 @@ function ContextMenu({ ctxMenu, onDelete, onClose }) {
             <div className="w-44 overflow-hidden rounded-2xl border shadow-xl" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
                 <button
                     type="button"
-                    className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13px] font-semibold hover:bg-red-50"
+                    className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13px] font-semibold hover:bg-[#131E5C]/5"
                     style={{ color: COLOR.danger }}
                     onClick={() => onDelete(ctxMenu.row)}
                 >
@@ -426,10 +410,11 @@ function BooleanButton({ row, field, updatingInline, onToggle }) {
                 event.stopPropagation();
                 onToggle(row, field);
             }}
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold transition-opacity"
+            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold transition-opacity"
             style={{
-                background: value ? COLOR.okSoft : COLOR.dangerSoft,
-                color: value ? COLOR.ok : COLOR.danger,
+                background: value ? COLOR.brand : COLOR.surface,
+                borderColor: COLOR.brand,
+                color: value ? COLOR.surface : COLOR.brand,
                 opacity: isUpdating ? 0.6 : 1,
                 cursor: isUpdating ? "not-allowed" : "pointer",
             }}
@@ -445,6 +430,38 @@ function BooleanButton({ row, field, updatingInline, onToggle }) {
         </button>
     );
 }
+function MetricCard({ icon: Icon, label, value, hint }) {
+    return (
+        <div
+            className="rounded-[18px] border bg-white px-5 py-4 shadow-sm"
+            style={{
+                borderColor: COLOR.line,
+                boxShadow: "0 14px 34px rgba(19, 30, 92, 0.08)",
+            }}
+        >
+            <div className="flex items-center gap-4">
+                <div
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl border"
+                    style={{ background: COLOR.surface, borderColor: COLOR.line }}
+                >
+                    <Icon className="h-6 w-6" style={{ color: COLOR.brand }} />
+                </div>
+                <div className="min-w-0">
+                    <div className="text-[26px] font-semibold leading-none tabular-nums" style={{ color: COLOR.brand }}>
+                        {value}
+                    </div>
+                    <div className="mt-1 text-[12px] font-semibold" style={{ color: COLOR.brand }}>
+                        {label}
+                    </div>
+                    <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.inkFaint }}>
+                        {hint}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 
 // ---------------------------------------------------------------------------
 // Vista principal
@@ -516,8 +533,9 @@ export default function HojaRegistros() {
         { key: "vin", label: "VIN" },
         { key: "medio_concertacion", label: "Medio" },
     ];
-
-    const required = useMemo(() => ({ cliente_telefono: "Teléfono", fecha_ingreso: "Fecha ingreso" }), []);
+    const required = useMemo(() => ({
+        cliente_nombre: "Cliente", cliente_telefono: "Teléfono", fecha_ingreso: "Fecha ingreso",
+    }), []);
 
     const missing = useMemo(() => {
         if (!draft) return [];
@@ -620,6 +638,7 @@ export default function HojaRegistros() {
         });
     }, [rows, filters, isAdmin, userAgencia]);
 
+
     const sorted = useMemo(() => {
         const data = [...filtered];
         const { key, dir } = sort;
@@ -715,7 +734,7 @@ export default function HojaRegistros() {
 
             setDraft({
                 id: data.id,
-                cliente_id: data?.cliente?.id ?? null,
+                cliente_id: data?.cliente?.id ?? data?.cliente ?? data?.cliente_id ?? null,
                 agencia: data.agencia || (isAdmin ? "" : userAgencia),
                 fecha_ingreso: toDTLocal(data.fecha_ingreso),
                 asistencia: !!data.asistencia,
@@ -730,7 +749,7 @@ export default function HojaRegistros() {
                 agendado_por: data.agendado_por || "",
                 cliente_nombre: getClienteNombre(data) === "—" ? "" : getClienteNombre(data),
                 cliente_telefono: data.telefono || data?.cliente?.telefono || "",
-                cliente_correo_electronico: data.correo_electronico || data?.cliente?.correo_electronico || "",
+                cliente_correo_electronico: data.correo || data.correo_electronico || data?.cliente?.correo || data?.cliente?.correo_electronico || "",
                 tipo_cita: data.tipo_cita ? String(data.tipo_cita).split(",").map((t) => t.trim()).filter(Boolean) : [],
                 declaracion_textual_cliente: data.declaracion_textual_cliente || "",
                 comentarios: data.comentarios || "",
@@ -857,6 +876,30 @@ export default function HojaRegistros() {
         }
     }
 
+
+    async function setAsistenciaDesdeAgenda(row, value) {
+        if (!row?.id) return;
+        const previous = boolFromAny(row.asistencia);
+        const next = !!value;
+
+        setRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, asistencia: next } : item)));
+        setUpdatingInline((prev) => ({ ...prev, [`${row.id}-asistencia`]: true }));
+
+        try {
+            await apiHojaIngresos.patch(row.id, { asistencia: next });
+        } catch (error) {
+            console.error(error);
+            setRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, asistencia: previous } : item)));
+            alert("No se pudo actualizar la asistencia.");
+        } finally {
+            setUpdatingInline((prev) => {
+                const copy = { ...prev };
+                delete copy[`${row.id}-asistencia`];
+                return copy;
+            });
+        }
+    }
+
     const tipoCitaList = (value) => (Array.isArray(value) ? value : value ? [value] : []);
     const fechaLegible = useMemo(() => {
         const [y, m, d] = selectedDate.split("-").map(Number);
@@ -874,32 +917,28 @@ export default function HojaRegistros() {
             return mismaFecha && mismaAgencia;
         });
 
+        const total = base.length;
         const citados = base.filter((row) => boolFromAny(row.citado)).length;
+        const noCitados = total - citados;
         const asistencias = base.filter((row) => boolFromAny(row.asistencia)).length;
         const clientes = new Set(base.map((row) => getTelefono(row)).filter(Boolean)).size;
+        const tasaAsistencia = citados > 0 ? Math.round((asistencias / citados) * 100) : 0;
 
-        return { total: base.length, citados, asistencias, clientes };
+        return { total, citados, noCitados, asistencias, clientes, tasaAsistencia };
     }, [rows, selectedDate, agenciaSeleccionada]);
 
     return (
         <div
             className="w-full min-h-screen rounded-[14px]"
         >
-            {/* Agenda ejecutiva: cabecera única del módulo */}
-            <section
-                className="mb-4 overflow-hidden rounded-lg border"
-                style={{
-                    background: `radial-gradient(circle at 92% 0%, rgba(0,176,240,0.32), transparent 28%), linear-gradient(135deg, ${COLOR.brandDeep} 0%, ${COLOR.brand} 58%, ${COLOR.brandMid} 100%)`,
-                    borderColor: "rgba(255,255,255,0.16)",
-                    boxShadow: "0 24px 70px rgba(0, 30, 80, 0.18)",
-                }}
-            >
-                <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-6">
-                    <div className="min-w-0 text-white">
-                        <h1 className="mt-4 text-[32px] font-semibold leading-none tracking-[-0.055em] md:text-[46px]">
-                            Hoja Ingresos
+            {/* Cabecera del módulo y métricas */}
+            <section className="mb-4 text-[#131E5C]">
+                <div className="grid gap-5 py-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+                    <div className="min-w-0">
+                        <h1 className="text-[32px] font-semibold leading-none tracking-[-0.045em] md:text-[46px]">
+                            Hoja de Ingresos
                         </h1>
-                        <p className="mt-3 max-w-2xl text-[13px] font-medium leading-6 text-white/68">
+                        <p className="mt-3 max-w-2xl text-[13px] font-medium leading-6">
                             Control diario de ingresos de servicio Volkswagen R&amp;R. {fechaLegible || "Fecha"} · {agenciaSeleccionada}
                         </p>
                     </div>
@@ -909,19 +948,19 @@ export default function HojaRegistros() {
                             <button
                                 type="button"
                                 onClick={() => abrirNuevo()}
-                                className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-[13px] font-bold shadow-lg transition hover:-translate-y-0.5"
-                                style={{ color: COLOR.brand }}
+                                className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-[13px] font-bold transition hover:-translate-y-0.5"
+                                style={{ background: COLOR.brand, borderColor: COLOR.brand, color: COLOR.surface }}
                             >
                                 <Plus className="h-4 w-4" />
                                 Nueva cita
                             </button>
 
-                            <div className="flex items-center overflow-hidden rounded-lg border border-white/15 bg-white/10 p-1">
+                            <div className="flex items-center overflow-hidden rounded-lg border p-1" style={{ borderColor: COLOR.line }}>
                                 <button
                                     type="button"
                                     onClick={() => setViewMode("agenda")}
                                     className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-bold transition-colors"
-                                    style={viewMode === "agenda" ? { background: "#fff", color: COLOR.brand } : { color: "rgba(255,255,255,0.74)" }}
+                                    style={viewMode === "agenda" ? { background: COLOR.brand, color: COLOR.surface } : { background: COLOR.surface, color: COLOR.brand }}
                                 >
                                     <LayoutGrid className="h-3.5 w-3.5" /> Agenda
                                 </button>
@@ -929,7 +968,7 @@ export default function HojaRegistros() {
                                     type="button"
                                     onClick={() => setViewMode("tabla")}
                                     className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-bold transition-colors"
-                                    style={viewMode === "tabla" ? { background: "#fff", color: COLOR.brand } : { color: "rgba(255,255,255,0.74)" }}
+                                    style={viewMode === "tabla" ? { background: COLOR.brand, color: COLOR.surface } : { background: COLOR.surface, color: COLOR.brand }}
                                 >
                                     <Table2 className="h-3.5 w-3.5" /> Tabla
                                 </button>
@@ -937,11 +976,12 @@ export default function HojaRegistros() {
                         </div>
 
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                            <div className="flex items-center overflow-hidden rounded-lg border border-white/15 bg-white/10">
+                            <div className="flex items-center overflow-hidden rounded-lg border" style={{ borderColor: COLOR.line }}>
                                 <button
                                     type="button"
                                     onClick={() => changeDate(-1)}
-                                    className="px-2.5 py-2 text-white/75 hover:text-white"
+                                    className="px-2.5 py-2"
+                                    style={{ color: COLOR.brand }}
                                     title="Día anterior"
                                 >
                                     <ChevronLeft className="h-3.5 w-3.5" />
@@ -949,45 +989,47 @@ export default function HojaRegistros() {
                                 <button
                                     type="button"
                                     onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
-                                    className="border-x border-white/15 px-3 py-2 text-[12px] font-bold text-white"
+                                    className="border-x px-3 py-2 text-[12px] font-bold"
+                                    style={{ borderColor: COLOR.line, color: COLOR.brand }}
                                 >
                                     Hoy
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => changeDate(1)}
-                                    className="px-2.5 py-2 text-white/75 hover:text-white"
+                                    className="px-2.5 py-2"
+                                    style={{ color: COLOR.brand }}
                                     title="Día siguiente"
                                 >
                                     <ChevronRight className="h-3.5 w-3.5" />
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-3 py-2">
-                                <Calendar className="h-3.5 w-3.5 text-white/65" />
+                            <div className="flex items-center gap-1.5 rounded-lg border px-3 py-2" style={{ borderColor: COLOR.line }}>
+                                <Calendar className="h-3.5 w-3.5" style={{ color: COLOR.brand }} />
                                 <input
                                     type="date"
                                     value={selectedDate}
                                     onChange={(e) => setSelectedDate(e.target.value)}
                                     className="text-[12px] font-bold outline-none"
-                                    style={{ color: "#fff", background: "transparent", colorScheme: "dark" }}
+                                    style={{ color: COLOR.brand, background: COLOR.surface }}
                                 />
                             </div>
 
                             <div className="flex items-center gap-1.5">
-                                {["VW Cordoba", "VW Orizaba"].map((d) => (
+                                {["VW Cordoba", "VW Orizaba"].map((dealer) => (
                                     <button
-                                        key={d}
+                                        key={dealer}
                                         type="button"
-                                        onClick={() => setAgenciaSeleccionada(d)}
-                                        className="rounded-lg px-3.5 py-2 text-[12px] font-bold transition-colors"
+                                        onClick={() => setAgenciaSeleccionada(dealer)}
+                                        className="rounded-lg border px-3.5 py-2 text-[12px] font-bold transition-colors"
                                         style={
-                                            agenciaSeleccionada === d
-                                                ? { background: "#fff", color: COLOR.brand }
-                                                : { background: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.74)", border: "1px solid rgba(255,255,255,0.14)" }
+                                            agenciaSeleccionada === dealer
+                                                ? { background: COLOR.brand, borderColor: COLOR.brand, color: COLOR.surface }
+                                                : { background: COLOR.surface, borderColor: COLOR.line, color: COLOR.brand }
                                         }
                                     >
-                                        {d}
+                                        {dealer}
                                     </button>
                                 ))}
                             </div>
@@ -995,290 +1037,308 @@ export default function HojaRegistros() {
                     </div>
                 </div>
 
-                <div className="grid gap-2 border-t border-white/10 bg-white/[0.06] p-3 md:grid-cols-4">
-                    {[
-                        { label: "Citas día", value: metricasDia.total, hint: "agenda seleccionada" },
-                        { label: "Citados", value: metricasDia.citados, hint: "confirmados" },
-                        { label: "Asistencias", value: metricasDia.asistencias, hint: "registradas" },
-                        { label: "Clientes únicos", value: metricasDia.clientes, hint: "por teléfono" },
-                    ].map((item) => (
-                        <div key={item.label} className="rounded-lg border border-white/10 bg-white/10 px-4 py-3 text-white backdrop-blur">
-                            <div className="text-[10px] font-bold uppercase tracking-[0.19em] text-white/52">{item.label}</div>
-                            <div className="mt-2 text-[30px] font-semibold leading-none tabular-nums">{item.value}</div>
-                            <div className="mt-1 text-[11px] font-semibold text-white/58">{item.hint}</div>
-                        </div>
-                    ))}
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <MetricCard
+                        icon={Clock3}
+                        label="Citas del día"
+                        value={metricasDia.total}
+                        hint={`${metricasDia.tasaAsistencia}% tasa de asistencia`}
+                    />
+                    <MetricCard
+                        icon={User}
+                        label="Citados"
+                        value={metricasDia.citados}
+                        hint={`${metricasDia.noCitados} no citados`}
+                    />
+                    <MetricCard
+                        icon={CheckCircle2}
+                        label="Asistencias"
+                        value={metricasDia.asistencias}
+                        hint={`${metricasDia.tasaAsistencia}% sobre citados`}
+                    />
+                    <MetricCard
+                        icon={User}
+                        label="Clientes únicos"
+                        value={metricasDia.clientes}
+                        hint="Calculado por teléfono"
+                    />
                 </div>
             </section>
 
             {/* Filtros — solo vista tabla */}
-            {viewMode === "tabla" && (
-                <div className="mb-3 rounded-lg border p-3" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
-                    <div className="grid gap-3 md:grid-cols-12">
-                        <div className="md:col-span-5">
-                            <FilterBlock label="Búsqueda">
-                                <div className="flex items-center gap-2 rounded-lg border px-3 py-2" style={{ borderColor: COLOR.line }}>
-                                    <Search className="h-3.5 w-3.5" style={{ color: COLOR.inkFaint }} />
+            {
+                viewMode === "tabla" && (
+                    <div className="mb-3 rounded-lg border p-3" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
+                        <div className="grid gap-3 md:grid-cols-12">
+                            <div className="md:col-span-5">
+                                <FilterBlock label="Búsqueda">
+                                    <div className="flex items-center gap-2 rounded-lg border px-3 py-2" style={{ borderColor: COLOR.line }}>
+                                        <Search className="h-3.5 w-3.5" style={{ color: COLOR.inkFaint }} />
+                                        <input
+                                            value={filters.q}
+                                            onChange={(event) => setFilters((prev) => ({ ...prev, q: event.target.value }))}
+                                            placeholder="Cliente, teléfono, VIN, asesor, orden..."
+                                            className="w-full text-[13px] font-medium outline-none"
+                                            style={{ color: COLOR.ink }}
+                                        />
+                                        {filters.q && (
+                                            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, q: "" }))}>
+                                                <X className="h-3.5 w-3.5" style={{ color: COLOR.inkFaint }} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </FilterBlock>
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <FilterBlock label="Dealer">
+                                    <select
+                                        value={filters.agencia}
+                                        onChange={(event) => setFilters((prev) => ({ ...prev, agencia: event.target.value }))}
+                                        className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
+                                        style={{ borderColor: COLOR.line, color: COLOR.ink }}
+                                    >
+                                        {dealers.map((dealer) => (
+                                            <option key={dealer} value={dealer}>{dealer}</option>
+                                        ))}
+                                    </select>
+                                </FilterBlock>
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <FilterBlock label="Desde">
                                     <input
-                                        value={filters.q}
-                                        onChange={(event) => setFilters((prev) => ({ ...prev, q: event.target.value }))}
-                                        placeholder="Cliente, teléfono, VIN, asesor, orden..."
-                                        className="w-full text-[13px] font-medium outline-none"
-                                        style={{ color: COLOR.ink }}
+                                        type="date"
+                                        value={filters.desde}
+                                        onChange={(event) => setFilters((prev) => ({ ...prev, desde: event.target.value }))}
+                                        className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
+                                        style={{ borderColor: COLOR.line, color: COLOR.ink }}
                                     />
-                                    {filters.q && (
-                                        <button type="button" onClick={() => setFilters((prev) => ({ ...prev, q: "" }))}>
-                                            <X className="h-3.5 w-3.5" style={{ color: COLOR.inkFaint }} />
+                                </FilterBlock>
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <FilterBlock label="Hasta">
+                                    <input
+                                        type="date"
+                                        value={filters.hasta}
+                                        onChange={(event) => setFilters((prev) => ({ ...prev, hasta: event.target.value }))}
+                                        className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
+                                        style={{ borderColor: COLOR.line, color: COLOR.ink }}
+                                    />
+                                </FilterBlock>
+                            </div>
+
+                            <div className="md:col-span-1">
+                                <FilterBlock label=" ">
+                                    <div className="flex gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={setHoy}
+                                            title="Filtrar por hoy"
+                                            className="flex-1 rounded-lg py-2 text-[11px] font-semibold"
+                                            style={{ background: COLOR.brandSoft, color: COLOR.brand }}
+                                        >
+                                            Hoy
                                         </button>
-                                    )}
-                                </div>
-                            </FilterBlock>
+                                        <button
+                                            type="button"
+                                            onClick={resetFilters}
+                                            title="Limpiar filtros"
+                                            className="flex-1 rounded-lg border py-2 text-[11px] font-semibold"
+                                            style={{ borderColor: COLOR.line, color: COLOR.inkSoft }}
+                                        >
+                                            Limpiar
+                                        </button>
+                                    </div>
+                                </FilterBlock>
+                            </div>
                         </div>
 
-                        <div className="md:col-span-2">
-                            <FilterBlock label="Dealer">
-                                <select
-                                    value={filters.agencia}
-                                    onChange={(event) => setFilters((prev) => ({ ...prev, agencia: event.target.value }))}
-                                    className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
-                                    style={{ borderColor: COLOR.line, color: COLOR.ink }}
-                                >
-                                    {dealers.map((dealer) => (
-                                        <option key={dealer} value={dealer}>{dealer}</option>
-                                    ))}
-                                </select>
-                            </FilterBlock>
-                        </div>
-
-                        <div className="md:col-span-2">
-                            <FilterBlock label="Desde">
-                                <input
-                                    type="date"
-                                    value={filters.desde}
-                                    onChange={(event) => setFilters((prev) => ({ ...prev, desde: event.target.value }))}
-                                    className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
-                                    style={{ borderColor: COLOR.line, color: COLOR.ink }}
-                                />
-                            </FilterBlock>
-                        </div>
-
-                        <div className="md:col-span-2">
-                            <FilterBlock label="Hasta">
-                                <input
-                                    type="date"
-                                    value={filters.hasta}
-                                    onChange={(event) => setFilters((prev) => ({ ...prev, hasta: event.target.value }))}
-                                    className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
-                                    style={{ borderColor: COLOR.line, color: COLOR.ink }}
-                                />
-                            </FilterBlock>
-                        </div>
-
-                        <div className="md:col-span-1">
-                            <FilterBlock label=" ">
-                                <div className="flex gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={setHoy}
-                                        title="Filtrar por hoy"
-                                        className="flex-1 rounded-lg py-2 text-[11px] font-semibold"
-                                        style={{ background: COLOR.brandSoft, color: COLOR.brand }}
-                                    >
-                                        Hoy
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={resetFilters}
-                                        title="Limpiar filtros"
-                                        className="flex-1 rounded-lg border py-2 text-[11px] font-semibold"
-                                        style={{ borderColor: COLOR.line, color: COLOR.inkSoft }}
-                                    >
-                                        Limpiar
-                                    </button>
-                                </div>
-                            </FilterBlock>
+                        <div className="mt-2.5 flex items-center gap-1.5 text-[11.5px]" style={{ color: COLOR.inkFaint }}>
+                            <span className="font-semibold" style={{ color: COLOR.ink }}>{sorted.length}</span>
+                            registro{sorted.length === 1 ? "" : "s"} encontrado{sorted.length === 1 ? "" : "s"}
                         </div>
                     </div>
-
-                    <div className="mt-2.5 flex items-center gap-1.5 text-[11.5px]" style={{ color: COLOR.inkFaint }}>
-                        <span className="font-semibold" style={{ color: COLOR.ink }}>{sorted.length}</span>
-                        registro{sorted.length === 1 ? "" : "s"} encontrado{sorted.length === 1 ? "" : "s"}
-                    </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Contenido: tabla o agenda */}
-            {viewMode === "tabla" ? (
-                <>
-                    {/* TABLA DESKTOP */}
-                    <div className="hidden overflow-hidden rounded-lg border lg:block" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
-                        <div className="w-full overflow-x-auto">
-                            <table className="min-w-[1500px] w-full text-left text-[13px]">
-                                <thead className="sticky top-0 z-10" style={{ background: COLOR.brand }}>
-                                    <tr>
-                                        {columns.map((column) => (
-                                            <th key={column.key} className="whitespace-nowrap px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-white/90">
-                                                {column.sortable ? (
-                                                    <button type="button" onClick={() => toggleSort(column.key)} className="inline-flex items-center gap-1">
-                                                        {column.label}
-                                                        {sort.key === column.key ? (
-                                                            sort.dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                                                        ) : (
-                                                            <ArrowUpDown className="h-3 w-3 opacity-50" />
-                                                        )}
-                                                    </button>
-                                                ) : (
-                                                    column.label
-                                                )}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-                                    {loadingList ? (
-                                        Array.from({ length: 8 }).map((_, index) => <SkeletonRow key={index} columns={columns.length} />)
-                                    ) : sorted.length === 0 ? (
+            {
+                viewMode === "tabla" ? (
+                    <>
+                        {/* TABLA DESKTOP */}
+                        <div className="hidden overflow-hidden rounded-lg border lg:block" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
+                            <div className="w-full overflow-x-auto">
+                                <table className="min-w-[1500px] w-full text-left text-[13px]">
+                                    <thead className="sticky top-0 z-10" style={{ background: COLOR.brand }}>
                                         <tr>
-                                            <td colSpan={columns.length}>
-                                                <EmptyState />
-                                            </td>
+                                            {columns.map((column) => (
+                                                <th key={column.key} className="whitespace-nowrap px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-white/90">
+                                                    {column.sortable ? (
+                                                        <button type="button" onClick={() => toggleSort(column.key)} className="inline-flex items-center gap-1">
+                                                            {column.label}
+                                                            {sort.key === column.key ? (
+                                                                sort.dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                                                            ) : (
+                                                                <ArrowUpDown className="h-3 w-3 opacity-50" />
+                                                            )}
+                                                        </button>
+                                                    ) : (
+                                                        column.label
+                                                    )}
+                                                </th>
+                                            ))}
                                         </tr>
-                                    ) : (
-                                        sorted.map((row, index) => {
-                                            const servicio = tipoServicioMeta(row.tipo_cita);
-                                            return (
-                                                <tr
-                                                    key={row.id}
-                                                    onDoubleClick={() => abrirEditar(row)}
-                                                    onContextMenu={(event) => onRowContextMenu(event, row)}
-                                                    title="Doble clic para editar"
-                                                    className="cursor-pointer transition-colors"
-                                                    style={{
-                                                        background: index % 2 === 0 ? COLOR.surface : COLOR.paper,
-                                                        borderTop: `1px solid ${COLOR.line}`,
-                                                    }}
-                                                >
-                                                    <td className="whitespace-nowrap px-4 py-2.5 tabular-nums" style={{ color: COLOR.inkSoft }}>
-                                                        {formatDate(row.fecha_ingreso)}
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-4 py-2.5">
-                                                        <div className="font-semibold" style={{ color: COLOR.ink }}>{getClienteNombre(row)}</div>
-                                                        <div className="text-[11px]" style={{ color: COLOR.inkFaint }}>{getTelefono(row)}</div>
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-4 py-2.5">
-                                                        <BooleanButton row={row} field="asistencia" updatingInline={updatingInline} onToggle={patchBoolean} />
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-4 py-2.5">
-                                                        <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
-                                                    </td>
-                                                    <td className="max-w-[200px] px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
-                                                        <span className="line-clamp-1">{row.pauta || "—"}</span>
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-4 py-2.5">
-                                                        <BooleanButton row={row} field="citado" updatingInline={updatingInline} onToggle={patchBoolean} />
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
-                                                        {row.torre || "—"}
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-4 py-2.5">
-                                                        {row.tipo_cita ? (
-                                                            <span
-                                                                className="inline-block rounded px-2 py-0.5 text-[11px] font-semibold"
-                                                                style={{ background: servicio.bg, color: servicio.text }}
-                                                            >
-                                                                {row.tipo_cita}
-                                                            </span>
-                                                        ) : (
-                                                            <span style={{ color: COLOR.inkFaint }}>—</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-4 py-2.5 font-mono text-[12px]" style={{ color: COLOR.inkSoft }}>
-                                                        {row.vin || "—"}
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
-                                                        {row.medio_concertacion || "—"}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
-                            </table>
+                                    </thead>
 
-                            <ContextMenu ctxMenu={ctxMenu} onDelete={eliminar} onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })} />
+                                    <tbody>
+                                        {loadingList ? (
+                                            Array.from({ length: 8 }).map((_, index) => <SkeletonRow key={index} columns={columns.length} />)
+                                        ) : sorted.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={columns.length}>
+                                                    <EmptyState />
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            sorted.map((row, index) => {
+                                                const servicio = tipoServicioMeta(row.tipo_cita);
+                                                return (
+                                                    <tr
+                                                        key={row.id}
+                                                        onDoubleClick={() => abrirEditar(row)}
+                                                        onContextMenu={(event) => onRowContextMenu(event, row)}
+                                                        title="Doble clic para editar"
+                                                        className="cursor-pointer transition-colors"
+                                                        style={{
+                                                            background: index % 2 === 0 ? COLOR.surface : COLOR.paper,
+                                                            borderTop: `1px solid ${COLOR.line}`,
+                                                        }}
+                                                    >
+                                                        <td className="whitespace-nowrap px-4 py-2.5 tabular-nums" style={{ color: COLOR.inkSoft }}>
+                                                            {formatDate(row.fecha_ingreso)}
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-4 py-2.5">
+                                                            <div className="font-semibold" style={{ color: COLOR.ink }}>{getClienteNombre(row)}</div>
+                                                            <div className="text-[11px]" style={{ color: COLOR.inkFaint }}>{getTelefono(row)}</div>
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-4 py-2.5">
+                                                            <BooleanButton row={row} field="asistencia" updatingInline={updatingInline} onToggle={patchBoolean} />
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-4 py-2.5">
+                                                            <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
+                                                        </td>
+                                                        <td className="max-w-[200px] px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
+                                                            <span className="line-clamp-1">{row.pauta || "—"}</span>
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-4 py-2.5">
+                                                            <BooleanButton row={row} field="citado" updatingInline={updatingInline} onToggle={patchBoolean} />
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
+                                                            {row.torre || "—"}
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-4 py-2.5">
+                                                            {row.tipo_cita ? (
+                                                                <span
+                                                                    className="inline-block rounded px-2 py-0.5 text-[11px] font-semibold"
+                                                                    style={{ background: servicio.bg, color: servicio.text }}
+                                                                >
+                                                                    {row.tipo_cita}
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ color: COLOR.inkFaint }}>—</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-4 py-2.5 font-mono text-[12px]" style={{ color: COLOR.inkSoft }}>
+                                                            {row.vin || "—"}
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
+                                                            {row.medio_concertacion || "—"}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+
+                                <ContextMenu ctxMenu={ctxMenu} onDelete={eliminar} onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })} />
+                            </div>
                         </div>
-                    </div>
 
-                    {/* VISTA MÓVIL */}
-                    <div className="grid gap-2.5 lg:hidden">
-                        {loadingList ? (
-                            <div className="rounded-[24px] border p-5" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
-                                <div className="flex items-center gap-2 font-semibold" style={{ color: COLOR.ink }}>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Cargando...
-                                </div>
-                            </div>
-                        ) : sorted.length === 0 ? (
-                            <div className="rounded-[24px] border p-8" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
-                                <EmptyState />
-                            </div>
-                        ) : (
-                            sorted.map((row) => (
-                                <button
-                                    key={row.id}
-                                    type="button"
-                                    onClick={() => abrirEditar(row)}
-                                    className="rounded-[24px] border p-3.5 text-left"
-                                    style={{ background: COLOR.surface, borderColor: COLOR.line }}
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <div className="truncate text-[14px] font-semibold" style={{ color: COLOR.ink }}>
-                                                {getClienteNombre(row)}
-                                            </div>
-                                            <div className="mt-0.5 text-[12px]" style={{ color: COLOR.inkSoft }}>
-                                                {row.agencia || "—"} · {getTelefono(row)}
-                                            </div>
-                                            <div className="mt-0.5 text-[11.5px] tabular-nums" style={{ color: COLOR.inkFaint }}>
-                                                {formatDate(row.fecha_ingreso)}
-                                            </div>
-                                            <div className="mt-2">
-                                                <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
-                                            </div>
-                                        </div>
-
-                                        <span
-                                            className="inline-flex shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold"
-                                            style={
-                                                boolFromAny(row.citado)
-                                                    ? { background: COLOR.okSoft, color: COLOR.ok }
-                                                    : { background: COLOR.dangerSoft, color: COLOR.danger }
-                                            }
-                                        >
-                                            {boolFromAny(row.citado) ? "Citado" : "No citado"}
-                                        </span>
+                        {/* VISTA MÓVIL */}
+                        <div className="grid gap-2.5 lg:hidden">
+                            {loadingList ? (
+                                <div className="rounded-[24px] border p-5" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
+                                    <div className="flex items-center gap-2 font-semibold" style={{ color: COLOR.ink }}>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Cargando...
                                     </div>
+                                </div>
+                            ) : sorted.length === 0 ? (
+                                <div className="rounded-[24px] border p-8" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
+                                    <EmptyState />
+                                </div>
+                            ) : (
+                                sorted.map((row) => (
+                                    <button
+                                        key={row.id}
+                                        type="button"
+                                        onClick={() => abrirEditar(row)}
+                                        className="rounded-[24px] border p-3.5 text-left"
+                                        style={{ background: COLOR.surface, borderColor: COLOR.line }}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <div className="truncate text-[14px] font-semibold" style={{ color: COLOR.ink }}>
+                                                    {getClienteNombre(row)}
+                                                </div>
+                                                <div className="mt-0.5 text-[12px]" style={{ color: COLOR.inkSoft }}>
+                                                    {row.agencia || "—"} · {getTelefono(row)}
+                                                </div>
+                                                <div className="mt-0.5 text-[11.5px] tabular-nums" style={{ color: COLOR.inkFaint }}>
+                                                    {formatDate(row.fecha_ingreso)}
+                                                </div>
+                                                <div className="mt-2">
+                                                    <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
+                                                </div>
+                                            </div>
 
-                                    {(row.comentarios || row.pauta) && (
-                                        <div className="mt-2.5 line-clamp-2 text-[12.5px]" style={{ color: COLOR.inkSoft }}>
-                                            {row.comentarios || row.pauta}
+                                            <span
+                                                className="inline-flex shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold"
+                                                style={
+                                                    boolFromAny(row.citado)
+                                                        ? { background: COLOR.okSoft, color: COLOR.ok }
+                                                        : { background: COLOR.dangerSoft, color: COLOR.danger }
+                                                }
+                                            >
+                                                {boolFromAny(row.citado) ? "Citado" : "No citado"}
+                                            </span>
                                         </div>
-                                    )}
-                                </button>
-                            ))
-                        )}
-                    </div>
-                </>
-            ) : (
-                <AgendaView
-                    citas={rows}
-                    agenciaSeleccionada={agenciaSeleccionada}
-                    selectedDate={selectedDate}
-                    abrirEditar={abrirEditar}
-                    onSlotClick={onAgendaSlotClick}
-                />
-            )}
+
+                                        {(row.comentarios || row.pauta) && (
+                                            <div className="mt-2.5 line-clamp-2 text-[12.5px]" style={{ color: COLOR.inkSoft }}>
+                                                {row.comentarios || row.pauta}
+                                            </div>
+                                        )}
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </>
+                ) : (
+                    <AgendaView
+                        citas={rows}
+                        agenciaSeleccionada={agenciaSeleccionada}
+                        selectedDate={selectedDate}
+                        abrirEditar={abrirEditar}
+                        onSlotClick={onAgendaSlotClick}
+                        onSetAsistencia={setAsistenciaDesdeAgenda}
+                        updatingInline={updatingInline}
+                    />
+                )
+            }
 
             {/* Modal crear/editar */}
             <Modal
@@ -1363,15 +1423,25 @@ export default function HojaRegistros() {
                                 placeholder="No. preorden"
                             />
                         </Field>
-
-                        <Field label="Cliente">
+                        <Field label="Cliente" required>
                             <input
                                 value={draft.cliente_nombre}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, cliente_nombre: event.target.value }))}
+                                onChange={(event) =>
+                                    setDraft((prev) => ({
+                                        ...prev,
+                                        cliente_nombre: event.target.value,
+                                    }))
+                                }
                                 className={inputBase}
-                                style={inputStyle(false)}
+                                style={inputStyle(isInvalid("cliente_nombre"))}
                                 placeholder="Nombre completo"
                             />
+
+                            {isInvalid("cliente_nombre") && (
+                                <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>
+                                    Cliente es requerido.
+                                </div>
+                            )}
                         </Field>
 
                         <Field label="Teléfono" required>
@@ -1531,7 +1601,7 @@ export default function HojaRegistros() {
                                     {TIPOS_SERVICIO.map((tipo) => (
                                         <label
                                             key={tipo}
-                                            className="flex items-center gap-2 rounded px-2 py-1.5 text-[12px] font-medium hover:bg-black/[0.03]"
+                                            className="flex items-center gap-2 rounded px-2 py-1.5 text-[12px] font-medium hover:bg-[#131E5C]/5"
                                             style={{ color: COLOR.ink }}
                                         >
                                             <input
@@ -1643,6 +1713,6 @@ export default function HojaRegistros() {
                     </div>
                 )}
             </Modal>
-        </div>
+        </div >
     );
 }

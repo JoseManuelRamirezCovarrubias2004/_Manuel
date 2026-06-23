@@ -1,95 +1,55 @@
-//src/pages/HojaIngresos/AgendaView.jsx
-import { useMemo, useState, useEffect } from "react";
+// src/pages/HojaIngresos/AgendaView.jsx
+import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
+  ChevronRight,
   Clock3,
-  MessageSquareText,
   Phone,
   Plus,
   Users,
-  Wrench,
   XCircle,
-  ChevronRight,
 } from "lucide-react";
 
 const COLOR = {
   ink: "#07111F",
-  inkSoft: "#566273",
-  inkFaint: "#8793A5",
-  inkInverse: "#FFFFFF",
-
+  inkSoft: "#536070",
+  inkFaint: "#8A95A6",
   brand: "#001E50",
   brandDeep: "#000B24",
   brandMid: "#003B78",
-  brandSoft: "#E9F0FA",
+  brandSoft: "#E8F0FA",
   brandLine: "#BFD0E7",
-
   accent: "#00B0F0",
-  accentSoft: "#E7F8FE",
-  accentLine: "#A7E5FA",
-
-  page: "#F4F7FB",
   surface: "#FFFFFF",
   surfaceAlt: "#F8FAFD",
+  page: "#F4F7FB",
   line: "#DDE5EF",
-  lineStrong: "#C5D1E1",
-
+  lineStrong: "#B9C7DA",
   ok: "#0B7A53",
   okSoft: "#E4F5ED",
+  okLine: "#B9E2CD",
   warn: "#9A6400",
   warnSoft: "#FBF1DC",
   danger: "#B42318",
   dangerSoft: "#FDEAE7",
+  dangerLine: "#F3C4BC",
   violet: "#4B3F99",
   violetSoft: "#ECEAF8",
   teal: "#087780",
   tealSoft: "#E0F4F5",
 };
 
-const ASESOR_PALETTE = [
-  { bg: "#E8F0FA", line: "#BFD0E7", dot: "#001E50", text: "#001E50" },
-  { bg: "#E0F4F5", line: "#B9E0E3", dot: "#087780", text: "#075D65" },
-  { bg: "#FBF1DC", line: "#EDD59E", dot: "#9A6400", text: "#754D00" },
-  { bg: "#ECEAF8", line: "#D2CDEF", dot: "#4B3F99", text: "#3D337D" },
-  { bg: "#E4F5ED", line: "#B9E2CD", dot: "#0B7A53", text: "#075F40" },
-  { bg: "#FDEAE7", line: "#F3C4BC", dot: "#B42318", text: "#912018" },
-];
-
-function colorForAsesor(nombre) {
-  if (!nombre) return { bg: "#EEF2F7", line: "#DDE5EF", dot: "#8A95A6", text: "#536070" };
-  let hash = 0;
-  for (let i = 0; i < nombre.length; i += 1) hash = (hash * 31 + nombre.charCodeAt(i)) >>> 0;
-  return ASESOR_PALETTE[hash % ASESOR_PALETTE.length];
-}
-
-function tipoServicioMeta(tipo) {
-  const t = String(tipo || "").toLowerCase();
-  if (t.includes("mtto") || t.includes("mantenimiento")) {
-    return { bg: COLOR.brandSoft, line: COLOR.brandLine, text: COLOR.brand, label: "Mantenimiento" };
-  }
-  if (t.includes("diagn")) {
-    return { bg: "#EEF2F7", line: "#DDE5EF", text: "#3E4858", label: "Diagnóstico" };
-  }
-  if (t.includes("campa")) {
-    return { bg: COLOR.violetSoft, line: "#D2CDEF", text: COLOR.violet, label: "Campaña" };
-  }
-  if (t.includes("repar")) {
-    return { bg: COLOR.dangerSoft, line: "#F3C4BC", text: COLOR.danger, label: "Reparación" };
-  }
-  if (t.includes("garant")) {
-    return { bg: COLOR.tealSoft, line: "#B9E0E3", text: COLOR.teal, label: "Garantía" };
-  }
-  return { bg: "#EEF2F7", line: COLOR.line, text: COLOR.inkSoft, label: tipo || "Servicio" };
-}
+const FONT_DISPLAY = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
 const APERTURA_DEFECTO = { hour: 8, minute: 0 };
 const CIERRE_DEFECTO = { hour: 16, minute: 0 };
 
-const ADVISOR_COL_WIDTH = 320;
-const SLOT_WIDTH = 186;
-const ROW_HEIGHT = 192;
-const HEADER_H1 = 46;
-const HEADER_H2 = 32;
+// Aquí controlas el ancho real de cada media hora.
+const ADVISOR_COL_WIDTH = 220;
+const SLOT_WIDTH = 150;
+const ROW_HEIGHT = 154;
+const HEADER_HEIGHT = 44;
+const MEXICO_TZ = "America/Mexico_City";
 
 const ASESORES_POR_AGENCIA = {
   "VW Cordoba": [
@@ -103,18 +63,93 @@ const ASESORES_POR_AGENCIA = {
   ],
 };
 
-const MEXICO_TZ = "America/Mexico_City";
+const ASESOR_PALETTE = [
+  { bg: "#E8F0FA", line: "#BFD0E7", dot: "#001E50", text: "#001E50" },
+  { bg: "#E0F4F5", line: "#B9E0E3", dot: "#087780", text: "#075D65" },
+  { bg: "#FDEAE7", line: "#F3C4BC", dot: "#B42318", text: "#912018" },
+  { bg: "#ECEAF8", line: "#D2CDEF", dot: "#4B3F99", text: "#3D337D" },
+  { bg: "#E4F5ED", line: "#B9E2CD", dot: "#0B7A53", text: "#075F40" },
+];
+
+function normalizar(value) {
+  return String(value ?? "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function agenciaCanonical(value) {
+  const key = normalizar(value);
+  if (key.includes("cordoba")) return "VW Cordoba";
+  if (key.includes("orizaba")) return "VW Orizaba";
+  return String(value ?? "").trim();
+}
+
+function colorForAsesor(nombre) {
+  if (!nombre) return ASESOR_PALETTE[0];
+  let hash = 0;
+  for (let i = 0; i < nombre.length; i += 1) hash = (hash * 31 + nombre.charCodeAt(i)) >>> 0;
+  return ASESOR_PALETTE[hash % ASESOR_PALETTE.length];
+}
+
+function boolFromAny(value) {
+  if (typeof value === "boolean") return value;
+  const text = String(value ?? "").trim().toLowerCase();
+  return ["true", "1", "si", "sí", "yes"].includes(text);
+}
+
+function asistenciaFromAny(cita) {
+  const value = cita?.asistido ?? cita?.asistencia;
+  if (value === true || value === "true" || value === 1 || value === "1") return true;
+  if (value === false || value === "false" || value === 0 || value === "0") return false;
+  return null;
+}
+
+function citaCitada(cita) {
+  return boolFromAny(cita?.citado);
+}
+
+function tipoServicioMeta(tipo) {
+  const t = normalizar(tipo);
+
+  if (t.includes("campa")) {
+    return { label: "Campaña", bg: COLOR.tealSoft, text: COLOR.teal, line: "#B9E0E3" };
+  }
+
+  if (t.includes("diagn")) {
+    return { label: "Diagnóstico", bg: COLOR.violetSoft, text: COLOR.violet, line: "#D2CDEF" };
+  }
+
+  if (t.includes("repar")) {
+    return { label: "Reparación", bg: COLOR.warnSoft, text: COLOR.warn, line: "#EDD59E" };
+  }
+
+  return { label: "Servicio", bg: COLOR.brandSoft, text: COLOR.brand, line: COLOR.brandLine };
+}
+
+function getTiposServicio(cita) {
+  const raw = cita?.tipo_cita;
+  if (Array.isArray(raw)) return raw.filter(Boolean);
+  return String(raw || "Servicio")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
 
 function buildHorarios(inicio, fin) {
   const slots = [];
   let totalMin = inicio.hour * 60 + inicio.minute;
   const finMin = fin.hour * 60 + fin.minute;
-  while (totalMin < finMin) {
+
+  while (totalMin <= finMin) {
     const h = Math.floor(totalMin / 60);
     const m = totalMin % 60;
-    slots.push(`${h}:${String(m).padStart(2, "0")}`);
+    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
     totalMin += 30;
   }
+
   return slots;
 }
 
@@ -127,22 +162,24 @@ function mexicoYMD(fecha) {
 function mexicoHourMinute(fecha) {
   const d = new Date(fecha);
   if (Number.isNaN(d.getTime())) return null;
-  const hour = parseInt(d.toLocaleString("en-US", { timeZone: MEXICO_TZ, hour: "numeric", hour12: false }), 10);
-  const minute = parseInt(d.toLocaleString("en-US", { timeZone: MEXICO_TZ, minute: "numeric" }), 10);
-  return { hour, minute };
+
+  return {
+    hour: Number(d.toLocaleString("en-US", { timeZone: MEXICO_TZ, hour: "numeric", hour12: false })),
+    minute: Number(d.toLocaleString("en-US", { timeZone: MEXICO_TZ, minute: "numeric" })),
+  };
 }
 
 function slotKeyFromFecha(fecha) {
   const hm = mexicoHourMinute(fecha);
   if (!hm) return null;
-  const minutoSlot = hm.minute < 30 ? 0 : 30;
-  return `${hm.hour}:${minutoSlot === 0 ? "00" : "30"}`;
+  const minutoSlot = hm.minute < 30 ? "00" : "30";
+  return `${String(hm.hour).padStart(2, "0")}:${minutoSlot}`;
 }
 
 function horaCorta(fecha) {
   const hm = mexicoHourMinute(fecha);
-  if (!hm) return "";
-  return `${hm.hour}:${String(hm.minute).padStart(2, "0")}`;
+  if (!hm) return "--:--";
+  return `${String(hm.hour).padStart(2, "0")}:${String(hm.minute).padStart(2, "0")}`;
 }
 
 function nombreCliente(cita) {
@@ -150,71 +187,107 @@ function nombreCliente(cita) {
 }
 
 function telefonoCliente(cita) {
-  return cita?.telefono || cita?.cliente?.telefono || cita?.cliente_telefono || "";
+  return cita?.telefono || cita?.cliente_telefono || cita?.cliente?.telefono || "";
 }
 
-function citaCitada(cita) {
-  return cita?.citado === true || cita?.citado === "true" || cita?.citado === 1;
+function clienteKey(cita) {
+  return telefonoCliente(cita) || normalizar(nombreCliente(cita));
 }
 
-function citaAsistio(cita) {
-  return cita?.asistido ?? cita?.asistencia;
+function Sparkline({ data = [] }) {
+  const values = data.length ? data : [0, 0, 0, 0, 0, 0];
+  const max = Math.max(...values, 1);
+  const points = values
+    .map((value, index) => {
+      const x = values.length === 1 ? 0 : (index / (values.length - 1)) * 100;
+      const y = 36 - (value / max) * 30;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <svg viewBox="0 0 100 40" className="h-10 w-full overflow-visible" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {values.map((value, index) => {
+        const x = values.length === 1 ? 0 : (index / (values.length - 1)) * 100;
+        const y = 36 - (value / max) * 30;
+        return <circle key={`${value}-${index}`} cx={x} cy={y} r="1.8" fill="currentColor" />;
+      })}
+    </svg>
+  );
 }
 
-function MetricTile({ icon: Icon, label, value, tone = "brand" }) {
+function Donut({ value }) {
+  const safe = Math.max(0, Math.min(Number(value) || 0, 100));
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  const dash = (safe / 100) * circumference;
+
+  return (
+    <svg viewBox="0 0 48 48" className="h-20 w-20 -rotate-90" aria-hidden="true">
+      <circle cx="24" cy="24" r={radius} fill="none" stroke="#D7DFEC" strokeWidth="7" />
+      <circle
+        cx="24"
+        cy="24"
+        r={radius}
+        fill="none"
+        stroke={COLOR.brand}
+        strokeWidth="7"
+        strokeLinecap="round"
+        strokeDasharray={`${dash} ${circumference - dash}`}
+      />
+    </svg>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value, hint, tone = "brand" }) {
   const tones = {
     brand: { bg: COLOR.brandSoft, text: COLOR.brand },
     ok: { bg: COLOR.okSoft, text: COLOR.ok },
+    warn: { bg: COLOR.warnSoft, text: COLOR.warn },
     danger: { bg: COLOR.dangerSoft, text: COLOR.danger },
-    accent: { bg: COLOR.accentSoft, text: COLOR.brandMid },
   };
   const selected = tones[tone] || tones.brand;
 
   return (
     <div
-      className="min-w-[160px] flex-1 rounded-[24px] border px-4 py-3"
-      style={{ background: COLOR.surface, borderColor: COLOR.line, boxShadow: "0 16px 36px rgba(0, 30, 80, 0.06)" }}
+      className="rounded-[18px] border bg-white px-5 py-4 shadow-sm"
+      style={{ borderColor: COLOR.line, boxShadow: "0 14px 34px rgba(0, 30, 80, 0.08)" }}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: COLOR.inkFaint }}>
-          {label}
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: selected.bg }}>
+          <Icon className="h-6 w-6" style={{ color: selected.text }} />
         </div>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: selected.bg }}>
-          <Icon className="h-4 w-4" style={{ color: selected.text }} />
+        <div>
+          <div className="text-[26px] font-semibold leading-none tabular-nums" style={{ color: COLOR.brand, fontFamily: FONT_DISPLAY }}>{value}</div>
+          <div className="mt-1 text-[12px] font-semibold" style={{ color: COLOR.inkSoft }}>{label}</div>
+          <div className="mt-1 text-[11px] font-bold" style={{ color: selected.text }}>{hint}</div>
         </div>
-      </div>
-      <div className="mt-3 text-[28px] font-semibold leading-none tabular-nums" style={{ color: COLOR.ink, fontFamily: FONT_DISPLAY }}>
-        {value}
       </div>
     </div>
   );
 }
 
-function CargaTurno({ citasDeLaFecha, horasPrincipales, totalAsesores }) {
-  const counts = useMemo(() => {
-    const map = {};
-    horasPrincipales.forEach((h) => (map[h] = 0));
-    citasDeLaFecha.forEach((c) => {
-      const fecha = c.fecha_ingreso || c.fecha_cita;
-      const hm = mexicoHourMinute(fecha);
-      if (!hm) return;
-      const key = `${hm.hour}:00`;
-      if (map[key] !== undefined) map[key] += 1;
-    });
-    return map;
-  }, [citasDeLaFecha, horasPrincipales]);
-
-  const capacidad = Math.max(totalAsesores * 2, 1);
+function ChartCard({ title, value, data, tone = "brand" }) {
+  const tones = {
+    brand: COLOR.brand,
+    violet: COLOR.violet,
+    warn: COLOR.warn,
+    ok: COLOR.ok,
+    danger: COLOR.danger,
+  };
+  const selected = tones[tone] || COLOR.brand;
 
   return (
-    <div className="flex items-end gap-[4px]" style={{ height: 34 }} aria-hidden="true">
-      {horasPrincipales.map((h) => {
-        const n = counts[h] || 0;
-        const ratio = Math.min(n / capacidad, 1);
-        const height = 6 + ratio * 28;
-        const bg = ratio === 0 ? COLOR.line : ratio < 0.65 ? COLOR.accent : COLOR.brand;
-        return <div key={h} title={`${h} · ${n} cita(s)`} style={{ width: 10, height, background: bg, borderRadius: 999 }} />;
-      })}
+    <div className="min-w-0 border-r px-5 py-4 last:border-r-0" style={{ borderColor: COLOR.line }}>
+      <div className="text-[13px] font-bold" style={{ color: COLOR.brand }}>{title}</div>
+      <div className="mt-1 text-[24px] font-semibold leading-none tabular-nums" style={{ color: COLOR.brand }}>{value}</div>
+      <div className="mt-2" style={{ color: selected }}>
+        <Sparkline data={data} />
+      </div>
+      <div className="mt-1 grid grid-cols-6 text-center text-[9px] font-semibold" style={{ color: COLOR.inkFaint }}>
+        {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((d) => <span key={d}>{d}</span>)}
+      </div>
     </div>
   );
 }
@@ -224,14 +297,14 @@ function AdvisorAvatar({ nombre, color }) {
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
-    .map((p) => p[0])
+    .map((part) => part[0])
     .join("")
     .toUpperCase();
 
   return (
     <div
-      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] text-[12px] font-bold"
-      style={{ background: color.bg, color: color.text, border: `1px solid ${color.line}` }}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[13px] font-bold"
+      style={{ background: color.bg, border: `1px solid ${color.line}`, color: color.text }}
     >
       {iniciales}
     </div>
@@ -240,25 +313,21 @@ function AdvisorAvatar({ nombre, color }) {
 
 function AdvisorStats({ asesor, color, citasAsesor }) {
   const total = citasAsesor.length;
-  const citados = citasAsesor.filter((c) => citaCitada(c)).length;
-  const asistidos = citasAsesor.filter((c) => citaAsistio(c) === true).length;
+  const asistencias = citasAsesor.filter((c) => asistenciaFromAny(c) === true).length;
   const ocupacion = Math.min(Math.round((total / 8) * 100), 100);
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-3">
+    <div className="flex w-full min-w-0 items-center gap-3">
       <AdvisorAvatar nombre={asesor.nombre} color={color} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-semibold leading-tight" style={{ color: COLOR.ink }}>
-          {asesor.nombre}
+        <div className="flex items-center gap-2">
+          <div className="truncate text-[13px] font-bold" style={{ color: COLOR.brand }}>{asesor.nombre}</div>
+          <span className="h-2 w-2 rounded-full" style={{ background: color.dot }} />
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-3 text-[10.5px] font-semibold tabular-nums">
-          <span style={{ color: COLOR.inkFaint }}>
-            <span style={{ color: COLOR.ink }}>{total}</span> citas
-          </span>
-          <span style={{ color: COLOR.brand }}>{citados} citadas</span>
-          <span style={{ color: COLOR.ok }}>{asistidos} asist.</span>
+        <div className="mt-1 text-[10.5px] font-semibold" style={{ color: COLOR.inkFaint }}>
+          <span style={{ color: COLOR.brand }}>{total}</span> citas · <span style={{ color: COLOR.ok }}>{asistencias}</span> asistencias
         </div>
-        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full" style={{ background: COLOR.line }}>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full" style={{ background: COLOR.line }}>
           <div className="h-full rounded-full" style={{ width: `${ocupacion}%`, background: color.dot }} />
         </div>
       </div>
@@ -266,157 +335,149 @@ function AdvisorStats({ asesor, color, citasAsesor }) {
   );
 }
 
-function StatusPill({ asistio, citado }) {
+function EstadoPill({ cita }) {
+  const asistio = asistenciaFromAny(cita);
+  const citado = citaCitada(cita);
+
   if (asistio === true) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold" style={{ background: COLOR.okSoft, color: COLOR.ok }}>
-        <CheckCircle2 className="h-3 w-3" /> Asistió
-      </span>
-    );
+    return <span className="rounded-md px-2 py-1 text-[10px] font-bold" style={{ background: COLOR.okSoft, color: COLOR.ok }}>Asistió</span>;
   }
 
   if (asistio === false) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold" style={{ background: COLOR.dangerSoft, color: COLOR.danger }}>
-        <XCircle className="h-3 w-3" /> No show
-      </span>
-    );
+    return <span className="rounded-md px-2 py-1 text-[10px] font-bold" style={{ background: COLOR.dangerSoft, color: COLOR.danger }}>No asistió</span>;
   }
 
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold"
-      style={citado ? { background: COLOR.brandSoft, color: COLOR.brand } : { background: COLOR.warnSoft, color: COLOR.warn }}
-    >
-      {citado ? "Citado" : "Pendiente"}
+    <span className="rounded-md px-2 py-1 text-[10px] font-bold" style={citado ? { background: COLOR.brandSoft, color: COLOR.brand } : { background: COLOR.warnSoft, color: COLOR.warn }}>
+      {citado ? "Confirmado" : "Pendiente"}
     </span>
   );
 }
 
-function CitaCard({ cita, onClick, compact = false }) {
-  const cliente = nombreCliente(cita);
-  const telefono = telefonoCliente(cita);
-  const servicio = tipoServicioMeta(cita.tipo_cita);
-  const asistio = citaAsistio(cita);
-  const citado = citaCitada(cita);
-  const modelo = cita.modelo || "Modelo sin capturar";
-  const medio = cita.medio_concertacion || "Medio sin capturar";
-  const agencia = cita.agencia || "Sin dealer";
+function TipoBadge({ tipo }) {
+  const meta = tipoServicioMeta(tipo);
+  return (
+    <span
+      className="inline-flex rounded-md border px-2 py-0.5 text-[9.5px] font-bold"
+      style={{ background: meta.bg, borderColor: meta.line, color: meta.text }}
+    >
+      {meta.label}
+    </span>
+  );
+}
 
-  const tone = asistio === true
-    ? "entregada"
-    : asistio === false
-      ? "noShow"
-      : citado
-        ? "citada"
-        : "pendiente";
-
-  const toneClass = {
-    entregada: "border-emerald-300 bg-emerald-50/95",
-    citada: "border-sky-200 bg-sky-50/95",
-    pendiente: "border-amber-300 bg-amber-50/95",
-    noShow: "border-red-300 bg-red-50/95",
-  }[tone];
-
-  const stripeClass = {
-    entregada: "bg-emerald-500",
-    citada: "bg-[#131E5C]",
-    pendiente: "bg-amber-500",
-    noShow: "bg-red-500",
-  }[tone];
+function AttendanceButton({ children, icon: Icon, active, disabled, onClick, tone }) {
+  const palette = tone === "danger"
+    ? { bg: COLOR.dangerSoft, line: COLOR.dangerLine, text: COLOR.danger }
+    : { bg: COLOR.okSoft, line: COLOR.okLine, text: COLOR.ok };
 
   return (
     <button
       type="button"
-      onClick={() => onClick(cita)}
-      title={`${cliente} · clic para editar`}
-      className={[
-        "relative h-full shrink-0 overflow-hidden rounded-md border text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md",
-        compact ? "w-[154px] p-3" : "w-full p-2.5",
-        toneClass,
-      ].join(" ")}
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60"
+      style={{
+        background: active ? palette.bg : COLOR.surface,
+        borderColor: active ? palette.line : COLOR.line,
+        color: active ? palette.text : COLOR.inkSoft,
+      }}
     >
-      {tone !== "citada" ? (
-        <span className={["absolute bottom-0 left-0 top-0 flex w-3 items-center justify-center rounded-l-md", stripeClass].join(" ")}>
-          {asistio === true ? <CheckCircle2 className="h-3 w-3 text-white" /> : null}
-          {asistio === false ? <XCircle className="h-3 w-3 text-white" /> : null}
-          {tone === "pendiente" ? <Clock3 className="h-3 w-3 text-white" /> : null}
-        </span>
-      ) : null}
-
-      <div className={tone !== "citada" ? "pl-3" : ""}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#131E5C]">
-              <Clock3 className="h-3.5 w-3.5" />
-              <span>{horaCorta(cita.fecha_ingreso || cita.fecha_cita)}</span>
-              <span className="text-slate-400">•</span>
-              <span className="truncate">{agencia}</span>
-            </div>
-
-            <div className="mt-1 truncate text-xs font-black uppercase tracking-wide text-[#131E5C]">
-              {cliente}
-            </div>
-          </div>
-
-          <StatusPill asistio={asistio} citado={citado} />
-        </div>
-
-        <div className="mt-2 grid gap-1 text-[10px] font-semibold text-slate-600">
-          <div className="flex items-center gap-1.5">
-            <Wrench className="h-3.5 w-3.5 shrink-0 text-[#131E5C]" />
-            <span className="truncate">{cita.tipo_cita || servicio.label || "Servicio sin capturar"}</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[#131E5C]" />
-            <span className="truncate">{modelo}</span>
-          </div>
-
-          {!compact ? (
-            <>
-              <div className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5 shrink-0 text-[#131E5C]" />
-                <span className="truncate">{telefono || "Teléfono sin capturar"}</span>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <MessageSquareText className="h-3.5 w-3.5 shrink-0 text-[#131E5C]" />
-                <span className="truncate">{medio}</span>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
+      <Icon className="h-3 w-3" />
+      {children}
     </button>
   );
 }
 
-function EmptySlot({ onClick, slot }) {
+function CitaCard({ cita, compact = false, abrirEditar, onSetAsistencia, updatingInline = {} }) {
+  const cliente = nombreCliente(cita);
+  const telefono = telefonoCliente(cita);
+  const tipos = getTiposServicio(cita);
+  const asistio = asistenciaFromAny(cita);
+  const modelo = cita.modelo || "Modelo sin capturar";
+  const telefonoCorto = telefono ? telefono.replace(/(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3") : "Sin teléfono";
+  const loadingAsistencia = !!updatingInline[`${cita.id}-asistencia`];
+  const metaPrincipal = tipoServicioMeta(tipos[0]);
+
   return (
-    <div
-      className="group relative h-full w-full overflow-hidden rounded-lg border border-dashed transition-all duration-150"
-      style={{ borderColor: COLOR.line, background: "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(248,250,253,0.86))" }}
+    <button
+      type="button"
+      onClick={() => abrirEditar?.(cita)}
+      title={`${cliente} · doble clic/clic para editar`}
+      className="group relative h-full w-full overflow-hidden rounded-[10px] border bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
+      style={{ borderColor: COLOR.line, boxShadow: "0 10px 22px rgba(0, 30, 80, 0.08)" }}
     >
-      <div className="absolute inset-0 transition-opacity duration-150 group-hover:opacity-0">
-        <div className="flex h-full items-center justify-center">
-          <span className="rounded-full border px-2.5 py-1 text-[10px] font-bold tabular-nums" style={{ borderColor: COLOR.line, color: COLOR.inkFaint, background: COLOR.surface }}>
-            {slot}
-          </span>
+      <span className="absolute bottom-0 left-0 top-0 w-[3px]" style={{ background: metaPrincipal.text }} />
+
+      <div className="flex items-start justify-between gap-2 pl-1.5">
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold tabular-nums" style={{ color: COLOR.brand }}>{horaCorta(cita.fecha_ingreso || cita.fecha_cita)}</div>
+          <div className="mt-0.5 truncate text-[11px] font-black uppercase tracking-wide" style={{ color: COLOR.brand }}>
+            {cliente}
+          </div>
         </div>
+        <Phone className="h-3.5 w-3.5 shrink-0" style={{ color: COLOR.inkFaint }} />
       </div>
 
-      {onClick ? (
+      <div className="mt-1.5 pl-1.5 text-[10px] font-semibold leading-4" style={{ color: COLOR.inkSoft }}>
+        <div className="truncate">{modelo}</div>
+        {!compact ? <div className="truncate">{telefonoCorto}</div> : null}
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1 pl-1.5">
+        {tipos.map((tipo) => <TipoBadge key={tipo} tipo={tipo} />)}
+        <EstadoPill cita={cita} />
+      </div>
+
+      {!compact ? (
+        <div className="mt-2 pl-1.5">
+          <div className="mb-1 text-[9.5px] font-bold" style={{ color: COLOR.inkFaint }}>Reportar asistencia</div>
+          <div className="flex flex-wrap gap-1.5">
+            <AttendanceButton
+              icon={CheckCircle2}
+              active={asistio === true}
+              disabled={loadingAsistencia}
+              tone="ok"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSetAsistencia?.(cita, true);
+              }}
+            >
+              Asistió
+            </AttendanceButton>
+            <AttendanceButton
+              icon={XCircle}
+              active={asistio === false}
+              disabled={loadingAsistencia}
+              tone="danger"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSetAsistencia?.(cita, false);
+              }}
+            >
+              No asistió
+            </AttendanceButton>
+          </div>
+        </div>
+      ) : null}
+    </button>
+  );
+}
+
+function EmptySlot({ slot, onClick }) {
+  return (
+    <div className="group relative h-full w-full rounded-[10px] transition hover:bg-white" style={{ background: "rgba(248,250,253,0.72)" }}>
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
         <button
           type="button"
           onClick={onClick}
-          title={`Agendar a las ${slot}`}
-          className="absolute left-1/2 top-1/2 z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 scale-90 items-center justify-center rounded-full opacity-0 shadow-lg transition-all duration-150 group-hover:scale-100 group-hover:opacity-100"
-          style={{ background: COLOR.brand, color: COLOR.inkInverse }}
+          className="flex h-9 w-9 items-center justify-center rounded-full shadow-lg"
+          style={{ background: COLOR.brand, color: "#fff" }}
+          title={`Crear cita a las ${slot}`}
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-4 w-4" />
         </button>
-      ) : null}
+      </div>
     </div>
   );
 }
@@ -425,6 +486,8 @@ export default function AgendaView({
   citas = [],
   abrirEditar,
   onSlotClick,
+  onSetAsistencia,
+  updatingInline = {},
   selectedDate = new Date().toISOString().split("T")[0],
   agenciaSeleccionada = "VW Cordoba",
 }) {
@@ -435,70 +498,94 @@ export default function AgendaView({
     return () => clearInterval(id);
   }, []);
 
-  const asesores = useMemo(() => ASESORES_POR_AGENCIA[agenciaSeleccionada] || [], [agenciaSeleccionada]);
+  const agenciaActual = agenciaCanonical(agenciaSeleccionada);
+  const asesores = useMemo(() => ASESORES_POR_AGENCIA[agenciaActual] || [], [agenciaActual]);
 
   const citasDeLaFecha = useMemo(() => {
     if (!Array.isArray(citas)) return [];
-    return citas.filter((c) => {
-      const fecha = c.fecha_ingreso || c.fecha_cita;
+
+    return citas.filter((cita) => {
+      const fecha = cita.fecha_ingreso || cita.fecha_cita;
       if (!fecha) return false;
       const mismaFecha = mexicoYMD(fecha) === selectedDate;
-      const mismaAgencia = !c.agencia || c.agencia === agenciaSeleccionada;
+      const mismaAgencia = !cita.agencia || agenciaCanonical(cita.agencia) === agenciaActual;
       return mismaFecha && mismaAgencia;
     });
-  }, [citas, selectedDate, agenciaSeleccionada]);
+  }, [citas, selectedDate, agenciaActual]);
 
   const rangoHorario = useMemo(() => {
     let cierreMin = CIERRE_DEFECTO.hour * 60 + CIERRE_DEFECTO.minute;
-    citasDeLaFecha.forEach((c) => {
-      const fecha = c.fecha_ingreso || c.fecha_cita;
-      const hm = mexicoHourMinute(fecha);
+
+    citasDeLaFecha.forEach((cita) => {
+      const hm = mexicoHourMinute(cita.fecha_ingreso || cita.fecha_cita);
       if (!hm) return;
-      const minutoRedondeado = hm.minute < 30 ? 30 : 60;
-      const finCitaMin = hm.hour * 60 + minutoRedondeado;
-      if (finCitaMin > cierreMin) cierreMin = finCitaMin;
+      const finCitaMin = hm.hour * 60 + (hm.minute < 30 ? 30 : 60);
+      cierreMin = Math.max(cierreMin, finCitaMin);
     });
+
     return { inicio: APERTURA_DEFECTO, fin: { hour: Math.floor(cierreMin / 60), minute: cierreMin % 60 } };
   }, [citasDeLaFecha]);
 
   const horarios = useMemo(() => buildHorarios(rangoHorario.inicio, rangoHorario.fin), [rangoHorario]);
-  const horasPrincipales = useMemo(() => horarios.filter((h) => h.endsWith(":00")), [horarios]);
 
   const citasPorCelda = useMemo(() => {
     const map = new Map();
-    citasDeLaFecha.forEach((c) => {
-      const asesor = c.asesor || c.nombre_asesor;
-      const fecha = c.fecha_ingreso || c.fecha_cita;
-      const slot = slotKeyFromFecha(fecha);
+
+    citasDeLaFecha.forEach((cita) => {
+      const asesor = cita.asesor || cita.nombre_asesor;
+      const slot = slotKeyFromFecha(cita.fecha_ingreso || cita.fecha_cita);
       if (!asesor || !slot) return;
+
       const key = `${asesor}__${slot}`;
       const current = map.get(key) || [];
-      current.push(c);
-      current.sort((a, b) => new Date(a.fecha_ingreso || a.fecha_cita).getTime() - new Date(b.fecha_ingreso || b.fecha_cita).getTime());
+      current.push(cita);
+      current.sort((a, b) => new Date(a.fecha_ingreso || a.fecha_cita) - new Date(b.fecha_ingreso || b.fecha_cita));
       map.set(key, current);
     });
+
     return map;
   }, [citasDeLaFecha]);
 
   const estadisticas = useMemo(() => {
-    const hoy = mexicoYMD(new Date());
-    const esFuturo = selectedDate > hoy;
-    const citados = citasDeLaFecha.filter((c) => citaCitada(c)).length;
-    const asistidos = citasDeLaFecha.filter((c) => citaAsistio(c) === true).length;
-    const noShow = esFuturo
-      ? 0
-      : citasDeLaFecha.filter((c) => citaCitada(c) && (citaAsistio(c) === false || citaAsistio(c) == null)).length;
-    return { citados, asistidos, noShow, total: citasDeLaFecha.length };
-  }, [citasDeLaFecha, selectedDate]);
+    const total = citasDeLaFecha.length;
+    const citados = citasDeLaFecha.filter(citaCitada).length;
+    const noCitados = total - citados;
+    const asistencias = citasDeLaFecha.filter((c) => asistenciaFromAny(c) === true).length;
+    const noShow = citasDeLaFecha.filter((c) => asistenciaFromAny(c) === false).length;
+    const clientes = new Set(citasDeLaFecha.map(clienteKey).filter(Boolean)).size;
+    const tasaAsistencia = citados > 0 ? Math.round((asistencias / citados) * 100) : 0;
+
+    return { total, citados, noCitados, asistencias, noShow, clientes, tasaAsistencia };
+  }, [citasDeLaFecha]);
+
+  const serieSemana = useMemo(() => {
+    const [year, month, day] = selectedDate.split("-").map(Number);
+    const base = new Date(year, month - 1, day);
+    const dayIndex = base.getDay() === 0 ? 6 : base.getDay() - 1;
+    const monday = new Date(base);
+    monday.setDate(base.getDate() - dayIndex);
+
+    const dias = Array.from({ length: 6 }, (_, index) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + index);
+      return d.toISOString().slice(0, 10);
+    });
+
+    const filtrarDia = (ymd) => citas.filter((c) => mexicoYMD(c.fecha_ingreso || c.fecha_cita) === ymd && (!c.agencia || agenciaCanonical(c.agencia) === agenciaActual));
+
+    return {
+      citados: dias.map((ymd) => filtrarDia(ymd).filter(citaCitada).length),
+      noCitados: dias.map((ymd) => filtrarDia(ymd).filter((c) => !citaCitada(c)).length),
+      noShow: dias.map((ymd) => filtrarDia(ymd).filter((c) => asistenciaFromAny(c) === false).length),
+    };
+  }, [citas, selectedDate, agenciaActual]);
 
   const posicionAhora = useMemo(() => {
-    const hoyMexico = mexicoYMD(reloj);
-    if (selectedDate !== hoyMexico) return null;
-
+    if (selectedDate !== mexicoYMD(reloj)) return null;
     const hm = mexicoHourMinute(reloj);
     if (!hm) return null;
-    const minutoSlot = hm.minute < 30 ? 0 : 30;
-    const minutosActuales = hm.hour * 60 + minutoSlot;
+
+    const minutosActuales = hm.hour * 60 + (hm.minute < 30 ? 0 : 30);
     const inicio = rangoHorario.inicio.hour * 60 + rangoHorario.inicio.minute;
     const fin = rangoHorario.fin.hour * 60 + rangoHorario.fin.minute;
     if (minutosActuales < inicio || minutosActuales > fin) return null;
@@ -506,177 +593,164 @@ export default function AgendaView({
     return ADVISOR_COL_WIDTH + ((minutosActuales - inicio) / 30) * SLOT_WIDTH;
   }, [reloj, selectedDate, rangoHorario]);
 
-  const fechaLegible = useMemo(() => {
-    const [y, m, d] = selectedDate.split("-").map(Number);
-    if (!y) return "";
-    const date = new Date(y, m - 1, d);
-    const texto = date.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-    return texto.charAt(0).toUpperCase() + texto.slice(1);
-  }, [selectedDate]);
-
   const totalColumnas = horarios.length;
   const gridTemplateColumns = `${ADVISOR_COL_WIDTH}px repeat(${totalColumnas}, ${SLOT_WIDTH}px)`;
-  const gridTemplateRows = `${HEADER_H1}px ${HEADER_H2}px repeat(${Math.max(asesores.length, 1)}, ${ROW_HEIGHT}px)`;
+  const gridTemplateRows = `${HEADER_HEIGHT}px repeat(${Math.max(asesores.length, 1)}, ${ROW_HEIGHT}px)`;
+  const gridWidth = ADVISOR_COL_WIDTH + totalColumnas * SLOT_WIDTH;
+
+  if (asesores.length === 0) {
+    return (
+      <div className="rounded-[22px] border bg-white px-4 py-16 text-center" style={{ borderColor: COLOR.line }}>
+        <Users className="mx-auto mb-3 h-8 w-8" style={{ color: COLOR.inkFaint }} />
+        <p className="text-[14px] font-bold" style={{ color: COLOR.inkSoft }}>No hay asesores configurados para {agenciaSeleccionada}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full space-y-4">
-
-      {asesores.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[28px] border px-4 py-16 text-center"
-          style={{ background: COLOR.surface, borderColor: COLOR.line }}
-        >
-          <Users className="mb-3 h-7 w-7" style={{ color: COLOR.inkFaint }} />
-          <p className="text-[14px] font-semibold" style={{ color: COLOR.inkSoft }}>
-            No hay asesores configurados para {agenciaSeleccionada}
-          </p>
+    <div className="space-y-4">
+      <div className="grid overflow-hidden rounded-[18px] border bg-white shadow-sm lg:grid-cols-[1fr_1fr_1fr_280px]" style={{ borderColor: COLOR.line, boxShadow: "0 14px 34px rgba(0, 30, 80, 0.08)" }}>
+        <ChartCard title="Citados" value={estadisticas.citados} data={serieSemana.citados} tone="brand" />
+        <ChartCard title="No Citados" value={estadisticas.noCitados} data={serieSemana.noCitados} tone="violet" />
+        <ChartCard title="No Show" value={estadisticas.noShow} data={serieSemana.noShow} tone="warn" />
+        <div className="flex items-center justify-between gap-4 px-5 py-4">
+          <div>
+            <div className="text-[13px] font-bold" style={{ color: COLOR.brand }}>Tasa de Asistencia</div>
+            <div className="mt-1 text-[28px] font-semibold leading-none" style={{ color: COLOR.brand }}>{estadisticas.tasaAsistencia}%</div>
+            <div className="mt-2 text-[11px] font-bold" style={{ color: COLOR.ok }}>+12% vs ayer</div>
+          </div>
+          <Donut value={estadisticas.tasaAsistencia} />
         </div>
-      ) : (
+      </div>
+
+      <div
+        className="relative overflow-auto rounded-[18px] border bg-white"
+        style={{ borderColor: COLOR.line, maxHeight: 690, boxShadow: "0 18px 44px rgba(0, 30, 80, 0.08)" }}
+      >
         <div
-          className="relative overflow-auto rounded-lg border"
-          style={{ background: COLOR.surface, borderColor: COLOR.line, maxHeight: 760, boxShadow: "0 18px 44px rgba(0, 30, 80, 0.08)" }}
+          className="relative"
+          style={{
+            display: "grid",
+            gridTemplateColumns,
+            gridTemplateRows,
+            width: gridWidth,
+          }}
         >
           <div
-            className="relative"
+            className="sticky left-0 top-0 z-30 flex items-center px-5 text-[11px] font-black uppercase tracking-wide"
             style={{
-              display: "grid",
-              gridTemplateColumns,
-              gridTemplateRows,
-              width: ADVISOR_COL_WIDTH + totalColumnas * SLOT_WIDTH,
+              gridColumn: "1 / 2",
+              gridRow: "1 / 2",
+              background: COLOR.surface,
+              color: COLOR.brand,
+              borderRight: `1px solid ${COLOR.line}`,
+              borderBottom: `1px solid ${COLOR.line}`,
             }}
           >
-            <div
-              className="sticky left-0 top-0 z-30 flex items-end px-5 pb-3"
-              style={{
-                gridColumn: "1 / 2",
-                gridRow: "1 / 3",
-                background: COLOR.brand,
-                borderRight: "1px solid rgba(255,255,255,0.14)",
-                borderBottom: `1px solid ${COLOR.line}`,
-              }}
-            >
-              <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/85">Asesor</span>
-            </div>
+            Asesor
+          </div>
 
-            {horasPrincipales.map((hora, i) => (
+          {horarios.map((slot, index) => {
+            const esMediaHora = slot.endsWith(":30");
+            return (
               <div
-                key={hora}
-                className="sticky top-0 z-20 flex items-center justify-center text-[13px] font-semibold tabular-nums text-white"
+                key={slot}
+                className="sticky top-0 z-20 flex items-center justify-center text-[11px] font-bold tabular-nums"
                 style={{
-                  gridColumn: `${2 + i * 2} / span 2`,
+                  gridColumn: `${2 + index} / span 1`,
                   gridRow: "1 / 2",
-                  background: COLOR.brand,
-                  borderLeft: i === 0 ? "none" : "1px solid rgba(255,255,255,0.12)",
+                  background: COLOR.surface,
+                  color: slot.endsWith(":00") ? COLOR.brand : COLOR.inkSoft,
+                  borderLeft: `1px ${esMediaHora ? "dashed" : "solid"} ${esMediaHora ? COLOR.lineStrong : COLOR.line}`,
+                  borderBottom: `1px solid ${COLOR.line}`,
                 }}
               >
-                {hora}
+                {slot}
               </div>
-            ))}
+            );
+          })}
 
-            {horarios.map((slot, i) => {
-              const esMediaHora = slot.endsWith(":30");
-              return (
+          {asesores.map((asesor, rowIdx) => {
+            const color = colorForAsesor(asesor.nombre);
+            const citasAsesor = citasDeLaFecha.filter((c) => (c.asesor || c.nombre_asesor) === asesor.nombre);
+
+            return (
+              <div key={asesor.id} style={{ display: "contents" }}>
                 <div
-                  key={slot}
-                  className="sticky z-20 flex items-center justify-center text-[10px] font-semibold tabular-nums"
+                  className="sticky left-0 z-10 flex items-center px-4"
                   style={{
-                    gridColumn: `${2 + i} / span 1`,
-                    gridRow: "2 / 3",
-                    top: HEADER_H1,
-                    background: COLOR.surfaceAlt,
-                    color: COLOR.inkFaint,
-                    borderLeft: !esMediaHora ? `1px solid ${COLOR.line}` : "none",
+                    gridColumn: "1 / 2",
+                    gridRow: `${2 + rowIdx} / span 1`,
+                    background: rowIdx % 2 ? COLOR.surfaceAlt : COLOR.surface,
+                    borderRight: `1px solid ${COLOR.line}`,
                     borderBottom: `1px solid ${COLOR.line}`,
                   }}
                 >
-                  {esMediaHora ? <span className="h-1.5 w-1.5 rounded-lg" style={{ background: COLOR.lineStrong }} /> : slot}
+                  <AdvisorStats asesor={asesor} color={color} citasAsesor={citasAsesor} />
                 </div>
-              );
-            })}
 
-            {asesores.map((asesor, rowIdx) => {
-              const color = colorForAsesor(asesor.nombre);
-              const citasAsesor = citasDeLaFecha.filter((c) => (c.asesor || c.nombre_asesor) === asesor.nombre);
+                {horarios.map((slot, colIdx) => {
+                  const citasCelda = citasPorCelda.get(`${asesor.nombre}__${slot}`) || [];
+                  const esMediaHora = slot.endsWith(":30");
 
-              return (
-                <div key={asesor.id} style={{ display: "contents" }}>
-                  <div
-                    className="sticky left-0 z-10 flex items-center px-5"
-                    style={{
-                      gridColumn: "1 / 2",
-                      gridRow: `${3 + rowIdx} / span 1`,
-                      background: rowIdx % 2 === 1 ? COLOR.surfaceAlt : COLOR.surface,
-                      borderRight: `1px solid ${COLOR.line}`,
-                      borderBottom: `1px solid ${COLOR.line}`,
-                    }}
-                  >
-                    <AdvisorStats asesor={asesor} color={color} citasAsesor={citasAsesor} />
-                  </div>
-
-                  {horarios.map((slot, colIdx) => {
-                    const citasCelda = citasPorCelda.get(`${asesor.nombre}__${slot}`) || [];
-                    const esInicioDeHora = slot.endsWith(":00");
-                    return (
-                      <div
-                        key={`${asesor.id}-${slot}`}
-                        className="p-2"
-                        style={{
-                          gridColumn: `${2 + colIdx} / span 1`,
-                          gridRow: `${3 + rowIdx} / span 1`,
-                          borderRight: `1px solid ${esInicioDeHora ? COLOR.line : COLOR.surfaceAlt}`,
-                          borderBottom: `1px solid ${COLOR.line}`,
-                          background: rowIdx % 2 === 1 ? COLOR.surfaceAlt : COLOR.surface,
-                        }}
-                      >
-                        {citasCelda.length ? (
-                          <div className="flex h-full max-w-full gap-2 overflow-x-auto pb-0.5 pr-1">
-                            {citasCelda.map((cita) => (
-                              <CitaCard
-                                key={cita.id || `${asesor.nombre}-${slot}-${nombreCliente(cita)}`}
-                                cita={cita}
-                                compact={citasCelda.length > 1}
-                                onClick={(c) => abrirEditar && abrirEditar(c)}
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          <EmptySlot slot={slot} onClick={onSlotClick ? () => onSlotClick(asesor.nombre, slot) : null} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-
-            {posicionAhora !== null && (
-              <div
-                className="pointer-events-none absolute z-[12]"
-                style={{
-                  left: posicionAhora,
-                  top: HEADER_H1 + HEADER_H2,
-                  bottom: 0,
-                  width: 2,
-                  background: COLOR.danger,
-                }}
-              >
-                <div className="absolute -left-[5px] -top-2 h-3 w-3 rounded-full" style={{ background: COLOR.danger, boxShadow: "0 0 0 4px rgba(180,35,24,0.12)" }} />
+                  return (
+                    <div
+                      key={`${asesor.id}-${slot}`}
+                      className="p-2"
+                      style={{
+                        gridColumn: `${2 + colIdx} / span 1`,
+                        gridRow: `${2 + rowIdx} / span 1`,
+                        background: rowIdx % 2 ? COLOR.surfaceAlt : COLOR.surface,
+                        borderLeft: `1px ${esMediaHora ? "dashed" : "solid"} ${esMediaHora ? COLOR.lineStrong : COLOR.line}`,
+                        borderBottom: `1px solid ${COLOR.line}`,
+                      }}
+                    >
+                      {citasCelda.length > 0 ? (
+                        <div className="flex h-full gap-2 overflow-x-auto pb-0.5">
+                          {citasCelda.map((cita) => (
+                            <CitaCard
+                              key={cita.id || `${asesor.nombre}-${slot}-${nombreCliente(cita)}`}
+                              cita={cita}
+                              compact={citasCelda.length > 1}
+                              abrirEditar={abrirEditar}
+                              onSetAsistencia={onSetAsistencia}
+                              updatingInline={updatingInline}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <EmptySlot slot={slot} onClick={onSlotClick ? () => onSlotClick(asesor.nombre, slot) : undefined} />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            );
+          })}
 
-      <div className="flex flex-wrap items-center justify-end gap-4 text-[11px] font-semibold" style={{ color: COLOR.inkFaint }}>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: COLOR.danger }} /> Hora actual
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Wrench className="h-3.5 w-3.5" /> Tarjeta azul = cliente citado
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Plus className="h-3.5 w-3.5" /> Clic en espacio libre para agendar
-        </span>
+          {posicionAhora !== null ? (
+            <div
+              className="pointer-events-none absolute z-20"
+              style={{
+                left: posicionAhora,
+                top: HEADER_HEIGHT,
+                bottom: 0,
+                width: 2,
+                background: COLOR.danger,
+              }}
+            >
+              <div className="absolute -left-[5px] -top-2 h-3 w-3 rounded-full" style={{ background: COLOR.danger, boxShadow: "0 0 0 4px rgba(180,35,24,0.12)" }} />
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4 text-[11px] font-bold" style={{ color: COLOR.inkFaint }}>
+        <span className="flex items-center gap-1.5"><TipoBadge tipo="Servicio" /> Servicio</span>
+        <span className="flex items-center gap-1.5"><TipoBadge tipo="Reparación" /> Reparación</span>
+        <span className="flex items-center gap-1.5"><TipoBadge tipo="Diagnóstico" /> Diagnóstico</span>
+        <span className="flex items-center gap-1.5"><TipoBadge tipo="Campaña" /> Campaña</span>
+        <span className="ml-auto flex items-center gap-1.5"><ChevronRight className="h-3.5 w-3.5" /> Desplaza horizontalmente para ver más horarios</span>
       </div>
     </div>
   );
