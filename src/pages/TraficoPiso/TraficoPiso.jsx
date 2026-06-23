@@ -41,6 +41,10 @@ import { FileDown } from "lucide-react";
 
 const BRAND_BLUE = "#131E5C";
 
+// ── WhatsApp API ──────────────────────────────────────────────
+const ACCESS_TOKEN = "EAAMHhf6nlX8BRsem3YmFgR7wKIEGwZByRLbsZApyZC3TMvgKfr4ARDcWNqeX5BUIcL699ZBQ1ayAk4NQzRvDIa7Ec3FjFZA51rSfodI96FoCWlHR2RypxcbOeseSUovfBtvmDqTs6DiU3hk1gyJnW9XLjuaF3te6UqH0M4ZBAhkxe8wzCBwk0ZCw0FcizAgnfDyilN3ZCeHqTMBhb7XKWkZAJhKTVZCNCKg1IUjEJj";
+const PHONE_NUMBER_ID = "1184628394729057";
+
 const DEALERS = [
     "VW Cordoba",
     "VW Orizaba",
@@ -67,7 +71,6 @@ const MOTIVOS_INGRESO = [
 ];
 
 const TIPOS_PERSONA = ["Física", "Moral"];
-const TIPOS_VENTA = ["Nuevo", "Seminuevo", "Comercial"];
 const TIEMPOS_COMPRA = ["Este mes", "De 1 a 3 meses", "De 3 a 6 meses"];
 
 const FORMAS_CAPITALIZACION = [
@@ -106,70 +109,70 @@ const PERFILES_PROFESIONALES = [
 
 const ESTADOS_CIVILES = ["Soltero", "Casado", "Divorciado"];
 
-  const ASESORES = [
-        "AURA MARLIZETH FERNANDEZ LOPEZ",
-        "Bianca Isabel Chavez Alarcon",
-        "ERENDIRA SANTOS COYOTZI",
-        "IRENE DEL CARMEN GUIZA LOPEZ",
-        "MARCOS RAUL DIAZ RAMOS",
-        "MARIO ALBERTO LOPEZ RAMOS",
-        "MARISOL LAGUNES GONZALEZ",
-        "NALLELY HERNANDEZ GARCIA",
-        "OCTAVIO BRUNO GONZALEZ",
-        "ROGELIO VAZQUEZ SANCHEZ",
-        "RUBEN ALBERTO TOSQUY ADRIANO",
-        "Saja Azzam Mohammad Jamous",
-        "SANDRA LUZ PRIETO PEREZ",
-        "YAMIL MISAEL RODRIGUEZ AGUILAR",
-        "LUIS ALFONSO CORIA MARROQUIN",
-        "CANDY DENISSE MARQUEZ CORTES",
-        "DELMAR JAVIER ILLESCAS DOMINGUEZ",
-        "EDGAR JESUS GOMEZ PEREZ",
-        "Valeria Zilli Durante",
-        "IDALMY JIMENEZ SANCHEZ",
-        "IVAN JUAREZ ORTEGA",
-        "JESSICA OLIVARES CAMPOS",
-        "JESUS XITLAMA GOMEZ",
-        "LIZBETH CANO CLARA",
-        "LUIS MANUEL PALOMARES OLAYO",
-        "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
-        "OMAR VILLIERS MONDRAGON",
-        "RUBEN ROMERO VALDES",
-        "VERONICA CASTILLO FUENTES",
-        "Hector Rodriguez",
-        "GEOVANI NAVA DIAZ",
-        "ZEILA NAVARRO CONTRERAS",
-        "JOSE ALFREDO BARRANCA REYES",
-        "ADRIAN GALVEZ ROLDAN",
-        "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
-        "Marelly Tenorio Salinas",
-        "ELIA INES ARANO REYES",
-        "JORGE LUIS ALAMILLO RODRIGUEZ",
-        "Cesar Ivan Salazar Reyes",
-        "Cristian Fernando Rivera Godinez",
-        "DULCE ABIGAIL GARCIA OLIVARES",
-        "Felix Emmanuel Solis Angeles",
-        "GERMAN JARITH SALAZAR MIRANDA",
-        "Iris Yazmín Gómez Velázquez",
-        "Israel Garcia Juarez",
-        "JORGE ANTONIO RODRIGUEZ MARTINEZ",
-        "JOSE DE JESUS GARCIA ROMAN",
-        "JUAN MANUEL SOBREVILLA VICENCIO",
-        "Miguel Capitanachi Paredes",
-        "OLIMPIA VAZQUEZ MENDEZ",
-        "Roberto Ramses Luna Fajardo",
-        "Carlos Arturo Garces Vengas",
-        "Edgar Omar Noguera Solis",
-        "Javier Perez Meraz",
-        "Luis Armando Almora Perez",
-        "Mara Erubey Soto Villegas",
-        "Sergio Ivan Quintana Martinez",
-        "Sergio Rene Delgado Sarmiento",
-        "Yoseth Ruiz Castellanos",
-        "Luis Alberto Ramirez Santamaria",
-        "Paul Serrano Vera",
-        "Luis Manuel Alvarez Martinez"
-    ];
+const ASESORES = [
+    "AURA MARLIZETH FERNANDEZ LOPEZ",
+    "Bianca Isabel Chavez Alarcon",
+    "ERENDIRA SANTOS COYOTZI",
+    "IRENE DEL CARMEN GUIZA LOPEZ",
+    "MARCOS RAUL DIAZ RAMOS",
+    "MARIO ALBERTO LOPEZ RAMOS",
+    "MARISOL LAGUNES GONZALEZ",
+    "NALLELY HERNANDEZ GARCIA",
+    "OCTAVIO BRUNO GONZALEZ",
+    "ROGELIO VAZQUEZ SANCHEZ",
+    "RUBEN ALBERTO TOSQUY ADRIANO",
+    "Saja Azzam Mohammad Jamous",
+    "SANDRA LUZ PRIETO PEREZ",
+    "YAMIL MISAEL RODRIGUEZ AGUILAR",
+    "LUIS ALFONSO CORIA MARROQUIN",
+    "CANDY DENISSE MARQUEZ CORTES",
+    "DELMAR JAVIER ILLESCAS DOMINGUEZ",
+    "EDGAR JESUS GOMEZ PEREZ",
+    "Valeria Zilli Durante",
+    "IDALMY JIMENEZ SANCHEZ",
+    "IVAN JUAREZ ORTEGA",
+    "JESSICA OLIVARES CAMPOS",
+    "JESUS XITLAMA GOMEZ",
+    "LIZBETH CANO CLARA",
+    "LUIS MANUEL PALOMARES OLAYO",
+    "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
+    "OMAR VILLIERS MONDRAGON",
+    "RUBEN ROMERO VALDES",
+    "VERONICA CASTILLO FUENTES",
+    "Hector Rodriguez",
+    "GEOVANI NAVA DIAZ",
+    "ZEILA NAVARRO CONTRERAS",
+    "JOSE ALFREDO BARRANCA REYES",
+    "ADRIAN GALVEZ ROLDAN",
+    "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
+    "Marelly Tenorio Salinas",
+    "ELIA INES ARANO REYES",
+    "JORGE LUIS ALAMILLO RODRIGUEZ",
+    "Cesar Ivan Salazar Reyes",
+    "Cristian Fernando Rivera Godinez",
+    "DULCE ABIGAIL GARCIA OLIVARES",
+    "Felix Emmanuel Solis Angeles",
+    "GERMAN JARITH SALAZAR MIRANDA",
+    "Iris Yazmín Gómez Velázquez",
+    "Israel Garcia Juarez",
+    "JORGE ANTONIO RODRIGUEZ MARTINEZ",
+    "JOSE DE JESUS GARCIA ROMAN",
+    "JUAN MANUEL SOBREVILLA VICENCIO",
+    "Miguel Capitanachi Paredes",
+    "OLIMPIA VAZQUEZ MENDEZ",
+    "Roberto Ramses Luna Fajardo",
+    "Carlos Arturo Garces Vengas",
+    "Edgar Omar Noguera Solis",
+    "Javier Perez Meraz",
+    "Luis Armando Almora Perez",
+    "Mara Erubey Soto Villegas",
+    "Sergio Ivan Quintana Martinez",
+    "Sergio Rene Delgado Sarmiento",
+    "Yoseth Ruiz Castellanos",
+    "Luis Alberto Ramirez Santamaria",
+    "Paul Serrano Vera",
+    "Luis Manuel Alvarez Martinez"
+];
 
 const PASATIEMPOS = [
     "Ciclismo", "Natación", "Futbol", "Pesca", "Senderismo", "Tenis-frontón",
@@ -192,7 +195,6 @@ const INITIAL_FORM = {
     asesor_ventas: "",
     motivo_ingreso: "",
     tipo_persona: "Física",
-    tipo_venta: "",
     tiempo_compra: "",
     auto_suenos: "",
     deja_auto_cuenta: false,
@@ -272,7 +274,7 @@ function validarFormulario(form) {
 
 // ==================== COMPONENTES UI BÁSICOS ====================
 function Skeleton({ className = "" }) { return <div className={["animate-pulse rounded-md bg-black/10", className].join(" ")} />; }
-function SkeletonRow() { return <tr className="animate-pulse">{Array.from({ length: 10 }).map((_, i) => <td key={i} className="px-4 py-3"><div className="h-4 w-full max-w-[160px] rounded bg-slate-200/70" /></td>)}</tr>; }
+function SkeletonRow() { return <tr className="animate-pulse">{Array.from({ length: 13 }).map((_, i) => <td key={i} className="px-4 py-3"><div className="h-4 w-full max-w-[160px] rounded bg-slate-200/70" /></td>)}</tr>; }
 function ModalSkeleton() { return <div className="grid gap-3 md:grid-cols-3">{Array.from({ length: 12 }).map((_, i) => <div key={i} className="rounded-lg border border-white/10 bg-neutral-200/50 p-4"><Skeleton className="h-4 w-36" /><Skeleton className="mt-3 h-10 w-full rounded-lg" /></div>)}<div className="rounded-lg border border-white/10 bg-neutral-200/50 p-4 md:col-span-3"><Skeleton className="h-4 w-40" /><Skeleton className="mt-3 h-24 w-full rounded-lg" /></div></div>; }
 
 function Modal({ open, title, subtitle, onClose, children, footer }) {
@@ -297,14 +299,87 @@ function PasatiemposPicker({ value, onChange, invalid }) {
 function AsesorAutocomplete({ value, onChange, invalid }) {
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef(null);
-    const opciones = useMemo(() => { const q = normalizarBusqueda(value); if (!q) return ASESORES.slice(0, 20); return ASESORES.filter((asesor) => normalizarBusqueda(asesor).includes(q)).slice(0, 20); }, [value]);
-    useEffect(() => { const onClick = (event) => { if (!wrapperRef.current) return; if (!wrapperRef.current.contains(event.target)) setOpen(false); }; window.addEventListener("mousedown", onClick); return () => window.removeEventListener("mousedown", onClick); }, []);
-    return <div ref={wrapperRef} className="relative"><Input value={value} invalid={invalid} onChange={(e) => { onChange(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} placeholder="Escribe para buscar asesor..." />{open && <div className="absolute left-0 right-0 top-12 z-30 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"><div className="border-b border-black/10 px-3 py-2 text-xs font-bold text-[#131E5C]">Selecciona un asesor</div><div className="max-h-56 overflow-y-auto">{opciones.length === 0 && <button type="button" onClick={() => setOpen(false)} className="block w-full px-3 py-3 text-left text-sm font-semibold text-slate-500 hover:bg-slate-50">No encontré coincidencias. Puedes dejar el nombre escrito manualmente.</button>}{opciones.map((asesor) => <button key={asesor} type="button" onClick={() => { onChange(asesor); setOpen(false); }} className="block w-full px-3 py-3 text-left hover:bg-slate-50"><div className="text-sm font-extrabold text-[#131E5C]">{asesor}</div></button>)}</div></div>}</div>;
+    
+    const opciones = useMemo(() => { 
+        const q = normalizarBusqueda(value); 
+        if (!q) return ASESORES.slice(0, 20); 
+        return ASESORES.filter((asesor) => normalizarBusqueda(asesor).includes(q)).slice(0, 20); 
+    }, [value]);
+    
+    useEffect(() => { 
+        const onClick = (event) => { 
+            if (!wrapperRef.current) return; 
+            if (!wrapperRef.current.contains(event.target)) setOpen(false); 
+        }; 
+        window.addEventListener("mousedown", onClick); 
+        return () => window.removeEventListener("mousedown", onClick); 
+    }, []);
+    
+    return (
+        <div ref={wrapperRef} className="relative">
+            <Input 
+                value={value} 
+                invalid={invalid} 
+                onChange={(e) => { 
+                    onChange(e.target.value); 
+                    setOpen(true); 
+                }} 
+                onFocus={() => setOpen(true)} 
+                placeholder="Escribe para buscar asesor..." 
+            />
+            {open && (
+                <div className="absolute left-0 right-0 top-12 z-30 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
+                    <div className="border-b border-black/10 px-3 py-2 text-xs font-bold text-[#131E5C]">
+                        Selecciona un asesor
+                    </div>
+                    <div className="max-h-56 overflow-y-auto">
+                        {opciones.length === 0 && (
+                            <button 
+                                type="button" 
+                                onClick={() => setOpen(false)} 
+                                className="block w-full px-3 py-3 text-left text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                            >
+                                No encontré coincidencias. Puedes dejar el nombre escrito manualmente.
+                            </button>
+                        )}
+                        {opciones.map((asesor) => (
+                            <button 
+                                key={asesor} 
+                                type="button" 
+                                onClick={() => { 
+                                    onChange(asesor); 
+                                    setOpen(false); 
+                                }} 
+                                className="block w-full px-3 py-3 text-left hover:bg-slate-50"
+                            >
+                                <div className="text-sm font-extrabold text-[#131E5C]">{asesor}</div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
 function SortButton({ label, sortKey, sort, onClick }) { const active = sort.key === sortKey; return <button type="button" onClick={() => onClick(sortKey)} className="inline-flex items-center gap-1 text-xs font-bold">{label}<span className="opacity-70">{active ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}</span></button>; }
 
-function ContextMenu({ ctxMenu, onDelete, onClose }) { if (!ctxMenu.open || !ctxMenu.row) return null; return createPortal(<div className="fixed z-[9999]" style={{ left: ctxMenu.x, top: ctxMenu.y }} onClick={(e) => e.stopPropagation()}><div className="w-48 overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl"><button type="button" className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50" onClick={() => onDelete(ctxMenu.row)}><Trash2 className="h-4 w-4" /> Eliminar</button><button type="button" className="w-full px-4 py-2 text-left text-xs text-slate-500 hover:bg-slate-50" onClick={onClose}>Cerrar</button></div></div>, document.body); }
+function ContextMenu({ ctxMenu, onDelete, onClose }) { 
+    if (!ctxMenu.open || !ctxMenu.row) return null; 
+    return createPortal(
+        <div className="fixed z-[9999]" style={{ left: ctxMenu.x, top: ctxMenu.y }} onClick={(e) => e.stopPropagation()}>
+            <div className="w-48 overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl">
+                <button type="button" className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50" onClick={() => onDelete(ctxMenu.row)}>
+                    <Trash2 className="h-4 w-4" /> Eliminar
+                </button>
+                <button type="button" className="w-full px-4 py-2 text-left text-xs text-slate-500 hover:bg-slate-50" onClick={onClose}>
+                    Cerrar
+                </button>
+            </div>
+        </div>, 
+        document.body
+    ); 
+}
 
 // ==================== COMPONENTES DE GRÁFICOS ====================
 function Bar({ label, value, max, color, total }) {
@@ -528,11 +603,60 @@ function AgendaTraficoPiso({ rows, loading, onEdit, onNewAtSlot }) {
     );
 }
 
+// ==================== HOOKS ====================
+function useEncuestaMap() {
+    const STORAGE_KEY = "trafico_encuesta_map";
+
+    const [encuestaMap, setEncuestaMap] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        } catch {
+            return {};
+        }
+    });
+
+    const setEncuesta = useCallback((idTrafico, estado) => {
+        setEncuestaMap((prev) => {
+            const next = { ...prev, [idTrafico]: estado };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            return next;
+        });
+    }, []);
+
+    return { encuestaMap, setEncuesta };
+}
+
+// ── Hook para guardar respuestas de encuesta ──
+function useRespuestasEncuesta() {
+    const STORAGE_KEY = "respuestas_encuesta_piso";
+
+    const [respuestasMap, setRespuestasMap] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        } catch {
+            return {};
+        }
+    });
+
+    const guardarRespuesta = useCallback((idTrafico, respuestas) => {
+        setRespuestasMap((prev) => {
+            const next = { ...prev, [idTrafico]: respuestas };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            return next;
+        });
+    }, []);
+
+    const obtenerRespuesta = useCallback((idTrafico) => {
+        return respuestasMap[idTrafico] || null;
+    }, [respuestasMap]);
+
+    return { guardarRespuesta, obtenerRespuesta, respuestasMap };
+}
+
 // ==================== COMPONENTE PRINCIPAL ====================
 export default function TraficoPiso() {
     const { user, loading: authLoading } = useAuth();
 
-    // ── igual que RegistroCredito ──────────────────────────────
     const permisos = user?.permisos || [];
     const rol = String(user?.rol || "").trim().toLowerCase();
 
@@ -544,7 +668,6 @@ export default function TraficoPiso() {
         );
     }, [rol, permisos]);
 
-    // Parsear agencias separadas por "|"  →  ["VW Cordoba", "VW Orizaba", ...]
     const userAgencias = useMemo(() => {
         return String(user?.agencia || "")
             .split("|")
@@ -554,7 +677,6 @@ export default function TraficoPiso() {
 
     const userAgencia = userAgencias[0] || "";
 
-    // Verifica si el usuario pertenece a una agencia concreta
     const userTieneAgencia = useCallback(
         (agenciaRegistro) => {
             const agencia = normalizeStr(agenciaRegistro);
@@ -566,13 +688,17 @@ export default function TraficoPiso() {
         },
         [userAgencias]
     );
-    // ─────────────────────────────────────────────────────────────
 
     const [registros, setRegistros] = useState([]);
     const [resumen, setResumen] = useState(null);
     const [vista, setVista] = useState("agenda");
     const [beBackMap, setBeBackMap] = useState({});
     const [updatingBeBack, setUpdatingBeBack] = useState({});
+
+    const { encuestaMap, setEncuesta } = useEncuestaMap();
+    const { guardarRespuesta, obtenerRespuesta } = useRespuestasEncuesta();
+    const [enviandoEncuesta, setEnviandoEncuesta] = useState({});
+
     const [filters, setFilters] = useState({ q: "", agencia: "Todos", tipoPersona: "Todos", tiempoCompra: "Todos", rangoDesde: "", rangoHasta: "" });
     const [sort, setSort] = useState({ key: "creado_en", dir: "desc" });
     const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
@@ -585,6 +711,11 @@ export default function TraficoPiso() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const [ok, setOk] = useState("");
+
+    const [modalResultados, setModalResultados] = useState({ open: false, item: null });
+    const [resultadosEncuesta, setResultadosEncuesta] = useState([]);
+    const [loadingResultados, setLoadingResultados] = useState(false);
+    const [errorResultados, setErrorResultados] = useState("");
 
     const errores = useMemo(() => validarFormulario(draft || INITIAL_FORM), [draft]);
     const missingMap = useMemo(() => {
@@ -616,7 +747,6 @@ export default function TraficoPiso() {
     function updateField(name, value) { setDraft((prev) => ({ ...(prev || INITIAL_FORM), [name]: value })); }
     function toggleSort(key) { setSort((prev) => prev.key !== key ? { key, dir: "asc" } : { key, dir: prev.dir === "asc" ? "desc" : "asc" }); }
 
-    // ── Dealers visibles en filtros (igual lógica que RegistroCredito) ──
     const dealers = useMemo(() => {
         const set = new Set((registros || []).map((r) => normalizeStr(r.agencia)).filter(Boolean));
         if (!isAdmin && userAgencias.length > 0) {
@@ -624,6 +754,146 @@ export default function TraficoPiso() {
         }
         return ["Todos", ...Array.from(set)];
     }, [registros, isAdmin, userAgencias]);
+
+    const getStoredToken = useCallback(() => {
+        try {
+            const access = localStorage.getItem("auth.access");
+            if (access && access !== "undefined" && access !== "null") {
+                return access;
+            }
+            const rawAuth = localStorage.getItem("auth");
+            if (rawAuth) {
+                const parsed = JSON.parse(rawAuth);
+                if (parsed?.token) return parsed.token;
+                if (parsed?.access) return parsed.access;
+            }
+            const keys = ["token", "access_token", "accessToken", "auth.token"];
+            for (const key of keys) {
+                const value = localStorage.getItem(key);
+                if (value && value !== "undefined" && value !== "null") {
+                    return value;
+                }
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    }, []);
+
+    // ── Función para guardar respuestas reales de encuesta ──
+    const guardarRespuestasReales = useCallback((idTrafico, respuestas) => {
+        guardarRespuesta(idTrafico, respuestas);
+        // También actualizar el estado de encuesta a resuelta
+        const estadoActual = encuestaMap[idTrafico] || {};
+        if (!estadoActual.resuelta) {
+            setEncuesta(idTrafico, {
+                ...estadoActual,
+                resuelta: true,
+                fechaRespuesta: new Date().toISOString()
+            });
+        }
+    }, [guardarRespuesta, encuestaMap, setEncuesta]);
+
+ const BASE_URL = "https://crm.grupoautomotrizryr.com";
+
+const abrirResultados = useCallback(async (item) => {
+    setModalResultados({ open: true, item });
+    setResultadosEncuesta([]);
+    setErrorResultados("");
+    setLoadingResultados(true);
+
+    try {
+        // 1. Caché local primero
+        const respuestasGuardadas = obtenerRespuesta(item.id_trafico);
+        if (respuestasGuardadas && respuestasGuardadas.length > 0) {
+            setResultadosEncuesta(respuestasGuardadas);
+            setLoadingResultados(false);
+            return;
+        }
+
+        // 2. Buscar en /piso/ con los 3 filtros del ViewSet
+        const token = getStoredToken();
+        const headers = {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
+
+        const telefono = soloNumeros(item.telefono || "");
+        const flowToken = `trafico_${item.id_trafico}`;
+
+        const intentos = [
+            `${BASE_URL}/api/encuestas/piso/?id_trafico=${item.id_trafico}`,
+            `${BASE_URL}/api/encuestas/piso/?flow_token=${encodeURIComponent(flowToken)}`,
+            `${BASE_URL}/api/encuestas/piso/?telefono=${telefono}`,
+        ];
+
+        for (const url of intentos) {
+            try {
+                const res = await fetch(url, { method: "GET", headers });
+                if (!res.ok) continue;
+                const data = await res.json();
+                const lista = Array.isArray(data) ? data : (data.results ?? []);
+                if (lista.length > 0) {
+                    guardarRespuestasReales(item.id_trafico, lista);
+                    setResultadosEncuesta(lista);
+                    setLoadingResultados(false);
+                    return;
+                }
+            } catch (e) {
+                console.warn("Intento fallido:", url, e.message);
+            }
+        }
+
+        // 3. Sin resultados
+        const estadoEnc = encuestaMap[item.id_trafico];
+        setErrorResultados(
+            !estadoEnc?.enviada
+                ? "🔔 La encuesta aún no ha sido enviada al cliente."
+                : "⏳ El cliente aún no ha respondido la encuesta."
+        );
+    } catch (err) {
+        setErrorResultados(`Error al cargar: ${err.message}`);
+    } finally {
+        setLoadingResultados(false);
+    }
+}, [obtenerRespuesta, guardarRespuestasReales, encuestaMap, getStoredToken]);
+ 
+
+
+    // ── Función para simular/guardar respuesta de prueba ──
+    const simularRespuestaEncuesta = useCallback((item) => {
+        const respuestasSimuladas = [{
+            id: 1,
+            nombre_cliente: item.nombre_prospecto || "Cliente",
+            agencia: item.agencia || "Agencia",
+            creado: new Date().toISOString(),
+            atencion_asesor: 5,
+            seguimiento_asesor: 4,
+            tiempo_entrega_unidad: 5,
+            experiencia_recepcion: 4,
+            motivo_visita: "Compra de vehículo nuevo",
+            comentario: "Excelente atención, el asesor fue muy profesional y resolvió todas mis dudas.",
+            asesor_atendio: item.asesor_ventas || "Asesor",
+            id_trafico: item.id_trafico,
+            flow_token: `trafico_${item.id_trafico}`
+        }];
+        
+        guardarRespuestasReales(item.id_trafico, respuestasSimuladas);
+        
+        setModalResultados({ open: true, item });
+        setResultadosEncuesta(respuestasSimuladas);
+        setErrorResultados("");
+        setLoadingResultados(false);
+        
+        // También marcar la encuesta como resuelta
+        setEncuesta(item.id_trafico, {
+            enviada: true,
+            resuelta: true,
+            fechaRespuesta: new Date().toISOString()
+        });
+        
+        setOk(`✅ Respuesta de prueba guardada para ${item.nombre_prospecto}`);
+    }, [guardarRespuestasReales, setEncuesta]);
 
     async function cargarDatos(params = {}) {
         try {
@@ -677,7 +947,146 @@ export default function TraficoPiso() {
         const prev = !!beBackMap[id];
         setBeBackMap((p) => ({ ...p, [id]: !prev }));
         setUpdatingBeBack((p) => ({ ...p, [id]: true }));
-        try { await apiTraficoPiso.patch(id, { be_back: !prev }); } catch (err) { console.error(err); setBeBackMap((p) => ({ ...p, [id]: prev })); } finally { setUpdatingBeBack((p) => { const n = { ...p }; delete n[id]; return n; }); }
+        try {
+            await apiTraficoPiso.patch(id, { be_back: !prev });
+        } catch (err) {
+            console.error(err);
+            setBeBackMap((p) => ({ ...p, [id]: prev }));
+        } finally {
+            setUpdatingBeBack((p) => {
+                const n = { ...p };
+                delete n[id];
+                return n;
+            });
+        }
+    }
+
+    async function enviarEncuestaPiso(item) {
+        const id = item?.id_trafico;
+        const telefono = soloNumeros(item?.telefono || "");
+        if (!id || !telefono) return;
+
+        const telefonoFormateado =
+            telefono.length === 10
+                ? `52${telefono}`
+                : telefono.length === 12 && telefono.startsWith("52")
+                    ? telefono
+                    : null;
+
+        if (!telefonoFormateado) {
+            alert(`Teléfono inválido para ${item.nombre_prospecto}: ${item.telefono}`);
+            return;
+        }
+
+        const confirmar = window.confirm(
+            `¿Enviar encuesta de piso a ${item.nombre_prospecto}?\nTeléfono: ${telefonoFormateado}`
+        );
+        if (!confirmar) return;
+
+        setEnviandoEncuesta((p) => ({ ...p, [id]: true }));
+
+        try {
+            const IMAGE_URL = "https://i.imgur.com/wKJqh2K.jpeg";
+            let mediaId = null;
+
+            try {
+                const imgRes = await fetch(IMAGE_URL);
+                const blob = await imgRes.blob();
+                const form = new FormData();
+                form.append("messaging_product", "whatsapp");
+                form.append("type", blob.type || "image/jpeg");
+                form.append("file", blob, "encuesta.jpg");
+
+                const uploadRes = await fetch(
+                    `https://graph.facebook.com/v25.0/${PHONE_NUMBER_ID}/media`,
+                    {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+                        body: form,
+                    }
+                );
+                const uploadData = await uploadRes.json();
+                if (!uploadData.id) throw new Error(uploadData.error?.message || "Error al subir imagen");
+                mediaId = uploadData.id;
+            } catch (imgErr) {
+                console.warn("No se pudo subir imagen:", imgErr.message);
+            }
+
+            const components = [];
+
+            if (mediaId) {
+                components.push({
+                    type: "header",
+                    parameters: [
+                        {
+                            type: "image",
+                            image: { id: mediaId },
+                        },
+                    ],
+                });
+            }
+
+            components.push({
+                type: "button",
+                sub_type: "flow",
+                index: "0",
+                parameters: [
+                    {
+                        type: "action",
+                        action: {
+                            flow_token: `trafico_${id}`,
+                        },
+                    },
+                ],
+            });
+
+            const payload = {
+                messaging_product: "whatsapp",
+                to: telefonoFormateado,
+                type: "template",
+                template: {
+                    name: "enc_piso",
+                    language: { code: "en" },
+                    components,
+                },
+            };
+
+            const res = await fetch(
+                `https://graph.facebook.com/v25.0/${PHONE_NUMBER_ID}/messages`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${ACCESS_TOKEN}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            const data = await res.json();
+
+            if (!res.ok || data.error) {
+                throw new Error(data.error?.message || `Error ${res.status}`);
+            }
+
+            setEncuesta(id, {
+                enviada: true,
+                resuelta: false,
+                fechaEnvio: new Date().toISOString(),
+                wamid: data.messages?.[0]?.id || null,
+            });
+
+            setOk(`Encuesta enviada a ${item.nombre_prospecto} ✓`);
+        } catch (err) {
+            console.error(err);
+            setError(`No se pudo enviar la encuesta: ${err.message}`);
+        } finally {
+            setEnviandoEncuesta((p) => {
+                const n = { ...p };
+                delete n[id];
+                return n;
+            });
+        }
     }
 
     function openCreate() {
@@ -685,7 +1094,6 @@ export default function TraficoPiso() {
         setOk("");
         setTouchedSave(false);
         setMode("create");
-        // Admin elige dealer libremente; usuario tiene su(s) agencia(s) pre-cargadas
         setDraft({ ...INITIAL_FORM, agencia: isAdmin ? "" : userAgencias[0] || "" });
         setOpenModal(true);
     }
@@ -696,15 +1104,29 @@ export default function TraficoPiso() {
             setError(""); setOk(""); setTouchedSave(false); setMode("edit"); setOpenModal(true); setLoadingDetail(true);
             const item = await apiTraficoPiso.get(row.id_trafico);
 
-            // Bloquear edición de registros de otra agencia (igual que RegistroCredito)
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(item.agencia)) {
                 alert("No tienes permisos para ver registros de otra agencia.");
                 setOpenModal(false);
                 return;
             }
 
-            setDraft({ ...INITIAL_FORM, ...item, presupuesto_estimado: item.presupuesto_estimado === null || item.presupuesto_estimado === undefined ? "" : String(parseInt(item.presupuesto_estimado || 0, 10) || ""), enganche_presupuestado: item.enganche_presupuestado === null || item.enganche_presupuestado === undefined ? "" : String(parseInt(item.enganche_presupuestado || 0, 10) || ""), mensualidades_presupuestadas: item.mensualidades_presupuestadas ? String(item.mensualidades_presupuestadas) : "", edad: item.edad === null || item.edad === undefined ? "" : String(item.edad), cantidad_hijos: item.cantidad_hijos === null || item.cantidad_hijos === undefined ? "0" : String(item.cantidad_hijos), pasatiempos: Array.isArray(item.pasatiempos) ? item.pasatiempos : [], deja_auto_cuenta: !!item.deja_auto_cuenta, comprueba_ingresos: !!item.comprueba_ingresos });
-        } catch (err) { console.error(err); setError(err.message || "No se pudo abrir el registro."); setOpenModal(false); } finally { setLoadingDetail(false); }
+            setDraft({
+                ...INITIAL_FORM,
+                ...item,
+                presupuesto_estimado: item.presupuesto_estimado === null || item.presupuesto_estimado === undefined ? "" : String(parseInt(item.presupuesto_estimado || 0, 10) || ""),
+                enganche_presupuestado: item.enganche_presupuestado === null || item.enganche_presupuestado === undefined ? "" : String(parseInt(item.enganche_presupuestado || 0, 10) || ""),
+                mensualidades_presupuestadas: item.mensualidades_presupuestadas ? String(item.mensualidades_presupuestadas) : "",
+                edad: item.edad === null || item.edad === undefined ? "" : String(item.edad),
+                cantidad_hijos: item.cantidad_hijos === null || item.cantidad_hijos === undefined ? "0" : String(item.cantidad_hijos),
+                pasatiempos: Array.isArray(item.pasatiempos) ? item.pasatiempos : [],
+                deja_auto_cuenta: !!item.deja_auto_cuenta,
+                comprueba_ingresos: !!item.comprueba_ingresos
+            });
+        } catch (err) {
+            console.error(err);
+            setError(err.message || "No se pudo abrir el registro.");
+            setOpenModal(false);
+        } finally { setLoadingDetail(false); }
     }
 
     function closeModal() { if (saving) return; setOpenModal(false); setDraft(null); setTouchedSave(false); }
@@ -717,15 +1139,24 @@ export default function TraficoPiso() {
         try {
             setSaving(true);
             const payload = normalizarPayload(draft);
-            if (mode === "edit" && draft.id_trafico) { await apiTraficoPiso.update(draft.id_trafico, payload); setOk("Registro actualizado correctamente."); } else { await apiTraficoPiso.create(payload); setOk("Registro guardado correctamente."); }
-            await cargarDatos(); closeModal();
-        } catch (err) { console.error(err); setError(err.message || "No se pudo guardar el registro."); } finally { setSaving(false); }
+            if (mode === "edit" && draft.id_trafico) {
+                await apiTraficoPiso.update(draft.id_trafico, payload);
+                setOk("Registro actualizado correctamente.");
+            } else {
+                await apiTraficoPiso.create(payload);
+                setOk("Registro guardado correctamente.");
+            }
+            await cargarDatos();
+            closeModal();
+        } catch (err) {
+            console.error(err);
+            setError(err.message || "No se pudo guardar el registro.");
+        } finally { setSaving(false); }
     }
 
     async function eliminar(row) {
         if (!row?.id_trafico) return;
 
-        // Bloquear eliminación de registros de otra agencia (igual que RegistroCredito)
         if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
             alert("No tienes permisos para eliminar registros de otra agencia.");
             return;
@@ -733,7 +1164,17 @@ export default function TraficoPiso() {
 
         const confirmar = window.confirm(`¿Eliminar el registro de ${row.nombre_prospecto || "este prospecto"}?`);
         if (!confirmar) return;
-        try { setError(""); setOk(""); await apiTraficoPiso.remove(row.id_trafico); await cargarDatos(); setOk("Registro eliminado correctamente."); } catch (err) { console.error(err); setError(err.message || "No se pudo eliminar el registro."); } finally { setCtxMenu({ open: false, x: 0, y: 0, row: null }); }
+        try {
+            setError(""); setOk("");
+            await apiTraficoPiso.remove(row.id_trafico);
+            await cargarDatos();
+            setOk("Registro eliminado correctamente.");
+        } catch (err) {
+            console.error(err);
+            setError(err.message || "No se pudo eliminar el registro.");
+        } finally {
+            setCtxMenu({ open: false, x: 0, y: 0, row: null });
+        }
     }
 
     function onRowContextMenu(e, row) { e.preventDefault(); e.stopPropagation(); setCtxMenu({ open: true, x: e.clientX, y: e.clientY, row }); }
@@ -746,15 +1187,11 @@ export default function TraficoPiso() {
         const desdeInt = ymdToInt(filters.rangoDesde);
         const hastaInt = ymdToInt(filters.rangoHasta);
         return (registros || []).filter((item) => {
-            // ── Filtro por agencia del usuario (igual que RegistroCredito) ──
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(item.agencia)) return false;
 
             const searchable = [item.agencia, item.nombre_prospecto, item.telefono, item.email, item.asesor_ventas, item.motivo_ingreso, item.tipo_persona, item.tiempo_compra, item.auto_suenos, item.forma_capitalizacion, item.perfil_profesional, item.estado_civil, item.comentarios].map((v) => normalizeStr(v).toLowerCase()).join(" ");
             const matchQ = !q || searchable.includes(q);
-
-            // ── Filtro de dealer en barra de filtros ──
             const matchAgencia = filters.agencia === "Todos" || normalizeStr(item.agencia) === normalizeStr(filters.agencia);
-
             const matchTipo = filters.tipoPersona === "Todos" || item.tipo_persona === filters.tipoPersona;
             const matchTiempo = filters.tiempoCompra === "Todos" || item.tiempo_compra === filters.tiempoCompra;
             let matchRango = true;
@@ -774,10 +1211,19 @@ export default function TraficoPiso() {
         const { key, dir } = sort || {};
         const mult = dir === "asc" ? 1 : -1;
         return data.sort((a, b) => {
-            if (["creado_en"].includes(key)) { const ta = a[key] ? new Date(a[key]).getTime() : 0; const tb = b[key] ? new Date(b[key]).getTime() : 0; return (ta - tb) * mult; }
-            if (["presupuesto_estimado", "enganche_presupuestado"].includes(key)) { return (Number(a[key] || 0) - Number(b[key] || 0)) * mult; }
-            const va = normalizeStr(a?.[key]).toLowerCase(); const vb = normalizeStr(b?.[key]).toLowerCase();
-            if (va < vb) return -1 * mult; if (va > vb) return 1 * mult; return 0;
+            if (["creado_en"].includes(key)) {
+                const ta = a[key] ? new Date(a[key]).getTime() : 0;
+                const tb = b[key] ? new Date(b[key]).getTime() : 0;
+                return (ta - tb) * mult;
+            }
+            if (["presupuesto_estimado", "enganche_presupuestado"].includes(key)) {
+                return (Number(a[key] || 0) - Number(b[key] || 0)) * mult;
+            }
+            const va = normalizeStr(a?.[key]).toLowerCase();
+            const vb = normalizeStr(b?.[key]).toLowerCase();
+            if (va < vb) return -1 * mult;
+            if (va > vb) return 1 * mult;
+            return 0;
         });
     }, [filtered, sort]);
 
@@ -823,38 +1269,44 @@ export default function TraficoPiso() {
             "Forma Capitalización", "Presupuesto", "Enganche",
             "Mensualidades", "Comprueba Ingresos", "Forma Comprobar",
             "Motivo Compra", "Perfil Profesional", "Estado Civil",
-            "Edad", "Hijos", "Pasatiempos", "Be Back", "Comentarios",
+            "Edad", "Hijos", "Pasatiempos", "Be Back",
+            "Encuesta Enviada", "Encuesta Resuelta", "Comentarios",
         ]];
 
-        const filas = sorted.map((row, i) => ([
-            i + 1,
-            dateTime(row.creado_en),
-            row.agencia || "—",
-            row.nombre_prospecto || "—",
-            row.telefono || "—",
-            row.email || "—",
-            row.asesor_ventas || "—",
-            row.motivo_ingreso || "—",
-            row.tipo_persona || "—",
-            row.tiempo_compra || "—",
-            row.auto_suenos || "—",
-            row.deja_auto_cuenta ? "Sí" : "No",
-            row.modelo_auto_cuenta || "—",
-            row.forma_capitalizacion || "—",
-            Number(row.presupuesto_estimado || 0),
-            Number(row.enganche_presupuestado || 0),
-            row.mensualidades_presupuestadas || "—",
-            row.comprueba_ingresos ? "Sí" : "No",
-            row.forma_comprobar_ingresos || "—",
-            row.motivo_compra || "—",
-            row.perfil_profesional || "—",
-            row.estado_civil || "—",
-            row.edad || "—",
-            row.cantidad_hijos ?? "—",
-            Array.isArray(row.pasatiempos) ? row.pasatiempos.join(", ") : "—",
-            beBackMap[row.id_trafico] ? "Sí" : "No",
-            row.comentarios || "—",
-        ]));
+        const filas = sorted.map((row, i) => {
+            const enc = encuestaMap[row.id_trafico];
+            return [
+                i + 1,
+                dateTime(row.creado_en),
+                row.agencia || "—",
+                row.nombre_prospecto || "—",
+                row.telefono || "—",
+                row.email || "—",
+                row.asesor_ventas || "—",
+                row.motivo_ingreso || "—",
+                row.tipo_persona || "—",
+                row.tiempo_compra || "—",
+                row.auto_suenos || "—",
+                row.deja_auto_cuenta ? "Sí" : "No",
+                row.modelo_auto_cuenta || "—",
+                row.forma_capitalizacion || "—",
+                Number(row.presupuesto_estimado || 0),
+                Number(row.enganche_presupuestado || 0),
+                row.mensualidades_presupuestadas || "—",
+                row.comprueba_ingresos ? "Sí" : "No",
+                row.forma_comprobar_ingresos || "—",
+                row.motivo_compra || "—",
+                row.perfil_profesional || "—",
+                row.estado_civil || "—",
+                row.edad || "—",
+                row.cantidad_hijos ?? "—",
+                Array.isArray(row.pasatiempos) ? row.pasatiempos.join(", ") : "—",
+                beBackMap[row.id_trafico] ? "Sí" : "No",
+                enc?.enviada ? "Sí" : "No",
+                enc?.resuelta ? "Sí" : "Pendiente",
+                row.comentarios || "—",
+            ];
+        });
 
         const ws = XLSX.utils.aoa_to_sheet([...titulo, ...fechaGen, ...filtroFila, ...totalFila, [[]], ...encabezados, ...filas]);
         ws["!cols"] = [
@@ -862,12 +1314,13 @@ export default function TraficoPiso() {
             { wch: 30 }, { wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
             { wch: 18 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 16 },
             { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 12 }, { wch: 6 }, { wch: 6 },
-            { wch: 40 }, { wch: 8 }, { wch: 40 },
+            { wch: 40 }, { wch: 8 }, { wch: 14 }, { wch: 16 }, { wch: 40 },
         ];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Tráfico de piso");
         XLSX.writeFile(wb, `trafico_piso_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
+
     return (
         <div className="w-full">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -914,8 +1367,6 @@ export default function TraficoPiso() {
                                 </div>
                             </FilterBlock>
                         </div>
-
-                        {/* ── Filtro Dealer (igual que RegistroCredito) ── */}
                         <div className="md:col-span-2">
                             <FilterBlock label="Dealer">
                                 <select
@@ -929,7 +1380,6 @@ export default function TraficoPiso() {
                                 </select>
                             </FilterBlock>
                         </div>
-
                         <div className="md:col-span-2">
                             <FilterBlock label="Tipo persona">
                                 <select value={filters.tipoPersona} onChange={(e) => setFilters((p) => ({ ...p, tipoPersona: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none">
@@ -978,12 +1428,14 @@ export default function TraficoPiso() {
                                         <th className="px-4 py-3"><SortButton label="Prospecto" sortKey="nombre_prospecto" sort={sort} onClick={toggleSort} /></th>
                                         <th className="px-4 py-3">Teléfono</th>
                                         <th className="px-4 py-3"><SortButton label="Asesor" sortKey="asesor_ventas" sort={sort} onClick={toggleSort} /></th>
-                                        <th className="px-4 py-3"><SortButton label="Tipo venta" sortKey="tipo_venta" sort={sort} onClick={toggleSort} /></th>
                                         <th className="px-4 py-3">Ingreso</th>
                                         <th className="px-4 py-3">Compra</th>
                                         <th className="px-4 py-3"><SortButton label="Presupuesto" sortKey="presupuesto_estimado" sort={sort} onClick={toggleSort} /></th>
                                         <th className="px-4 py-3">Auto cuenta</th>
                                         <th className="px-4 py-3 text-center">Be Back</th>
+                                        <th className="px-4 py-3 text-center">Enviar Encuesta</th>
+                                        <th className="px-4 py-3 text-center">Resolvió Encuesta</th>
+                                        <th className="px-4 py-3 text-center">Ver Resultados</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-black/30">
@@ -992,6 +1444,8 @@ export default function TraficoPiso() {
                                             {sorted.map((item) => {
                                                 const isUpdating = !!updatingBeBack[item.id_trafico];
                                                 const beBack = !!beBackMap[item.id_trafico];
+                                                const estadoEnc = encuestaMap[item.id_trafico];
+                                                const enviando = !!enviandoEncuesta[item.id_trafico];
                                                 return (
                                                     <tr key={item.id_trafico} onDoubleClick={() => openEdit(item)} onContextMenu={(e) => onRowContextMenu(e, item)} className="cursor-pointer hover:bg-white/[0.04]" title="Doble clic para editar">
                                                         <td className="px-4 py-3 text-[#131E5C]">{dateTime(item.creado_en)}</td>
@@ -1003,11 +1457,99 @@ export default function TraficoPiso() {
                                                         <td className="px-4 py-3 text-[#131E5C]"><div className="font-semibold">{item.tiempo_compra || "—"}</div><div className="mt-1 max-w-[220px] truncate text-xs font-bold text-slate-500">Auto: {item.auto_suenos || "—"}</div><div className="mt-1 max-w-[220px] truncate text-xs font-bold text-slate-500">{item.forma_capitalizacion || "—"}</div></td>
                                                         <td className="px-4 py-3 text-[#131E5C]"><div className="font-extrabold">{money(item.presupuesto_estimado)}</div><div className="mt-1 text-xs font-semibold text-slate-500">Eng. {money(item.enganche_presupuestado)}</div></td>
                                                         <td className="px-4 py-3"><span className={["inline-flex items-center rounded-full border px-3 py-1 text-xs font-extrabold", item.deja_auto_cuenta ? "border-emerald-300 bg-emerald-100 text-emerald-800" : "border-red-300 bg-red-100 text-red-800"].join(" ")}>{item.deja_auto_cuenta ? "Sí" : "No"}</span>{item.deja_auto_cuenta && item.modelo_auto_cuenta && <div className="mt-1 max-w-[160px] truncate text-xs font-semibold text-slate-500">{item.modelo_auto_cuenta}</div>}</td>
-                                                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}><button type="button" disabled={isUpdating} onClick={() => toggleBeBack(item)} className={["inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition", beBack ? "border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "border-red-300 bg-red-100 text-red-800 hover:bg-red-200", isUpdating ? "cursor-not-allowed opacity-70" : ""].join(" ")}>{isUpdating && <Loader2 className="h-3 w-3 animate-spin" />}{beBack ? "Sí" : "No"}</button></td>
+
+                                                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                            <button type="button" disabled={isUpdating} onClick={() => toggleBeBack(item)} className={["inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition", beBack ? "border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "border-red-300 bg-red-100 text-red-800 hover:bg-red-200", isUpdating ? "cursor-not-allowed opacity-70" : ""].join(" ")}>{isUpdating && <Loader2 className="h-3 w-3 animate-spin" />}{beBack ? "Sí" : "No"}</button>
+                                                        </td>
+
+                                                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                            {estadoEnc?.enviada ? (
+                                                                <div className="flex flex-col items-center gap-1">
+                                                                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                                                                        ✓ Enviada
+                                                                    </span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => enviarEncuestaPiso(item)}
+                                                                        disabled={enviando}
+                                                                        className="text-[10px] font-semibold text-slate-400 underline hover:text-[#131E5C] transition"
+                                                                    >
+                                                                        Reenviar
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={enviando}
+                                                                    onClick={() => enviarEncuestaPiso(item)}
+                                                                    className={[
+                                                                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition",
+                                                                        enviando
+                                                                            ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-70"
+                                                                            : "border-[#131E5C] bg-white text-[#131E5C] hover:bg-[#131E5C] hover:text-white",
+                                                                    ].join(" ")}
+                                                                >
+                                                                    {enviando
+                                                                        ? <><Loader2 className="h-3 w-3 animate-spin" /> Enviando...</>
+                                                                        : <><MessageSquareText className="h-3 w-3" /> Enviar</>
+                                                                    }
+                                                                </button>
+                                                            )}
+                                                        </td>
+
+                                                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                            {!estadoEnc?.enviada ? (
+                                                                <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-400">
+                                                                    —
+                                                                </span>
+                                                            ) : estadoEnc?.resuelta ? (
+                                                                <span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                                                                    ✓ Sí
+                                                                </span>
+                                                            ) : (
+                                                                <div className="flex flex-col items-center gap-1">
+                                                                    <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+                                                                        ⏳ Pendiente
+                                                                    </span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            // Marcar como resuelta manualmente
+                                                                            setEncuesta(item.id_trafico, { 
+                                                                                ...estadoEnc, 
+                                                                                resuelta: true, 
+                                                                                fechaRespuesta: new Date().toISOString() 
+                                                                            });
+                                                                            // Y recargar los resultados
+                                                                            abrirResultados(item);
+                                                                        }}
+                                                                        className="text-[10px] font-semibold text-slate-400 underline hover:text-emerald-700 transition"
+                                                                    >
+                                                                        Marcar resuelta
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </td>
+
+                                                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                            {!estadoEnc?.enviada ? (
+                                                                <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-400">
+                                                                    —
+                                                                </span>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => abrirResultados(item)}
+                                                                    className="inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800 hover:bg-blue-200 transition"
+                                                                >
+                                                                    <ClipboardList className="h-3 w-3" /> Ver
+                                                                </button>
+                                                            )}
+                                                        </td>
                                                     </tr>
                                                 );
                                             })}
-                                            {sorted.length === 0 && <tr><td colSpan={10} className="px-4 py-10 text-center text-[#131E5C]">No hay registros de tráfico de piso con esos filtros.</td></tr>}
+                                            {sorted.length === 0 && <tr><td colSpan={13} className="px-4 py-10 text-center text-[#131E5C]">No hay registros de tráfico de piso con esos filtros.</td></tr>}
                                         </>
                                     )}
                                 </tbody>
@@ -1017,16 +1559,54 @@ export default function TraficoPiso() {
                     <div className="grid gap-3 lg:hidden">
                         {loadingList ? <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm"><div className="flex items-center gap-2 font-bold text-[#131E5C]"><Loader2 className="h-5 w-5 animate-spin" /> Cargando...</div></div> : (
                             <>
-                                {sorted.map((item) => (
-                                    <button key={item.id_trafico} type="button" onClick={() => openEdit(item)} className="rounded-3xl border border-black/10 bg-white p-4 text-left shadow-sm hover:bg-slate-50">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0"><div className="truncate text-sm font-extrabold text-[#131E5C]">{item.nombre_prospecto || "—"}</div><div className="mt-1 text-xs text-slate-600">{item.agencia || "Sin dealer"} • {item.telefono || "—"} • {item.tipo_persona || "—"}</div><div className="mt-1 text-xs text-slate-600">{dateTime(item.creado_en)}</div><div className="mt-1 text-xs text-slate-600">Asesor: {item.asesor_ventas || "—"}</div></div>
-                                            <span className={["inline-flex items-center rounded-full border px-3 py-1 text-xs font-extrabold", item.deja_auto_cuenta ? "border-emerald-300 bg-emerald-100 text-emerald-800" : "border-red-300 bg-red-100 text-red-800"].join(" ")}>Auto: {item.deja_auto_cuenta ? "Sí" : "No"}</span>
-                                        </div>
-                                        <div className="mt-3 text-sm text-slate-700 line-clamp-3">{item.motivo_ingreso || "—"} • {item.tiempo_compra || "—"} • {item.auto_suenos || "Sin auto"} • {money(item.presupuesto_estimado)}</div>
-                                        <div className="mt-3 text-xs text-slate-500">Toca para editar</div>
-                                    </button>
-                                ))}
+                                {sorted.map((item) => {
+                                    const estadoEnc = encuestaMap[item.id_trafico];
+                                    return (
+                                        <button key={item.id_trafico} type="button" onClick={() => openEdit(item)} className="rounded-3xl border border-black/10 bg-white p-4 text-left shadow-sm hover:bg-slate-50">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0"><div className="truncate text-sm font-extrabold text-[#131E5C]">{item.nombre_prospecto || "—"}</div><div className="mt-1 text-xs text-slate-600">{item.agencia || "Sin dealer"} • {item.telefono || "—"} • {item.tipo_persona || "—"}</div><div className="mt-1 text-xs text-slate-600">{dateTime(item.creado_en)}</div><div className="mt-1 text-xs text-slate-600">Asesor: {item.asesor_ventas || "—"}</div></div>
+                                                <span className={["inline-flex items-center rounded-full border px-3 py-1 text-xs font-extrabold", item.deja_auto_cuenta ? "border-emerald-300 bg-emerald-100 text-emerald-800" : "border-red-300 bg-red-100 text-red-800"].join(" ")}>Auto: {item.deja_auto_cuenta ? "Sí" : "No"}</span>
+                                            </div>
+                                            <div className="mt-3 text-sm text-slate-700 line-clamp-3">{item.motivo_ingreso || "—"} • {item.tiempo_compra || "—"} • {item.auto_suenos || "Sin auto"} • {money(item.presupuesto_estimado)}</div>
+                                            {estadoEnc?.enviada && (
+                                                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                                                    <span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                                        Encuesta enviada
+                                                    </span>
+                                                    {estadoEnc?.resuelta && (
+                                                        <span className="inline-flex items-center rounded-full border border-blue-300 bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800">
+                                                            ✓ Resuelta
+                                                        </span>
+                                                    )}
+                                                    {!estadoEnc?.resuelta && (
+                                                        <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                                                            ⏳ Pendiente
+                                                        </span>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); abrirResultados(item); }}
+                                                        className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800 hover:bg-blue-200 transition"
+                                                    >
+                                                        <ClipboardList className="h-3 w-3" /> Ver
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {!estadoEnc?.enviada && (
+                                                <div className="mt-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); enviarEncuestaPiso(item); }}
+                                                        className="inline-flex items-center gap-1 rounded-full border border-[#131E5C] bg-white px-2 py-0.5 text-[10px] font-bold text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition"
+                                                    >
+                                                        <MessageSquareText className="h-3 w-3" /> Enviar encuesta
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <div className="mt-3 text-xs text-slate-500">Toca para editar</div>
+                                        </button>
+                                    );
+                                })}
                                 {sorted.length === 0 && <div className="rounded-3xl border border-black/10 bg-white p-10 text-center text-slate-600">No hay registros de tráfico de piso con esos filtros.</div>}
                             </>
                         )}
@@ -1035,6 +1615,258 @@ export default function TraficoPiso() {
             )}
 
             {vista === "graficos" && <GraficosView rows={sorted} />}
+
+            {/* ── Modal Resultados Encuesta Piso ── */}
+            {modalResultados.open && modalResultados.item && createPortal(
+                <div className="fixed inset-0 z-[70]">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+                        onClick={() => setModalResultados({ open: false, item: null })} />
+                    <div className="absolute inset-0 flex items-center justify-center p-4">
+                        <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl border border-[#131E5C] bg-neutral-100 shadow-2xl flex flex-col">
+                            <div className="flex items-center justify-between gap-3 px-5 py-4 shrink-0" style={{ backgroundColor: BRAND_BLUE }}>
+                                <div className="min-w-0">
+                                    <div className="text-base font-extrabold text-white">📋 Resultados de encuesta de piso</div>
+                                    <div className="mt-1 text-xs font-semibold text-white/70 truncate">
+                                        {modalResultados.item.nombre_prospecto} · {modalResultados.item.telefono} · {modalResultados.item.agencia}
+                                    </div>
+                                </div>
+                                <button type="button"
+                                    onClick={() => setModalResultados({ open: false, item: null })}
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white hover:bg-white/20 transition-colors shrink-0">
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-5">
+                                {loadingResultados && (
+                                    <div className="flex flex-col items-center justify-center py-16 gap-4">
+                                        <Loader2 className="h-10 w-10 animate-spin text-[#131E5C]" />
+                                        <span className="text-sm font-semibold text-slate-500">Cargando resultados...</span>
+                                        <span className="text-xs text-slate-400">Esto puede tomar unos segundos</span>
+                                    </div>
+                                )}
+
+                                {errorResultados && (
+                                    <div className="rounded-lg border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700 flex items-start gap-3">
+                                        <span className="text-xl">⚠️</span>
+                                        <div>
+                                            <div className="font-bold">Información</div>
+                                            <div className="font-normal text-red-600">{errorResultados}</div>
+                                            {errorResultados.includes("ejemplo") && (
+                                                <button
+                                                    onClick={() => simularRespuestaEncuesta(modalResultados.item)}
+                                                    className="mt-2 text-xs font-bold text-emerald-700 underline hover:text-emerald-900"
+                                                >
+                                                    💾 Guardar respuesta de prueba
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => abrirResultados(modalResultados.item)}
+                                                className="mt-2 text-xs font-bold text-red-700 underline hover:text-red-900 ml-2"
+                                            >
+                                                Reintentar
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!loadingResultados && !errorResultados && resultadosEncuesta.length === 0 && (
+                                    <div className="flex flex-col items-center justify-center py-16 gap-4 text-slate-400">
+                                        <div className="text-6xl">📭</div>
+                                        <div className="text-sm font-semibold text-center text-slate-500">
+                                            No se encontraron respuestas
+                                        </div>
+                                        <div className="text-xs text-slate-400 text-center max-w-sm">
+                                            Las respuestas aparecerán aquí una vez que el cliente complete la encuesta de WhatsApp.
+                                        </div>
+                                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-300">
+                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+                                                ⏳ {encuestaMap[modalResultados.item.id_trafico]?.enviada ? 'Enviada' : 'Pendiente de envío'}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={() => simularRespuestaEncuesta(modalResultados.item)}
+                                            className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100 px-4 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-200 transition"
+                                        >
+                                            💾 Guardar respuesta de prueba
+                                        </button>
+                                    </div>
+                                )}
+
+                                {!loadingResultados && resultadosEncuesta.map((r, idx) => {
+    const fecha = r.creado_en
+        ? new Date(r.creado_en).toLocaleString("es-MX", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+        : "—";
+
+    // Mapeo de palabras a número de estrellas
+    const STAR_MAP = { cinco: 5, cuatro: 4, tres: 3, dos: 2, uno: 1 };
+
+    // Labels para campos de opción múltiple
+    const FINANCIAMIENTO_LABELS = {
+        si: "Sí, fue claro",
+        no_claro: "Información no fue clara",
+        incompleto: "No indicó todos los tipos",
+    };
+    const MEDIO_CONTACTO_LABELS = {
+        si: "Sí",
+        parcial: "Parcialmente",
+        no: "No",
+    };
+    const PRUEBA_MANEJO_LABELS = {
+        si_realice: "Sí, realicé prueba de manejo",
+        no_auto: "No estaba el auto deseado",
+        no_ofrecio: "No se me ofreció",
+    };
+    const RECOMENDACION_LABELS = {
+        cumplio: "Sí, completamente",
+        parcial: "Parcialmente",
+        no_cumplio: "No",
+    };
+    const SI_NO_LABELS = { si: "Sí", no: "No" };
+
+    const renderStars = (val, max = 5) => {
+    // val ya viene como número desde la API, no necesita STAR_MAP
+    const n = Math.min(Math.max(parseInt(val) || 0, 0), max);
+    return (
+        <div className="flex gap-0.5 items-center">
+            {Array.from({ length: max }, (_, i) => (
+                <span key={i} style={{ color: i < n ? "#f59e0b" : "#d1d5db", fontSize: "1.2rem" }}>
+                    {i < n ? "★" : "☆"}
+                </span>
+            ))}
+            <span className="ml-1 text-lg font-extrabold text-[#131E5C]">{n}</span>
+        </div>
+    );
+};
+
+    const renderOpcion = (valor, labels) => (
+        <span className={[
+            "inline-flex items-center rounded-full px-3 py-1 text-xs font-bold border",
+            valor === "si" || valor === "cumplio" || valor === "si_realice"
+                ? "bg-emerald-100 border-emerald-300 text-emerald-800"
+                : valor === "parcial"
+                    ? "bg-amber-100 border-amber-300 text-amber-700"
+                    : "bg-red-100 border-red-300 text-red-700"
+        ].join(" ")}>
+            {labels[valor] ?? valor ?? "—"}
+        </span>
+    );
+
+    // Las 4 preguntas con estrellas
+    const preguntasEstrellas = [
+        { label: "Atención al llegar", icon: "⭐", campo: "atencion_llegada" },
+        { label: "Instalaciones / Amenidades", icon: "🏢", campo: "amenidades" },
+        { label: "Atención del asesor", icon: "👤", campo: "atencion_asesor" },
+        { label: "Experiencia general", icon: "🌟", campo: "experiencia" },
+    ];
+
+    return (
+        <div key={idx} className="mb-5 rounded-xl border border-black/10 bg-white overflow-hidden shadow-sm">
+            {/* Header */}
+            <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-black/10 bg-[#131E5C]/5">
+                <div className="min-w-0">
+                    <div className="text-sm font-extrabold text-[#131E5C] truncate">
+                        👤 {r.nombre_cliente || modalResultados.item.nombre_prospecto || "—"}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                        {r.agencia || modalResultados.item.agencia || "—"} · {fecha}
+                    </div>
+                    {r.id_trafico && (
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                            ID: {r.id_trafico} {r.flow_token && `· ${r.flow_token}`}
+                        </div>
+                    )}
+                </div>
+                <span className="inline-flex items-center rounded-full border border-blue-300 bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800 shrink-0">
+                    Encuesta Piso
+                </span>
+            </div>
+
+            <div className="p-4 space-y-4">
+
+                {/* Bloque 1: Las 4 calificaciones con estrellas */}
+                <div className="grid grid-cols-2 gap-3">
+                   {preguntasEstrellas.map((p) => (
+    <div key={p.campo} className="rounded-xl border border-black/10 bg-white p-3 shadow-sm flex flex-col gap-2">
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+            {p.icon} {p.label}
+        </div>
+        {renderStars(r[p.campo])}
+    </div>
+))}
+                </div>
+
+                {/* Bloque 2: Preguntas de opción */}
+                <div className="rounded-xl border border-black/10 bg-slate-50 p-4 space-y-3">
+                    <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wide mb-1">Preguntas de opción</div>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-600">💰 Claridad sobre financiamiento</span>
+                        {renderOpcion(r.financiamiento, FINANCIAMIENTO_LABELS)}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-600">🏬 Atendido por área correcta</span>
+                        {renderOpcion(r.medio_contacto, MEDIO_CONTACTO_LABELS)}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-600">🚗 Prueba de manejo</span>
+                        {renderOpcion(r.prueba_manejo, PRUEBA_MANEJO_LABELS)}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-600">✅ ¿Cumplió expectativas?</span>
+                        {renderOpcion(r.recomendacion, RECOMENDACION_LABELS)}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-600">📞 ¿Te contactó post-visita?</span>
+                        {renderOpcion(r.contacto_post, SI_NO_LABELS)}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-600">⏱️ ¿Contacto en menos de 48 horas?</span>
+                        {renderOpcion(r.tiempo_contacto, SI_NO_LABELS)}
+                    </div>
+                </div>
+
+                {/* Bloque 3: Comentarios */}
+                <div className="rounded-xl border border-black/10 bg-slate-50 p-4" style={{ borderLeft: "4px solid #131E5C" }}>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">📝 Comentarios</div>
+                    {r.comentarios?.trim()
+                        ? <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{r.comentarios}</p>
+                        : <p className="text-xs text-slate-400 italic">Sin comentarios</p>
+                    }
+                </div>
+
+                {/* Asesor */}
+                {r.asesor_atendio && (
+                    <div className="text-xs text-slate-500 bg-white/50 px-3 py-2 rounded-lg border border-black/5">
+                        <span className="font-bold">Asesor que atendió:</span> {r.asesor_atendio}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+})}
+
+                                {!loadingResultados && !errorResultados && resultadosEncuesta.length > 0 && (
+                                    <div className="text-center text-xs text-slate-400 pt-2 border-t border-black/10 mt-2">
+                                        {resultadosEncuesta.length} respuesta{resultadosEncuesta.length !== 1 ? 's' : ''} encontrada{resultadosEncuesta.length !== 1 ? 's' : ''}
+                                        {resultadosEncuesta[0]?.id_trafico && (
+                                            <span className="block text-[10px] text-slate-300 mt-1">
+                                                ID: {resultadosEncuesta[0].id_trafico}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             <ContextMenu ctxMenu={ctxMenu} onDelete={eliminar} onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })} />
 
@@ -1060,7 +1892,6 @@ export default function TraficoPiso() {
                                         className={!isAdmin && userAgencias.length <= 1 ? "opacity-75 cursor-not-allowed" : ""}
                                     >
                                         <option value="">Seleccionar dealer...</option>
-                                        {/* Admin ve TODOS los dealers; usuario solo ve sus agencias */}
                                         {(isAdmin ? DEALERS : userAgencias).map((dealer) => (
                                             <option key={dealer} value={dealer}>{dealer}</option>
                                         ))}
@@ -1073,7 +1904,6 @@ export default function TraficoPiso() {
                                 <Field label="Asesor de ventas" icon={UserRoundSearch} required hint="Buscar" invalid={isInvalid("asesor_ventas")}><AsesorAutocomplete value={draft.asesor_ventas} invalid={isInvalid("asesor_ventas")} onChange={(value) => updateField("asesor_ventas", value)} /></Field>
                                 <Field label="Ingresó a la agencia porque" icon={MessageSquareText} required invalid={isInvalid("motivo_ingreso")}><Select value={draft.motivo_ingreso} invalid={isInvalid("motivo_ingreso")} onChange={(e) => updateField("motivo_ingreso", e.target.value)}><option value="">Seleccionar...</option>{MOTIVOS_INGRESO.map((x) => <option key={x} value={x}>{x}</option>)}</Select></Field>
                                 <Field label="Tipo de persona" icon={Users} required><div className="grid grid-cols-2 gap-2">{TIPOS_PERSONA.map((tipo) => (<button key={tipo} type="button" onClick={() => updateField("tipo_persona", tipo)} className={["rounded-lg border px-3 py-2 text-sm font-extrabold transition", draft.tipo_persona === tipo ? "border-[#131E5C] bg-[#131E5C] text-white" : "border-black/10 bg-white text-[#131E5C] hover:bg-slate-50"].join(" ")}>{tipo}</button>))}</div></Field>
-                                <Field label="Tipo de venta" icon={CarFront}> <Select value={draft.tipo_venta} onChange={(e) => updateField("tipo_venta", e.target.value)}> <option value="">Seleccionar...</option>  {TIPOS_VENTA.map((x) => <option key={x} value={x}>{x}</option>)}  </Select>  </Field>
                             </div>
                         </Section>
                         <Section title="Intención de compra" icon={CarFront}>

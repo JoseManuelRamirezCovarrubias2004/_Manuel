@@ -2088,7 +2088,7 @@ export default function DigitalesProspectos() {
                                     label: "Este mes",
                                     desde: monthStartStr,
                                     hasta: monthEndStr,
-                                    inactive: "border-[#131E5C]/20 bg-blue-300 text-[#131E5C] hover:bg-[#131E5C]/10",
+                                    inactive: "border-[#131E5C]/20 bg-blue-300 text-[#131E5C] hover:bg-blue-100",
                                     active: "bg-[#131E5C] text-white ring-4 ring-[#131E5C]/10",
                                 },
                             ].map(({ label, desde, hasta, inactive, active }) => {
@@ -2773,104 +2773,146 @@ export default function DigitalesProspectos() {
                                         <input value={draft.comprobacion_ingresos || ""} onChange={e => setDraft(p => ({ ...p, comprobacion_ingresos: e.target.value }))} className={cls(inputBase, inputOk)} placeholder="A8XAS8FSF8FG2EU" />
                                     </div>
                                     <div>
-                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">Folio Solicitud Credito</div>
+                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">
+                                            ¿VIN Entregado?
+                                        </div>
 
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setDraft((p) => ({
+                                                    ...p,
+                                                    comprobacion_ingresos:
+                                                        p.comprobacion_ingresos === "entregado"
+                                                            ? "cancelado"
+                                                            : "entregado",
+                                                }))
+                                            }
+                                            className={`relative flex h-9 w-28 items-center rounded-full px-1 transition-all duration-300 ${draft.comprobacion_ingresos === "entregado"
+                                                ? "bg-emerald-500"
+                                                : "bg-red-500"
+                                                }`}
+                                        >
+                                            <span
+                                                className={`flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold shadow-md transition-all duration-300 ${draft.comprobacion_ingresos === "entregado"
+                                                    ? "translate-x-[76px] text-emerald-600"
+                                                    : "translate-x-0 text-red-600"
+                                                    }`}
+                                            >
+                                                {draft.comprobacion_ingresos === "entregado" ? "✓" : "×"}
+                                            </span>
+                                        </button>
+
+                                        <div className="mt-1 text-xs font-semibold text-[#515778]">
+                                            Estado actual:{" "}
+                                            <span
+                                                className={
+                                                    draft.comprobacion_ingresos === "entregado"
+                                                        ? "text-emerald-600"
+                                                        : "text-red-600"
+                                                }
+                                            >
+                                                {draft.comprobacion_ingresos === "entregado"
+                                                    ? "Entregado"
+                                                    : "Cancelado"}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </Field>
                         </div>
+                        <div className="md:col-span-2 lg:col-span-4 sm:col-span-4">
+                            <Field label="Evidencias" icon={Paperclip}>
+                                <div className="space-y-4">
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        multiple
+                                        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.7z"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            handleAddFiles(e.target.files);
+                                            e.target.value = "";
+                                        }}
+                                    />
 
-                        <Field label="Evidencias" icon={Paperclip} className="lg:col-span-4 sm:col-span-1 ">
-                            <div className="space-y-4">
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    multiple
-                                    accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.7z"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                        handleAddFiles(e.target.files);
-                                        e.target.value = "";
-                                    }}
-                                />
-
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[#131E5C]/25 bg-[#131E5C]/5 px-4 py-6 text-center text-[#131E5C] transition hover:bg-[#131E5C]/10 sm:flex-row sm:text-left"
-                                >
-                                    <UploadCloud className="h-6 w-6" />
-                                    <div className="min-w-0">
-                                        <div className="text-sm font-extrabold">
-                                            Agregar fotos, videos o archivos
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[#131E5C]/25 bg-[#131E5C]/5 px-4 py-6 text-center text-[#131E5C] transition hover:bg-[#131E5C]/10 sm:flex-row sm:text-left"
+                                    >
+                                        <UploadCloud className="h-6 w-6" />
+                                        <div className="min-w-0">
+                                            <div className="text-sm font-extrabold">
+                                                Agregar fotos, videos o archivos
+                                            </div>
+                                            <div className="text-xs font-semibold text-slate-500">
+                                                Puedes seleccionar varios archivos al mismo tiempo. Límite sugerido: 50 MB por archivo.
+                                            </div>
                                         </div>
-                                        <div className="text-xs font-semibold text-slate-500">
-                                            Puedes seleccionar varios archivos al mismo tiempo. Límite sugerido: 50 MB por archivo.
-                                        </div>
-                                    </div>
-                                </button>
+                                    </button>
 
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span className="rounded-full bg-[#131E5C]/10 px-3 py-1 text-xs font-bold text-[#131E5C]">
-                                        Total: {totalEvidenciasDraft}
-                                    </span>
-
-                                    {(draft.delete_evidencia_ids || []).length > 0 ? (
-                                        <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
-                                            Por eliminar: {draft.delete_evidencia_ids.length}
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="rounded-full bg-[#131E5C]/10 px-3 py-1 text-xs font-bold text-[#131E5C]">
+                                            Total: {totalEvidenciasDraft}
                                         </span>
+
+                                        {(draft.delete_evidencia_ids || []).length > 0 ? (
+                                            <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
+                                                Por eliminar: {draft.delete_evidencia_ids.length}
+                                            </span>
+                                        ) : null}
+
+                                        {(draft.evidencias_nuevas || []).length > 0 ? (
+                                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600">
+                                                Nuevas: {draft.evidencias_nuevas.length}
+                                            </span>
+                                        ) : null}
+                                    </div>
+
+                                    {(draft.evidencias_existentes?.length || 0) > 0 ? (
+                                        <div>
+                                            <div className="mb-2 text-sm font-extrabold text-[#131E5C]">
+                                                Evidencias guardadas
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                                                {draft.evidencias_existentes.map((item) => (
+                                                    <EvidenceCard
+                                                        key={`existente-${item.id}`}
+                                                        item={item}
+                                                        onRemove={() => removeEvidenciaExistente(item.id)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
                                     ) : null}
 
-                                    {(draft.evidencias_nuevas || []).length > 0 ? (
-                                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600">
-                                            Nuevas: {draft.evidencias_nuevas.length}
-                                        </span>
+                                    {(draft.evidencias_nuevas?.length || 0) > 0 ? (
+                                        <div>
+                                            <div className="mb-2 text-sm font-extrabold text-[#131E5C]">
+                                                Evidencias nuevas
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                                                {draft.evidencias_nuevas.map((item) => (
+                                                    <EvidenceCard
+                                                        key={item._tmpId}
+                                                        item={item}
+                                                        onRemove={() => removeNuevaEvidencia(item._tmpId)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+
+                                    {totalEvidenciasDraft === 0 ? (
+                                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-500">
+                                            Aún no has agregado evidencias a este avalúo.
+                                        </div>
                                     ) : null}
                                 </div>
-
-                                {(draft.evidencias_existentes?.length || 0) > 0 ? (
-                                    <div>
-                                        <div className="mb-2 text-sm font-extrabold text-[#131E5C]">
-                                            Evidencias guardadas
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                                            {draft.evidencias_existentes.map((item) => (
-                                                <EvidenceCard
-                                                    key={`existente-${item.id}`}
-                                                    item={item}
-                                                    onRemove={() => removeEvidenciaExistente(item.id)}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ) : null}
-
-                                {(draft.evidencias_nuevas?.length || 0) > 0 ? (
-                                    <div>
-                                        <div className="mb-2 text-sm font-extrabold text-[#131E5C]">
-                                            Evidencias nuevas
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                                            {draft.evidencias_nuevas.map((item) => (
-                                                <EvidenceCard
-                                                    key={item._tmpId}
-                                                    item={item}
-                                                    onRemove={() => removeNuevaEvidencia(item._tmpId)}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ) : null}
-
-                                {totalEvidenciasDraft === 0 ? (
-                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-500">
-                                        Aún no has agregado evidencias a este avalúo.
-                                    </div>
-                                ) : null}
-                            </div>
-                        </Field>
-
-                        <div className="md:col-span-1">
+                            </Field>
+                        </div>
+                        <div className="md:col-span-2">
                             <Field label="Comentarios Adicionales" icon={FileText}>
                                 <textarea value={draft.comentarios || ""} onChange={e => setDraft(p => ({ ...p, comentarios: e.target.value }))}
                                     rows={4} className={cls(inputBase, inputOk)} />

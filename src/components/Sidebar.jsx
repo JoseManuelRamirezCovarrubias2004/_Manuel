@@ -271,10 +271,10 @@ export default function Sidebar() {
             }}
             className={({ isActive }) =>
                 cls(
-                    "group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-semibold transition-all",
+                    "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-all",
                     !showText && !isMobile && "justify-center px-0",
                     isActive
-                        ? "bg-[#0A64FF] text-white shadow-[0_12px_32px_rgba(10,100,255,0.32)]"
+                        ? "bg-[#0A64FF] text-white shadow-[0_12px_32px_rgba(10,100,255,0.32)] pl-6"
                         : "text-white/66 hover:bg-white/10 hover:text-white"
                 )
             }

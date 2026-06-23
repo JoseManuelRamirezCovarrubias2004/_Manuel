@@ -178,9 +178,9 @@ export default function ClickupNotificationsBell() {
                     if (!open) loadNotifications();
                 }}
                 title="Notificaciones"
-                className="relative inline-flex h-8 items-center justify-center transition hover:shadow-sm"
+                className="relative inline-flex h-10 items-center justify-center rounded-2xl text-white transition hover:shadow-sm"
             >
-                <Bell className="text-white" size={18} />
+                <Bell size={18} />
                 {pendingCount > 0 ? (
                     <span className="absolute -right-1 -top-1 min-w-[20px] rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
                         {pendingCount}
