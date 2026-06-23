@@ -350,7 +350,7 @@ export default function RegistroCredito() {
     }, [rol, permisos]);
 
     const canAccessCredito = useMemo(() => {
-        return isAdmin || permisos.includes("CRM_FINANCIEROS") || permisos.includes("CRM_VENTAS") || permisos.includes("CRM_CALIDAD");
+        return isAdmin || permisos.includes("CRM_FINANCIEROS") || permisos.includes("CRM_VENTAS");
     }, [isAdmin, permisos]);
 
     const userAgencias = useMemo(() => {
@@ -381,7 +381,7 @@ export default function RegistroCredito() {
     const [authError, setAuthError] = useState("");
 
     const DEALERS = useMemo(
-        () => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"],
+        () => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"],
         []
     );
 

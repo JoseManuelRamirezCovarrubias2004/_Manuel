@@ -70,31 +70,31 @@ function NotificationCard({ item, onAcceptInvite, onRejectInvite, onDismiss }) {
                             </button>
                         </div>
                     ) : (
-                        <div className="mt-3 flex items-center gap-2">
-                            {item.task_id && (
-                                <button
-                                    onClick={() => {
-                                        if (item.team_id) localStorage.setItem("clickup_team_id", String(item.team_id));
-                                        if (item.project_id) localStorage.setItem("clickup_project_id", String(item.project_id));
-                                        window.dispatchEvent(new CustomEvent("clickup:navigate", {
-                                            detail: { teamId: item.team_id, projectId: item.project_id, taskId: item.task_id }
-                                        }));
-                                        onDismiss?.(item);
-                                    }}
-                                    className="inline-flex items-center gap-2 rounded-xl bg-[#131E5C] px-3 py-2 text-xs font-bold text-white hover:opacity-90"
-                                >
-                                    <ClipboardList className="h-3.5 w-3.5" />
-                                    Ver plan
-                                </button>
-                            )}
-                            <button
-                                onClick={() => onDismiss?.(item)}
-                                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
-                            >
-                                Ocultar
-                            </button>
-                        </div>
-                    )}
+    <div className="mt-3 flex items-center gap-2">
+        {item.task_id && (
+            <button
+                onClick={() => {
+                    if (item.team_id) localStorage.setItem("clickup_team_id", String(item.team_id));
+                    if (item.project_id) localStorage.setItem("clickup_project_id", String(item.project_id));
+                    window.dispatchEvent(new CustomEvent("clickup:navigate", {
+                        detail: { teamId: item.team_id, projectId: item.project_id, taskId: item.task_id }
+                    }));
+                    onDismiss?.(item);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#131E5C] px-3 py-2 text-xs font-bold text-white hover:opacity-90"
+            >
+                <ClipboardList className="h-3.5 w-3.5" />
+                Ver plan
+            </button>
+        )}
+        <button
+            onClick={() => onDismiss?.(item)}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
+        >
+            Ocultar
+        </button>
+    </div>
+)}
                 </div>
             </div>
         </div>
@@ -142,8 +142,8 @@ export default function ClickupNotificationsBell() {
     );
 
     async function handleAcceptInvite(item) {
-        try {
-            await apiClickup.acceptInvite(null, item.invitation_id);
+    try {
+        await apiClickup.acceptInvite(null, item.invitation_id);
             await loadNotifications();
             window.dispatchEvent(new Event("clickup:refresh"));
         } catch (e) {
@@ -178,9 +178,9 @@ export default function ClickupNotificationsBell() {
                     if (!open) loadNotifications();
                 }}
                 title="Notificaciones"
-                className="relative inline-flex h-8 items-center justify-center transition hover:shadow-sm"
+                className="relative inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 transition hover:shadow-sm"
             >
-                <Bell className="text-white" size={18} />
+                <Bell size={18} />
                 {pendingCount > 0 ? (
                     <span className="absolute -right-1 -top-1 min-w-[20px] rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
                         {pendingCount}

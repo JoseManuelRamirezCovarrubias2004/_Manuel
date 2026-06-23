@@ -3,6 +3,9 @@ import React from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import EncuestasWhats from "./pages/EncuestasWhats/EncuestasWhats";
 
+import CatalogoPreciosLayout from "./pages/CatalogoPrecios/CatalogoPreciosLayout";
+import CatalogoPreciosIndex from "./pages/CatalogoPrecios/CatalogoPreciosIndex";
+
 import TimeForActionLayout from "./pages/TimeForAction/TimeForActionLayout";
 import TimeForAction from "./pages/TimeForAction/TimeForAction";
 
@@ -90,7 +93,7 @@ import JDPowerServicio from "./pages/encuestaJDpowerservicio/JDPowerServicio";
 import WhatsLayout from "./pages/EnvioWhats/EnvioLayout";
 import WhatsIndex from "./pages/EnvioWhats/EnvioIndex";
 
-import ConfigIA from "./pages/IA/ConfigIA";
+import EncPiso from "./pages/Calidad/EncPiso";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
@@ -343,10 +346,24 @@ export const router = createBrowserRouter(
                                         </RequirePermission>
                                     ),
                                 },
+                                {
+                                    path: "enc_piso",
+                                    element: (
+                                        <RequirePermission
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "CRM_VENTAS",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
+                                            <EncPiso />
+                                        </RequirePermission>
+                                    ),
+                                },
                             ],
                         },
-
-                        {
+                                {
                             path: "comercial",
                             element: (
                                 <RequirePermission
@@ -830,14 +847,19 @@ export const router = createBrowserRouter(
                             ],
                         },
 
-
                         {
-                            path: "configuracion_ia",
+                            path: "catalogo_precios",
                             element: (
-                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_DIGITALES",]}>
-                                    <ConfigIA />
+                                <RequirePermission anyOf={["USUARIOS_ADMIN"]}>
+                                    <CatalogoPreciosLayout />
                                 </RequirePermission>
                             ),
+                            children: [
+                                {
+                                    index: true,
+                                    element: <CatalogoPreciosIndex />,
+                                },
+                            ],
                         },
 
                         {

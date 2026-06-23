@@ -1,10 +1,10 @@
 // src/pages/Calidad/CalidadTopNav.jsx
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BadgeCheck, ShieldCheck, Cog, ThumbsUp, UndoDot, ClipboardPenLine, Store, Wrench } from "lucide-react";
 import vwWhite from "../../assets/vw_white.png";
 import ryr from "../../assets/ryr.png";
 import { useAuth } from "../../auth/AuthContext";
+import { BadgeCheck, ShieldCheck, Cog, ThumbsUp, UndoDot, ClipboardPenLine, Wrench, Store } from "lucide-react";
 
 const BRAND_BLUE = "#131E5C";
 
@@ -22,13 +22,6 @@ export default function CalidadTopNav() {
             },
 
             {
-    label: "Experiencia de Piso",
-    href: "/calidad/enc_piso",
-    icon: Store, // o el icono que prefieras
-    show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
-},
-
-            {
                 label: "Safety Culture",
                 href: "/calidad/safety",
                 icon: ShieldCheck,
@@ -39,6 +32,20 @@ export default function CalidadTopNav() {
                 href: "/calidad/enc_satisfaccion",
                 icon: ThumbsUp,
                 show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
+            },
+
+            {
+    label: "Experiencia de Piso",
+    href: "/calidad/enc_piso",
+    icon: Store,
+    show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
+},
+
+            {
+            label: "Experiencia de Piso",
+            href: "/calidad/enc_piso",
+            icon: Store,
+            show: hasAnyPermission(["CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
                 label: "Experiencia de Servicio",
@@ -63,8 +70,8 @@ export default function CalidadTopNav() {
                 href: "/calidad/jdpower-servicio",
                 icon: Wrench,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
-            },
-        ];
+            }, 
+            ];
 
         return items.filter((x) => x.show);
     }, [hasAnyPermission]);

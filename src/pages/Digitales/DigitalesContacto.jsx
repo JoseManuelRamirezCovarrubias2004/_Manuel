@@ -21,12 +21,9 @@ import {
     Check,
     Save,
     MailOpen,
-    Pencil,
-    Activity,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
-import { Phone } from "lucide-react";
 
 const BRAND_BLUE = "#131E5C";
 const QUICK_BUBBLES_KEY = "digitales_quick_bubbles_global";
@@ -83,40 +80,6 @@ const BUSINESS_OPTIONS = [
     "Comercial",
 ];
 
-const BURO_OPTIONS = [
-    { value: "", label: "— Selecciona —" },
-    { value: "bueno", label: "Bueno" },
-    { value: "regular", label: "Regular" },
-    { value: "iniciando", label: "Iniciando" },
-    { value: "desconocido", label: "Desconocido" },
-];
-
-const FORMA_PAGO_OPTIONS = [
-    { value: "", label: "— Selecciona —" },
-    { value: "contado", label: "Contado" },
-    { value: "credito", label: "Crédito" },
-    { value: "arrendamiento", label: "Arrendamiento" },
-    { value: "desconocido", label: "Desconocido" },
-];
-
-const TIPO_CLIENTE_OPTIONS = [
-    { value: "", label: "— Selecciona —" },
-    { value: "persona_fisica", label: "Persona física" },
-    { value: "persona_moral", label: "Persona moral" },
-    { value: "desconocido", label: "Desconocido" },
-];
-
-const PLAZO_COMPRA_OPTIONS = [
-    "",
-    "Inmediato",
-    "Esta semana",
-    "Este mes",
-    "1 a 3 meses",
-    "3 a 6 meses",
-    "Más de 6 meses",
-    "Sin definir",
-];
-
 const PAUTAS_ORIGEN = [
     "Facebook Ads",
     "Google Ads",
@@ -127,15 +90,6 @@ const PAUTAS_ORIGEN = [
     "Evento",
     "Otro",
 ];
-
-const CHAT_FILTERS = [
-    { key: "todos", label: "Todos" },
-    { key: "no_leidos", label: "No leídos" },
-    { key: "pendiente_cotizacion", label: "Pend. cotización", estados: ["pendiente cotización", "pendiente de cotizacion", "pendiente cotizacion"] },
-    { key: "seguimiento", label: "Seguimiento", estados: ["seguimiento"] },
-    { key: "lead_calificado", label: "Lead calificado", estados: ["lead calificado", "lead_calificado"] },
-];
-
 
 function normalizeCampanasMetaOptions(response) {
     const rawItems = Array.isArray(response)
@@ -212,9 +166,9 @@ function renderOptionsConValorActual(
 
 function getStatusDotColor(estado) {
     const value = String(estado || "").toLowerCase();
-    if (value === "descalificado") return "#3B82F6";
-    if (value === "sin respuesta" || value === "sin_respuesta" || value === "") return "#EF4444";
-    return "#22C55E";
+    if (value === "descalificado") return "#3B82F6"; // azul
+    if (value === "sin respuesta" || value === "sin_respuesta" || value === "") return "#EF4444"; // rojo
+    return "#22C55E"; // verde — respondió / tiene estado activo
 }
 
 function cls(...items) {
@@ -306,47 +260,6 @@ function prettyStatus(status) {
     if (value === "received") return "";
 
     return value || "—";
-}
-
-function labelBloqueoIa(value) {
-    const map = {
-        numero_asesor_invalido: "Número asesor inválido",
-        configuracion_ia_no_existe: "Configuración IA no existe",
-        configuracion_ia_inactiva: "Configuración IA apagada",
-        fuera_de_horario: "Fuera de horario",
-        expediente_no_encontrado: "Expediente no encontrado",
-        expediente_ia_pausada: "Expediente IA pausada",
-        conversacion_ia_inactiva: "Conversación IA inactiva",
-        conversacion_ia_pausada: "Conversación IA pausada",
-    };
-
-    return map[value] || String(value || "Bloqueo desconocido");
-}
-
-function getIaEstadoVisual(estadoIa) {
-    const bloqueos = Array.isArray(estadoIa?.bloqueos) ? estadoIa.bloqueos : [];
-
-    if (!estadoIa) {
-        return {
-            label: "IA sin diagnóstico",
-            detail: "Abre un chat para consultar el estado operativo.",
-            cls: "border-slate-200 bg-slate-50 text-slate-700",
-        };
-    }
-
-    if (estadoIa.puede_responder) {
-        return {
-            label: "IA lista para responder",
-            detail: "Configuración activa, conversación habilitada y dentro de horario.",
-            cls: "border-emerald-200 bg-emerald-50 text-emerald-800",
-        };
-    }
-
-    return {
-        label: "IA no responderá",
-        detail: bloqueos.length ? bloqueos.map(labelBloqueoIa).join(" · ") : "Hay un bloqueo operativo sin clasificar.",
-        cls: "border-amber-200 bg-amber-50 text-amber-900",
-    };
 }
 
 function parseWhatsAppFormat(texto) {
@@ -785,12 +698,7 @@ function normalizeMessage(message = {}) {
         id: message.id || message.wa_message_id || crypto.randomUUID(),
         text: message.text || message.body || message.caption || "",
         attachments: normalizeMessageAttachments(message),
-        is_ai: Boolean(
-            message.is_ai ||
-            message?.raw?.openai_model ||
-            message?.raw?.ia_model ||
-            message?.raw?.ia_provider
-        ),
+        is_ai: Boolean(message.is_ai || message?.raw?.openai_model),
     };
 }
 
@@ -1045,7 +953,6 @@ function MessageBubble({
     attachments = [],
     isAi = false,
     renderText,
-    onReply,
 }) {
     const shown = renderText ? renderText(text) : text;
     const statusText = prettyStatus(status);
@@ -1134,41 +1041,18 @@ function MessageBubble({
                         }}
                     />
 
-                    <div className={cls("mt-1 flex items-center justify-end gap-1.5 text-[11px] font-bold", mine ? "text-white/75" : "text-slate-500")}>
-                        {isAi ? (
-                            <span
-                                className={cls(
-                                    "inline-flex items-center gap-1 rounded-full px-3 py-1 text-[13px] font-extrabold leading-none tracking-wide",
-                                    mine
-                                        ? "bg-white/30 text-white ring-1 ring-white/40"
-                                        : "bg-violet-100 text-violet-700 ring-1 ring-violet-300"
-                                )}
-                                title="Mensaje generado por IA"
-                            >
-                                ✦ IA
+                    {isAi ? (
+                        <div className="mt-2">
+                            <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-extrabold">
+                                IA
                             </span>
-                        ) : null}
+                        </div>
+                    ) : null}
+
+                    <div className={cls("mt-1 flex items-center justify-end gap-2 text-[11px] font-bold", mine ? "text-white/75" : "text-slate-500")}>
                         <span>{time}</span>
                         {mine ? <span>{statusText}</span> : null}
                     </div>
-                    {onReply ? (
-                        <div className={cls("mt-2 flex", mine ? "justify-end" : "justify-start")}>
-                            <button
-                                type="button"
-                                onClick={onReply}
-                                className={cls(
-                                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition",
-                                    mine
-                                        ? "bg-white/15 text-white hover:bg-white/25"
-                                        : "bg-[#131E5C]/10 text-[#131E5C] hover:bg-[#131E5C]/15"
-                                )}
-                                title="Responder a este mensaje"
-                            >
-                                <Pencil className="h-3 w-3" />
-                                Responder
-                            </button>
-                        </div>
-                    ) : null}
                 </div>
             </div>
         </div>
@@ -1179,7 +1063,6 @@ export default function DigitalesContacto() {
     const navigate = useNavigate();
     const location = useLocation();
     const [params] = useSearchParams();
-    const [replyToMsg, setReplyToMsg] = useState(null);
 
     const telParam = params.get("tel") || "";
     const directParam = params.get("direct") || "";
@@ -1192,7 +1075,7 @@ export default function DigitalesContacto() {
     );
 
     const [q, setQ] = useState("");
-    const [chatFilter, setChatFilter] = useState("todos");
+    const [chatFilter, setChatFilter] = useState("todos"); 
     const [loadingList, setLoadingList] = useState(false);
     const [loadingChat, setLoadingChat] = useState(false);
     const [chats, setChats] = useState([]);
@@ -1200,8 +1083,6 @@ export default function DigitalesContacto() {
     const deferredQ = useDeferredValue(q);
     const [activeTel, setActiveTel] = useState("");
     const [prospecto, setProspecto] = useState(null);
-    const [iaEstado, setIaEstado] = useState(null);
-    const [loadingIaAction, setLoadingIaAction] = useState(false);
     const [mensajes, setMensajes] = useState([]);
     const [draftMsg, setDraftMsg] = useState("");
     const [mobileView, setMobileView] = useState("list");
@@ -1240,12 +1121,15 @@ export default function DigitalesContacto() {
     const [newBubbleText, setNewBubbleText] = useState("");
     const [newBubbleTitle, setNewBubbleTitle] = useState("");
 
+    // Edición rápida del prospecto
     const [showQuickEdit, setShowQuickEdit] = useState(false);
     const [quickEditDraft, setQuickEditDraft] = useState({});
     const [savingQuickEdit, setSavingQuickEdit] = useState(false);
 
+    // Feedback de copia de teléfono
     const [copiedTel, setCopiedTel] = useState(false);
 
+    // Acción de marcar chat como no leído
     const [markingUnreadTel, setMarkingUnreadTel] = useState("");
     const [chatMenu, setChatMenu] = useState(null);
 
@@ -1304,19 +1188,8 @@ export default function DigitalesContacto() {
             ? mergeChatsConProspectos(chats, prospectosIndex)
             : chats;
 
-        const filterDef = CHAT_FILTERS.find((f) => f.key === chatFilter);
-
         return base.filter((chat) => {
             if (chatFilter === "no_leidos" && !(chat.unread > 0)) return false;
-
-            if (filterDef?.estados) {
-                const estadoNorm = normalizeText(chat.estado);
-                const coincide = filterDef.estados.some((e) =>
-                    estadoNorm.includes(normalizeText(e))
-                );
-                if (!coincide) return false;
-            }
-
             if (!query) return true;
 
             const nombre = normalizeText(chat.nombre);
@@ -1369,7 +1242,7 @@ export default function DigitalesContacto() {
                 try {
                     URL.revokeObjectURL(attachment.previewUrl);
                 } catch {
-
+                    // sin acción
                 }
             }
         }
@@ -1388,7 +1261,6 @@ export default function DigitalesContacto() {
 
         mensajesCacheRef.current.set(key, {
             prospecto: payload.prospecto || prospecto || null,
-            ia_estado: payload.ia_estado || iaEstado || null,
             mensajes: normalizados,
             paginacion: payload.paginacion || {},
             updatedAt: Date.now(),
@@ -1402,7 +1274,6 @@ export default function DigitalesContacto() {
         if (!cached) return false;
 
         setProspecto(cached.prospecto || null);
-        setIaEstado(cached.ia_estado || null);
         setMensajes(cached.mensajes || []);
         setChatHasMore(Boolean(cached.paginacion?.has_more));
         setOldestMessageId(cached.paginacion?.oldest_id || cached.mensajes?.[0]?.id || null);
@@ -1445,9 +1316,6 @@ export default function DigitalesContacto() {
             agencia: chat.agencia || "",
             linea: chat.linea || "",
             estado: chat.estado || "",
-            ia_estado: chat.ia_estado || null,
-            ia_pausada: Boolean(chat.ia_pausada),
-            ia_bloqueos: Array.isArray(chat.ia_bloqueos) ? chat.ia_bloqueos : [],
             unread: Number(chat.unread || 0),
             last: {
                 text: chat.last_text || "",
@@ -1472,7 +1340,6 @@ export default function DigitalesContacto() {
 
         if (!hadCache) {
             setProspecto(null);
-            setIaEstado(null);
             setMensajes([]);
             setChatHasMore(false);
             setOldestMessageId(null);
@@ -1494,7 +1361,6 @@ export default function DigitalesContacto() {
             guardarChatEnCache(target, data);
 
             setProspecto(data.prospecto || null);
-            setIaEstado(data.ia_estado || null);
             setMensajes(items);
             setChatHasMore(Boolean(paginacion.has_more));
             setOldestMessageId(paginacion.oldest_id || items[0]?.id || null);
@@ -1512,7 +1378,6 @@ export default function DigitalesContacto() {
             if (chatRequestRef.current !== requestId) return;
 
             setProspecto(null);
-            setIaEstado(null);
             setMensajes([]);
             setChatHasMore(false);
             setOldestMessageId(null);
@@ -1537,7 +1402,6 @@ export default function DigitalesContacto() {
         const paginacion = data.paginacion || {};
 
         setProspecto(data.prospecto || null);
-        setIaEstado(data.ia_estado || null);
 
         setMensajes((prev) => {
             const withoutLocalPending = prev.filter((message) => !message.local_pending);
@@ -1553,54 +1417,6 @@ export default function DigitalesContacto() {
 
         if (!isDirectChatMode) {
             await refreshChats().catch(() => { });
-        }
-    }
-
-    async function recargarEstadoIa() {
-        if (!activeTel) return;
-
-        try {
-            const res = await api.iaEstadoConversacion({ tel: activeTel });
-            setIaEstado(res?.estado_ia || null);
-        } catch (error) {
-            console.error("Error consultando estado IA:", error);
-        }
-    }
-
-    async function pausarIaActiva() {
-        if (!activeTel || loadingIaAction) return;
-
-        setLoadingIaAction(true);
-
-        try {
-            const res = await api.iaPausarConversacion({
-                tel: activeTel,
-                motivo: "manual_desde_chat",
-            });
-            setIaEstado(res?.estado_ia || null);
-            await refreshActiveChat(activeTel).catch(() => { });
-        } catch (error) {
-            console.error(error);
-            alert(error?.message || "No se pudo pausar la IA.");
-        } finally {
-            setLoadingIaAction(false);
-        }
-    }
-
-    async function reactivarIaActiva() {
-        if (!activeTel || loadingIaAction) return;
-
-        setLoadingIaAction(true);
-
-        try {
-            const res = await api.iaReactivarConversacion({ tel: activeTel });
-            setIaEstado(res?.estado_ia || null);
-            await refreshActiveChat(activeTel).catch(() => { });
-        } catch (error) {
-            console.error(error);
-            alert(error?.message || "No se pudo reactivar la IA.");
-        } finally {
-            setLoadingIaAction(false);
         }
     }
 
@@ -1734,13 +1550,10 @@ export default function DigitalesContacto() {
 
     function resetComposer() {
         setDraftMsg("");
-
         if (inputRef.current) {
             inputRef.current.value = "";
         }
-
         setEditingMsgId(null);
-        setReplyToMsg(null);
         setOpenEmoji(false);
         cleanupPreviews(attachments);
         setAttachments([]);
@@ -1781,6 +1594,8 @@ export default function DigitalesContacto() {
                     : chat,
             ),
         );
+
+        // La lista se refresca por polling. Aquí evitamos bloquear el cambio de chat.
     }
 
     function onPickEmoji(emojiObj) {
@@ -1987,55 +1802,16 @@ export default function DigitalesContacto() {
         ]);
 
         try {
-            const replyMessageId = replyToMsg?.wa_message_id || "";
-
             await api.digitalesEnviarMensaje({
                 to: activeTel,
                 text: text.trim(),
-                reply_to_message_id: replyMessageId,
             });
-
-            setReplyToMsg(null);
 
             await refreshActiveChat(activeTel, { forceBottom: true });
         } catch (error) {
             alert(`Falló: ${error.message}`);
             await refreshActiveChat(activeTel).catch(() => { });
         }
-    }
-
-    function getReplyPreview(message) {
-        if (!message) return "";
-
-        const text = String(message.text || message.body || "").trim();
-
-        if (text) {
-            return text.length > 90 ? `${text.slice(0, 90)}…` : text;
-        }
-
-        const attachmentsCount = Array.isArray(message.attachments)
-            ? message.attachments.length
-            : 0;
-
-        if (attachmentsCount > 0) {
-            return "Archivo adjunto";
-        }
-
-        return "Mensaje seleccionado";
-    }
-
-    function getReplyAuthor(message) {
-        if (!message) return "";
-
-        if (message.mine) {
-            if (message.is_ai || message?.raw?.ia_provider || message?.raw?.ia_model) {
-                return "IA";
-            }
-
-            return "Asesor";
-        }
-
-        return "Cliente";
     }
 
     async function enviarMensaje() {
@@ -2049,7 +1825,6 @@ export default function DigitalesContacto() {
 
         const editId = editingMsgId;
         const currentAttachments = attachments;
-        const replyMessageId = replyToMsg?.wa_message_id || "";
 
         if (editId) {
             if (!hasText) {
@@ -2123,13 +1898,11 @@ export default function DigitalesContacto() {
                     to: activeTel,
                     text: hasText ? text : "",
                     files: currentAttachments.map((attachment) => attachment.file),
-                    reply_to_message_id: replyMessageId,
                 });
             } else {
                 await api.digitalesEnviarMensaje({
                     to: activeTel,
                     text,
-                    reply_to_message_id: replyMessageId,
                 });
             }
 
@@ -2268,17 +2041,9 @@ export default function DigitalesContacto() {
             auto_interes: prospecto?.auto_interes || "",
             estado: prospecto?.estado || "",
             canal_contacto: prospecto?.canal_contacto || "",
-            // business eliminado
-            // pauta eliminado de aquí (solo queda arriba)
+            business: prospecto?.business || "",
+            pauta: prospecto?.pauta || prospecto?.pauta_origen || "",
             comentarios: prospecto?.comentarios || prospecto?.comentario || "",
-            enganche_monto: prospecto?.enganche_monto || "",
-            presupuesto_mensual: prospecto?.presupuesto_mensual || "",
-            buro_estado: prospecto?.buro_estado || "",
-            forma_pago: prospecto?.forma_pago || "",
-            tipo_cliente: prospecto?.tipo_cliente || "",
-            uso_vehiculo: prospecto?.uso_vehiculo || "",
-            plazo_compra: prospecto?.plazo_compra || "",
-            comprobacion_ingresos: prospecto?.comprobacion_ingresos || "",
         });
         setShowQuickEdit(true);
     }
@@ -2294,23 +2059,10 @@ export default function DigitalesContacto() {
                 auto_interes: quickEditDraft.auto_interes || "",
                 estado: quickEditDraft.estado || "",
                 canal_contacto: quickEditDraft.canal_contacto || "",
-                // business eliminado
+                business: quickEditDraft.business || "",
                 comentarios: quickEditDraft.comentarios || "",
-                enganche_monto: quickEditDraft.enganche_monto
-                    ? Number(String(quickEditDraft.enganche_monto).replace(/\D/g, "")) || null
-                    : null,
-                presupuesto_mensual: quickEditDraft.presupuesto_mensual
-                    ? Number(String(quickEditDraft.presupuesto_mensual).replace(/\D/g, "")) || null
-                    : null,
-                buro_estado: quickEditDraft.buro_estado || "",
-                forma_pago: quickEditDraft.forma_pago || "",
-                tipo_cliente: quickEditDraft.tipo_cliente || "",
-                uso_vehiculo: quickEditDraft.uso_vehiculo || "",
-                plazo_compra: quickEditDraft.plazo_compra || "",
-                comprobacion_ingresos: quickEditDraft.comprobacion_ingresos || "",
             };
 
-            // pauta se guarda desde el select de arriba
             const pautaLimpia = String(quickEditDraft.pauta || "").trim();
             if (pautaLimpia) {
                 payload.pauta = pautaLimpia;
@@ -2361,6 +2113,7 @@ export default function DigitalesContacto() {
         activeTelRef.current = activeTel;
     }, [activeTel]);
 
+    // Sincronizar el draft de edición rápida cada vez que carga un nuevo prospecto
     useEffect(() => {
         if (!prospecto) return;
         setQuickEditDraft({
@@ -2368,20 +2121,11 @@ export default function DigitalesContacto() {
             auto_interes: prospecto.auto_interes || "",
             estado: prospecto.estado || "",
             canal_contacto: prospecto.canal_contacto || "",
-            // business eliminado
-            // pauta eliminado de aquí (solo arriba)
+            business: prospecto.business || "",
+            pauta: prospecto.pauta || prospecto.pauta_origen || "",
             comentarios: prospecto.comentarios || prospecto.comentario || "",
-            enganche_monto: prospecto.enganche_monto || "",
-            presupuesto_mensual: prospecto.presupuesto_mensual || "",
-            buro_estado: prospecto.buro_estado || "",
-            forma_pago: prospecto.forma_pago || "",
-            tipo_cliente: prospecto.tipo_cliente || "",
-            uso_vehiculo: prospecto.uso_vehiculo || "",
-            plazo_compra: prospecto.plazo_compra || "",
-            comprobacion_ingresos: prospecto.comprobacion_ingresos || "",
         });
     }, [prospecto]);
-
 
     useEffect(() => {
         mensajesRef.current = mensajes;
@@ -2389,7 +2133,6 @@ export default function DigitalesContacto() {
         if (activeTel && mensajes.length) {
             guardarChatEnCache(activeTel, {
                 prospecto,
-                ia_estado: iaEstado,
                 mensajes,
                 paginacion: {
                     has_more: chatHasMore,
@@ -2397,7 +2140,7 @@ export default function DigitalesContacto() {
                 },
             });
         }
-    }, [mensajes, activeTel, prospecto, iaEstado, chatHasMore, oldestMessageId]);
+    }, [mensajes, activeTel, prospecto, chatHasMore, oldestMessageId]);
 
     useEffect(() => {
         if (!shouldStickToBottomRef.current) return;
@@ -2628,24 +2371,25 @@ export default function DigitalesContacto() {
         };
     }, [isDirectChatMode]);
 
-    const llamarProspecto = () => {
-        if (!activeTel) {
-            alert("Selecciona un chat primero");
-            return;
-        }
-        window.open(`https://wa.me/${activeTel}`, "_blank");
-    };
-
     return (
         <div className="w-full min-w-0">
             <div className="relative overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
-                {/* ── HEADER BARRA SUPERIOR ─────────────────────────────────── */}
                 <div
                     className="px-4 py-4 text-white sm:px-5"
                     style={{ backgroundColor: BRAND_BLUE }}
                 >
-                    <div className="flex items-center gap-2">
-                        {!isDirectChatMode ? (
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <div className="text-lg font-extrabold">
+                                Seguimiento por WhatsApp
+                            </div>
+
+                            <div className="text-xs opacity-80">
+                                {activeTel ? `Chat: ${formateaTelUi(activeTel)}` : "Selecciona un chat"}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setMobileView("list")}
                                 className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15 lg:hidden"
@@ -2655,21 +2399,20 @@ export default function DigitalesContacto() {
                                 <ChevronLeft className="h-4 w-4" />
                                 Chats
                             </button>
-                        ) : null}
 
-                        <button
-                            onClick={() => navigate("/comercial/prospectos")}
-                            className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15"
-                            title="Volver a Prospectos"
-                            type="button"
-                        >
-                            <ArrowLeft className="h-4 w-4" />
-                            Volver
-                        </button>
+                            <button
+                                onClick={() => navigate("/comercial/prospectos")}
+                                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white hover:bg-white/15"
+                                title="Volver a Prospectos"
+                                type="button"
+                            >
+                                <ArrowLeft className="h-4 w-4" />
+                                Volver
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                {/* ── LAYOUT PRINCIPAL ──────────────────────────────────────── */}
                 <div
                     className={cls(
                         "grid min-h-0 h-[calc(100dvh-118px)] overflow-hidden transition-[grid-template-columns] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -2680,15 +2423,14 @@ export default function DigitalesContacto() {
                                 : "grid-cols-1 lg:grid-cols-[310px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]"
                     )}
                 >
-                    {/* ── SIDEBAR DE CHATS ──────────────────────────────────── */}
                     <aside
                         className={cls(
-                            "min-h-0 border-r border-black/10 bg-neutral-50 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                            "min-h-0 border-r border-black/10 bg-neutral-50 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:flex lg:flex-col",
                             isDirectChatMode
                                 ? "hidden"
                                 : mobileView === "chat"
-                                    ? "hidden lg:flex lg:flex-col"
-                                    : "flex flex-col lg:flex lg:flex-col",
+                                    ? "hidden lg:flex"
+                                    : "flex flex-col",
                         )}
                     >
                         {chatSidebarCollapsed ? (
@@ -2722,6 +2464,7 @@ export default function DigitalesContacto() {
                                     </div>
                                     <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-neutral-100 px-3 py-2">
                                         <Search className="h-4 w-4 text-[#131E5C]" />
+
                                         <input
                                             value={q}
                                             onChange={(event) => setQ(event.target.value)}
@@ -2731,38 +2474,30 @@ export default function DigitalesContacto() {
                                     </div>
 
                                     <div className="mt-2 flex gap-2">
-                                        {CHAT_FILTERS.slice(0, 2).map((f) => (
-                                            <button
-                                                key={f.key}
-                                                onClick={() => setChatFilter(f.key)}
-                                                className={cls(
-                                                    "flex-1 rounded-lg border py-1.5 text-xs font-extrabold transition",
-                                                    chatFilter === f.key
-                                                        ? "border-[#131E5C] bg-[#131E5C] text-white"
-                                                        : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
-                                                )}
-                                                type="button"
-                                            >
-                                                {f.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="mt-1.5 flex gap-1.5">
-                                        {CHAT_FILTERS.slice(2).map((f) => (
-                                            <button
-                                                key={f.key}
-                                                onClick={() => setChatFilter(f.key)}
-                                                className={cls(
-                                                    "flex-1 rounded-lg border py-1.5 text-[11px] font-extrabold transition leading-tight",
-                                                    chatFilter === f.key
-                                                        ? "border-[#131E5C] bg-[#131E5C] text-white"
-                                                        : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
-                                                )}
-                                                type="button"
-                                            >
-                                                {f.label}
-                                            </button>
-                                        ))}
+                                        <button
+                                            onClick={() => setChatFilter("todos")}
+                                            className={cls(
+                                                "flex-1 rounded-lg border py-1.5 text-xs font-extrabold transition",
+                                                chatFilter === "todos"
+                                                    ? "border-[#131E5C] bg-[#131E5C] text-white"
+                                                    : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
+                                            )}
+                                            type="button"
+                                        >
+                                            Todos
+                                        </button>
+                                        <button
+                                            onClick={() => setChatFilter("no_leidos")}
+                                            className={cls(
+                                                "flex-1 rounded-lg border py-1.5 text-xs font-extrabold transition",
+                                                chatFilter === "no_leidos"
+                                                    ? "border-[#131E5C] bg-[#131E5C] text-white"
+                                                    : "border-black/10 bg-white text-[#131E5C] hover:bg-neutral-100"
+                                            )}
+                                            type="button"
+                                        >
+                                            No leídos
+                                        </button>
                                     </div>
                                 </div>
 
@@ -2831,20 +2566,6 @@ export default function DigitalesContacto() {
                                                                     {chat.estado || "Sin estado"}
                                                                 </span>
 
-                                                                {chat.ia_estado || chat.ia_pausada || chat.ia_bloqueos?.length ? (
-                                                                    <span
-                                                                        className={cls(
-                                                                            "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-extrabold",
-                                                                            chat.ia_estado?.puede_responder
-                                                                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                                                                : "border-amber-200 bg-amber-50 text-amber-800",
-                                                                        )}
-                                                                        title={(chat.ia_bloqueos || chat.ia_estado?.bloqueos || []).map(labelBloqueoIa).join(" · ")}
-                                                                    >
-                                                                        {chat.ia_estado?.puede_responder ? "IA lista" : "IA bloqueada"}
-                                                                    </span>
-                                                                ) : null}
-
                                                                 {chat.agencia ? (
                                                                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">
                                                                         <Building2 className="h-3.5 w-3.5" />
@@ -2869,14 +2590,12 @@ export default function DigitalesContacto() {
                         )}
                     </aside>
 
-                    {/* ── SECCIÓN PRINCIPAL DEL CHAT ────────────────────────── */}
                     <section
                         className={cls(
                             "relative flex min-h-0 flex-col bg-white transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                            isDirectChatMode ? "flex" : mobileView === "list" ? "hidden lg:flex" : "flex",
+                            mobileView === "list" ? "hidden lg:flex" : "flex",
                         )}
                     >
-                        {/* ── HEADER DEL CHAT ─────────────────────────────────── */}
                         <div className="border-b border-black/10 bg-white px-3 py-3 sm:px-4">
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-start justify-between gap-3">
@@ -2884,16 +2603,95 @@ export default function DigitalesContacto() {
                                         <Avatar name={activeChat?.nombre || "Prospecto"} />
 
                                         <div className="min-w-0 flex-1">
-                                            {/* Nombre + acciones */}
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="truncate text-sm font-extrabold text-[#131E5C]">
-                                                    {activeChat?.nombre || "Selecciona un chat"}
-                                                </span>
+                                            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_.8fr_1fr_auto_auto]">
+                                                <input
+                                                    value={activeChat?.nombre || "Selecciona un chat" || quickEditDraft.nombre || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))
+                                                    }
+                                                    placeholder="Nombre"
+                                                    className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                />
 
+                                                <select
+                                                    value={quickEditDraft.auto_interes || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))
+                                                    }
+                                                    className="h-8 min-w-0 max-w-35 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                >
+                                                    {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
+                                                </select>
+
+                                                <select
+                                                    value={quickEditDraft.estado || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))
+                                                    }
+                                                    className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                >
+                                                    {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
+                                                </select>
+
+                                                <select
+                                                    value={quickEditDraft.canal_contacto || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))
+                                                    }
+                                                    className="h-8 min-w-0 max-w-30 rounded-lg border border-black/10 bg-white px-1 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                >
+                                                    {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
+                                                </select>
+
+                                                <select
+                                                    value={quickEditDraft.business || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, business: e.target.value }))
+                                                    }
+                                                    className="h-8 min-w-0 max-w-25 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                >
+                                                    {renderOptionsConValorActual(BUSINESS_OPTIONS, quickEditDraft.business)}
+                                                </select>
+
+                                                <select
+                                                    value={quickEditDraft.pauta || ""}
+                                                    onChange={(e) =>
+                                                        setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))
+                                                    }
+                                                    className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                >
+                                                    {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta, "Sin campaña detectada")}                                                </select>
+
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={saveQuickEdit}
+                                                        disabled={savingQuickEdit}
+                                                        className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                                        style={{ backgroundColor: BRAND_BLUE }}
+                                                        type="button"
+                                                        title="Guardar cambios"
+                                                    >
+                                                        <Save className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={abrirPlantillas}
+                                                        disabled={!activeTel}
+                                                        className={cls(
+                                                            "inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60",
+                                                        )}
+                                                        type="button"
+                                                        title="Enviar plantilla"
+                                                    >
+                                                        <LayoutTemplate className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500 sm:text-xs">
                                                 <button
                                                     type="button"
                                                     onClick={copyTel}
-                                                    className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-xs font-semibold text-slate-500 transition hover:bg-neutral-100"
+                                                    className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 sm:px-1"
                                                     title="Copiar número"
                                                 >
                                                     {copiedTel ? (
@@ -2901,360 +2699,133 @@ export default function DigitalesContacto() {
                                                     ) : (
                                                         <Copy className="h-3.5 w-3.5" />
                                                     )}
+
                                                     <span className={copiedTel ? "font-bold text-emerald-600" : ""}>
                                                         {activeTel ? formateaTelUi(activeTel) : "—"}
                                                     </span>
                                                 </button>
 
                                                 <button
+                                                    type="button"
+                                                    onClick={() => marcarChatComoNoLeido(activeTel)}
+                                                    disabled={!activeTel || markingUnreadTel === activeTel}
+                                                    className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-1"
+                                                    title="Marcar este chat como no leído"
+                                                >
+                                                    <MailOpen className="h-3.5 w-3.5" />
+                                                    <span>
+                                                        {markingUnreadTel === activeTel ? "Marcando..." : "Marcar no leído"}
+                                                    </span>
+                                                </button>
+
+                                                <span className="inline-flex items-center gap-1">
+                                                    <Clock className="h-3.5 w-3.5" />
+                                                    {loadingChat ? "Cargando..." : "Listo"}
+                                                </span>
+
+                                                <span className="hidden text-[11px] font-bold text-slate-500 xl:inline">
+                                                    Registro: {fmtDT(prospecto?.creado)} · Primer contacto: {fmtDT(prospecto?.primer_contacto_at)} · Último contacto: {fmtDT(prospecto?.ultimo_contacto_at)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {activeTel ? (
+                                    <details className="group rounded-2xl border border-black/10 bg-neutral-50 p-2 sm:p-3 lg:hidden">
+                                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-1 py-1">
+                                            <span className="text-xs font-extrabold uppercase tracking-wide text-[#131E5C]/70">
+                                                Datos del prospecto
+                                            </span>
+
+                                            <input
+                                                value={activeChat?.nombre || "Selecciona un chat" || quickEditDraft.nombre || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, nombre: e.target.value }))
+                                                }
+                                                placeholder="Nombre"
+                                                className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            />
+
+                                            <select
+                                                value={quickEditDraft.auto_interes || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))
+                                                }
+                                                className="h-8 min-w-0 max-w-35 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
+                                            </select>
+
+                                            <select
+                                                value={quickEditDraft.estado || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))
+                                                }
+                                                className="h-8 min-w-0 max-w-40 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
+                                            </select>
+
+                                            <select
+                                                value={quickEditDraft.canal_contacto || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))
+                                                }
+                                                className="h-8 min-w-0 max-w-30 rounded-lg border border-black/10 bg-white px-1 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
+                                            </select>
+
+                                            <select
+                                                value={quickEditDraft.business || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, business: e.target.value }))
+                                                }
+                                                className="h-8 min-w-0 max-w-25 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                {renderOptionsConValorActual(BUSINESS_OPTIONS, quickEditDraft.business)}
+                                            </select>
+
+                                            <select
+                                                value={quickEditDraft.pauta || ""}
+                                                onChange={(e) =>
+                                                    setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))
+                                                }
+                                                className="h-8 min-w-0 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                            >
+                                                {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta)}
+                                            </select>
+
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={saveQuickEdit}
+                                                    disabled={savingQuickEdit}
+                                                    className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                                    style={{ backgroundColor: BRAND_BLUE }}
+                                                    type="button"
+                                                    title="Guardar cambios"
+                                                >
+                                                    <Save className="h-3.5 w-3.5" />
+                                                </button>
+                                                <button
                                                     onClick={abrirPlantillas}
                                                     disabled={!activeTel}
-                                                    className="inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    className={cls(
+                                                        "inline-flex h-8 items-center justify-center rounded-lg border border-black/10 bg-white px-3 text-xs font-extrabold text-[#131E5C] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60",
+                                                    )}
                                                     type="button"
                                                     title="Enviar plantilla"
                                                 >
                                                     <LayoutTemplate className="h-3.5 w-3.5" />
                                                 </button>
-
-                                                <button
-                                                    onClick={llamarProspecto}
-                                                    disabled={!activeTel}
-                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                                    type="button"
-                                                    title="Llamar por WhatsApp"
-                                                >
-                                                    <Phone className="h-4 w-4" />
-                                                </button>
-
-                                                {/* Campo PAUTA en la parte superior derecha */}
-                                                {activeTel ? (
-                                                    <div className="ml-auto flex items-center gap-2">
-                                                        <span className="text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">
-                                                            Pauta
-                                                        </span>
-                                                        <select
-                                                            value={quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || ""}
-                                                            onChange={(e) => setQuickEditDraft((p) => ({ ...p, pauta: e.target.value }))}
-                                                            className="h-8 rounded-lg border border-black/10 bg-white px-2 text-xs font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                        >
-                                                            {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || "", "Sin campaña detectada")}
-                                                        </select>
-                                                    </div>
-                                                ) : null}
                                             </div>
-
-                                            {/* Metadatos: no leído, fechas */}
-                                            {!isDirectChatMode ? (
-                                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500 sm:text-xs">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => marcarChatComoNoLeido(activeTel)}
-                                                        disabled={!activeTel || markingUnreadTel === activeTel}
-                                                        className="inline-flex items-center gap-1 rounded-md py-0.5 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-1"
-                                                        title="Marcar este chat como no leído"
-                                                    >
-                                                        <MailOpen className="h-3.5 w-3.5" />
-                                                        <span>
-                                                            {markingUnreadTel === activeTel ? "Marcando..." : "Marcar no leído"}
-                                                        </span>
-                                                    </button>
-
-                                                    <span className="inline-flex items-center gap-1">
-                                                        <Clock className="h-3.5 w-3.5" />
-                                                        {loadingChat ? "Cargando..." : "Listo"}
-                                                    </span>
-
-                                                    <span className="hidden text-[11px] font-bold text-slate-500 xl:inline">
-                                                        Registro: {fmtDT(prospecto?.creado)} · Primer contacto: {fmtDT(prospecto?.primer_contacto_at)} · Último contacto: {fmtDT(prospecto?.ultimo_contacto_at)}
-                                                    </span>
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                </div>
+                                            <ChevronDown className="h-4 w-4 text-[#131E5C]/60 transition group-open:rotate-180" />
+                                        </summary>
+                                    </details>
+                                ) : null}
                             </div>
                         </div>
-
-                        {/* ── BANNER ESTADO IA ──────────────────────────────────── */}
-                        {activeTel ? (() => {
-                            const visual = getIaEstadoVisual(iaEstado);
-                            const expEstado = iaEstado?.expediente || {};
-                            const convEstado = iaEstado?.conversacion || {};
-                            const cfgEstado = iaEstado?.configuracion || {};
-
-                            return (
-                                <details className={cls("group border-b", visual.cls)}>
-                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5">
-                                        <div className="flex min-w-0 flex-1 items-center gap-2">
-                                            <span
-                                                className={cls(
-                                                    "h-2 w-2 shrink-0 rounded-full",
-                                                    iaEstado?.puede_responder ? "bg-emerald-500" : iaEstado ? "bg-amber-500" : "bg-slate-400"
-                                                )}
-                                            />
-                                            <span className="text-xs font-extrabold">
-                                                {visual.label}
-                                            </span>
-                                            <span className="hidden truncate text-[11px] font-semibold opacity-75 sm:inline">
-                                                — {visual.detail}
-                                            </span>
-                                        </div>
-                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-60 transition-transform duration-200 group-open:rotate-180" />
-                                    </summary>
-
-                                    <div className="border-t border-black/10 px-4 py-3">
-                                        <div className="mx-auto flex max-w-5xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                            <div className="min-w-0">
-                                                <div className="text-xs font-semibold opacity-80">
-                                                    {visual.detail}
-                                                </div>
-                                                <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold">
-                                                    <span className="rounded-full bg-white/70 px-2 py-0.5">
-                                                        Config activa: {cfgEstado.activo ? "Sí" : "No"}
-                                                    </span>
-                                                    <span className="rounded-full bg-white/70 px-2 py-0.5">
-                                                        En horario: {cfgEstado.en_horario ? "Sí" : "No"}
-                                                    </span>
-                                                    <span className="rounded-full bg-white/70 px-2 py-0.5">
-                                                        Expediente pausado: {expEstado.ia_pausada ? "Sí" : "No"}
-                                                    </span>
-                                                    <span className="rounded-full bg-white/70 px-2 py-0.5">
-                                                        Conversación activa: {convEstado.ia_activa ? "Sí" : "No"}
-                                                    </span>
-                                                    <span className="rounded-full bg-white/70 px-2 py-0.5">
-                                                        Conversación pausada: {convEstado.ia_pausada ? "Sí" : "No"}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex shrink-0 flex-wrap gap-2">
-                                                {iaEstado?.puede_responder ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={pausarIaActiva}
-                                                        disabled={loadingIaAction}
-                                                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-700 hover:bg-red-50 disabled:opacity-60"
-                                                    >
-                                                        Pausar IA
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        onClick={reactivarIaActiva}
-                                                        disabled={loadingIaAction}
-                                                        className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
-                                                    >
-                                                        Reactivar IA
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </details>
-                            );
-                        })() : null}
-
-                        {/* ── BANNER DATOS DEL PROSPECTO (desplegable) ─────────── */}
-                        {activeTel ? (
-                            <details className="group border-b border-[#131E5C]/10 bg-[#131E5C]/[0.03]">
-                                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5">
-                                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                                        <Pencil className="h-3.5 w-3.5 shrink-0 text-[#131E5C]/60" />
-                                        <span className="text-xs font-extrabold text-[#131E5C]">
-                                            Datos del prospecto
-                                        </span>
-                                        {/* Resumen colapsado: vehículo · estado */}
-                                        <span className="hidden truncate text-[11px] font-semibold text-[#131E5C]/60 sm:inline">
-                                            — {[
-                                                quickEditDraft.auto_interes || prospecto?.auto_interes,
-                                                quickEditDraft.estado || prospecto?.estado,
-                                            ].filter(Boolean).join(" · ") || "Sin datos aún"}
-                                        </span>
-                                    </div>
-                                    <ChevronDown className="h-4 w-4 shrink-0 text-[#131E5C]/40 transition-transform duration-200 group-open:rotate-180" />
-                                </summary>
-
-                                <div className="border-t border-[#131E5C]/10 px-4 py-4">
-                                    <div className="mx-auto max-w-5xl">
-                                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                            {/* Vehículo */}
-                                            <div>
-                                                <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Vehículo de interés</div>
-                                                <select
-                                                    value={quickEditDraft.auto_interes || ""}
-                                                    onChange={(e) => setQuickEditDraft((p) => ({ ...p, auto_interes: e.target.value }))}
-                                                    className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                >
-                                                    {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
-                                                </select>
-                                            </div>
-
-                                            {/* Estado */}
-                                            <div>
-                                                <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Estado</div>
-                                                <select
-                                                    value={quickEditDraft.estado || ""}
-                                                    onChange={(e) => setQuickEditDraft((p) => ({ ...p, estado: e.target.value }))}
-                                                    className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                >
-                                                    {renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}
-                                                </select>
-                                            </div>
-
-                                            {/* Canal de contacto (movido a donde estaba Business) */}
-                                            <div>
-                                                <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Canal de contacto</div>
-                                                <select
-                                                    value={quickEditDraft.canal_contacto || ""}
-                                                    onChange={(e) => setQuickEditDraft((p) => ({ ...p, canal_contacto: e.target.value }))}
-                                                    className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                >
-                                                    {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
-                                                </select>
-                                            </div>
-
-                                            {/* Comentarios — al mismo nivel, misma fila */}
-                                            <div>
-                                                <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Comentarios</div>
-                                                <textarea
-                                                    value={quickEditDraft.comentarios || ""}
-                                                    onChange={(e) => setQuickEditDraft((p) => ({ ...p, comentarios: e.target.value }))}
-                                                    rows={2}
-                                                    className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Business ELIMINADO */}
-                                        {/* Pauta ELIMINADA de aquí (solo arriba) */}
-
-                                        {/* Perfil comercial y financiero */}
-                                        <div className="mt-4 rounded-xl border border-[#131E5C]/10 bg-white p-4">
-                                            <div className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-[#131E5C]/60">
-                                                <Activity className="h-3.5 w-3.5" />
-                                                Perfil comercial y financiero
-                                            </div>
-
-                                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Enganche</div>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        inputMode="numeric"
-                                                        value={quickEditDraft.enganche_monto || ""}
-                                                        onChange={(e) => setQuickEditDraft((p) => ({ ...p, enganche_monto: e.target.value.replace(/\D/g, "") }))}
-                                                        placeholder="Ej. 80000"
-                                                        className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Presupuesto mensual</div>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        inputMode="numeric"
-                                                        value={quickEditDraft.presupuesto_mensual || ""}
-                                                        onChange={(e) => setQuickEditDraft((p) => ({ ...p, presupuesto_mensual: e.target.value.replace(/\D/g, "") }))}
-                                                        placeholder="Ej. 9000"
-                                                        className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Buró</div>
-                                                    <select
-                                                        value={quickEditDraft.buro_estado || ""}
-                                                        onChange={(e) => setQuickEditDraft((p) => ({ ...p, buro_estado: e.target.value }))}
-                                                        className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                    >
-                                                        {BURO_OPTIONS.map((item) => (
-                                                            <option key={item.value} value={item.value}>{item.label}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Forma de pago</div>
-                                                    <select
-                                                        value={quickEditDraft.forma_pago || ""}
-                                                        onChange={(e) => setQuickEditDraft((p) => ({ ...p, forma_pago: e.target.value }))}
-                                                        className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                    >
-                                                        {FORMA_PAGO_OPTIONS.map((item) => (
-                                                            <option key={item.value} value={item.value}>{item.label}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Tipo cliente</div>
-                                                    <select
-                                                        value={quickEditDraft.tipo_cliente || ""}
-                                                        onChange={(e) => setQuickEditDraft((p) => ({ ...p, tipo_cliente: e.target.value }))}
-                                                        className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                    >
-                                                        {TIPO_CLIENTE_OPTIONS.map((item) => (
-                                                            <option key={item.value} value={item.value}>{item.label}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Plazo de compra</div>
-                                                    <select
-                                                        value={quickEditDraft.plazo_compra || ""}
-                                                        onChange={(e) => setQuickEditDraft((p) => ({ ...p, plazo_compra: e.target.value }))}
-                                                        className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                    >
-                                                        {PLAZO_COMPRA_OPTIONS.map((item) => (
-                                                            <option key={item || "empty"} value={item}>{item || "— Selecciona —"}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Uso del vehículo</div>
-                                                    <input
-                                                        value={quickEditDraft.uso_vehiculo || ""}
-                                                        onChange={(e) => setQuickEditDraft((p) => ({ ...p, uso_vehiculo: e.target.value }))}
-                                                        placeholder="Personal, familiar, trabajo..."
-                                                        className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Comprobación ingresos</div>
-                                                    <input
-                                                        value={quickEditDraft.comprobacion_ingresos || ""}
-                                                        onChange={(e) => setQuickEditDraft((p) => ({ ...p, comprobacion_ingresos: e.target.value }))}
-                                                        placeholder="Nómina, estados, negocio..."
-                                                        className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Botón guardar */}
-                                        <div className="mt-4 flex justify-end">
-                                            <button
-                                                onClick={saveQuickEdit}
-                                                disabled={savingQuickEdit || !prospecto?.id}
-                                                className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                                                style={{ backgroundColor: BRAND_BLUE }}
-                                                type="button"
-                                            >
-                                                <Save className="h-4 w-4" />
-                                                {savingQuickEdit ? "Guardando..." : "Guardar cambios"}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </details>
-                        ) : null}
-
-                        {/* ── ÁREA DE MENSAJES ──────────────────────────────────── */}
                         <div
                             ref={messagesScrollRef}
                             onScroll={onMessagesScroll}
@@ -3294,61 +2865,24 @@ export default function DigitalesContacto() {
                                         Aún no hay mensajes con este número.
                                     </div>
                                 ) : (
-                                    mensajes.map((message) => {
-                                        const messageId = message.wa_message_id || "";
-
-                                        return (
-                                            <MessageBubble
-                                                key={getMessageKey(message)}
-                                                mine={Boolean(message.mine)}
-                                                text={message.text}
-                                                time={message.time || ""}
-                                                status={message.status || "sent"}
-                                                attachments={message.attachments || []}
-                                                isAi={Boolean(message.is_ai)}
-                                                renderText={renderTextForBubble}
-                                                onReply={
-                                                    messageId && !message.local_pending
-                                                        ? () => {
-                                                            setReplyToMsg(message);
-                                                            requestAnimationFrame(() => {
-                                                                inputRef.current?.focus?.();
-                                                            });
-                                                        }
-                                                        : null
-                                                }
-                                            />
-                                        );
-                                    })
+                                    mensajes.map((message) => (
+                                        <MessageBubble
+                                            key={getMessageKey(message)}
+                                            mine={Boolean(message.mine)}
+                                            text={message.text}
+                                            time={message.time || ""}
+                                            status={message.status || "sent"}
+                                            attachments={message.attachments || []}
+                                            isAi={Boolean(message.is_ai)}
+                                            renderText={renderTextForBubble}
+                                        />
+                                    ))
                                 )}
 
                                 <div ref={endRef} />
                             </div>
                         </div>
-                        {replyToMsg ? (
-                            <div className="border-t border-black/10 bg-[#131E5C]/5 px-4 py-2">
-                                <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-xl border border-[#131E5C]/15 bg-white px-3 py-2 shadow-sm">
-                                    <div className="min-w-0 flex-1">
-                                        <div className="text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">
-                                            Respondiendo a {getReplyAuthor(replyToMsg)}
-                                        </div>
-                                        <div className="truncate text-xs font-semibold text-[#131E5C]">
-                                            {getReplyPreview(replyToMsg)}
-                                        </div>
-                                    </div>
 
-                                    <button
-                                        type="button"
-                                        onClick={() => setReplyToMsg(null)}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-slate-500 hover:bg-neutral-50"
-                                        title="Cancelar respuesta"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        ) : null}
-                        {/* ── COMPOSITOR ───────────────────────────────────────── */}
                         <div
                             className={cls(
                                 "border-t border-black/10 bg-white px-3 py-3",
@@ -3365,10 +2899,12 @@ export default function DigitalesContacto() {
                                         <div className="rounded-2xl border border-dashed border-[#131E5C]/40 bg-white px-6 py-4 shadow-lg">
                                             <div className="flex items-center gap-3">
                                                 <Paperclip className="h-5 w-5 text-[#131E5C]" />
+
                                                 <div className="text-sm font-extrabold text-[#131E5C]">
                                                     Suelta para adjuntar archivos
                                                 </div>
                                             </div>
+
                                             <div className="mt-1 text-xs font-semibold text-slate-500">
                                                 Se adjuntarán al mensaje, máximo 10.
                                             </div>
@@ -3528,6 +3064,7 @@ export default function DigitalesContacto() {
                                     </div>
                                 ) : null}
 
+
                                 <div className="flex items-end gap-2 rounded-2xl border border-black/10 bg-white p-2 shadow-sm">
                                     <div className="relative" ref={emojiRef}>
                                         <button
@@ -3631,9 +3168,8 @@ export default function DigitalesContacto() {
                         </div>
                     </section>
                 </div>
-            </div>
+            </div >
 
-            {/* ── MENÚ CONTEXTUAL ───────────────────────────────────────────── */}
             {chatMenu ? (
                 <div
                     className="fixed z-[90] min-w-[210px] overflow-hidden rounded-xl border border-black/10 bg-white py-1 shadow-2xl"
@@ -3655,7 +3191,6 @@ export default function DigitalesContacto() {
                 </div>
             ) : null}
 
-            {/* ── MODAL PLANTILLAS ──────────────────────────────────────────── */}
             <Modal
                 open={openTpl}
                 title={tplSelected ? `Plantilla: ${tplSelected.title}` : "Plantillas"}
@@ -3807,6 +3342,6 @@ export default function DigitalesContacto() {
                     </div>
                 )}
             </Modal>
-        </div>
+        </div >
     );
 }
