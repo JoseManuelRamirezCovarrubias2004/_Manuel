@@ -935,7 +935,7 @@ export default function HojaRegistros() {
                                     className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors"
                                     style={viewMode === "tabla" ? { background: "#fff", color: COLOR.brand } : { color: "rgba(255,255,255,0.74)" }}
                                 >
-                                    <Table2 className="h-3.5 w-3.5" /> Hoja
+                                    <Table2 className="h-3.5 w-3.5" /> Tabla
                                 </button>
                             </div>
                         </div>

@@ -80,7 +80,7 @@ function IconButton({ onClick, title, className = "", children }) {
 function VWMonogram({ compact = false }) {
     return (
         <div className="flex items-center justify-between gap-3 sm:justify-end">
-            <img src={vwWhite} alt="VW" className="h-10 w-12 opacity-95" loading="lazy" />
+            <img src={vwWhite} alt="VW" className="mt-5 h-12 w-12 opacity-95" loading="lazy" />
         </div>
     );
 }
@@ -103,7 +103,7 @@ function BrandBlock({ showText, user, collapsed, isMobile }) {
                     <span className="truncate text-[13px] font-bold text-white">Grupo Automotriz R&amp;R</span>
                     <VWMonogram compact />
                 </div>
-                <div className="mt-0.5 truncate text-[11px] font-semibold text-white/52">
+                <div className="truncate text-[11px] font-semibold text-white/52">
                     {user?.agencia ? user.agencia : "VW Córdoba"}
                 </div>
             </FadeSlide>

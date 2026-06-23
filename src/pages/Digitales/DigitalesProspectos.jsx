@@ -1,13 +1,14 @@
 //volkswagen
 //src/pages/Digitales/DigitalesProspectos.jsx
-import { useMemo, useState, useEffect, useDeferredValue, useCallback } from "react";
+import { useMemo, useState, useRef, useEffect, useDeferredValue, useCallback } from "react";
 import {
     Plus, Search, X, Save, User, Van, CarFront, CalendarDays, ArrowUpDown,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, MessageSquareShare,
     Building2, FileText, FileDown, Car, Trash2, Loader2, CalendarPlus,
     CalendarCheck, Phone, LayoutList, UserStar, ClipboardCheck, BrainCircuit,
     CalendarRange, Table2, BarChart3, Clock3, Flame, AlertCircle, TrendingUp,
-    TrendingDown, Eye, MessageCircle, Zap, Activity, Target, Radio,
+    TrendingDown, Eye, MessageCircle, Zap, Activity, Target, Radio, Paperclip,
+    UploadCloud,
 } from "lucide-react";
 import CONCESIONARIO from "/concesionario.png";
 import WAP from "/whatsapp.svg";
@@ -49,6 +50,25 @@ const ESTADOS_PROSPECTO = [
     "Requiere Asesor", "Financiamiento", "Sin Respuesta", "Descalificado",
 ];
 
+const MOTIVO_DESCALIFICACION = [
+    "Falta de presupuesto",
+    "Sin intención de compra",
+    "No califica para financiamiento",
+    "Ya compró otro vehículo",
+    "No se pudo contactar",
+    "Datos de contacto incorrectos",
+    "No es el tomador de decisión",
+    "Interés fuera del mercado objetivo",
+    "Compra pospuesta",
+    "Cambio de necesidades",
+    "Pérdida de interés",
+    "Mala experiencia con la atención",
+    "Encontró una mejor oferta",
+    "Registro duplicado",
+    "Solicitó no ser contactado",
+    "Prospecto falso o información inválida"
+];
+
 const VEHICULOS = [
     "Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun",
     "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera",
@@ -61,6 +81,13 @@ const BURO_OPTIONS = [
     { value: "regular", label: "Regular" },
     { value: "iniciando", label: "Iniciando" },
     { value: "desconocido", label: "Desconocido" },
+];
+
+const SOLICITUD_CREDITO = [
+    { value: "", label: "— Selecciona —" },
+    { value: "autorizado", label: "Autorizado" },
+    { value: "rechazado", label: "Rechazado" },
+    { value: "condicionado", label: "Condicionado" },
 ];
 
 const FORMA_PAGO_OPTIONS = [
@@ -1194,7 +1221,7 @@ function Modal({ open, title, onClose, children, footer }) {
         <div className="fixed inset-0 z-[60]">
             <div className="absolute inset-0 bg-black/45" onClick={onClose} />
             <div className="absolute inset-0 flex items-end justify-center p-2 sm:items-center sm:p-4">
-                <div className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-[#131E5C]/20 bg-neutral-100 shadow-xl">
+                <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-[#131E5C]/20 bg-neutral-100 shadow-xl">
                     <div className="flex shrink-0 items-center justify-between gap-3 px-5 py-4" style={{ backgroundColor: BRAND_BLUE }}>
                         <div className="min-w-0">
                             <div className="truncate text-base font-extrabold text-white">{title}</div>
@@ -1256,7 +1283,7 @@ function LineaPicker({ value, onChange }) {
 
 function OrigenPicker({ value, onChange }) {
     return (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             {Object.entries(origenMeta).map(([key, meta]) => {
                 const active = value === key;
                 const Icon = meta.Icon;
@@ -1304,6 +1331,7 @@ export default function DigitalesProspectos() {
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [viewMode, setViewMode] = useState("tabla");
     const [highlightedRow, setHighlightedRow] = useState(null);
+    const fileInputRef = useRef(null);
 
     const VIEW_MODES = [
         { key: "tabla", label: "Tabla", Icon: Table2 },
@@ -1358,6 +1386,9 @@ export default function DigitalesProspectos() {
     const [savingo, setSavingo] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
+    const totalEvidenciasDraft =
+        (draft?.evidencias_existentes?.length || 0) +
+        (draft?.evidencias_nuevas?.length || 0);
     useEffect(() => {
         const cerrar = () => setCtxMenu(prev => prev.open ? { open: false, x: 0, y: 0, row: null } : prev);
         window.addEventListener("click", cerrar);
@@ -2533,7 +2564,7 @@ export default function DigitalesProspectos() {
                     </>
                 }>
                 {loadingDetail ? <ModalSkeleton /> : !draft ? null : (
-                    <div className="grid gap-3 md:grid-cols-3">
+                    <div className="grid gap-3 md:grid-cols-4">
                         {touchedSave && missing.length > 0 && (
                             <div className="md:col-span-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                                 <div className="font-extrabold">Faltan campos obligatorios</div>
@@ -2562,9 +2593,19 @@ export default function DigitalesProspectos() {
                                 {ASESORES.map(n => <option key={n} value={n}>{n}</option>)}
                             </select>
                         </Field>
-                        <div className="md:col-span-3">
+                        <Field label="VW de sus sueños">
+                            <div>
+                                <select value={draft.cliente_interes || ""} onChange={e => setDraft(p => ({ ...p, cliente_interes: e.target.value }))}
+                                    className={cls(inputBase, inputOk)}>
+                                    <option value="" disabled>Selecciona un modelo...</option>
+                                    {VEHICULOS.map(d => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                            </div>
+                        </Field>
+
+                        <div className="md:col-span-4">
                             <Field label="Cliente" icon={User}>
-                                <div className="grid gap-3 md:grid-cols-3">
+                                <div className="grid gap-3 md:grid-cols-4">
                                     <div>
                                         <label className="inline-flex items-center gap-3 text-sm font-bold text-[#131E5C]">
                                             <input type="checkbox" checked={!!draft.tiene_nombre}
@@ -2585,34 +2626,24 @@ export default function DigitalesProspectos() {
                                         {isInvalid("telefono") && <div className="mt-1 text-xs font-bold text-red-600">Teléfono es requerido.</div>}
                                         {!isInvalid("telefono") && telError && <div className="mt-1 text-xs font-bold text-red-600">{telError}</div>}
                                     </div>
-                                    <div>
-                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">VW de sus sueños</div>
-                                        <select value={draft.cliente_interes || ""} onChange={e => setDraft(p => ({ ...p, cliente_interes: e.target.value }))}
-                                            className={cls(inputBase, inputOk)}>
-                                            <option value="" disabled>Selecciona un modelo...</option>
-                                            {VEHICULOS.map(d => <option key={d} value={d}>{d}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="mt-5 grid gap-3 md:grid-cols-2">
-                                    <div>
+                                    <div className="">
                                         <div className="mb-1 text-sm font-bold text-[#131E5C]">Estado</div>
+
                                         <select value={draft.estado || ""} onChange={e => setDraft(p => ({ ...p, estado: e.target.value }))} className={cls(inputBase, inputOk)}>
                                             {ESTADOS_PROSPECTO.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
-                                        <div className="mt-2"><BadgeEstado value={draft.estado} /></div>
                                     </div>
-                                    <div>
-                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">Canal de Contacto</div>
-                                        <OrigenPicker value={draft.origen} onChange={v => setDraft(p => ({ ...p, origen: v }))} />
+                                    <div className="">
+                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">Motivo Descalificacion</div>
+
+                                        <select value={draft.estado || ""} onChange={e => setDraft(p => ({ ...p, estado: e.target.value }))} className={cls(inputBase, inputOk)}>
+                                            {ESTADOS_PROSPECTO.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
                                     </div>
                                 </div>
-                                <div className="mt-5 grid gap-3 md:grid-cols-2">
+
+                                <div className="grid gap-3 md:grid-cols-2">
                                     <div>
-                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">Business</div>
-                                        <LineaPicker value={draft.linea} onChange={v => setDraft(p => ({ ...p, linea: v }))} />
-                                    </div>
-                                    <div className="mt-5">
                                         <div className="mb-1 text-sm font-bold text-[#131E5C]">Pauta de Origen</div>
                                         {loadingPautas ? (
                                             <div className="mt-2">
@@ -2631,10 +2662,21 @@ export default function DigitalesProspectos() {
                                             </select>
                                         )}
                                     </div>
+
+                                    <div>
+                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">Business</div>
+                                        <LineaPicker value={draft.linea} onChange={v => setDraft(p => ({ ...p, linea: v }))} />
+                                    </div>
+                                </div>
+                                <div className="grid gap-3 md:grid-cols-1">
+                                    <div>
+                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">Canal de Contacto</div>
+                                        <OrigenPicker value={draft.origen} onChange={v => setDraft(p => ({ ...p, origen: v }))} />
+                                    </div>
                                 </div>
                             </Field>
                         </div>
-                        <div className="md:col-span-3">
+                        <div className="md:col-span-4">
                             <Field label="Perfil comercial y financiero" icon={Activity}>
                                 <div className="grid gap-3 md:grid-cols-4">
                                     <div>
@@ -2697,8 +2739,136 @@ export default function DigitalesProspectos() {
                                         <input value={draft.comprobacion_ingresos || ""} onChange={e => setDraft(p => ({ ...p, comprobacion_ingresos: e.target.value }))} className={cls(inputBase, inputOk)} placeholder="Nómina, estados, negocio..." />
                                     </div>
                                 </div>
+
+                                <div className="mt-4 grid gap-3 md:grid-cols-4">
+                                    <div>
+                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">ID Cotizacion</div>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            inputMode="numeric"
+                                            value={draft.enganche_monto || ""}
+                                            onChange={e => setDraft(p => ({ ...p, enganche_monto: e.target.value.replace(/\D/g, "") }))}
+                                            className={cls(inputBase, inputOk)}
+                                            placeholder="Ej. 80000"
+                                        />
+                                    </div>
+                                    <div>
+                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">Folio Solicitud Credito</div>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            inputMode="numeric"
+                                            value={draft.enganche_monto || ""}
+                                            onChange={e => setDraft(p => ({ ...p, enganche_monto: e.target.value.replace(/\D/g, "") }))}
+                                            className={cls(inputBase, inputOk)}
+                                            placeholder="Ej. 80000"
+                                        />
+                                        <select value={draft.buro_estado || ""} onChange={e => setDraft(p => ({ ...p, buro_estado: e.target.value }))} className={cls(inputBase, inputOk)}>
+                                            {SOLICITUD_CREDITO.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">VIN Facturado</div>
+                                        <input value={draft.comprobacion_ingresos || ""} onChange={e => setDraft(p => ({ ...p, comprobacion_ingresos: e.target.value }))} className={cls(inputBase, inputOk)} placeholder="A8XAS8FSF8FG2EU" />
+                                    </div>
+                                    <div>
+                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">Folio Solicitud Credito</div>
+
+                                    </div>
+                                </div>
                             </Field>
                         </div>
+
+                        <Field label="Evidencias" icon={Paperclip} className="lg:col-span-4 sm:col-span-1 ">
+                            <div className="space-y-4">
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    multiple
+                                    accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.7z"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        handleAddFiles(e.target.files);
+                                        e.target.value = "";
+                                    }}
+                                />
+
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[#131E5C]/25 bg-[#131E5C]/5 px-4 py-6 text-center text-[#131E5C] transition hover:bg-[#131E5C]/10 sm:flex-row sm:text-left"
+                                >
+                                    <UploadCloud className="h-6 w-6" />
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-extrabold">
+                                            Agregar fotos, videos o archivos
+                                        </div>
+                                        <div className="text-xs font-semibold text-slate-500">
+                                            Puedes seleccionar varios archivos al mismo tiempo. Límite sugerido: 50 MB por archivo.
+                                        </div>
+                                    </div>
+                                </button>
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="rounded-full bg-[#131E5C]/10 px-3 py-1 text-xs font-bold text-[#131E5C]">
+                                        Total: {totalEvidenciasDraft}
+                                    </span>
+
+                                    {(draft.delete_evidencia_ids || []).length > 0 ? (
+                                        <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
+                                            Por eliminar: {draft.delete_evidencia_ids.length}
+                                        </span>
+                                    ) : null}
+
+                                    {(draft.evidencias_nuevas || []).length > 0 ? (
+                                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600">
+                                            Nuevas: {draft.evidencias_nuevas.length}
+                                        </span>
+                                    ) : null}
+                                </div>
+
+                                {(draft.evidencias_existentes?.length || 0) > 0 ? (
+                                    <div>
+                                        <div className="mb-2 text-sm font-extrabold text-[#131E5C]">
+                                            Evidencias guardadas
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                                            {draft.evidencias_existentes.map((item) => (
+                                                <EvidenceCard
+                                                    key={`existente-${item.id}`}
+                                                    item={item}
+                                                    onRemove={() => removeEvidenciaExistente(item.id)}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {(draft.evidencias_nuevas?.length || 0) > 0 ? (
+                                    <div>
+                                        <div className="mb-2 text-sm font-extrabold text-[#131E5C]">
+                                            Evidencias nuevas
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                                            {draft.evidencias_nuevas.map((item) => (
+                                                <EvidenceCard
+                                                    key={item._tmpId}
+                                                    item={item}
+                                                    onRemove={() => removeNuevaEvidencia(item._tmpId)}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {totalEvidenciasDraft === 0 ? (
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-500">
+                                        Aún no has agregado evidencias a este avalúo.
+                                    </div>
+                                ) : null}
+                            </div>
+                        </Field>
 
                         <div className="md:col-span-1">
                             <Field label="Comentarios Adicionales" icon={FileText}>
