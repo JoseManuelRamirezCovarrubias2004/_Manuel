@@ -300,16 +300,6 @@ export default function Sidebar() {
                 <div className={cls("relative border-b px-4 py-4", !showText && !isMobile && "px-2")} style={{ borderColor: VW.line }}>
                     <div className={cls("flex items-center", showText ? "justify-between" : "justify-center")}>
                         <BrandBlock showText={showText} user={user} collapsed={collapsed} isMobile={isMobile} />
-
-                        {!isMobile ? (
-                            <IconButton
-                                onClick={() => setCollapsed((value) => !value)}
-                                title={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
-                                className=" border-white/10 bg-white/[0.08] text-white/70 hover:bg-white/[0.12] hover:text-white"
-                            >
-                                {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
-                            </IconButton>
-                        ) : null}
                     </div>
                 </div>
 
@@ -426,11 +416,25 @@ export default function Sidebar() {
 
             <aside
                 className={cls(
-                    "sticky top-0 hidden h-screen shrink-0 border-r border-white/10 md:block",
+                    "sticky top-0 z-[200] hidden h-screen shrink-0 overflow-visible border-r border-slate-200 bg-white md:block",
                     "transition-[width] duration-300 ease-[cubic-bezier(.2,.8,.2,1)]",
-                    collapsed ? "w-[84px]" : "w-[286px]"
+                    collapsed ? "w-18" : "w-72"
                 )}
             >
+                <button
+                    type="button"
+                    onClick={() => setCollapsed((value) => !value)}
+                    title={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+                    aria-label={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+                    className="absolute right-0 top-[86px] z-[999] inline-flex h-9 w-9 translate-x-1/2 items-center justify-center rounded-full border border-[#E7EDF6] bg-white text-[#001E50] shadow-[0_12px_30px_rgba(0,30,80,0.24)] transition hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                >
+                    {collapsed ? (
+                        <ChevronsRight size={17} strokeWidth={2.8} />
+                    ) : (
+                        <ChevronsLeft size={17} strokeWidth={2.8} />
+                    )}
+                </button>
+
                 <SidebarContent />
             </aside>
 
