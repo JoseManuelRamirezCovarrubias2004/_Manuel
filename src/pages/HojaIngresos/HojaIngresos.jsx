@@ -883,15 +883,11 @@ export default function HojaRegistros() {
 
     return (
         <div
-            className="w-full min-h-screen rounded-[28px] p-3 sm:p-5"
-            style={{
-                fontFamily: FONT_DISPLAY,
-                background: `linear-gradient(180deg, #F7F9FC 0%, #FFFFFF 46%, ${COLOR.paper} 100%)`,
-            }}
+            className="w-full min-h-screen rounded-[14px]"
         >
             {/* Agenda ejecutiva: cabecera única del módulo */}
             <section
-                className="mb-4 overflow-hidden rounded-[34px] border"
+                className="mb-4 overflow-hidden rounded-lg border"
                 style={{
                     background: `radial-gradient(circle at 92% 0%, rgba(0,176,240,0.32), transparent 28%), linear-gradient(135deg, ${COLOR.brandDeep} 0%, ${COLOR.brand} 58%, ${COLOR.brandMid} 100%)`,
                     borderColor: "rgba(255,255,255,0.16)",
@@ -913,18 +909,18 @@ export default function HojaRegistros() {
                             <button
                                 type="button"
                                 onClick={() => abrirNuevo()}
-                                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-[13px] font-bold shadow-lg transition hover:-translate-y-0.5"
+                                className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-[13px] font-bold shadow-lg transition hover:-translate-y-0.5"
                                 style={{ color: COLOR.brand }}
                             >
                                 <Plus className="h-4 w-4" />
                                 Nueva cita
                             </button>
 
-                            <div className="flex items-center overflow-hidden rounded-full border border-white/15 bg-white/10 p-1">
+                            <div className="flex items-center overflow-hidden rounded-lg border border-white/15 bg-white/10 p-1">
                                 <button
                                     type="button"
                                     onClick={() => setViewMode("agenda")}
-                                    className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors"
+                                    className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-bold transition-colors"
                                     style={viewMode === "agenda" ? { background: "#fff", color: COLOR.brand } : { color: "rgba(255,255,255,0.74)" }}
                                 >
                                     <LayoutGrid className="h-3.5 w-3.5" /> Agenda
@@ -932,7 +928,7 @@ export default function HojaRegistros() {
                                 <button
                                     type="button"
                                     onClick={() => setViewMode("tabla")}
-                                    className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors"
+                                    className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-bold transition-colors"
                                     style={viewMode === "tabla" ? { background: "#fff", color: COLOR.brand } : { color: "rgba(255,255,255,0.74)" }}
                                 >
                                     <Table2 className="h-3.5 w-3.5" /> Tabla
@@ -941,7 +937,7 @@ export default function HojaRegistros() {
                         </div>
 
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                            <div className="flex items-center overflow-hidden rounded-full border border-white/15 bg-white/10">
+                            <div className="flex items-center overflow-hidden rounded-lg border border-white/15 bg-white/10">
                                 <button
                                     type="button"
                                     onClick={() => changeDate(-1)}
@@ -967,7 +963,7 @@ export default function HojaRegistros() {
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2">
+                            <div className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-3 py-2">
                                 <Calendar className="h-3.5 w-3.5 text-white/65" />
                                 <input
                                     type="date"
@@ -984,7 +980,7 @@ export default function HojaRegistros() {
                                         key={d}
                                         type="button"
                                         onClick={() => setAgenciaSeleccionada(d)}
-                                        className="rounded-full px-3.5 py-2 text-[12px] font-bold transition-colors"
+                                        className="rounded-lg px-3.5 py-2 text-[12px] font-bold transition-colors"
                                         style={
                                             agenciaSeleccionada === d
                                                 ? { background: "#fff", color: COLOR.brand }
@@ -1006,7 +1002,7 @@ export default function HojaRegistros() {
                         { label: "Asistencias", value: metricasDia.asistencias, hint: "registradas" },
                         { label: "Clientes únicos", value: metricasDia.clientes, hint: "por teléfono" },
                     ].map((item) => (
-                        <div key={item.label} className="rounded-[22px] border border-white/10 bg-white/10 px-4 py-3 text-white backdrop-blur">
+                        <div key={item.label} className="rounded-lg border border-white/10 bg-white/10 px-4 py-3 text-white backdrop-blur">
                             <div className="text-[10px] font-bold uppercase tracking-[0.19em] text-white/52">{item.label}</div>
                             <div className="mt-2 text-[30px] font-semibold leading-none tabular-nums">{item.value}</div>
                             <div className="mt-1 text-[11px] font-semibold text-white/58">{item.hint}</div>
@@ -1017,11 +1013,11 @@ export default function HojaRegistros() {
 
             {/* Filtros — solo vista tabla */}
             {viewMode === "tabla" && (
-                <div className="mb-3 rounded-[24px] border p-3" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
+                <div className="mb-3 rounded-lg border p-3" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
                     <div className="grid gap-3 md:grid-cols-12">
                         <div className="md:col-span-5">
                             <FilterBlock label="Búsqueda">
-                                <div className="flex items-center gap-2 rounded-2xl border px-3 py-2" style={{ borderColor: COLOR.line }}>
+                                <div className="flex items-center gap-2 rounded-lg border px-3 py-2" style={{ borderColor: COLOR.line }}>
                                     <Search className="h-3.5 w-3.5" style={{ color: COLOR.inkFaint }} />
                                     <input
                                         value={filters.q}
@@ -1044,7 +1040,7 @@ export default function HojaRegistros() {
                                 <select
                                     value={filters.agencia}
                                     onChange={(event) => setFilters((prev) => ({ ...prev, agencia: event.target.value }))}
-                                    className="w-full rounded-2xl border px-3 py-2 text-[13px] font-medium outline-none"
+                                    className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
                                     style={{ borderColor: COLOR.line, color: COLOR.ink }}
                                 >
                                     {dealers.map((dealer) => (
@@ -1060,7 +1056,7 @@ export default function HojaRegistros() {
                                     type="date"
                                     value={filters.desde}
                                     onChange={(event) => setFilters((prev) => ({ ...prev, desde: event.target.value }))}
-                                    className="w-full rounded-2xl border px-3 py-2 text-[13px] font-medium outline-none"
+                                    className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
                                     style={{ borderColor: COLOR.line, color: COLOR.ink }}
                                 />
                             </FilterBlock>
@@ -1072,7 +1068,7 @@ export default function HojaRegistros() {
                                     type="date"
                                     value={filters.hasta}
                                     onChange={(event) => setFilters((prev) => ({ ...prev, hasta: event.target.value }))}
-                                    className="w-full rounded-2xl border px-3 py-2 text-[13px] font-medium outline-none"
+                                    className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
                                     style={{ borderColor: COLOR.line, color: COLOR.ink }}
                                 />
                             </FilterBlock>
@@ -1085,7 +1081,7 @@ export default function HojaRegistros() {
                                         type="button"
                                         onClick={setHoy}
                                         title="Filtrar por hoy"
-                                        className="flex-1 rounded-md py-2 text-[11px] font-semibold"
+                                        className="flex-1 rounded-lg py-2 text-[11px] font-semibold"
                                         style={{ background: COLOR.brandSoft, color: COLOR.brand }}
                                     >
                                         Hoy
@@ -1094,7 +1090,7 @@ export default function HojaRegistros() {
                                         type="button"
                                         onClick={resetFilters}
                                         title="Limpiar filtros"
-                                        className="flex-1 rounded-2xl border py-2 text-[11px] font-semibold"
+                                        className="flex-1 rounded-lg border py-2 text-[11px] font-semibold"
                                         style={{ borderColor: COLOR.line, color: COLOR.inkSoft }}
                                     >
                                         Limpiar
@@ -1115,7 +1111,7 @@ export default function HojaRegistros() {
             {viewMode === "tabla" ? (
                 <>
                     {/* TABLA DESKTOP */}
-                    <div className="hidden overflow-hidden rounded-[24px] border lg:block" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
+                    <div className="hidden overflow-hidden rounded-lg border lg:block" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
                         <div className="w-full overflow-x-auto">
                             <table className="min-w-[1500px] w-full text-left text-[13px]">
                                 <thead className="sticky top-0 z-10" style={{ background: COLOR.brand }}>

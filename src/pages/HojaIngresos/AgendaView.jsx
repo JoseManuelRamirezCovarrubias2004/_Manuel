@@ -46,8 +46,6 @@ const COLOR = {
   tealSoft: "#E0F4F5",
 };
 
-const FONT_DISPLAY = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-
 const ASESOR_PALETTE = [
   { bg: "#E8F0FA", line: "#BFD0E7", dot: "#001E50", text: "#001E50" },
   { bg: "#E0F4F5", line: "#B9E0E3", dot: "#087780", text: "#075D65" },
@@ -397,12 +395,10 @@ function CitaCard({ cita, onClick, compact = false }) {
 function EmptySlot({ onClick, slot }) {
   return (
     <div
-      className="group relative h-full w-full overflow-hidden rounded-[22px] border border-dashed transition-all duration-150"
+      className="group relative h-full w-full overflow-hidden rounded-lg border border-dashed transition-all duration-150"
       style={{ borderColor: COLOR.line, background: "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(248,250,253,0.86))" }}
     >
       <div className="absolute inset-0 transition-opacity duration-150 group-hover:opacity-0">
-        <div className="absolute left-1/2 top-3 bottom-3 w-px -translate-x-1/2" style={{ background: COLOR.line }} />
-        <div className="absolute inset-x-4 top-1/2 h-px -translate-y-1/2" style={{ background: COLOR.line }} />
         <div className="flex h-full items-center justify-center">
           <span className="rounded-full border px-2.5 py-1 text-[10px] font-bold tabular-nums" style={{ borderColor: COLOR.line, color: COLOR.inkFaint, background: COLOR.surface }}>
             {slot}
@@ -523,7 +519,7 @@ export default function AgendaView({
   const gridTemplateRows = `${HEADER_H1}px ${HEADER_H2}px repeat(${Math.max(asesores.length, 1)}, ${ROW_HEIGHT}px)`;
 
   return (
-    <div className="w-full space-y-4" style={{ fontFamily: FONT_DISPLAY }}>
+    <div className="w-full space-y-4">
 
       {asesores.length === 0 ? (
         <div
@@ -537,7 +533,7 @@ export default function AgendaView({
         </div>
       ) : (
         <div
-          className="relative overflow-auto rounded-[28px] border"
+          className="relative overflow-auto rounded-lg border"
           style={{ background: COLOR.surface, borderColor: COLOR.line, maxHeight: 760, boxShadow: "0 18px 44px rgba(0, 30, 80, 0.08)" }}
         >
           <div
@@ -593,7 +589,7 @@ export default function AgendaView({
                     borderBottom: `1px solid ${COLOR.line}`,
                   }}
                 >
-                  {esMediaHora ? <span className="h-1.5 w-1.5 rounded-full" style={{ background: COLOR.lineStrong }} /> : slot}
+                  {esMediaHora ? <span className="h-1.5 w-1.5 rounded-lg" style={{ background: COLOR.lineStrong }} /> : slot}
                 </div>
               );
             })}
