@@ -96,6 +96,9 @@ import WhatsIndex from "./pages/EnvioWhats/EnvioIndex";
 import EncPiso from "./pages/Calidad/EncPiso";
 import ConfigIA from "./pages/IA/ConfigIA";
 
+import InventarioLayout from "./pages/Inventario/InventarioLayout";
+import InventarioIndex from "./pages/Inventario/InventarioIndex";
+
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
 function tienePermiso(permisos = [], permisosPermitidos = []) {
@@ -733,6 +736,7 @@ export const router = createBrowserRouter(
                                     index: true,
                                     element: <PostVentaIndexPorPermisos />,
                                 },
+                            
                                 {
                                     path: "pedidos_piezas",
                                     element: (
@@ -778,6 +782,16 @@ export const router = createBrowserRouter(
                                 },
                             ],
                         },
+
+                        {
+    path: "inventario",
+    element: (
+        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]}>
+            <InventarioLayout />
+        </RequirePermission>
+    ),
+    children: [{ index: true, element: <InventarioIndex /> }],
+},
 
                         {
                             path: "administrativos",

@@ -24,6 +24,7 @@ import {
     Lightbulb,
     Send,
     Sparkles,
+    LayoutList,
 } from "lucide-react";
 import vwWhite from "../assets/vw_white.png";
 import ryr from "../assets/ryr.png";
@@ -212,6 +213,13 @@ export default function Sidebar() {
                 label: "Postventa",
                 icon: ClipboardCheck,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
+            },
+            {
+                section: "Comercial",
+                to: "/inventario",
+                label: "Inventario",
+                icon: LayoutList,   // importar de lucide-react
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]),
             },
             {
                 section: "Comercial",
