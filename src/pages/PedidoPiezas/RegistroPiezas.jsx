@@ -472,10 +472,7 @@ function Modal({ open, title, onClose, children, footer }) {
     );
 }
 
-// =====================================================================
-// INDICADORES — dashboard de KPIs y gráficas, basado en datos reales
-// de los pedidos visibles (respeta los filtros activos en la tabla).
-// =====================================================================
+// INDICADORES 
 
 function diasEntre(fechaIso) {
     if (!fechaIso) return 0;
@@ -601,67 +598,94 @@ function IndicadoresPiezas({ pedidos = [] }) {
     }, [piezas]);
 
     // ---- Funnel: flujo real del inventario ----
-    useEcharts(
-        funnelRef,
-        () => {
-            if (totales.total === 0) return null;
-            const data = FUNNEL_ORDER.map((estatus) => ({
-                name: estatus,
-                value: totales[estatus] || 0,
-            }));
+useEcharts(
+    funnelRef,
+    () => {
+        if (totales.total === 0) return null;
 
-            return {
-                tooltip: {
-                    trigger: "item",
-                    formatter: (params) =>
-                        `<strong>${params.name}</strong><br/>${params.value} piezas`,
+        const items = [
+            { estatus: "En almacén", color: STATUS_COLORS["En almacén"], valor: totales["En almacén"] || 0 },
+            { estatus: "En camino",  color: STATUS_COLORS["En camino"],  valor: totales["En camino"]  || 0 },
+            { estatus: "Back Order", color: STATUS_COLORS["Back Order"], valor: totales["Back Order"] || 0 },
+            { estatus: "Entregadas", color: STATUS_COLORS["Entregadas"], valor: totales["Entregadas"] || 0 },
+        ].map((i) => ({
+            ...i,
+            pct: totales.total > 0 ? +((i.valor / totales.total) * 100).toFixed(1) : 0,
+        }));
+
+        const rings = [
+            { r1: "98%" },
+            { r1: "76%" },
+            { r1: "54%" },
+            { r1: "32%" },
+        ];
+
+        return {
+            tooltip: {
+                trigger: "item",
+                backgroundColor: "#0f172a",
+                borderColor: "transparent",
+                textStyle: { color: "#f1f5f9", fontSize: 13 },
+                formatter: (p) => {
+                    const item = items.find((i) => i.estatus === p.seriesName);
+                    if (!item) return "";
+                    return `
+                        <div style="font-weight:800;color:${item.color};margin-bottom:6px">${item.estatus}</div>
+                        <div style="display:flex;justify-content:space-between;gap:24px">
+                            <span style="color:#94a3b8">Piezas</span>
+                            <span style="font-weight:800">${item.valor}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;gap:24px">
+                            <span style="color:#94a3b8">Del total</span>
+                            <span style="font-weight:800">${item.pct}%</span>
+                        </div>
+                    `;
                 },
-                series: [
-                    {
-                        type: "funnel",
-                        left: "6%",
-                        right: "6%",
-                        top: 10,
-                        bottom: 10,
-                        width: "88%",
-                        minSize: "30%",
-                        maxSize: "100%",
-                        sort: "none",
-                        gap: 6,
-                        label: {
-                            show: true,
-                            position: "inside",
-                            formatter: (p) => `${p.name}\n${p.value}`,
-                            color: "#fff",
-                            fontWeight: 700,
-                            fontSize: 12,
-                            lineHeight: 16,
-                        },
-                        itemStyle: {
-                            borderColor: "#fff",
-                            borderWidth: 2,
-                        },
-                        emphasis: {
-                            itemStyle: {
-                                shadowBlur: 18,
-                                shadowColor: "rgba(19,30,92,0.35)",
-                            },
-                        },
-                        data: data.map((d) => ({
-                            ...d,
-                            itemStyle: { color: STATUS_COLORS[d.name] },
-                        })),
-                        animationType: "expansion",
-                        animationEasing: "elasticOut",
-                        animationDuration: 900,
+            },
+        
+            series: items.map((item, idx) => ({
+                name: item.estatus,
+                type: "gauge",
+                radius: rings[idx].r1,
+                startAngle: 200,
+                endAngle: -20,
+                min: 0,
+                max: 100,
+                center: ["50%", "55%"],
+                pointer: { show: false },
+                progress: {
+                    show: true,
+                    overlap: false,
+                    width: 18,
+                    itemStyle: {
+                        color: item.color,
+                        shadowBlur: 8,
+                        shadowColor: item.color + "55",
                     },
-                ],
-            };
-        },
-        [totales]
-    );
+                },
+                axisLine: {
+                    lineStyle: {
+                        width: 18,
+                        color: [[1, "#f1f5f9"]],
+                    },
+                },
+                axisTick: { show: false },
+                splitLine: { show: false },
+                axisLabel: { show: false },
+                title: { show: false }, 
+                // Sin detail, sin texto en el centro
+                detail: { show: false },
+                data: [{ value: item.pct, name: item.estatus }],
+                animationEasing: "cubicOut",
+                animationDuration: 1400,
+                animationDelay: idx * 250,
+            })),
+        };
+    },
+    [totales]
+);
 
-    // ---- Donut "vivo": distribución de estatus con hover que respira ----
+    // Donut 
     useEcharts(
         donutRef,
         () => {
@@ -736,122 +760,215 @@ function IndicadoresPiezas({ pedidos = [] }) {
     );
 
     // ---- Antigüedad de pendientes: qué piezas urge perseguir ----
-    useEcharts(
-        agingRef,
-        () => {
-            if (piezasAntiguas.length === 0) return null;
-            const ordered = [...piezasAntiguas].reverse();
+useEcharts(
+    agingRef,
+    () => {
+        if (piezasAntiguas.length === 0) return null;
 
-            return {
-                grid: { left: 10, right: 30, top: 10, bottom: 10, containLabel: true },
-                tooltip: {
-                    trigger: "item",
-                    formatter: (p) => {
-                        const item = ordered[p.dataIndex];
-                        return `<strong>${item.numeroParte}</strong><br/>${item.descripcion}<br/>Pedido ${item.numeroPedido} · ${item.dealer}<br/><strong>${item.dias} días</strong> sin llegar`;
-                    },
+        const ordered = [...piezasAntiguas].reverse();
+        const maxDias = Math.max(...ordered.map((p) => p.dias), 1);
+        const axisMax = Math.ceil(maxDias * 1.18);
+
+        const getColor = (dias) =>
+            dias > 15 ? "#f43f5e" : dias > 7 ? "#f59e0b" : "#0ea5e9";
+
+        return {
+            grid: { left: 10, right: 56, top: 8, bottom: 8, containLabel: true },
+            tooltip: {
+                trigger: "item",
+                backgroundColor: "#0f172a",
+                borderColor: "transparent",
+                textStyle: { color: "#f1f5f9", fontSize: 12 },
+                formatter: (p) => {
+                    const item = ordered[p.dataIndex];
+                    const urgencia = item.dias > 15 ? "🔴 URGENTE" : item.dias > 7 ? "🟡 Atención" : "🔵 Normal";
+                    return `
+                        <div style="font-weight:800;margin-bottom:4px">${item.numeroParte}</div>
+                        <div style="color:#94a3b8;font-size:11px;margin-bottom:6px">${item.descripcion}</div>
+                        <div style="color:#94a3b8">Pedido <strong style="color:#f1f5f9">${item.numeroPedido}</strong> · ${item.dealer}</div>
+                        <div style="margin-top:6px">${urgencia} — <strong style="color:${getColor(item.dias)}">${item.dias}d</strong></div>
+                    `;
                 },
-                xAxis: {
-                    type: "value",
-                    name: "días",
-                    axisLine: { show: false },
-                    splitLine: { lineStyle: { color: "#f1f5f9" } },
-                    axisLabel: { color: "#94a3b8", fontSize: 11 },
-                },
-                yAxis: {
-                    type: "category",
-                    data: ordered.map((p) => p.numeroParte),
-                    axisLine: { show: false },
-                    axisTick: { show: false },
-                    axisLabel: { color: "#334155", fontWeight: 600, fontSize: 11 },
-                },
-                series: [
-                    {
-                        type: "bar",
-                        data: ordered.map((p) => ({
-                            value: p.dias,
-                            itemStyle: {
-                                color:
-                                    p.dias > 15
-                                        ? "#f43f5e"
-                                        : p.dias > 7
-                                        ? "#f59e0b"
-                                        : "#0ea5e9",
-                                borderRadius: [0, 8, 8, 0],
-                            },
-                        })),
-                        barWidth: 16,
-                        label: {
-                            show: true,
-                            position: "right",
-                            formatter: "{c}d",
-                            fontWeight: 700,
-                            color: "#475569",
-                            fontSize: 11,
+            },
+            xAxis: {
+                type: "value",
+                max: axisMax,
+                axisLine: { show: false },
+                axisTick: { show: false },
+                splitLine: { lineStyle: { color: "#f1f5f9", type: "dashed" } },
+                axisLabel: { color: "#94a3b8", fontSize: 10 },
+            },
+            yAxis: {
+                type: "category",
+                data: ordered.map((p) => p.numeroParte),
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: { color: "#334155", fontWeight: 700, fontSize: 11 },
+            },
+            series: [
+                {
+                    type: "bar",
+                    data: ordered.map((p) => ({
+                        value: p.dias,
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                { offset: 0, color: getColor(p.dias) + "55" },
+                                { offset: 1, color: getColor(p.dias) },
+                            ]),
+                            borderRadius: [0, 8, 8, 0],
                         },
-                        animationDelay: (idx) => idx * 60,
+                    })),
+                    barWidth: 14,
+                    label: {
+                        show: true,
+                        position: "right",
+                        formatter: (p) => `${p.value}d`,
+                        fontWeight: 800,
+                        fontSize: 11,
+                        color: "#475569",
                     },
-                ],
-                animationEasing: "cubicOut",
-            };
-        },
-        [piezasAntiguas]
-    );
-
+                    markArea: {
+                        silent: true,
+                        label: { show: false }, 
+                        data: [
+                            [
+                                { xAxis: 0,  itemStyle: { color: "rgba(14,165,233,0.06)"  } },
+                                { xAxis: 7  },
+                            ],
+                            [
+                                { xAxis: 7,  itemStyle: { color: "rgba(245,158,11,0.06)" } },
+                                { xAxis: 15 },
+                            ],
+                            [
+                                { xAxis: 15, itemStyle: { color: "rgba(244,63,94,0.06)"  } },
+                                { xAxis: axisMax },
+                            ],
+                        ],
+                    },
+                    animationEasing: "cubicOut",
+                    animationDuration: 1000,
+                    animationDelay: (idx) => idx * 80,
+                },
+            ],
+        };
+    },
+    [piezasAntiguas]
+);
     // ---- Pendientes por dealer ----
-    useEcharts(
-        dealerRef,
-        () => {
-            if (porDealer.length === 0) return null;
+useEcharts(
+    dealerRef,
+    () => {
+        if (porDealer.length === 0) return null;
 
-            return {
-                grid: { left: 10, right: 20, top: 30, bottom: 10, containLabel: true },
-                tooltip: {
-                    trigger: "axis",
-                    axisPointer: { type: "shadow" },
-                    formatter: (params) =>
-                        `<strong>${params[0].name}</strong><br/>${params[0].value} piezas pendientes`,
+        const total = porDealer.reduce((a, d) => a + d.cantidad, 0);
+        const maxVal = Math.max(...porDealer.map((d) => d.cantidad), 1);
+
+        const palette = [BRAND_BLUE, "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa"];
+
+        return {
+            tooltip: {
+                trigger: "axis",
+                axisPointer: { type: "shadow" },
+                backgroundColor: "#0f172a",
+                borderColor: "transparent",
+                textStyle: { color: "#f1f5f9", fontSize: 13 },
+                formatter: (params) => {
+                    const p = params[0];
+                    const pct = total > 0 ? ((p.value / total) * 100).toFixed(1) : "0";
+                    return `
+                        <div style="font-weight:800;font-size:14px;margin-bottom:6px">${p.name}</div>
+                        <div style="display:flex;justify-content:space-between;gap:20px">
+                            <span style="color:#94a3b8">Piezas pendientes</span>
+                            <span style="font-weight:800;color:#60a5fa">${p.value}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;gap:20px">
+                            <span style="color:#94a3b8">Del total pendiente</span>
+                            <span style="font-weight:800">${pct}%</span>
+                        </div>
+                    `;
                 },
-                xAxis: {
-                    type: "category",
-                    data: porDealer.map((d) => d.dealer.replace("VW ", "")),
-                    axisLine: { lineStyle: { color: "#e2e8f0" } },
-                    axisTick: { show: false },
-                    axisLabel: { color: "#334155", fontWeight: 600, fontSize: 11 },
+            },
+            grid: { left: 10, right: 10, top: 16, bottom: 10, containLabel: true },
+            xAxis: {
+                type: "category",
+                data: porDealer.map((d) => d.dealer.replace("VW ", "")),
+                axisLine: { lineStyle: { color: "#e2e8f0" } },
+                axisTick: { show: false },
+                axisLabel: { color: "#334155", fontWeight: 700, fontSize: 11, interval: 0 },
+            },
+            yAxis: {
+                type: "value",
+                max: Math.ceil(maxVal * 1.25),
+                splitLine: { lineStyle: { color: "#f1f5f9", type: "dashed" } },
+                axisLabel: { color: "#94a3b8", fontSize: 10 },
+            },
+            series: [
+            
+                {
+                    type: "bar",
+                    data: porDealer.map(() => Math.ceil(maxVal * 1.25)),
+                    barWidth: "55%",
+                    itemStyle: { color: "#f1f5f9", borderRadius: [8, 8, 0, 0] },
+                    silent: true,
+                    animation: false,
+                    z: 1,
                 },
-                yAxis: {
-                    type: "value",
-                    splitLine: { lineStyle: { color: "#f1f5f9" } },
-                    axisLabel: { color: "#94a3b8", fontSize: 11 },
-                },
-                series: [
-                    {
-                        type: "bar",
-                        data: porDealer.map((d) => d.cantidad),
-                        barWidth: "46%",
+               
+                {
+                    type: "bar",
+                    data: porDealer.map((d, idx) => ({
+                        value: d.cantidad,
                         itemStyle: {
                             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                { offset: 0, color: BRAND_BLUE },
-                                { offset: 1, color: "#3346b3" },
+                                { offset: 0, color: palette[idx % palette.length] },
+                                { offset: 1, color: palette[idx % palette.length] + "99" },
                             ]),
                             borderRadius: [8, 8, 0, 0],
+                            shadowBlur: 8,
+                            shadowColor: palette[idx % palette.length] + "44",
+                            shadowOffsetY: -4,
                         },
-                        label: {
-                            show: true,
-                            position: "top",
-                            fontWeight: 700,
-                            color: BRAND_BLUE,
-                            fontSize: 12,
+                    })),
+                    barWidth: "55%",
+                    barGap: "-100%",
+                    label: {
+                        show: true,
+                        position: "top",
+                        formatter: (p) => {
+                            const pct = total > 0 ? ((p.value / total) * 100).toFixed(0) : "0";
+                            return `{val|${p.value}}\n{pct|${pct}%}`;
                         },
-                        animationDelay: (idx) => idx * 80,
+                        rich: {
+                            val: {
+                                fontSize: 14,
+                                fontWeight: 800,
+                                color: BRAND_BLUE,
+                                lineHeight: 20,
+                            },
+                            pct: {
+                                fontSize: 10,
+                                fontWeight: 600,
+                                color: "#94a3b8",
+                                lineHeight: 14,
+                            },
+                        },
                     },
-                ],
-                animationEasing: "elasticOut",
-            };
-        },
-        [porDealer]
-    );
-
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 20,
+                            shadowColor: `${BRAND_BLUE}55`,
+                        },
+                    },
+                    animationEasing: "elasticOut",
+                    animationDuration: 1200,
+                    animationDelay: (idx) => idx * 120,
+                    z: 2,
+                },
+            ],
+        };
+    },
+    [porDealer]
+);
     return (
         <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -890,6 +1007,35 @@ function IndicadoresPiezas({ pedidos = [] }) {
                         De pedido a entrega, dónde está el inventario hoy
                     </div>
                     <div ref={funnelRef} style={{ width: "100%", height: 260 }} />
+
+{/* Leyenda manual debajo, sin interferir con el chart */}
+<div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+    {[
+        { estatus: "En almacén", color: STATUS_COLORS["En almacén"] },
+        { estatus: "En camino",  color: STATUS_COLORS["En camino"]  },
+        { estatus: "Back Order", color: STATUS_COLORS["Back Order"] },
+        { estatus: "Entregadas", color: STATUS_COLORS["Entregadas"] },
+    ].map(({ estatus, color }) => {
+        const valor = totales[estatus] || 0;
+        const pct = totales.total > 0
+            ? ((valor / totales.total) * 100).toFixed(1)
+            : "0.0";
+        return (
+            <div key={estatus} className="flex items-center gap-2">
+                <div
+                    className="h-3 w-3 flex-shrink-0 rounded-full"
+                    style={{ backgroundColor: color }}
+                />
+                <span className="text-xs font-bold text-slate-600">
+                    {estatus}
+                </span>
+                <span className="ml-auto text-xs font-extrabold" style={{ color }}>
+                    {pct}% <span className="font-semibold text-slate-400">({valor})</span>
+                </span>
+            </div>
+        );
+    })}
+</div>
                 </div>
 
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
@@ -917,12 +1063,9 @@ function IndicadoresPiezas({ pedidos = [] }) {
                         </div>
                     ) : (
                         <div
-                            ref={agingRef}
-                            style={{
-                                width: "100%",
-                                height: Math.max(220, piezasAntiguas.length * 34),
-                            }}
-                        />
+    ref={agingRef}
+    style={{ width: "100%", height: 260 }}
+/>
                     )}
                 </div>
 
@@ -946,10 +1089,7 @@ function IndicadoresPiezas({ pedidos = [] }) {
     );
 }
 
-// =====================================================================
 // COMPONENTE PRINCIPAL
-// =====================================================================
-
 export default function AdministradorPedidosPiezas() {
     const [pedidos, setPedidos] = useState([]);
     const [loading, setLoading] = useState(true);
