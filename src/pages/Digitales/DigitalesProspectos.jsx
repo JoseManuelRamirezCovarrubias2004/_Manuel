@@ -1760,6 +1760,11 @@ export default function DigitalesProspectos() {
                 uso_vehiculo: draft.uso_vehiculo || "",
                 plazo_compra: draft.plazo_compra || "",
                 comprobacion_ingresos: draft.comprobacion_ingresos || "",
+                id_cotizacion: draft.id_cotizacion || "",
+                folio_solicitud_credito: draft.folio_solicitud_credito || "",
+                solicitud_credito_estado: draft.solicitud_credito_estado || "",
+                vin_facturado: draft.vin_facturado || "",
+                vin_estatus_entrega: draft.vin_estatus_entrega || "",
             };
             if (mode === "create") { payload.primer_contacto_at = draft.primer_contacto_at || null; payload.ultimo_contacto_at = draft.ultimo_contacto_at || null; await api.digitalesCreateProspecto(payload); }
             else { await api.digitalesUpdateProspecto(draft.id_exp, payload); }
@@ -2747,8 +2752,8 @@ export default function DigitalesProspectos() {
                                             type="number"
                                             min="0"
                                             inputMode="numeric"
-                                            value={draft.enganche_monto || ""}
-                                            onChange={e => setDraft(p => ({ ...p, enganche_monto: e.target.value.replace(/\D/g, "") }))}
+                                            value={draft.id_cotizacion || ""}
+                                            onChange={e => setDraft(p => ({ ...p, id_cotizacion: e.target.value }))}
                                             className={cls(inputBase, inputOk)}
                                             placeholder="Ej. 80000"
                                         />
@@ -2759,18 +2764,28 @@ export default function DigitalesProspectos() {
                                             type="number"
                                             min="0"
                                             inputMode="numeric"
-                                            value={draft.enganche_monto || ""}
-                                            onChange={e => setDraft(p => ({ ...p, enganche_monto: e.target.value.replace(/\D/g, "") }))}
+                                            // Folio Solicitud Crédito
+                                            value={draft.folio_solicitud_credito || ""}
+                                            onChange={e => setDraft(p => ({ ...p, folio_solicitud_credito: e.target.value }))}
                                             className={cls(inputBase, inputOk)}
                                             placeholder="Ej. 80000"
                                         />
-                                        <select value={draft.buro_estado || ""} onChange={e => setDraft(p => ({ ...p, buro_estado: e.target.value }))} className={cls(inputBase, inputOk)}>
-                                            {SOLICITUD_CREDITO.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+                                        <select
+                                            value={draft.solicitud_credito_estado || ""}
+                                            onChange={e => setDraft(p => ({ ...p, solicitud_credito_estado: e.target.value }))}
+                                            className={cls(inputBase, inputOk)}
+                                        >
+                                            {SOLICITUD_CREDITO.map(item => (
+                                                <option key={item.value} value={item.value}>{item.label}</option>
+                                            ))}
                                         </select>
                                     </div>
                                     <div>
                                         <div className="mb-1 text-sm font-bold text-[#131E5C]">VIN Facturado</div>
-                                        <input value={draft.comprobacion_ingresos || ""} onChange={e => setDraft(p => ({ ...p, comprobacion_ingresos: e.target.value }))} className={cls(inputBase, inputOk)} placeholder="A8XAS8FSF8FG2EU" />
+                                        <input
+                                            value={draft.vin_facturado || ""}
+                                            onChange={e => setDraft(p => ({ ...p, vin_facturado: e.target.value.toUpperCase() }))}
+                                            className={cls(inputBase, inputOk)} placeholder="A8XAS8FSF8FG2EU" />
                                     </div>
                                     <div>
                                         <div className="mb-1 text-sm font-bold text-[#131E5C]">
@@ -2782,8 +2797,8 @@ export default function DigitalesProspectos() {
                                             onClick={() =>
                                                 setDraft((p) => ({
                                                     ...p,
-                                                    comprobacion_ingresos:
-                                                        p.comprobacion_ingresos === "entregado"
+                                                    vin_estatus_entrega:
+                                                        p.vin_estatus_entrega === "entregado"
                                                             ? "cancelado"
                                                             : "entregado",
                                                 }))
