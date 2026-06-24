@@ -2,12 +2,7 @@
 import { useEffect, useRef } from "react";
 import * as echarts from "echarts";
 
-/**
- * Hook genérico para montar una instancia de ECharts en un <div>.
- * Se encarga de inicializar, actualizar con setOption cuando cambia `option`,
- * resize en cambios de tamaño de ventana, y dispose al desmontar.
- */
-export function useECharts(option, { loading = false } = {}) {
+export function useECharts(option, { loading = false, onEvents } = {}) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
 
@@ -43,6 +38,22 @@ export function useECharts(option, { loading = false } = {}) {
       }
     }
   }, [option, loading]);
+
+  // ── Eventos interactivos ──────────────────────────────────────────────────
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || !onEvents) return;
+
+    Object.entries(onEvents).forEach(([evento, fn]) => {
+      chart.on(evento, fn);
+    });
+
+    return () => {
+      Object.entries(onEvents).forEach(([evento, fn]) => {
+        chart.off(evento, fn);
+      });
+    };
+  }, [onEvents]);
 
   useEffect(() => {
     return () => {

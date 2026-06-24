@@ -92,4 +92,14 @@ export const apiInventario = {
     const rows = Array.isArray(data?.data) ? data.data : [];
     return rows.map(normalizeNacionalImportadoItem);
   },
+  async getCosto(filtros) {
+    const data = await http(`${API_BASE}/costo/${buildQuery(filtros)}`);
+    return typeof data?.costo_total === "number" ? data.costo_total : 0;
+  },
+
+  async getAntiguedad(filtros) {
+    const data = await http(`${API_BASE}/antiguedad/${buildQuery(filtros)}`);
+    return Array.isArray(data?.data) ? data.data : [];
+  },
+
 };
