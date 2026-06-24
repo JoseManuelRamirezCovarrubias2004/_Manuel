@@ -139,25 +139,7 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
     filtDiasMin,
     filtDiasMax
   ]);
-  const filtrados = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return vehiculos.filter((v) => {
-      if (familiaFiltro && (v.NmFamilia || "").toLowerCase() !== familiaFiltro.toLowerCase()) return false;
-      if (filtAgencia   && v.agenciaNombre !== filtAgencia)   return false;
-      if (filtEstatus   && v.estatusNombre !== filtEstatus)   return false;
-      if (filtCondicion) {
-        const cond = ({ N: "Nuevo", U: "Usado" })[(v.CondUso || "").trim()];
-        if (cond !== filtCondicion) return false;
-      }
-      if (filtFamilia && (v.NmFamilia || "") !== filtFamilia) return false;
-      if (filtDiasMin !== "" && (v.diasEnStock ?? 0) < Number(filtDiasMin)) return false;
-      if (filtDiasMax !== "" && (v.diasEnStock ?? 0) > Number(filtDiasMax)) return false;
-      if (q) return [v.NmFamilia, v.NmMarca, v.EdiModelo, v.agenciaNombre, v.estatusNombre, v.SitVeiculo, v.NrChassi]
-        .some((c) => (c || "").toLowerCase().includes(q));
-      return true;
-    });
-  }, [vehiculos, query, familiaFiltro, filtAgencia, filtEstatus, filtCondicion, filtFamilia, filtDiasMin, filtDiasMax]);
-
+ 
   useEffect(() => { setPagina(1); }, [query, vehiculos, filtAgencia, filtEstatus, filtCondicion, filtFamilia, filtDiasMin, filtDiasMax]);
 
   const totalPaginas = Math.ceil(filtrados.length / POR_PAGINA);
