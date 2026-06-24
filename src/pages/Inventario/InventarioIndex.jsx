@@ -84,46 +84,114 @@ function Badge({ label, color }) {
 }
 
 function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFamilia }) {
-  const [query,  setQuery]  = useState("");
-  const [pagina, setPagina] = useState(1);
+  const [query,    setQuery]    = useState("");
+  const [pagina,   setPagina]   = useState(1);
+  const [filtAgencia,   setFiltAgencia]   = useState("");
+  const [filtEstatus,   setFiltEstatus]   = useState("");
+  const [filtCondicion, setFiltCondicion] = useState("");
+  const [filtFamilia,   setFiltFamilia]   = useState("");
+  const [filtDiasMin,   setFiltDiasMin]   = useState("");
+  const [filtDiasMax,   setFiltDiasMax]   = useState("");
   const POR_PAGINA = 12;
+  // Opciones dinámicas desde los datos
+  const agencias   = useMemo(() => [...new Set(vehiculos.map((v) => v.agenciaNombre).filter(Boolean))].sort(), [vehiculos]);
+  const estatuses  = useMemo(() => [...new Set(vehiculos.map((v) => v.estatusNombre).filter(Boolean))].sort(), [vehiculos]);
+  const familias   = useMemo(() => [...new Set(vehiculos.map((v) => v.NmFamilia).filter(Boolean))].sort(), [vehiculos]);
 
   const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let base = vehiculos;
-    if (familiaFiltro) {
-      base = base.filter((v) => (v.NmFamilia || "").toLowerCase() === familiaFiltro.toLowerCase());
-    }
-    if (!q) return base;
-    return base.filter((v) =>
-      [v.NmFamilia, v.NmMarca, v.EdiModelo, v.agenciaNombre, v.estatusNombre, v.SitVeiculo, v.NrChassi]
-        .some((c) => (c || "").toLowerCase().includes(q))
-    );
-  }, [vehiculos, query, familiaFiltro]);
+    return vehiculos.filter((v) => {
+      if (familiaFiltro && (v.NmFamilia || "").toLowerCase() !== familiaFiltro.toLowerCase()) return false;
+      if (filtAgencia && v.agenciaNombre !== filtAgencia) return false;
+      if (filtEstatus && v.estatusNombre !== filtEstatus) return false;
 
-  useEffect(() => { setPagina(1); }, [query, vehiculos]);
+      if (filtCondicion) {
+        const cond = ({ N: "Nuevo", U: "Usado" })[(v.CondUso || "").trim()];
+        if (cond !== filtCondicion) return false;
+      }
+
+      if (filtFamilia && (v.NmFamilia || "") !== filtFamilia) return false;
+      if (filtDiasMin !== "" && (v.diasEnStock ?? 0) < Number(filtDiasMin)) return false;
+      if (filtDiasMax !== "" && (v.diasEnStock ?? 0) > Number(filtDiasMax)) return false;
+
+      if (q) {
+        return [
+          v.NmFamilia,
+          v.NmMarca,
+          v.EdiModelo,
+          v.agenciaNombre,
+          v.estatusNombre,
+          v.SitVeiculo,
+          v.NrChassi
+        ].some((c) => (c || "").toLowerCase().includes(q));
+      }
+
+      return true;
+    });
+  }, [
+    vehiculos,
+    query,
+    familiaFiltro,
+    filtAgencia,
+    filtEstatus,
+    filtCondicion,
+    filtFamilia,
+    filtDiasMin,
+    filtDiasMax
+  ]);
+  const filtrados = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return vehiculos.filter((v) => {
+      if (familiaFiltro && (v.NmFamilia || "").toLowerCase() !== familiaFiltro.toLowerCase()) return false;
+      if (filtAgencia   && v.agenciaNombre !== filtAgencia)   return false;
+      if (filtEstatus   && v.estatusNombre !== filtEstatus)   return false;
+      if (filtCondicion) {
+        const cond = ({ N: "Nuevo", U: "Usado" })[(v.CondUso || "").trim()];
+        if (cond !== filtCondicion) return false;
+      }
+      if (filtFamilia && (v.NmFamilia || "") !== filtFamilia) return false;
+      if (filtDiasMin !== "" && (v.diasEnStock ?? 0) < Number(filtDiasMin)) return false;
+      if (filtDiasMax !== "" && (v.diasEnStock ?? 0) > Number(filtDiasMax)) return false;
+      if (q) return [v.NmFamilia, v.NmMarca, v.EdiModelo, v.agenciaNombre, v.estatusNombre, v.SitVeiculo, v.NrChassi]
+        .some((c) => (c || "").toLowerCase().includes(q));
+      return true;
+    });
+  }, [vehiculos, query, familiaFiltro, filtAgencia, filtEstatus, filtCondicion, filtFamilia, filtDiasMin, filtDiasMax]);
+
+  useEffect(() => { setPagina(1); }, [query, vehiculos, filtAgencia, filtEstatus, filtCondicion, filtFamilia, filtDiasMin, filtDiasMax]);
 
   const totalPaginas = Math.ceil(filtrados.length / POR_PAGINA);
-  const paginados    = filtrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
-  const condLabel = (c) => ({ N: "Nuevo", U: "Usado" })[(c || "").trim()] ?? (c || "—");
+  const paginados    = filtrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);  const condLabel = (c) => ({ N: "Nuevo", U: "Usado" })[(c || "").trim()] ?? (c || "—");
   const totalCosto = filtrados.reduce((acc, v) => acc + (v.VrNF_Compra || 0), 0);
+
+  const hayFiltros = filtAgencia || filtEstatus || filtCondicion || filtFamilia || filtDiasMin || filtDiasMax;
+
+  const limpiarFiltros = () => {
+    setFiltAgencia("");
+    setFiltEstatus("");
+    setFiltCondicion("");
+    setFiltFamilia("");
+    setFiltDiasMin("");
+    setFiltDiasMax("");
+    setQuery("");
+  };
+
+  const selectCls = "text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40";
 
   return (
     <div>
+      {/* Barra de búsqueda */}
       <div className="relative mb-3">
         <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
         </svg>
-        <input
-          type="text" value={query}
-          onChange={(e) => setQuery(e.target.value)}
+        <input type="text" value={query} onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar por VIN, modelo, agencia…"
           className="w-full pl-8 pr-8 py-1.5 text-xs border border-slate-200 rounded-lg
                      text-slate-700 bg-slate-50 focus:outline-none focus:ring-2
-                     focus:ring-cyan-400/40 focus:bg-white"
-        />
+                     focus:ring-cyan-400/40 focus:bg-white" />
         {query && (
           <button onClick={() => setQuery("")}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
@@ -134,6 +202,49 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
         )}
       </div>
 
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-2 mb-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+        <select value={filtAgencia} onChange={(e) => setFiltAgencia(e.target.value)} className={selectCls}>
+          <option value="">Todas las agencias</option>
+          {agencias.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+
+        <select value={filtEstatus} onChange={(e) => setFiltEstatus(e.target.value)} className={selectCls}>
+          <option value="">Todos los estatus</option>
+          {estatuses.map((e) => <option key={e} value={e}>{e}</option>)}
+        </select>
+
+        <select value={filtCondicion} onChange={(e) => setFiltCondicion(e.target.value)} className={selectCls}>
+          <option value="">Nuevo y Usado</option>
+          <option value="Nuevo">Nuevo</option>
+          <option value="Usado">Usado</option>
+        </select>
+
+        <select value={filtFamilia} onChange={(e) => setFiltFamilia(e.target.value)} className={selectCls}>
+          <option value="">Todas las familias</option>
+          {familias.map((f) => <option key={f} value={f}>{f}</option>)}
+        </select>
+
+        <div className="flex items-center gap-1">
+          <input type="number" value={filtDiasMin} onChange={(e) => setFiltDiasMin(e.target.value)}
+            placeholder="Días min" min={0}
+            className={`${selectCls} w-24`} />
+          <span className="text-xs text-slate-400">—</span>
+          <input type="number" value={filtDiasMax} onChange={(e) => setFiltDiasMax(e.target.value)}
+            placeholder="Días max" min={0}
+            className={`${selectCls} w-24`} />
+        </div>
+
+        {hayFiltros && (
+          <button onClick={limpiarFiltros}
+            className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+            style={{ background: "#001E5012", color: "#001E50" }}>
+            Limpiar filtros
+          </button>
+        )}
+      </div>
+
+      {/* Badge familia filtro desde gráfica */}
       {familiaFiltro && (
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs text-slate-500">Filtrando por modelo:</span>
@@ -156,8 +267,7 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
         </p>
       )}
 
-      {error && <p className="text-sm text-red-500 text-center py-6">{error}</p>}
-
+      {error   && <p className="text-sm text-red-500 text-center py-6">{error}</p>}
       {cargando && (
         <div className="flex items-center justify-center py-10 gap-2 text-slate-400 text-sm">
           <svg className="animate-spin" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -166,7 +276,6 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
           Cargando…
         </div>
       )}
-
       {!cargando && !error && filtrados.length === 0 && (
         <p className="text-center text-xs text-slate-400 py-8">Sin resultados.</p>
       )}
@@ -259,7 +368,6 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
     </div>
   );
 }
-
 // ── Página principal ───────────────────────────────────────────────────────────
 
 export default function InventarioIndex() {
