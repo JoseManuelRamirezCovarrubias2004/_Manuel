@@ -108,16 +108,40 @@ export default function EncPiso() {
         setError("");
         try {
             const token = getToken();
-            const res = await fetch(`${BASE_URL}/api/encuestas/piso/`, {
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                credentials: "include",
+            const headers = {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            };
+
+            const [resEncuestas, resTrafico] = await Promise.all([
+                fetch(`${BASE_URL}/api/encuestas/piso/`, { headers, credentials: "include" }),
+                fetch(`${BASE_URL}/trafico-piso/api/trafico-piso/?limit=1000`, { headers, credentials: "include" }),
+            ]);
+
+            if (!resEncuestas.ok) throw new Error(`Error ${resEncuestas.status}`);
+
+            const dataEncuestas = await resEncuestas.json();
+            const dataTrafico = resTrafico.ok ? await resTrafico.json() : [];
+
+            const encuestas = Array.isArray(dataEncuestas) ? dataEncuestas : (dataEncuestas.results ?? []);
+            const trafico = Array.isArray(dataTrafico) ? dataTrafico : (dataTrafico.results ?? []);
+
+            const traficoMap = {};
+            for (const t of trafico) {
+                traficoMap[t.id_trafico] = t;
+            }
+
+            const enriquecidas = encuestas.map((enc) => {
+                const t = enc.id_trafico ? traficoMap[enc.id_trafico] : null;
+                return {
+                    ...enc,
+                    agencia: enc.agencia || t?.agencia || "—",
+                    nombre_cliente: enc.nombre_cliente || t?.nombre_prospecto || "—",
+                    asesor_atendio: enc.asesor_atendio || t?.asesor_ventas || "—",
+                };
             });
-            if (!res.ok) throw new Error(`Error ${res.status}`);
-            const data = await res.json();
-            setRegistros(Array.isArray(data) ? data : (data.results ?? []));
+
+            setRegistros(enriquecidas);
         } catch (e) {
             setError(e.message || "No se pudo cargar");
         } finally {
@@ -294,11 +318,11 @@ export default function EncPiso() {
                                 <th className="px-3 py-3 text-center"><SortBtn label="At. Asesor" sortKey="atencion_asesor" sort={sort} onClick={toggleSort} /></th>
                                 <th className="px-3 py-3 text-center"><SortBtn label="Experiencia" sortKey="experiencia" sort={sort} onClick={toggleSort} /></th>
                                 <th className="px-3 py-3 text-center whitespace-nowrap">💰 Financiamiento</th>
-<th className="px-3 py-3 text-center whitespace-nowrap">🏬 Área correcta</th>
-<th className="px-3 py-3 text-center whitespace-nowrap">🚗 Prueba manejo</th>
-<th className="px-3 py-3 text-center whitespace-nowrap">✅ Expectativas</th>
-<th className="px-3 py-3 text-center whitespace-nowrap">📞 Contacto post</th>
-<th className="px-3 py-3 text-center whitespace-nowrap">⏱️ Menos 48hrs</th>
+                                <th className="px-3 py-3 text-center whitespace-nowrap">🏬 Área correcta</th>
+                                <th className="px-3 py-3 text-center whitespace-nowrap">🚗 Prueba manejo</th>
+                                <th className="px-3 py-3 text-center whitespace-nowrap">✅ Expectativas</th>
+                                <th className="px-3 py-3 text-center whitespace-nowrap">📞 Contacto post</th>
+                                <th className="px-3 py-3 text-center whitespace-nowrap">⏱️ Menos 48hrs</th>
                                 <th className="px-3 py-3">Comentarios</th>
                             </tr>
                         </thead>
@@ -318,20 +342,20 @@ export default function EncPiso() {
                                             <td className="px-3 py-3">
                                                 <div className="font-extrabold text-[#131E5C] truncate max-w-[160px]">{r.nombre_cliente || "—"}</div>
                                                 <div className="text-xs text-slate-400">
-                                             {r.telefono ? `52 ${r.telefono}` : ""}
-                                            </div>
+                                                    {r.telefono ? `52 ${r.telefono}` : ""}
+                                                </div>
                                             </td>
                                             <td className="px-3 py-3 text-xs font-semibold text-slate-600 truncate max-w-[160px]">{r.asesor_atendio || "—"}</td>
                                             <td className="px-3 py-3 text-center"><StarDisplay value={r.atencion_llegada} /></td>
                                             <td className="px-3 py-3 text-center"><StarDisplay value={r.amenidades} /></td>
                                             <td className="px-3 py-3 text-center"><StarDisplay value={r.atencion_asesor} /></td>
                                             <td className="px-3 py-3 text-center"><StarDisplay value={r.experiencia} /></td>
-<td className="px-3 py-3 text-center"><BadgeOpcion valor={r.financiamiento} labels={FINANCIAMIENTO_LABELS} /></td>
-<td className="px-3 py-3 text-center"><BadgeOpcion valor={r.medio_contacto} labels={MEDIO_CONTACTO_LABELS} /></td>
-<td className="px-3 py-3 text-center"><BadgeOpcion valor={r.prueba_manejo} labels={PRUEBA_MANEJO_LABELS} /></td>
-<td className="px-3 py-3 text-center"><BadgeOpcion valor={r.recomendacion} labels={RECOMENDACION_LABELS} /></td>
-<td className="px-3 py-3 text-center"><BadgeOpcion valor={r.contacto_post} labels={SI_NO_LABELS} /></td>
-<td className="px-3 py-3 text-center"><BadgeOpcion valor={r.tiempo_contacto} labels={SI_NO_LABELS} /></td>                                           
+                                            <td className="px-3 py-3 text-center"><BadgeOpcion valor={r.financiamiento} labels={FINANCIAMIENTO_LABELS} /></td>
+                                            <td className="px-3 py-3 text-center"><BadgeOpcion valor={r.medio_contacto} labels={MEDIO_CONTACTO_LABELS} /></td>
+                                            <td className="px-3 py-3 text-center"><BadgeOpcion valor={r.prueba_manejo} labels={PRUEBA_MANEJO_LABELS} /></td>
+                                            <td className="px-3 py-3 text-center"><BadgeOpcion valor={r.recomendacion} labels={RECOMENDACION_LABELS} /></td>
+                                            <td className="px-3 py-3 text-center"><BadgeOpcion valor={r.contacto_post} labels={SI_NO_LABELS} /></td>
+                                            <td className="px-3 py-3 text-center"><BadgeOpcion valor={r.tiempo_contacto} labels={SI_NO_LABELS} /></td>
 
                                             <td className="px-3 py-3 text-xs text-slate-500 max-w-[200px]">
                                                 {r.comentarios?.trim()

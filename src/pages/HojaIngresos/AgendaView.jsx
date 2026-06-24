@@ -46,8 +46,8 @@ const CIERRE_DEFECTO = { hour: 16, minute: 0 };
 
 // Aquí controlas el ancho real de cada media hora.
 const ADVISOR_COL_WIDTH = 220;
-const SLOT_WIDTH = 150;
-const ROW_HEIGHT = 154;
+const SLOT_WIDTH = 220;
+const ROW_HEIGHT = 220;
 const HEADER_HEIGHT = 44;
 const MEXICO_TZ = "America/Mexico_City";
 
