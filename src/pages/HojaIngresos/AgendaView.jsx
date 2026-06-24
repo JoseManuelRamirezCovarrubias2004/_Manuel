@@ -114,18 +114,50 @@ function tipoServicioMeta(tipo) {
   const t = normalizar(tipo);
 
   if (t.includes("campa")) {
-    return { label: "Campaña", bg: COLOR.tealSoft, text: COLOR.teal, line: "#B9E0E3" };
+    return {
+      label: "Campaña",
+      bg: "#DDFCF7",
+      bgSoft: "#F2FFFD",
+      text: "#008A7A",
+      line: "#72E2D3",
+      accent: "#14B8A6",
+      shadow: "rgba(20, 184, 166, 0.18)",
+    };
   }
 
   if (t.includes("diagn")) {
-    return { label: "Diagnóstico", bg: COLOR.violetSoft, text: COLOR.violet, line: "#D2CDEF" };
+    return {
+      label: "Diagnóstico",
+      bg: "#F1E8FF",
+      bgSoft: "#FBF7FF",
+      text: "#6D28D9",
+      line: "#C7A9FF",
+      accent: "#7C3AED",
+      shadow: "rgba(124, 58, 237, 0.18)",
+    };
   }
 
   if (t.includes("repar")) {
-    return { label: "Reparación", bg: COLOR.warnSoft, text: COLOR.warn, line: "#EDD59E" };
+    return {
+      label: "Reparación",
+      bg: "#FFF0D9",
+      bgSoft: "#FFFAF2",
+      text: "#C26A00",
+      line: "#FFD08A",
+      accent: "#F59E0B",
+      shadow: "rgba(245, 158, 11, 0.18)",
+    };
   }
 
-  return { label: "Servicio", bg: COLOR.brandSoft, text: COLOR.brand, line: COLOR.brandLine };
+  return {
+    label: "Servicio",
+    bg: "#E8F2FF",
+    bgSoft: "#F6FAFF",
+    text: "#0057D9",
+    line: "#9BC7FF",
+    accent: "#2563EB",
+    shadow: "rgba(37, 99, 235, 0.18)",
+  };
 }
 
 function getTiposServicio(cita) {
@@ -339,27 +371,61 @@ function EstadoPill({ cita }) {
   const asistio = asistenciaFromAny(cita);
   const citado = citaCitada(cita);
 
-  if (asistio === true) {
-    return <span className="rounded-md px-2 py-1 text-[10px] font-bold" style={{ background: COLOR.okSoft, color: COLOR.ok }}>Asistió</span>;
-  }
+  let meta = {
+    label: "Pendiente",
+    bg: "#FFF4E5",
+    text: "#C26A00",
+    line: "#FFD08A",
+  };
 
-  if (asistio === false) {
-    return <span className="rounded-md px-2 py-1 text-[10px] font-bold" style={{ background: COLOR.dangerSoft, color: COLOR.danger }}>No asistió</span>;
+  if (asistio === true) {
+    meta = {
+      label: "Asistió",
+      bg: "#E7F8EF",
+      text: "#138A55",
+      line: "#9BE0BF",
+    };
+  } else if (asistio === false) {
+    meta = {
+      label: "No asistió",
+      bg: "#FEECEC",
+      text: "#D92D20",
+      line: "#FFB4AB",
+    };
+  } else if (citado) {
+    meta = {
+      label: "Confirmado",
+      bg: "#E8F2FF",
+      text: "#0057D9",
+      line: "#9BC7FF",
+    };
   }
 
   return (
-    <span className="rounded-md px-2 py-1 text-[10px] font-bold" style={citado ? { background: COLOR.brandSoft, color: COLOR.brand } : { background: COLOR.warnSoft, color: COLOR.warn }}>
-      {citado ? "Confirmado" : "Pendiente"}
+    <span
+      className="inline-flex items-center rounded-full border px-2 py-0.5 text-[9.5px] font-black"
+      style={{
+        background: meta.bg,
+        borderColor: meta.line,
+        color: meta.text,
+      }}
+    >
+      {meta.label}
     </span>
   );
 }
 
 function TipoBadge({ tipo }) {
   const meta = tipoServicioMeta(tipo);
+
   return (
     <span
-      className="inline-flex rounded-md border px-2 py-0.5 text-[9.5px] font-bold"
-      style={{ background: meta.bg, borderColor: meta.line, color: meta.text }}
+      className="inline-flex items-center rounded-full border px-2 py-0.5 text-[9.5px] font-black"
+      style={{
+        background: meta.bg,
+        borderColor: meta.line,
+        color: meta.text,
+      }}
     >
       {meta.label}
     </span>
@@ -368,19 +434,30 @@ function TipoBadge({ tipo }) {
 
 function AttendanceButton({ children, icon: Icon, active, disabled, onClick, tone }) {
   const palette = tone === "danger"
-    ? { bg: COLOR.dangerSoft, line: COLOR.dangerLine, text: COLOR.danger }
-    : { bg: COLOR.okSoft, line: COLOR.okLine, text: COLOR.ok };
+    ? {
+      bg: "#FEECEC",
+      bgActive: "#FFE1DE",
+      line: "#FFB4AB",
+      text: "#D92D20",
+    }
+    : {
+      bg: "#E7F8EF",
+      bgActive: "#D8F3E5",
+      line: "#9BE0BF",
+      text: "#138A55",
+    };
 
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex items-center justify-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60"
       style={{
-        background: active ? palette.bg : COLOR.surface,
-        borderColor: active ? palette.line : COLOR.line,
+        background: active ? palette.bgActive : "#FFFFFF",
+        borderColor: active ? palette.line : "#DDE5EF",
         color: active ? palette.text : COLOR.inkSoft,
+        boxShadow: active ? `0 6px 14px ${palette.line}55` : "none",
       }}
     >
       <Icon className="h-3 w-3" />
@@ -395,43 +472,94 @@ function CitaCard({ cita, compact = false, abrirEditar, onSetAsistencia, updatin
   const tipos = getTiposServicio(cita);
   const asistio = asistenciaFromAny(cita);
   const modelo = cita.modelo || "Modelo sin capturar";
-  const telefonoCorto = telefono ? telefono.replace(/(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3") : "Sin teléfono";
+  const telefonoCorto = telefono
+    ? telefono.replace(/(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3")
+    : "Sin teléfono";
+
   const loadingAsistencia = !!updatingInline[`${cita.id}-asistencia`];
   const metaPrincipal = tipoServicioMeta(tipos[0]);
 
+  const abrirConTeclado = (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      abrirEditar?.(cita);
+    }
+  };
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => abrirEditar?.(cita)}
-      title={`${cliente} · doble clic/clic para editar`}
-      className="group relative h-full w-full overflow-hidden rounded-[10px] border bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
-      style={{ borderColor: COLOR.line, boxShadow: "0 10px 22px rgba(0, 30, 80, 0.08)" }}
+      onKeyDown={abrirConTeclado}
+      title={`${cliente} · clic para editar`}
+      className="group relative h-full min-w-[174px] overflow-hidden rounded-[14px] border p-2.5 text-left transition duration-200 hover:-translate-y-[2px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#9BC7FF]"
+      style={{
+        background: `linear-gradient(180deg, #FFFFFF 0%, ${metaPrincipal.bgSoft} 100%)`,
+        borderColor: metaPrincipal.line,
+        boxShadow: `0 10px 24px ${metaPrincipal.shadow}`,
+      }}
     >
-      <span className="absolute bottom-0 left-0 top-0 w-[3px]" style={{ background: metaPrincipal.text }} />
+      <span
+        className="absolute bottom-0 left-0 top-0 w-[4px]"
+        style={{ background: metaPrincipal.accent }}
+      />
 
-      <div className="flex items-start justify-between gap-2 pl-1.5">
-        <div className="min-w-0">
-          <div className="text-[10px] font-bold tabular-nums" style={{ color: COLOR.brand }}>{horaCorta(cita.fecha_ingreso || cita.fecha_cita)}</div>
-          <div className="mt-0.5 truncate text-[11px] font-black uppercase tracking-wide" style={{ color: COLOR.brand }}>
-            {cliente}
-          </div>
+      <div
+        className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border"
+        style={{
+          background: "#FFFFFF",
+          borderColor: "#DDE5EF",
+          color: COLOR.inkFaint,
+        }}
+      >
+        <Phone className="h-3.5 w-3.5" />
+      </div>
+
+      <div className="pl-2 pr-7">
+        <div
+          className="text-[10px] font-black tabular-nums"
+          style={{ color: metaPrincipal.text }}
+        >
+          {horaCorta(cita.fecha_ingreso || cita.fecha_cita)}
         </div>
-        <Phone className="h-3.5 w-3.5 shrink-0" style={{ color: COLOR.inkFaint }} />
+
+        <div
+          className="mt-1 truncate text-[11px] font-black uppercase tracking-wide"
+          style={{ color: COLOR.brand }}
+        >
+          {cliente}
+        </div>
+
+        <div
+          className="mt-1 space-y-0.5 text-[10px] font-semibold leading-4"
+          style={{ color: COLOR.inkSoft }}
+        >
+          <div className="truncate">{modelo}</div>
+
+          {!compact ? (
+            <div className="truncate tabular-nums">{telefonoCorto}</div>
+          ) : null}
+        </div>
       </div>
 
-      <div className="mt-1.5 pl-1.5 text-[10px] font-semibold leading-4" style={{ color: COLOR.inkSoft }}>
-        <div className="truncate">{modelo}</div>
-        {!compact ? <div className="truncate">{telefonoCorto}</div> : null}
-      </div>
+      <div className="mt-2 flex flex-wrap gap-1 pl-2">
+        {tipos.map((tipo) => (
+          <TipoBadge key={tipo} tipo={tipo} />
+        ))}
 
-      <div className="mt-2 flex flex-wrap gap-1 pl-1.5">
-        {tipos.map((tipo) => <TipoBadge key={tipo} tipo={tipo} />)}
         <EstadoPill cita={cita} />
       </div>
 
       {!compact ? (
-        <div className="mt-2 pl-1.5">
-          <div className="mb-1 text-[9.5px] font-bold" style={{ color: COLOR.inkFaint }}>Reportar asistencia</div>
+        <div className="mt-2 border-t border-dashed pl-2 pt-2" style={{ borderColor: "#DDE5EF" }}>
+          <div
+            className="mb-1 text-[9.5px] font-black"
+            style={{ color: COLOR.inkFaint }}
+          >
+            Reportar asistencia
+          </div>
+
           <div className="flex flex-wrap gap-1.5">
             <AttendanceButton
               icon={CheckCircle2}
@@ -445,6 +573,7 @@ function CitaCard({ cita, compact = false, abrirEditar, onSetAsistencia, updatin
             >
               Asistió
             </AttendanceButton>
+
             <AttendanceButton
               icon={XCircle}
               active={asistio === false}
@@ -460,7 +589,7 @@ function CitaCard({ cita, compact = false, abrirEditar, onSetAsistencia, updatin
           </div>
         </div>
       ) : null}
-    </button>
+    </div>
   );
 }
 
@@ -625,7 +754,7 @@ export default function AgendaView({
 
       <div
         className="relative overflow-auto rounded-[18px] border bg-white"
-        style={{ borderColor: COLOR.line, maxHeight: 690, boxShadow: "0 18px 44px rgba(0, 30, 80, 0.08)" }}
+        style={{ borderColor: COLOR.line, maxHeight: 900, boxShadow: "0 18px 44px rgba(0, 30, 80, 0.08)" }}
       >
         <div
           className="relative"
@@ -744,13 +873,11 @@ export default function AgendaView({
           ) : null}
         </div>
       </div>
-
       <div className="flex flex-wrap items-center gap-4 text-[11px] font-bold" style={{ color: COLOR.inkFaint }}>
-        <span className="flex items-center gap-1.5"><TipoBadge tipo="Servicio" /> Servicio</span>
-        <span className="flex items-center gap-1.5"><TipoBadge tipo="Reparación" /> Reparación</span>
-        <span className="flex items-center gap-1.5"><TipoBadge tipo="Diagnóstico" /> Diagnóstico</span>
-        <span className="flex items-center gap-1.5"><TipoBadge tipo="Campaña" /> Campaña</span>
-        <span className="ml-auto flex items-center gap-1.5"><ChevronRight className="h-3.5 w-3.5" /> Desplaza horizontalmente para ver más horarios</span>
+        <TipoBadge tipo="Servicio" />
+        <TipoBadge tipo="Reparación" />
+        <TipoBadge tipo="Diagnóstico" />
+        <TipoBadge tipo="Campaña" />
       </div>
     </div>
   );
