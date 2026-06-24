@@ -211,7 +211,12 @@ function formatDate(value) {
     return local ? local.replace("T", "  ·  ") : "—";
 }
 function getClienteNombre(row) {
-    return row?.nombre_cliente || row?.cliente_nombre || row?.cliente?.nombre || "—";
+    return (
+        row?.cliente_nombre ||
+        row?.cliente?.nombre ||
+        row?.nombre_cliente ||
+        "Sin nombre"
+    );
 }
 function getTelefono(row) {
     return row?.telefono || row?.cliente?.telefono || "—";
@@ -776,15 +781,22 @@ export default function HojaRegistros() {
     }
 
     function buildPayload() {
+        const nombreCliente = normalizeStr(draft.cliente_nombre);
+
         return {
             cliente_id: draft.cliente_id || null,
-            cliente_nombre: draft.cliente_nombre || "",
+
+            cliente_nombre: nombreCliente,
+            nombre_cliente: nombreCliente,
+
             cliente_telefono: normalizeStr(draft.cliente_telefono),
             cliente_correo_electronico: draft.cliente_correo_electronico || "",
+
             agencia: isAdmin ? normalizeStr(draft.agencia) : userAgencia,
             fecha_ingreso: fromDTLocalToISO(draft.fecha_ingreso),
             asistencia: !!draft.asistencia,
             citado: !!draft.citado,
+
             no_orden: draft.no_orden || "",
             diss: draft.diss || "",
             pauta: draft.pauta || "",
@@ -793,8 +805,11 @@ export default function HojaRegistros() {
             torre: draft.torre || "",
             asesor: draft.asesor || "",
             agendado_por: draft.agendado_por || "",
-            nombre_cliente: draft.cliente_nombre || "",
-            tipo_cita: Array.isArray(draft.tipo_cita) ? draft.tipo_cita.join(", ") : draft.tipo_cita || "",
+
+            tipo_cita: Array.isArray(draft.tipo_cita)
+                ? draft.tipo_cita.join(", ")
+                : draft.tipo_cita || "",
+
             declaracion_textual_cliente: draft.declaracion_textual_cliente || "",
             comentarios: draft.comentarios || "",
             vin: draft.vin || "",
@@ -802,7 +817,10 @@ export default function HojaRegistros() {
             modelo: draft.modelo || "",
             medio_concertacion: draft.medio_concertacion || "",
             pauta_origen: draft.pauta_origen || "",
-            venta_mano_obra: draft.venta_mano_obra === "" || draft.venta_mano_obra === null ? "0" : draft.venta_mano_obra,
+            venta_mano_obra:
+                draft.venta_mano_obra === "" || draft.venta_mano_obra === null
+                    ? "0"
+                    : draft.venta_mano_obra,
         };
     }
 

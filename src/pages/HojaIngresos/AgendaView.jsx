@@ -215,7 +215,12 @@ function horaCorta(fecha) {
 }
 
 function nombreCliente(cita) {
-  return cita?.nombre_cliente || cita?.cliente_nombre || cita?.cliente?.nombre || "Sin nombre";
+  return (
+    cita?.cliente_nombre ||
+    cita?.cliente?.nombre ||
+    cita?.nombre_cliente ||
+    "Sin nombre"
+  );
 }
 
 function telefonoCliente(cita) {

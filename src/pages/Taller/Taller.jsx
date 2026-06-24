@@ -124,7 +124,12 @@ function formatDate(value) {
 }
 
 function getClienteNombre(row) {
-    return row?.nombre_cliente || row?.cliente?.nombre || "—";
+    return (
+        row?.cliente_nombre ||
+        row?.cliente?.nombre ||
+        row?.nombre_cliente ||
+        "Sin nombre"
+    );
 }
 
 function getTelefono(row) {
@@ -132,7 +137,13 @@ function getTelefono(row) {
 }
 
 function getCorreo(row) {
-    return row?.correo_electronico || row?.cliente?.correo_electronico || "";
+    return (
+        row?.correo ||
+        row?.correo_electronico ||
+        row?.cliente?.correo ||
+        row?.cliente?.correo_electronico ||
+        ""
+    );
 }
 
 function getDefaultEtapa(row) {
