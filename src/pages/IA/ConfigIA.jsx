@@ -9,6 +9,7 @@ import {
     BadgePercent,
 } from "lucide-react";
 import { api } from "../../lib/apiPruebas";
+import vwDark from "../../assets/vw_dark.png";
 
 const C = {
     navy: "#131E5C",
@@ -1217,43 +1218,89 @@ export default function ConfigIA() {
             {toast && <Toast key={toast.key} msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
             {/* Top bar */}
-            <div className="sticky top-0 z-40 border-b border-[#E4E7F0] bg-white/95 backdrop-blur-sm">
-                <div className="mx-auto max-w-full px-4 sm:px-6">
-                    <div className="flex h-14 items-center justify-center gap-3" py-2>
-                        <nav className="flex items-center gap-1 rounded-xl p-1">
-                            {[{ id: "config", label: "Configuración", icon: Bot }, { id: "catalogo", label: "Catálogo", icon: Car }].map(({ id, label, icon: Icon }) => (
-                                <button key={id} onClick={() => setTab(id)}
-                                    className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all duration-150 hover:bg-gray-100 hover:shadow-md ${tab === id ? "bg-white text-[#1A1F3C] shadow-sm border border-[#E4E7F0]" : "text-[#8891AD] hover:text-[#1A1F3C]"}`}>
-                                    <Icon className="h-3.5 w-3.5" />{label}
-                                </button>
-                            ))}
-                        </nav>
-                        <div className="flex items-center gap-2">
-                            {tab === "config" && (
-                                <>
-                                    <button onClick={() => cargarConfig(numeroSeleccionado)} disabled={cargandoConfig}
-                                        className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-[#E4E7F0] bg-white px-6 py-2.5 text-sm font-semibold text-[#515778] hover:bg-[#F7F8FC] disabled:opacity-50 transition-all">
-                                        {cargandoConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                                        Sincronizar
-                                    </button>
-
-                                    <button onClick={publicarConfig} disabled={guardandoConfig}
-                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#131E5C] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#0a1340] disabled:opacity-50 transition-all shadow-md shadow-[#131E5C]/20">
-                                        {guardandoConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                                        Publicar IA
-                                    </button>
-                                </>
-                            )}
-                            {tab === "catalogo" && (
-                                <button onClick={abrirNuevoVehiculo}
-                                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#131E5C] px-4 py-2 text-xs font-bold text-white hover:bg-[#0a1340] transition-all shadow-sm">
-                                    <Plus className="h-3.5 w-3.5" />Nuevo vehículo
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
+            {/* Top bar */}
+<header
+    className="sticky top-0 z-40 w-full border-b bg-white"
+    style={{ borderColor: "#131E5C22" }}
+>
+    <div className="flex min-h-[76px] items-center gap-4 px-4 md:px-6 lg:px-8">
+        <div className="flex shrink-0 items-center gap-3 md:gap-4">
+            <img
+                src={vwDark}
+                alt="Volkswagen"
+                className="h-16 w-16 object-contain md:h-20 md:w-20"
+                loading="lazy"
+            />
+            <div
+                className="text-[24px] font-extrabold tracking-[-0.04em] md:text-[30px]"
+                style={{ color: "#131E5C" }}
+            >
+                Panel de Inteligencias Artificiales
             </div>
+        </div>
+
+        <div
+            className="hidden h-[2px] min-w-[60px] flex-1 rounded-full lg:block"
+            style={{ background: "#131E5C" }}
+        />
+
+        <nav className="ml-auto flex max-w-full items-center gap-2 overflow-x-auto py-2">
+            {[
+                { id: "config", label: "Configuración", icon: Bot },
+                { id: "catalogo", label: "Catálogo", icon: Car },
+            ].map(({ id, label, icon: Icon }) => (
+                <button
+                    key={id}
+                    onClick={() => setTab(id)}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition"
+                    style={{
+                        borderColor: "#131E5C",
+                        backgroundColor: tab === id ? "#131E5C" : "#FFFFFF",
+                        color: tab === id ? "#FFFFFF" : "#131E5C",
+                    }}
+                >
+                    <Icon className="h-4 w-4" />
+                    <span className="hidden sm:inline">{label}</span>
+                </button>
+            ))}
+
+            {tab === "config" && (
+                <>
+                    <button
+                        onClick={() => cargarConfig(numeroSeleccionado)}
+                        disabled={cargandoConfig}
+                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition disabled:opacity-50"
+                        style={{ borderColor: "#131E5C", backgroundColor: "#FFFFFF", color: "#131E5C" }}
+                    >
+                        {cargandoConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        <span className="hidden sm:inline">Sincronizar</span>
+                    </button>
+
+                    <button
+                        onClick={publicarConfig}
+                        disabled={guardandoConfig}
+                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition text-white disabled:opacity-50"
+                        style={{ borderColor: "#131E5C", backgroundColor: "#131E5C" }}
+                    >
+                        {guardandoConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                        <span className="hidden sm:inline">Publicar IA</span>
+                    </button>
+                </>
+            )}
+
+            {tab === "catalogo" && (
+                <button
+                    onClick={abrirNuevoVehiculo}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition text-white"
+                    style={{ borderColor: "#131E5C", backgroundColor: "#131E5C" }}
+                >
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Nuevo vehículo</span>
+                </button>
+            )}
+        </nav>
+    </div>
+</header>
 
             <div className="mx-auto max-w-full px-4 py-6 sm:px-6 lg:px-8">
 

@@ -4,9 +4,12 @@ import { apiInventario } from "../../lib/apiInventario";
 import { useECharts } from "./useECharts";
 import "./inventario.css";
 
-const NAVY   = "#001E50";   // VW Navy oficial
-const CYAN   = "#00B0F0";   // VW Light Blue digital
-const SILVER = "#C8CACB";   // VW Silver
+import vwDark from "../../assets/vw_dark.png";
+
+const NAVY   = "#001E50";
+const CYAN   = "#00B0F0";
+const SILVER = "#C8CACB";
+const BRAND_BLUE = "#131E5C";
 
 const PALETA_AGENCIAS  = ["#001E50", "#00437A", "#0077B3", "#00A0D6", "#00B0F0"];
 const PALETA_ESTATUS   = ["#00B0F0", "#0091CC", "#007099", "#005066", "#003344", "#001E50"];
@@ -80,14 +83,12 @@ function Badge({ label, color }) {
   );
 }
 
-// ── Tabla de vehículos inline ──────────────────────────────────────────────────
-
 function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFamilia }) {
   const [query,  setQuery]  = useState("");
   const [pagina, setPagina] = useState(1);
   const POR_PAGINA = 12;
 
-   const filtrados = useMemo(() => {
+  const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase();
     let base = vehiculos;
     if (familiaFiltro) {
@@ -98,20 +99,17 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
       [v.NmFamilia, v.NmMarca, v.EdiModelo, v.agenciaNombre, v.estatusNombre, v.SitVeiculo, v.NrChassi]
         .some((c) => (c || "").toLowerCase().includes(q))
     );
-  }, [vehiculos, query, familiaFiltro])
+  }, [vehiculos, query, familiaFiltro]);
 
   useEffect(() => { setPagina(1); }, [query, vehiculos]);
 
   const totalPaginas = Math.ceil(filtrados.length / POR_PAGINA);
   const paginados    = filtrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
-
   const condLabel = (c) => ({ N: "Nuevo", U: "Usado" })[(c || "").trim()] ?? (c || "—");
-
   const totalCosto = filtrados.reduce((acc, v) => acc + (v.VrNF_Compra || 0), 0);
 
   return (
     <div>
-      {/* Buscador */}
       <div className="relative mb-3">
         <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -136,7 +134,7 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
         )}
       </div>
 
-       {familiaFiltro && (
+      {familiaFiltro && (
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs text-slate-500">Filtrando por modelo:</span>
           <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full"
@@ -189,9 +187,11 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
                   <tr key={`${v.NrChassi}-${i}`}
                     className={`border-b border-slate-50 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
                     <td className="px-3 py-2 font-mono whitespace-nowrap">
-  <span
-    className="cursor-pointer hover:underline font-semibold"
-                   style={{ color: NAVY, fontSize: "11px", letterSpacing: "0.03em" }}>  {v.NrChassi || "—"}</span></td>
+                      <span className="cursor-pointer hover:underline font-semibold"
+                        style={{ color: NAVY, fontSize: "11px", letterSpacing: "0.03em" }}>
+                        {v.NrChassi || "—"}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 font-medium text-slate-800 whitespace-nowrap">{v.NmFamilia || "—"}</td>
                     <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{v.EdiModelo || "—"}</td>
                     <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{v.agenciaNombre}</td>
@@ -200,7 +200,7 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
                       <span className="px-2 py-0.5 rounded-sm text-xs font-semibold"
                         style={{ background: "#001E5012", color: "#001E50" }}>
                         {v.estatusNombre}
-                        </span>
+                      </span>
                     </td>
                     <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{v.DtFaturamento || "—"}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
@@ -351,15 +351,15 @@ export default function InventarioIndex() {
   );
 
   const eventosModelo = useMemo(() => ({
-  click: (params) => {
-    setFamiliaFiltro((prev) =>
-      prev.toLowerCase() === params.name.toLowerCase() ? "" : params.name
-    );
-    setTimeout(() => {
-      tablaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
-  },
-}), [tablaRef]);
+    click: (params) => {
+      setFamiliaFiltro((prev) =>
+        prev.toLowerCase() === params.name.toLowerCase() ? "" : params.name
+      );
+      setTimeout(() => {
+        tablaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    },
+  }), [tablaRef]);
 
   const optionPorAgencia = useMemo(() => {
     if (!porAgencia.length) return null;
@@ -462,13 +462,9 @@ export default function InventarioIndex() {
           };
         }),
         barWidth: "60%",
-        label: {
-          show: true, position: "right", color: "#475569", fontSize: 11, fontWeight: 600,
-          formatter: (p) => p.value.toLocaleString("es-MX"),
-        },
-        emphasis: {
-          itemStyle: { shadowBlur: 8, shadowColor: "rgba(6,182,212,0.3)" },
-        },
+        label: { show: true, position: "right", color: "#475569", fontSize: 11, fontWeight: 600,
+          formatter: (p) => p.value.toLocaleString("es-MX") },
+        emphasis: { itemStyle: { shadowBlur: 8, shadowColor: "rgba(6,182,212,0.3)" } },
         cursor: "pointer",
       }],
     };
@@ -536,24 +532,18 @@ export default function InventarioIndex() {
           `<b>${params[0].name} días</b><br/>Vehículos: <b>${params[0].value.toLocaleString("es-MX")}</b>`,
       },
       grid: { left: 8, right: 60, top: 8, bottom: 8, containLabel: true },
-      xAxis: {
-        type: "value",
+      xAxis: { type: "value",
         splitLine: { lineStyle: { color: "#f1f5f9", type: "dashed" } },
-        axisLabel: { color: "#94a3b8", fontSize: 10 },
-      },
-      yAxis: {
-        type: "category",
-        data: datos.map((d) => d.rango),
+        axisLabel: { color: "#94a3b8", fontSize: 10 } },
+      yAxis: { type: "category", data: datos.map((d) => d.rango),
         axisLine: { show: false }, axisTick: { show: false },
-        axisLabel: { color: "#475569", fontSize: 12, fontWeight: 600 },
-      },
+        axisLabel: { color: "#475569", fontSize: 12, fontWeight: 600 } },
       series: [{
         name: "Vehículos", type: "bar",
         data: datos.map((d) => ({
           value: d.total,
           itemStyle: {
-            color: {
-              type: "linear", x: 0, y: 0, x2: 1, y2: 0,
+            color: { type: "linear", x: 0, y: 0, x2: 1, y2: 0,
               colorStops: [
                 { offset: 0, color: NAVY },
                 { offset: 1, color: d.total === max ? CYAN : "#2563eb" },
@@ -563,10 +553,8 @@ export default function InventarioIndex() {
           },
         })),
         barWidth: "55%",
-        label: {
-          show: true, position: "right", color: "#475569", fontSize: 12, fontWeight: 600,
-          formatter: (p) => p.value > 0 ? p.value.toLocaleString("es-MX") : "",
-        },
+        label: { show: true, position: "right", color: "#475569", fontSize: 12, fontWeight: 600,
+          formatter: (p) => p.value > 0 ? p.value.toLocaleString("es-MX") : "" },
       }],
     };
   }, [antiguedad]);
@@ -574,48 +562,64 @@ export default function InventarioIndex() {
   return (
     <div className="p-6 space-y-4 min-h-screen" style={{ background: "#F4F4F4" }}>
 
-      {/* Encabezado VW */}
-      <div className="rounded-2xl px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-        style={{ background: `linear-gradient(135deg, #001E50 0%, #00437A 100%)` }}>
-        <div className="flex items-center gap-4">
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold tracking-widest uppercase"
-              style={{ color: "#00B0F0" }}>Grupo Automotriz R&R</span>
-            <h1 className="text-2xl font-bold text-white leading-tight">Inventario</h1>
-            {!cargando && totalGeneral > 0 && (
-              <span className="text-sm mt-0.5" style={{ color: "#C8CACB" }}>
-                {totalGeneral.toLocaleString("es-MX")} vehículos activos · 5 agencias
-              </span>
-            )}
+      {/* ── ENCABEZADO estilo PostVenta ── */}
+      <header
+        className="sticky top-0 z-40 w-full border-b bg-white -mx-6 -mt-6 px-6"
+        style={{ borderColor: `${BRAND_BLUE}22` }}
+      >
+        <div className="flex min-h-[76px] items-center gap-4">
+          {/* Logo VW */}
+          <img
+            src={vwDark}
+            alt="Volkswagen"
+            className="h-16 w-16 object-contain md:h-20 md:w-20 shrink-0"
+            loading="lazy"
+          />
+
+          {/* Título */}
+          <div
+            className="text-[24px] font-extrabold tracking-[-0.04em] md:text-[30px] shrink-0"
+            style={{ color: BRAND_BLUE }}
+          >
+            Inventario
+          </div>
+
+          {/* Línea azul */}
+          <div
+            className="hidden h-[2px] min-w-[60px] flex-1 rounded-full lg:block"
+            style={{ background: BRAND_BLUE }}
+          />
+
+          {/* Filtros a la derecha */}
+          <div className="ml-auto flex flex-wrap gap-2 py-2">
+            <select
+              value={agenciaSeleccionada}
+              onChange={(e) => setAgenciaSeleccionada(e.target.value)}
+              className="text-sm rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 border"
+              style={{ borderColor: `${BRAND_BLUE}44`, color: BRAND_BLUE }}
+            >
+              <option value="">Todas las agencias</option>
+              {filtrosDisponibles.agencias.map((a) => (
+                <option key={a.codigo} value={a.codigo}>{a.nombre}</option>
+              ))}
+            </select>
+
+            <select
+              value={estatusSeleccionado}
+              onChange={(e) => setEstatusSeleccionado(e.target.value)}
+              className="text-sm rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 border"
+              style={{ borderColor: `${BRAND_BLUE}44`, color: BRAND_BLUE }}
+            >
+              <option value="">Todos los estatus</option>
+              {filtrosDisponibles.estatus
+                .filter((e) => !ESTATUS_EXCLUIDOS.includes(e.codigo))
+                .map((e) => (
+                  <option key={e.codigo} value={e.codigo}>{e.nombre}</option>
+                ))}
+            </select>
           </div>
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          <select value={agenciaSeleccionada} onChange={(e) => setAgenciaSeleccionada(e.target.value)}
-            className="text-sm rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2"
-            style={{
-              background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
-              color: "white", focusRingColor: "#00B0F0"
-            }}>
-            <option value="" style={{ background: "#001E50" }}>Todas las agencias</option>
-            {filtrosDisponibles.agencias.map((a) => (
-              <option key={a.codigo} value={a.codigo} style={{ background: "#001E50" }}>{a.nombre}</option>
-            ))}
-          </select>
-
-          <select value={estatusSeleccionado} onChange={(e) => setEstatusSeleccionado(e.target.value)}
-            className="text-sm rounded-lg px-3 py-2 font-medium focus:outline-none"
-            style={{
-              background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
-              color: "white"
-            }}>
-            <option value="" style={{ background: "#001E50" }}>Todos los estatus</option>
-            {estatusDisponibles.map((e) => (
-              <option key={e.codigo} value={e.codigo} style={{ background: "#001E50" }}>{e.nombre}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      </header>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3 flex items-center gap-2">
@@ -627,35 +631,14 @@ export default function InventarioIndex() {
         </div>
       )}
 
-      {/* ── FILA 1: KPIs (izq) + Antigüedad en Stock (der) ── */}
+      {/* ── FILA 1: KPIs + Antigüedad ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="grid grid-cols-2 gap-4 content-start">
-          <KPICard
-            label="Total activo"
-            value={cargando ? "…" : totalGeneral.toLocaleString("es-MX")}
-            sub="Sin vendidos ni consignación"
-            color={NAVY}
-          />
-          <KPICard
-            label="Agencia líder"
-            value={cargando ? "…" : (agenciaLider?.agenciaNombre || "—")}
-            sub={agenciaLider ? `${agenciaLider.total.toLocaleString("es-MX")} vehículos` : ""}
-            color={CYAN}
-          />
-          <KPICard
-            label="% Nuevos"
-            value={cargando ? "…" : `${pctNuevo}%`}
-            sub="Del total activo"
-            color="#00437A"
-          />
-          <KPICard
-            label="Costo inventario"
-            value={cargando ? "…" : `$${costoTotal.toLocaleString("es-MX", { maximumFractionDigits: 0 })}`}
-            sub="Suma valor de compra"
-            color={NAVY}
-          />
+          <KPICard label="Total activo" value={cargando ? "…" : totalGeneral.toLocaleString("es-MX")} sub="Sin vendidos ni consignación" color={NAVY} />
+          <KPICard label="Agencia líder" value={cargando ? "…" : (agenciaLider?.agenciaNombre || "—")} sub={agenciaLider ? `${agenciaLider.total.toLocaleString("es-MX")} vehículos` : ""} color={CYAN} />
+          <KPICard label="% Nuevos" value={cargando ? "…" : `${pctNuevo}%`} sub="Del total activo" color="#00437A" />
+          <KPICard label="Costo inventario" value={cargando ? "…" : `$${costoTotal.toLocaleString("es-MX", { maximumFractionDigits: 0 })}`} sub="Suma valor de compra" color={NAVY} />
         </div>
-
         <div className="lg:col-span-2">
           <Panel titulo="Antigüedad en Stock" subtitulo="Días desde facturación (activos)" alto={260}>
             {optionAntiguedad ? <ChartDiv option={optionAntiguedad} loading={cargando} /> : <EmptyState />}
@@ -663,42 +646,26 @@ export default function InventarioIndex() {
         </div>
       </div>
 
-       {/* ── FILA 2: Tabla ── */}
+      {/* ── FILA 2: Tabla ── */}
       <div ref={tablaRef}>
-       <Panel titulo="Listado de vehículos" subtitulo="Detalle por unidad (activos)">
-        <TablaVehiculos
-          vehiculos={vehiculos}
-          cargando={cargandoTabla}
-          error={errorTabla}
-          familiaFiltro={familiaFiltro}
-          onClearFamilia={() => setFamiliaFiltro("")}
-        />
-      </Panel>
-    </div>
+        <Panel titulo="Listado de vehículos" subtitulo="Detalle por unidad (activos)">
+          <TablaVehiculos vehiculos={vehiculos} cargando={cargandoTabla} error={errorTabla} familiaFiltro={familiaFiltro} onClearFamilia={() => setFamiliaFiltro("")} />
+        </Panel>
+      </div>
 
-      {/* ── FILA 2.5: Top Modelos (fila completa) ── */}
+      {/* ── FILA 2.5: Top Modelos ── */}
       <Panel
         titulo="Inventario por modelo"
-        subtitulo={familiaFiltro
-          ? `Filtrando: ${familiaFiltro} · Click en otra barra para cambiar, o click en la misma para quitar filtro`
-          : "Top unidades en stock · Click en una barra para filtrar la tabla"}
+        subtitulo={familiaFiltro ? `Filtrando: ${familiaFiltro} · Click en otra barra para cambiar, o click en la misma para quitar filtro` : "Top unidades en stock · Click en una barra para filtrar la tabla"}
         alto={520}
-        extra={!cargando && porMarca.length > 0
-          ? <Badge label={`${porMarca.length} modelos`} color={CYAN} /> : null}
+        extra={!cargando && porMarca.length > 0 ? <Badge label={`${porMarca.length} modelos`} color={CYAN} /> : null}
       >
-        {optionPorMarca
-          ? <ChartDiv
-              option={optionPorMarca}
-              loading={cargando}
-              onEvents={eventosModelo}
-            />
-          : <EmptyState />}
+        {optionPorMarca ? <ChartDiv option={optionPorMarca} loading={cargando} onEvents={eventosModelo} /> : <EmptyState />}
       </Panel>
 
       {/* ── FILA 3: Por agencia ── */}
       <Panel titulo="Inventario por agencia" subtitulo="Total de vehículos activos" alto={300}
-        extra={!cargando && porAgencia.length > 0
-          ? <Badge label={`${porAgencia.length} agencias`} color={CYAN} /> : null}>
+        extra={!cargando && porAgencia.length > 0 ? <Badge label={`${porAgencia.length} agencias`} color={CYAN} /> : null}>
         {optionPorAgencia ? <ChartDiv option={optionPorAgencia} loading={cargando} /> : <EmptyState />}
       </Panel>
 
