@@ -1,6 +1,7 @@
 //src/pages/PedidoPiezas/RegistroPiezas.jsx
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import * as echarts from "echarts";
 import { useAuth } from "../../auth/AuthContext";
 import {
     Plus,
@@ -14,6 +15,11 @@ import {
     Pencil,
     Trash2,
     PackagePlus,
+    BarChart3,
+    PackageCheck,
+    PackageX,
+    Truck,
+    AlertTriangle,
 } from "lucide-react";
 import { apiPedidosPiezas } from "../../lib/apiPedidosPiezas";
 
@@ -49,6 +55,16 @@ const ASESORES = [
     "Emmanuel Pulido",
     "Andrea García"
 ];
+
+// ---- Indicadores: paleta y orden del flujo de estatus ----
+const STATUS_COLORS = {
+    "Entregadas": "#10b981",
+    "En almacén": "#0ea5e9",
+    "En camino": "#f59e0b",
+    "Back Order": "#f43f5e",
+};
+
+const FUNNEL_ORDER = ["En almacén", "En camino", "Back Order", "Entregadas"];
 
 function cn(...classes) {
     return classes.filter(Boolean).join(" ");
@@ -456,11 +472,490 @@ function Modal({ open, title, onClose, children, footer }) {
     );
 }
 
+// =====================================================================
+// INDICADORES — dashboard de KPIs y gráficas, basado en datos reales
+// de los pedidos visibles (respeta los filtros activos en la tabla).
+// =====================================================================
+
+function diasEntre(fechaIso) {
+    if (!fechaIso) return 0;
+    const inicio = new Date(fechaIso);
+    if (Number.isNaN(inicio.getTime())) return 0;
+    const hoy = new Date();
+    const ms = hoy.setHours(0, 0, 0, 0) - inicio.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
+}
+
+function flattenPiezas(pedidos) {
+    const out = [];
+    pedidos.forEach((pedido) => {
+        (pedido.piezas || []).forEach((pieza) => {
+            out.push({
+                ...pieza,
+                numeroPedido: pedido.numeroPedido,
+                dealer: pedido.dealer,
+                fechaPedido: pedido.fechaPedido,
+                cliente: pedido.nombreCliente,
+            });
+        });
+    });
+    return out;
+}
+
+function useEcharts(ref, optionFactory, deps) {
+    useEffect(() => {
+        if (!ref.current) return;
+
+        const chart = echarts.init(ref.current, null, { renderer: "svg" });
+        const option = optionFactory();
+        if (option) chart.setOption(option);
+
+        const onResize = () => chart.resize();
+        window.addEventListener("resize", onResize);
+
+        return () => {
+            window.removeEventListener("resize", onResize);
+            chart.dispose();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, deps);
+}
+
+function KpiCard({ icon: Icon, label, value, accent, suffix }) {
+    return (
+        <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+            <div
+                className="absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-[0.08]"
+                style={{ backgroundColor: accent }}
+            />
+            <div className="flex items-center justify-between">
+                <div
+                    className="rounded-2xl p-2.5"
+                    style={{ backgroundColor: `${accent}1A`, color: accent }}
+                >
+                    <Icon className="h-5 w-5" />
+                </div>
+            </div>
+            <div className="mt-4 text-3xl font-extrabold text-[#131E5C]">
+                {value}
+                {suffix ? (
+                    <span className="ml-1 text-base font-bold text-slate-400">
+                        {suffix}
+                    </span>
+                ) : null}
+            </div>
+            <div className="mt-1 text-sm font-bold text-slate-500">{label}</div>
+        </div>
+    );
+}
+
+function IndicadoresPiezas({ pedidos = [] }) {
+    const funnelRef = useRef(null);
+    const donutRef = useRef(null);
+    const agingRef = useRef(null);
+    const dealerRef = useRef(null);
+
+    const piezas = useMemo(() => flattenPiezas(pedidos), [pedidos]);
+
+    const totales = useMemo(() => {
+        const acc = {
+            total: 0,
+            "Entregadas": 0,
+            "En almacén": 0,
+            "En camino": 0,
+            "Back Order": 0,
+        };
+        piezas.forEach((p) => {
+            const cantidad = Number(p.cantidad || 0);
+            acc.total += cantidad;
+            if (acc[p.estatus] !== undefined) {
+                acc[p.estatus] += cantidad;
+            }
+        });
+        return acc;
+    }, [piezas]);
+
+    const pendientes = totales.total - totales["Entregadas"];
+
+    const piezasAntiguas = useMemo(() => {
+        return piezas
+            .filter((p) => p.estatus !== "Entregadas")
+            .map((p) => ({
+                ...p,
+                dias: diasEntre(p.fechaPedido),
+            }))
+            .sort((a, b) => b.dias - a.dias)
+            .slice(0, 8);
+    }, [piezas]);
+
+    const porDealer = useMemo(() => {
+        const map = {};
+        piezas.forEach((p) => {
+            if (p.estatus === "Entregadas") return;
+            const key = p.dealer || "Sin dealer";
+            map[key] = (map[key] || 0) + Number(p.cantidad || 0);
+        });
+        return Object.entries(map)
+            .map(([dealer, cantidad]) => ({ dealer, cantidad }))
+            .sort((a, b) => b.cantidad - a.cantidad);
+    }, [piezas]);
+
+    // ---- Funnel: flujo real del inventario ----
+    useEcharts(
+        funnelRef,
+        () => {
+            if (totales.total === 0) return null;
+            const data = FUNNEL_ORDER.map((estatus) => ({
+                name: estatus,
+                value: totales[estatus] || 0,
+            }));
+
+            return {
+                tooltip: {
+                    trigger: "item",
+                    formatter: (params) =>
+                        `<strong>${params.name}</strong><br/>${params.value} piezas`,
+                },
+                series: [
+                    {
+                        type: "funnel",
+                        left: "6%",
+                        right: "6%",
+                        top: 10,
+                        bottom: 10,
+                        width: "88%",
+                        minSize: "30%",
+                        maxSize: "100%",
+                        sort: "none",
+                        gap: 6,
+                        label: {
+                            show: true,
+                            position: "inside",
+                            formatter: (p) => `${p.name}\n${p.value}`,
+                            color: "#fff",
+                            fontWeight: 700,
+                            fontSize: 12,
+                            lineHeight: 16,
+                        },
+                        itemStyle: {
+                            borderColor: "#fff",
+                            borderWidth: 2,
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 18,
+                                shadowColor: "rgba(19,30,92,0.35)",
+                            },
+                        },
+                        data: data.map((d) => ({
+                            ...d,
+                            itemStyle: { color: STATUS_COLORS[d.name] },
+                        })),
+                        animationType: "expansion",
+                        animationEasing: "elasticOut",
+                        animationDuration: 900,
+                    },
+                ],
+            };
+        },
+        [totales]
+    );
+
+    // ---- Donut "vivo": distribución de estatus con hover que respira ----
+    useEcharts(
+        donutRef,
+        () => {
+            if (totales.total === 0) return null;
+            const data = FUNNEL_ORDER.map((estatus) => ({
+                name: estatus,
+                value: totales[estatus] || 0,
+                itemStyle: { color: STATUS_COLORS[estatus] },
+            })).filter((d) => d.value > 0);
+
+            return {
+                tooltip: {
+                    trigger: "item",
+                    formatter: "{b}: {c} piezas ({d}%)",
+                },
+                legend: {
+                    bottom: 0,
+                    icon: "circle",
+                    textStyle: { color: "#475569", fontWeight: 600, fontSize: 11 },
+                    itemGap: 14,
+                },
+                series: [
+                    {
+                        type: "pie",
+                        radius: ["46%", "68%"],
+                        center: ["50%", "44%"],
+                        avoidLabelOverlap: true,
+                        itemStyle: {
+                            borderRadius: 8,
+                            borderColor: "#fff",
+                            borderWidth: 3,
+                        },
+                        label: {
+                            show: true,
+                            position: "center",
+                            formatter: () =>
+                                `{big|${totales.total}}\n{small|piezas totales}`,
+                            rich: {
+                                big: {
+                                    fontSize: 26,
+                                    fontWeight: 800,
+                                    color: BRAND_BLUE,
+                                    lineHeight: 30,
+                                },
+                                small: {
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: "#94a3b8",
+                                },
+                            },
+                        },
+                        emphasis: {
+                            scale: true,
+                            scaleSize: 8,
+                            label: {
+                                show: true,
+                                formatter: "{b}\n{c} ({d}%)",
+                                fontSize: 13,
+                                fontWeight: 700,
+                            },
+                        },
+                        labelLine: { show: false },
+                        data,
+                        animationType: "scale",
+                        animationEasing: "elasticOut",
+                        animationDelay: (idx) => idx * 80,
+                    },
+                ],
+            };
+        },
+        [totales]
+    );
+
+    // ---- Antigüedad de pendientes: qué piezas urge perseguir ----
+    useEcharts(
+        agingRef,
+        () => {
+            if (piezasAntiguas.length === 0) return null;
+            const ordered = [...piezasAntiguas].reverse();
+
+            return {
+                grid: { left: 10, right: 30, top: 10, bottom: 10, containLabel: true },
+                tooltip: {
+                    trigger: "item",
+                    formatter: (p) => {
+                        const item = ordered[p.dataIndex];
+                        return `<strong>${item.numeroParte}</strong><br/>${item.descripcion}<br/>Pedido ${item.numeroPedido} · ${item.dealer}<br/><strong>${item.dias} días</strong> sin llegar`;
+                    },
+                },
+                xAxis: {
+                    type: "value",
+                    name: "días",
+                    axisLine: { show: false },
+                    splitLine: { lineStyle: { color: "#f1f5f9" } },
+                    axisLabel: { color: "#94a3b8", fontSize: 11 },
+                },
+                yAxis: {
+                    type: "category",
+                    data: ordered.map((p) => p.numeroParte),
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    axisLabel: { color: "#334155", fontWeight: 600, fontSize: 11 },
+                },
+                series: [
+                    {
+                        type: "bar",
+                        data: ordered.map((p) => ({
+                            value: p.dias,
+                            itemStyle: {
+                                color:
+                                    p.dias > 15
+                                        ? "#f43f5e"
+                                        : p.dias > 7
+                                        ? "#f59e0b"
+                                        : "#0ea5e9",
+                                borderRadius: [0, 8, 8, 0],
+                            },
+                        })),
+                        barWidth: 16,
+                        label: {
+                            show: true,
+                            position: "right",
+                            formatter: "{c}d",
+                            fontWeight: 700,
+                            color: "#475569",
+                            fontSize: 11,
+                        },
+                        animationDelay: (idx) => idx * 60,
+                    },
+                ],
+                animationEasing: "cubicOut",
+            };
+        },
+        [piezasAntiguas]
+    );
+
+    // ---- Pendientes por dealer ----
+    useEcharts(
+        dealerRef,
+        () => {
+            if (porDealer.length === 0) return null;
+
+            return {
+                grid: { left: 10, right: 20, top: 30, bottom: 10, containLabel: true },
+                tooltip: {
+                    trigger: "axis",
+                    axisPointer: { type: "shadow" },
+                    formatter: (params) =>
+                        `<strong>${params[0].name}</strong><br/>${params[0].value} piezas pendientes`,
+                },
+                xAxis: {
+                    type: "category",
+                    data: porDealer.map((d) => d.dealer.replace("VW ", "")),
+                    axisLine: { lineStyle: { color: "#e2e8f0" } },
+                    axisTick: { show: false },
+                    axisLabel: { color: "#334155", fontWeight: 600, fontSize: 11 },
+                },
+                yAxis: {
+                    type: "value",
+                    splitLine: { lineStyle: { color: "#f1f5f9" } },
+                    axisLabel: { color: "#94a3b8", fontSize: 11 },
+                },
+                series: [
+                    {
+                        type: "bar",
+                        data: porDealer.map((d) => d.cantidad),
+                        barWidth: "46%",
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: BRAND_BLUE },
+                                { offset: 1, color: "#3346b3" },
+                            ]),
+                            borderRadius: [8, 8, 0, 0],
+                        },
+                        label: {
+                            show: true,
+                            position: "top",
+                            fontWeight: 700,
+                            color: BRAND_BLUE,
+                            fontSize: 12,
+                        },
+                        animationDelay: (idx) => idx * 80,
+                    },
+                ],
+                animationEasing: "elasticOut",
+            };
+        },
+        [porDealer]
+    );
+
+    return (
+        <div className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <KpiCard
+                    icon={PackageCheck}
+                    label="Piezas entregadas"
+                    value={totales["Entregadas"]}
+                    accent="#10b981"
+                />
+                <KpiCard
+                    icon={Truck}
+                    label="En camino"
+                    value={totales["En camino"]}
+                    accent="#f59e0b"
+                />
+                <KpiCard
+                    icon={PackageX}
+                    label="Back Order"
+                    value={totales["Back Order"]}
+                    accent="#f43f5e"
+                />
+                <KpiCard
+                    icon={AlertTriangle}
+                    label="Total pendientes"
+                    value={pendientes}
+                    accent={BRAND_BLUE}
+                />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-5">
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:col-span-3">
+                    <div className="mb-1 text-sm font-extrabold text-[#131E5C]">
+                        Flujo de piezas por estatus
+                    </div>
+                    <div className="mb-3 text-xs font-semibold text-slate-400">
+                        De pedido a entrega, dónde está el inventario hoy
+                    </div>
+                    <div ref={funnelRef} style={{ width: "100%", height: 260 }} />
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+                    <div className="mb-1 text-sm font-extrabold text-[#131E5C]">
+                        Distribución por estatus
+                    </div>
+                    <div className="mb-3 text-xs font-semibold text-slate-400">
+                        Proporción del total de piezas
+                    </div>
+                    <div ref={donutRef} style={{ width: "100%", height: 260 }} />
+                </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-5">
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:col-span-3">
+                    <div className="mb-1 text-sm font-extrabold text-[#131E5C]">
+                        Piezas con más días de espera
+                    </div>
+                    <div className="mb-3 text-xs font-semibold text-slate-400">
+                        Las que urge dar seguimiento con el proveedor
+                    </div>
+                    {piezasAntiguas.length === 0 ? (
+                        <div className="flex h-[220px] items-center justify-center text-sm font-semibold text-slate-400">
+                            No hay piezas pendientes 🎉
+                        </div>
+                    ) : (
+                        <div
+                            ref={agingRef}
+                            style={{
+                                width: "100%",
+                                height: Math.max(220, piezasAntiguas.length * 34),
+                            }}
+                        />
+                    )}
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+                    <div className="mb-1 text-sm font-extrabold text-[#131E5C]">
+                        Pendientes por dealer
+                    </div>
+                    <div className="mb-3 text-xs font-semibold text-slate-400">
+                        Carga de piezas sin entregar por sucursal
+                    </div>
+                    {porDealer.length === 0 ? (
+                        <div className="flex h-[220px] items-center justify-center text-sm font-semibold text-slate-400">
+                            Sin pendientes por dealer
+                        </div>
+                    ) : (
+                        <div ref={dealerRef} style={{ width: "100%", height: 260 }} />
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// =====================================================================
+// COMPONENTE PRINCIPAL
+// =====================================================================
+
 export default function AdministradorPedidosPiezas() {
     const [pedidos, setPedidos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadingPieces, setLoadingPieces] = useState(false);
     const [tableError, setTableError] = useState("");
+    const [mostrarIndicadores, setMostrarIndicadores] = useState(false);
 
     const [filters, setFilters] = useState({
         q: "",
@@ -766,14 +1261,30 @@ const userTieneAgencia = useCallback((agenciaRegistro) => {
                     </h2>
                 </div>
 
-                <button
-                    onClick={openCreate}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#131E5C] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#0f1747]"
-                >
-                    <Plus className="h-4 w-4" />
-                    Nuevo Pedido
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setMostrarIndicadores((prev) => !prev)}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] bg-white px-5 py-3 text-sm font-bold text-[#131E5C] shadow-sm transition hover:bg-[#131E5C]/5"
+                    >
+                        <BarChart3 className="h-4 w-4" />
+                        {mostrarIndicadores ? "Ocultar Indicadores" : "Ver Indicadores"}
+                    </button>
+
+                    <button
+                        onClick={openCreate}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#131E5C] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#0f1747]"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Nuevo Pedido
+                    </button>
+                </div>
             </div>
+
+            {mostrarIndicadores ? (
+                <div className="mb-6">
+                    <IndicadoresPiezas pedidos={filteredOrders} />
+                </div>
+            ) : null}
 
             {tableError ? (
                 <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
