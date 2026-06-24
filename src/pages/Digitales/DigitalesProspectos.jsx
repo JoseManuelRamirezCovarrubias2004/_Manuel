@@ -722,6 +722,113 @@ function LeadScoreRing({ score }) {
     );
 }
 
+// ─── Funnel Chart ─────────────────────────────────────────────────────────────
+function FunnelChart({ rows }) {
+    const total = rows.length || 1;
+
+    const etapas = useMemo(() => {
+        const contactados = rows.filter(r =>
+            ["contactado", "calificado", "pendiente de cotización", "requiere asesor",
+             "financiamiento", "sin respuesta"].includes(
+                String(r.estado || "").trim().toLowerCase()
+            )
+        ).length;
+
+        const calificados = rows.filter(r =>
+            ["calificado", "pendiente de cotización", "requiere asesor", "financiamiento"]
+                .includes(String(r.estado || "").trim().toLowerCase())
+        ).length;
+
+        const conCotizacion = rows.filter(r =>
+            String(r.estado || "").trim().toLowerCase() === "pendiente de cotización" ||
+            r.cotizacion_pendiente
+        ).length;
+
+        const conAsesor = rows.filter(r => r.requiere_asesor || r.asesor_solicita).length;
+
+        const financiamiento = rows.filter(r =>
+            ["credito", "arrendamiento"].includes(
+                String(r.forma_pago || "").trim().toLowerCase()
+            )
+        ).length;
+
+        const conCita = rows.filter(r => r.ultima_cita_agendada).length;
+
+        return [
+            { label: "Prospectos",   value: rows.length,     color: "#131E5C", icon: "👥" },
+            { label: "Contactados",  value: contactados,     color: "#0ea5e9", icon: "📞" },
+            { label: "Calificados",  value: calificados,     color: "#8b5cf6", icon: "✅" },
+            { label: "Cotizaciones", value: conCotizacion,   color: "#f59e0b", icon: "📋" },
+            { label: "Con asesor",   value: conAsesor,       color: "#10b981", icon: "🤝" },
+            { label: "Financiam.",   value: financiamiento,  color: "#6366f1", icon: "💰" },
+            { label: "Citas",        value: conCita,         color: "#ef4444", icon: "📅" },
+        ];
+    }, [rows]);
+
+    const maxVal = etapas[0]?.value || 1;
+
+    return (
+        <div className="flex flex-col gap-2 max-w-2xl">
+
+            {etapas.map((etapa, i) => {
+                const widthPct = Math.round((etapa.value / maxVal) * 100);
+                const pctDelTotal = Math.round((etapa.value / total) * 100);
+                const conversionVsAnterior = i === 0
+                    ? 100
+                    : etapas[i - 1].value > 0
+                        ? Math.round((etapa.value / etapas[i - 1].value) * 100)
+                        : 0;
+
+                return (
+                    <div key={etapa.label} className="flex items-center gap-3 group">
+                        {/* Etiqueta */}
+                        
+
+                        {/* Barra centrada tipo funnel */}
+                        <div className="flex-1 flex justify-center">
+                            <div
+    className="h-9 rounded-xl flex items-center justify-center transition-all duration-500 relative cursor-pointer"
+    style={{
+        width: `${Math.max(widthPct, 8)}%`,
+        background: etapa.color,
+        minWidth: "60px",
+    }}
+>
+    {/* Tooltip */}
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+        <div className="bg-[#131E5C] text-white text-[11px] font-bold rounded-xl px-3 py-2 whitespace-nowrap shadow-xl">
+            <div>{etapa.label}: {etapa.value.toLocaleString("es-MX")}</div>
+            <div className="text-white/70">{pctDelTotal}% del total</div>
+            {i > 0 && (
+                <div className={cls(
+                    conversionVsAnterior >= 50 ? "text-emerald-300"
+                    : conversionVsAnterior >= 25 ? "text-amber-300"
+                    : "text-red-300"
+                )}>
+                    {conversionVsAnterior}% vs etapa anterior
+                </div>
+            )}
+        </div>
+        <div className="w-2 h-2 bg-[#131E5C] rotate-45 mx-auto -mt-1" />
+    </div>
+                                <span className="text-xs font-black text-white drop-shadow">
+                                    {etapa.value.toLocaleString("es-MX")}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Stats derecha */}
+                        
+                    </div>
+                );
+            })}
+
+            {/* Leyenda de conversión */}
+           
+        </div>
+    );
+}
+
 // ─── Panel de estadísticas lateral ───────────────────────────────────────────
 function SidePanel({ rows, highlighted, onSelectHighlight }) {
     const statsPorEstado = useMemo(() => {
@@ -1964,25 +2071,36 @@ export default function DigitalesProspectos() {
                 </div>
             </div>
 
-            {/* KPIs */}
-            <div className="grid grid-cols-2 gap-3 mb-5 xl:grid-cols-7">
-                <KPICard icon={User} label="Total prospectos hoy" value={kpis.total.toLocaleString()} sub={`${sorted.length} con filtros`} subColor="text-slate-400" />
-                <KPICard icon={Zap} label="Pendientes de respuesta IA" value={kpis.pendIA} sub={kpis.pendIA > 0 ? "Requieren atención" : "Sin pendientes"}
-                    subColor={kpis.pendIA > 0 ? "text-amber-600" : "text-emerald-600"}
-                    iconBg="bg-amber-100" iconColor="text-amber-700" />
-                <KPICard icon={Flame} label="Leads calientes" value={kpis.calientes} sub={kpis.calientes > 0 ? "Alta probabilidad" : "Sin leads calientes"}
-                    subColor={kpis.calientes > 0 ? "text-emerald-600" : "text-slate-400"}
-                    iconBg="bg-red-100" iconColor="text-red-600" />
-                <KPICard icon={AlertCircle} label="Sin respuesta" value={kpis.sinResp} sub={kpis.sinResp > 0 ? "> 24h sin contacto" : "Todo al día"}
-                    subColor={kpis.sinResp > 0 ? "text-red-600" : "text-emerald-600"}
-                    iconBg="bg-red-50" iconColor="text-red-500" />
-                <KPICard icon={ClipboardCheck} label="Perfil comercial" value={`${percent(kpis.conPerfil, kpis.total || 1)}%`} sub={`${kpis.conPerfil} con datos de compra`}
-                    subColor="text-sky-600" iconBg="bg-sky-100" iconColor="text-sky-700" />
-                <KPICard icon={Target} label="Crédito / arrendamiento" value={kpis.financiamiento} sub="Oportunidad financiera"
-                    subColor="text-violet-600" iconBg="bg-violet-100" iconColor="text-violet-700" />
-                <KPICard icon={Clock3} label="Ventana prom. respuesta" value={kpis.avgResp !== null ? `${kpis.avgResp < 60 ? kpis.avgResp + "m" : Math.floor(kpis.avgResp / 60) + "h " + (kpis.avgResp % 60) + "m"}` : "—"}
-                    sub="Objetivo < 4h" subColor="text-sky-600" iconBg="bg-sky-100" iconColor="text-sky-700" />
-            </div>
+           {/* KPIs + Funnel juntos */}
+<div className="flex gap-3 mb-5">
+    
+    {/* Funnel a la izquierda */}
+    <div className="overflow-visible rounded-2xl border border-black/10 bg-white shadow-sm w-96">        
+        <div className="p-5 max-w-sm">
+            <FunnelChart rows={sorted} />
+        </div>
+    </div>
+
+    {/* KPIs a la derecha en grid */}
+    <div className="grid grid-cols-2 gap-3 flex-1 content-start">
+        <KPICard icon={User} label="Total prospectos hoy" value={kpis.total.toLocaleString()} sub={`${sorted.length} con filtros`} subColor="text-slate-400" />
+        <KPICard icon={Zap} label="Pendientes de respuesta IA" value={kpis.pendIA} sub={kpis.pendIA > 0 ? "Requieren atención" : "Sin pendientes"}
+            subColor={kpis.pendIA > 0 ? "text-amber-600" : "text-emerald-600"}
+            iconBg="bg-amber-100" iconColor="text-amber-700" />
+        <KPICard icon={AlertCircle} label="Sin respuesta" value={kpis.sinResp} sub={kpis.sinResp > 0 ? "> 24h sin contacto" : "Todo al día"}
+            subColor={kpis.sinResp > 0 ? "text-red-600" : "text-emerald-600"}
+            iconBg="bg-red-50" iconColor="text-red-500" />
+        <KPICard icon={ClipboardCheck} label="Perfil comercial" value={`${percent(kpis.conPerfil, kpis.total || 1)}%`} sub={`${kpis.conPerfil} con datos de compra`}
+            subColor="text-sky-600" iconBg="bg-sky-100" iconColor="text-sky-700" />
+        <KPICard icon={Target} label="Crédito / arrendamiento" value={kpis.financiamiento} sub="Oportunidad financiera"
+            subColor="text-violet-600" iconBg="bg-violet-100" iconColor="text-violet-700" />
+        <KPICard icon={Clock3} label="Ventana prom. respuesta" value={kpis.avgResp !== null ? `${kpis.avgResp < 60 ? kpis.avgResp + "m" : Math.floor(kpis.avgResp / 60) + "h " + (kpis.avgResp % 60) + "m"}` : "—"}
+            sub="Objetivo < 4h" subColor="text-sky-600" iconBg="bg-sky-100" iconColor="text-sky-700" />
+    </div>
+
+</div>
+
+  
 
             {/* Filtros */}
             {/* Filtros compactos */}
