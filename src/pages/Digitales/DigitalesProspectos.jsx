@@ -20,6 +20,7 @@ import { createPortal } from "react-dom";
 import { apiCitas } from "../../lib/apiCitas";
 import { useAuth } from "../../auth/AuthContext";
 import * as XLSX from "xlsx";
+import { FunnelChart as RechartsFunnel, Funnel, LabelList, Tooltip as RechartsTooltip } from "recharts";
 
 const BRAND_BLUE = "#131E5C";
 const PAGE_SIZE = 200;
@@ -162,6 +163,27 @@ const ASESORES = [
 const DEALERS = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+function getBadgeEstadoSimple(estado) {
+    const map = {
+        "sin respuesta": { label: "Sin respuesta", bg: "#FEE2E2", color: "#991B1B" },
+        "calificado":    { label: "Caliente",       bg: "#D1FAE5", color: "#065F46" },
+        "contactado":    { label: "Tibio",           bg: "#FEF3C7", color: "#92400E" },
+        "pendiente de cotización": { label: "Tibio", bg: "#FEF3C7", color: "#92400E" },
+        "requiere asesor": { label: "Alta",          bg: "#FFE4E6", color: "#9F1239" },
+        "financiamiento": { label: "Crédito",        bg: "#EDE9FE", color: "#5B21B6" },
+        "descalificado":  { label: "Frío",           bg: "#F1F5F9", color: "#475569" },
+    };
+    const key = String(estado || "").trim().toLowerCase();
+    return map[key] || { label: estado || "Sin estado", bg: "#F1F5F9", color: "#475569" };
+}
+
+function getScorePill(score) {
+    if (score >= 80) return { bg: "#D1FAE5", color: "#065F46" };
+    if (score >= 60) return { bg: "#FEF3C7", color: "#92400E" };
+    if (score >= 35) return { bg: "#DBEAFE", color: "#1E40AF" };
+    return { bg: "#F1F5F9", color: "#475569" };
+}
 
 function normalizaTelefonoMx(tel) {
     const digits = String(tel || "").replace(/\D/g, "");
@@ -723,6 +745,7 @@ function LeadScoreRing({ score }) {
 }
 
 // ─── Funnel Chart ─────────────────────────────────────────────────────────────
+
 function FunnelChart({ rows }) {
     const total = rows.length || 1;
 
@@ -755,80 +778,97 @@ function FunnelChart({ rows }) {
         const conCita = rows.filter(r => r.ultima_cita_agendada).length;
 
         return [
-            { label: "Prospectos",   value: rows.length,     color: "#131E5C", icon: "👥" },
-            { label: "Contactados",  value: contactados,     color: "#0ea5e9", icon: "📞" },
-            { label: "Calificados",  value: calificados,     color: "#8b5cf6", icon: "✅" },
-            { label: "Cotizaciones", value: conCotizacion,   color: "#f59e0b", icon: "📋" },
-            { label: "Con asesor",   value: conAsesor,       color: "#10b981", icon: "🤝" },
-            { label: "Financiam.",   value: financiamiento,  color: "#6366f1", icon: "💰" },
-            { label: "Citas",        value: conCita,         color: "#ef4444", icon: "📅" },
+            { name: "Prospectos",   value: rows.length,   color: "#131E5C" },
+            { name: "Contactados",  value: contactados,   color: "#1e3a8a" },
+            { name: "Calificados",  value: calificados,   color: "#1d6fa4" },
+            { name: "Cotizaciones", value: conCotizacion, color: "#0ea5e9" },
+            { name: "Con asesor",   value: conAsesor,     color: "#38bdf8" },
+            { name: "Financiam.",   value: financiamiento,color: "#7dd3fc" },
+            { name: "Citas",        value: conCita,       color: "#bae6fd" },
         ];
     }, [rows]);
 
-    const maxVal = etapas[0]?.value || 1;
+    const W = 280;
+    const H = 340;
+    const n = etapas.length;
+    const sliceH = H / n;
+    // ancho máximo (boca del embudo) y mínimo (base)
+    const maxW = W;
+    const minW = W * 0.18;
+
+    // Para cada etapa calculamos el trapecio
+    // El ancho de cada nivel se basa en su posición (no en su valor)
+    // para que siempre se vea como embudo aunque los valores bajen mucho
+    const shapes = etapas.map((etapa, i) => {
+        const topW  = maxW - (maxW - minW) * (i / n);
+        const botW  = maxW - (maxW - minW) * ((i + 1) / n);
+        const topY  = i * sliceH;
+        const botY  = (i + 1) * sliceH;
+        const topX1 = (W - topW) / 2;
+        const topX2 = (W + topW) / 2;
+        const botX1 = (W - botW) / 2;
+        const botX2 = (W + botW) / 2;
+        return { ...etapa, topX1, topX2, botX1, botX2, topY, botY, midY: (topY + botY) / 2 };
+    });
+
+    const [tooltip, setTooltip] = useState(null);
 
     return (
-        <div className="flex flex-col gap-2 max-w-2xl">
+        <div className="relative select-none">
+            <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+                {shapes.map((s, i) => {
+                    const points = `${s.topX1},${s.topY} ${s.topX2},${s.topY} ${s.botX2},${s.botY} ${s.botX1},${s.botY}`;
+                    const isLight = i >= 4;
+                    const textColor = isLight ? "#0c4a6e" : "#ffffff";
+                    return (
+                        <g key={s.name}
+                            onMouseEnter={() => setTooltip(s)}
+                            onMouseLeave={() => setTooltip(null)}
+                            className="cursor-pointer">
+                            <polygon
+                                points={points}
+                                fill={s.color}
+                                stroke="#fff"
+                                strokeWidth="2"
+                            />
+                            {/* Valor centrado */}
+                            <text
+                                x={W / 2}
+                                y={s.midY + 1}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fill={textColor}
+                                fontSize="12"
+                                fontWeight="800"
+                            >
+                                {s.value.toLocaleString("es-MX")}
+                            </text>
+                            {/* Etiqueta a la derecha */}
+                            <text
+                                x={s.topX2 + 8}
+                                y={s.midY + 1}
+                                textAnchor="start"
+                                dominantBaseline="middle"
+                                fill="#334155"
+                                fontSize="11"
+                                fontWeight="600"
+                            >
+                                {s.name}
+                            </text>
+                        </g>
+                    );
+                })}
+            </svg>
 
-            {etapas.map((etapa, i) => {
-                const widthPct = Math.round((etapa.value / maxVal) * 100);
-                const pctDelTotal = Math.round((etapa.value / total) * 100);
-                const conversionVsAnterior = i === 0
-                    ? 100
-                    : etapas[i - 1].value > 0
-                        ? Math.round((etapa.value / etapas[i - 1].value) * 100)
-                        : 0;
-
-                return (
-                    <div key={etapa.label} className="flex items-center gap-3 group">
-                        {/* Etiqueta */}
-                        
-
-                        {/* Barra centrada tipo funnel */}
-                        <div className="flex-1 flex justify-center">
-                            <div
-    className="h-9 rounded-xl flex items-center justify-center transition-all duration-500 relative cursor-pointer"
-    style={{
-        width: `${Math.max(widthPct, 8)}%`,
-        background: etapa.color,
-        minWidth: "60px",
-    }}
->
-    {/* Tooltip */}
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
-        <div className="bg-[#131E5C] text-white text-[11px] font-bold rounded-xl px-3 py-2 whitespace-nowrap shadow-xl">
-            <div>{etapa.label}: {etapa.value.toLocaleString("es-MX")}</div>
-            <div className="text-white/70">{pctDelTotal}% del total</div>
-            {i > 0 && (
-                <div className={cls(
-                    conversionVsAnterior >= 50 ? "text-emerald-300"
-                    : conversionVsAnterior >= 25 ? "text-amber-300"
-                    : "text-red-300"
-                )}>
-                    {conversionVsAnterior}% vs etapa anterior
+            {/* Tooltip */}
+            {tooltip && (
+                <div className="pointer-events-none absolute left-1/2 -top-10 -translate-x-1/2 rounded-xl bg-[#131E5C] px-3 py-1.5 text-[11px] font-bold text-white shadow-xl whitespace-nowrap">
+                    {tooltip.name}: {tooltip.value.toLocaleString("es-MX")} · {Math.round(tooltip.value / total * 100)}%
                 </div>
             )}
         </div>
-        <div className="w-2 h-2 bg-[#131E5C] rotate-45 mx-auto -mt-1" />
-    </div>
-                                <span className="text-xs font-black text-white drop-shadow">
-                                    {etapa.value.toLocaleString("es-MX")}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Stats derecha */}
-                        
-                    </div>
-                );
-            })}
-
-            {/* Leyenda de conversión */}
-           
-        </div>
     );
 }
-
 // ─── Panel de estadísticas lateral ───────────────────────────────────────────
 function SidePanel({ rows, highlighted, onSelectHighlight }) {
     const statsPorEstado = useMemo(() => {
@@ -1222,31 +1262,219 @@ function VistaGraficos({ rows }) {
                                 <th className="px-3 py-2 text-center font-black">Total</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {matrizBuroPago.rowsMatriz.map((row, rowIndex) => (
-                                <tr key={row.forma}>
-                                    <td className="px-3 py-2 font-black text-[#131E5C]">{valueOrDash(row.forma)}</td>
-                                    {row.cells.map((count, i) => (
-                                        <td key={`${row.forma}-${i}`} className="px-3 py-2 text-center">
-                                            <span
-                                                className="inline-flex min-w-8 justify-center rounded-lg px-2 py-1 font-black text-[#131E5C]"
-                                                style={{ background: count ? `${palette[(rowIndex + i) % palette.length]}18` : "#f8fafc" }}
-                                            >
-                                                {count || "—"}
-                                            </span>
-                                        </td>
-                                    ))}
-                                    <td className="px-3 py-2 text-center font-black text-[#131E5C]">{row.total}</td>
-                                </tr>
-                            ))}
-                            {matrizBuroPago.rowsMatriz.length === 0 && (
-                                <tr>
-                                    <td colSpan={matrizBuroPago.buros.length + 2} className="px-3 py-8 text-center text-slate-400">
-                                        Sin datos suficientes para el cruce.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
+                     <tbody className="divide-y divide-slate-100">
+    {loadingCases
+        ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
+        : paginatedRows.map(row => {
+            const score = calcLeadScore(row);
+            const badgeEstado = getBadgeEstadoSimple(row.estado);
+            const scorePill = getScorePill(score);
+            const prioridad = getPrioridad(row);
+            const perfilFin = getPerfilFinancieroDiagnostico(row);
+            const isUpdating = !!updatingEstado[row.id_exp];
+            return (
+                <tr key={row.id_exp}
+                    onDoubleClick={() => openEdit(row)}
+                    onContextMenu={e => onRowContextMenu(e, row)}
+                    onClick={() => setHighlightedRow(row)}
+                    className={cls(
+                        "cursor-pointer transition-colors hover:bg-slate-50",
+                        highlightedRow?.id_exp === row.id_exp ? "bg-blue-50/50" : ""
+                    )}>
+
+                    {/* Checkbox */}
+                    <td className="pl-4 pr-2 py-3" onClick={e => e.stopPropagation()}>
+                        <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#131E5C] cursor-pointer" />
+                    </td>
+
+                    {/* Dealer */}
+                    <td className="px-3 py-3 text-xs font-semibold text-[#131E5C] whitespace-nowrap">
+                        {row.agencia || "—"}
+                    </td>
+
+                    {/* Nombre + teléfono */}
+                    <td className="px-3 py-3 min-w-[150px]">
+                        <div className="text-sm font-semibold text-[#131E5C] leading-tight truncate max-w-[140px]">
+                            {`${row.cliente_nombre} ${row.cliente_apellidos}`.trim() || "Sin nombre"}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5">{formatTelefonoMx(row.telefono)}</div>
+                    </td>
+
+                    {/* Fecha reg */}
+                    <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
+                        {row.fecha_reclamacion || "—"}
+                    </td>
+
+                    {/* Último contacto */}
+                    <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
+                        {row.ultimo_contacto_at
+                            ? (() => {
+                                const d = new Date(row.ultimo_contacto_at);
+                                const diffH = (Date.now() - d) / 36e5;
+                                if (diffH < 24) return `Hoy, ${d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`;
+                                if (diffH < 48) return `Ayer, ${d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`;
+                                return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short" }) + ", " + d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+                            })()
+                            : "—"}
+                    </td>
+
+                    {/* Business */}
+                    <td className="px-3 py-3 text-xs font-semibold text-[#131E5C]">
+                        {row.linea || "—"}
+                    </td>
+
+                    {/* Interés */}
+                    <td className="px-3 py-3 text-xs text-[#131E5C]">
+                        {row.cliente_interes || "—"}
+                    </td>
+
+                    {/* Prioridad */}
+                    <td className="px-3 py-3">
+                        <span className={cls("inline-flex text-[11px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap", prioridad.cls)}>
+                            {prioridad.label}
+                        </span>
+                    </td>
+
+                    {/* Estado — badge simple en lugar de select */}
+                    <td className="px-3 py-3">
+                        <span style={{ background: badgeEstado.bg, color: badgeEstado.color }}
+                            className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap">
+                            {badgeEstado.label}
+                        </span>
+                    </td>
+
+                    {/* Canal */}
+                    <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
+                        {row.origen || "—"}
+                    </td>
+
+                    {/* Asesor Digital */}
+                    <td className="px-3 py-3">
+                        <div className="flex items-center gap-1.5">
+                            <div className={cls(
+                                "h-1.5 w-1.5 rounded-full flex-shrink-0",
+                                row.asesor_digital?.toLowerCase().includes("ia") ? "bg-emerald-500" : "bg-slate-300"
+                            )} />
+                            <span className="text-xs text-[#131E5C] truncate max-w-[110px]" title={row.asesor_digital || ""}>
+                                {row.asesor_digital || "—"}
+                            </span>
+                        </div>
+                    </td>
+
+                    {/* Asesor Piso */}
+                    <td className="px-3 py-3 min-w-[150px]">
+                        {row.asesor_solicita ? (
+                            <div>
+                                <div className="text-xs font-semibold text-[#131E5C] truncate max-w-[140px]" title={row.asesor_solicita}>
+                                    {row.asesor_solicita}
+                                </div>
+                                <div className="text-[11px] text-slate-400 mt-0.5">Asesor de piso/ventas</div>
+                            </div>
+                        ) : (
+                            <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                                Sin asignar
+                            </span>
+                        )}
+                    </td>
+
+                    {/* Score pill */}
+                    <td className="px-3 py-3">
+                        <div className="flex items-center gap-2">
+                            <span style={{ background: scorePill.bg, color: scorePill.color }}
+                                className="inline-flex items-center justify-center rounded-full w-9 h-9 text-sm font-bold flex-shrink-0">
+                                {score}
+                            </span>
+                            <span style={{ color: scorePill.color }}
+                                className="text-xs font-semibold hidden xl:inline">
+                                {score >= 80 ? "Muy alto" : score >= 60 ? "Alto" : score >= 35 ? "Medio" : "Bajo"}
+                            </span>
+                        </div>
+                    </td>
+
+                    {/* Perfil financiero */}
+                    <td className="px-3 py-3 min-w-[200px]">
+                        <div className="text-xs font-semibold text-[#131E5C]">
+                            Eng. {formatMoneyMXN(row.enganche_monto)}
+                        </div>
+                        <div className={cls("text-[11px] font-semibold mt-0.5",
+                            perfilFin.engancheSuficiente ? "text-emerald-600" : "text-amber-700")}>
+                            Mín. 20%: {formatMoneyMXN(perfilFin.engancheMinimo)}
+                        </div>
+                        {perfilFin.faltanteEnganche > 0 ? (
+                            <div className="text-[11px] font-bold text-red-500 mt-0.5">
+                                Faltan {formatMoneyMXN(perfilFin.faltanteEnganche)}
+                            </div>
+                        ) : (
+                            <div className="text-[11px] font-bold text-emerald-600 mt-0.5">
+                                Enganche suficiente
+                            </div>
+                        )}
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                            Mens. {formatMoneyMXN(row.presupuesto_mensual)} · Est. {formatMoneyMXN(perfilFin.mensualidadMinima)}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                            Buró {valueOrDash(row.buro_estado)} · {valueOrDash(row.forma_pago)}
+                        </div>
+                    </td>
+
+                    {/* Perfil compra */}
+                    <td className="px-3 py-3 min-w-[170px]">
+                        <div className="text-xs font-semibold text-[#131E5C]">{valueOrDash(row.tipo_cliente)}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">Plazo: {valueOrDash(row.plazo_compra)}</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[160px]">
+                            Uso: {valueOrDash(row.uso_vehiculo)} · Ing: {valueOrDash(row.comprobacion_ingresos)}
+                        </div>
+                    </td>
+
+                    {/* Resumen */}
+                    <td className="px-3 py-3 max-w-[180px]">
+                        <div className="flex items-start gap-1.5">
+                            <button type="button" onClick={e => { e.stopPropagation(); openSummaryViewer(row); }}
+                                className="text-left min-w-0 flex-1">
+                                <span className="line-clamp-2 text-xs text-slate-500">{row.resumen || "Sin resumen"}</span>
+                            </button>
+                            <button type="button"
+                                onClick={e => { e.stopPropagation(); generarResumenInline(row); }}
+                                disabled={!!generatingSummary[row.id_exp]}
+                                className="h-7 w-7 flex-shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
+                                title="Generar resumen">
+                                {generatingSummary[row.id_exp]
+                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#131E5C]" />
+                                    : <ClipboardCheck className="h-3.5 w-3.5 text-[#131E5C]" />}
+                            </button>
+                        </div>
+                    </td>
+
+                    {/* Acciones */}
+                    <td className="px-3 py-3">
+                        <div className="flex items-center gap-1.5">
+                            <button type="button"
+                                onClick={e => { e.stopPropagation(); abrirAgendaCita(row); }}
+                                className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500"
+                                title="Agendar cita">
+                                <CalendarPlus className="h-4 w-4" />
+                            </button>
+                            <button type="button"
+                                onClick={e => { e.stopPropagation(); navigate(`/comercial/prospectos/contacto?tel=${encodeURIComponent(row.telefono || "")}&direct=1`); }}
+                                className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 disabled:opacity-40"
+                                disabled={!row.telefono}
+                                title="Abrir chat">
+                                <MessageSquareShare className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            );
+        })
+    }
+    {!loadingCases && paginatedRows.length === 0 && (
+        <tr>
+            <td colSpan={17} className="px-4 py-12 text-center text-slate-400">
+                No hay resultados con esos filtros.
+            </td>
+        </tr>
+    )}
+</tbody>
                     </table>
                 </div>
             </div>
@@ -2383,42 +2611,45 @@ export default function DigitalesProspectos() {
                         <div className="hidden overflow-hidden rounded-xl bg-white border border-black/10 shadow-sm lg:block">
                             <div className="overflow-x-auto">
                                 <table className="min-w-full text-left text-sm">
-                                    <thead style={{ background: BRAND_BLUE }}>
-                                        <tr className="text-xs text-white">
-                                            {[
-                                                { key: "agencia", label: "Dealer" },
-                                                { key: null, label: "Cliente" },
-                                                { key: "fecha_reclamacion", label: "Fecha reg." },
-                                                { key: "ultimo_contacto_at", label: "Último contacto" },
-                                                { key: null, label: "Business" },
-                                                { key: null, label: "Interés" },
-                                                { key: null, label: "Prioridad" },
-                                                { key: "estado", label: "Estado" },
-                                                { key: null, label: "Canal" },
-                                                { key: null, label: "Asesor Digital" },
-                                                { key: null, label: "Asesor Piso" },
-                                                { key: null, label: "Lead Score" },
-                                                { key: null, label: "Perfil financiero" },
-                                                { key: null, label: "Perfil compra" },
-                                                { key: null, label: "Resumen" },
-                                                { key: null, label: "Acciones" },
-                                            ].map(({ key, label }) => (
-                                                <th key={label} className="px-3 py-3 whitespace-nowrap">
-                                                    {key ? (
-                                                        <button type="button" onClick={() => toggleSort(key)}
-                                                            className="inline-flex items-center gap-1 text-xs font-bold">
-                                                            {label}
-                                                            <span className="opacity-60">
-                                                                {sort.key === key ? (sort.dir === "asc" ? <ChevronUp className="h-3" /> : <ChevronDown className="h-3" />) : <ArrowUpDown className="h-3" />}
-                                                            </span>
-                                                        </button>
-                                                    ) : (
-                                                        <span className="text-xs font-bold">{label}</span>
-                                                    )}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
+                             <thead className="border-b border-slate-200 bg-white">
+    <tr className="text-xs">
+       
+        {[
+            { key: "agencia",            label: "Dealer" },
+            { key: null,                 label: "Cliente" },
+            { key: "fecha_reclamacion",  label: "Fecha reg." },
+            { key: "ultimo_contacto_at", label: "Último contacto" },
+            { key: null,                 label: "Business" },
+            { key: null,                 label: "Interés" },
+            { key: null,                 label: "Prioridad" },
+            { key: "estado",             label: "Estado" },
+            { key: null,                 label: "Canal" },
+            { key: null,                 label: "Asesor Digital" },
+            { key: null,                 label: "Asesor Piso" },
+            { key: null,                 label: "Score" },
+            { key: null,                 label: "Perfil financiero" },
+            { key: null,                 label: "Perfil compra" },
+            { key: null,                 label: "Resumen" },
+            { key: null,                 label: "Acciones" },
+        ].map(({ key, label }) => (
+            <th key={label} className="px-3 py-3 whitespace-nowrap text-left">
+                {key ? (
+                    <button type="button" onClick={() => toggleSort(key)}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-[#131E5C] hover:text-[#131E5C]/70">
+                        {label}
+                        <span className="opacity-50">
+                            {sort.key === key
+                                ? (sort.dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
+                                : <ArrowUpDown className="h-3 w-3" />}
+                        </span>
+                    </button>
+                ) : (
+                    <span className="text-xs font-bold text-[#131E5C]">{label}</span>
+                )}
+            </th>
+        ))}
+    </tr>
+</thead>
                                     <tbody className="divide-y divide-black/[0.06]">
                                         {loadingCases
                                             ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
