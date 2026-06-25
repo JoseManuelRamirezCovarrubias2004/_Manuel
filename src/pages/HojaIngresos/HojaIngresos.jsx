@@ -258,9 +258,7 @@ function crearDraftBase(userAgencia = "", isAdmin = true) {
     };
 }
 
-// ---------------------------------------------------------------------------
-// Bloques visuales reutilizables
-// ---------------------------------------------------------------------------
+
 
 function SkeletonRow({ columns = 10 }) {
     return (
@@ -324,54 +322,81 @@ function FilterBlock({ label, children }) {
         </div>
     );
 }
-
 function Modal({ open, title, onClose, children, footer }) {
     if (!open) return null;
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[70]">
-            <div className="absolute inset-0 bg-[#131E5C]/55 backdrop-blur-sm" onClick={onClose} />
-            <div className="absolute inset-0 flex items-end justify-center p-3 sm:items-center">
-                <div
-                    className="w-full max-w-6xl overflow-hidden rounded-[32px] border shadow-2xl"
-                    style={{ background: COLOR.surface, borderColor: "rgba(255,255,255,0.24)" }}
-                >
+           
+            <div
+                className="absolute inset-0 bg-[#131E5C]/55 backdrop-blur-sm"
+                onClick={onClose}
+            />
+
+           
+            <div
+                className="absolute inset-y-0 right-0 overflow-y-auto"
+                style={{ left: "var(--sidebar-w, 0px)" }}
+            >
+                <div className="flex min-h-full items-end justify-center p-3 sm:items-center sm:p-6">
                     <div
-                        className="flex items-center justify-between gap-3 px-5 py-4"
+                        className="relative w-full overflow-hidden rounded-[28px] border shadow-2xl"
                         style={{
-                            background: COLOR.brand,
+                            maxWidth: "min(100%, 1100px)",
+                            background: COLOR.surface,
+                            borderColor: "rgba(255,255,255,0.24)",
                         }}
                     >
-                        <div className="min-w-0">
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/50">Registro de servicio</div>
-                            <span className="mt-1 block truncate text-[17px] font-semibold text-white" style={{ fontFamily: FONT_DISPLAY }}>
-                                {title}
-                            </span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            aria-label="Cerrar"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/80 hover:bg-white/15 hover:text-white"
-                        >
-                            <X className="h-4 w-4" />
-                        </button>
-                    </div>
-
-                    <div className="max-h-[72vh] overflow-auto p-5" style={{ background: COLOR.surface }}>
-                        {children}
-                    </div>
-
-                    {footer ? (
+                       
                         <div
-                            className="flex flex-col gap-2 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-end"
-                            style={{ borderColor: COLOR.line, background: COLOR.surface }}
+                            className="flex items-center justify-between gap-3 px-5 py-4"
+                            style={{ background: COLOR.brand }}
                         >
-                            {footer}
+                            <div className="min-w-0">
+                                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/50">
+                                    Registro de servicio
+                                </div>
+                                <span
+                                    className="mt-1 block truncate text-[17px] font-semibold text-white"
+                                    style={{ fontFamily: FONT_DISPLAY }}
+                                >
+                                    {title}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                aria-label="Cerrar"
+                                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/80 hover:bg-white/15 hover:text-white"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
                         </div>
-                    ) : null}
+
+                        
+                        <div
+                            className="overflow-y-auto p-5"
+                            style={{
+                                background: COLOR.surface,
+                                maxHeight: "min(72vh, calc(100dvh - 180px))",
+                            }}
+                        >
+                            {children}
+                        </div>
+
+                       
+                        {footer ? (
+                            <div
+                                className="flex flex-col gap-2 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-end"
+                                style={{ borderColor: COLOR.line, background: COLOR.surface }}
+                            >
+                                {footer}
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -468,9 +493,7 @@ function MetricCard({ icon: Icon, label, value, hint }) {
 }
 
 
-// ---------------------------------------------------------------------------
-// Vista principal
-// ---------------------------------------------------------------------------
+
 
 export default function HojaRegistros() {
     const { user } = useAuth();
@@ -692,8 +715,7 @@ export default function HojaRegistros() {
         setCtxMenu({ open: true, x: event.clientX, y: event.clientY, row });
     }
 
-    // `preset` permite prellenar la cita cuando se origina desde un clic en
-    // una celda vacía de la agenda (asesor + horario + fecha ya conocidos).
+   
     function abrirNuevo(preset = null) {
         setTouchedSave(false);
         setMode("create");
@@ -711,8 +733,6 @@ export default function HojaRegistros() {
         setOpenModal(true);
     }
 
-    // Clic en un espacio libre de la agenda → abre el formulario completo
-    // (con todas sus validaciones) ya pre-llenado con asesor/fecha/hora.
     function onAgendaSlotClick(asesorNombre, horaSlot) {
         const [hh, mm] = horaSlot.split(":").map(Number);
         const fechaIso = `${selectedDate}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;

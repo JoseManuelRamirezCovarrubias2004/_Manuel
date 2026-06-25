@@ -152,6 +152,25 @@ export default function Sidebar() {
         };
     }, [mobileOpen]);
 
+    
+
+    useEffect(() => {
+        const updateSidebarWidth = () => {
+            const width = window.innerWidth < 768 ? 0 : collapsed ? 72 : 288;
+            document.documentElement.style.setProperty("--sidebar-w", `${width}px`);
+        };
+        updateSidebarWidth();
+    }, [collapsed]);
+
+    useEffect(() => {
+        const updateSidebarWidth = () => {
+            const width = window.innerWidth < 768 ? 0 : collapsed ? 72 : 288;
+            document.documentElement.style.setProperty("--sidebar-w", `${width}px`);
+        };
+        window.addEventListener("resize", updateSidebarWidth);
+        return () => window.removeEventListener("resize", updateSidebarWidth);
+    }, [collapsed]);
+
     const resetBugForm = () => {
         setTipoReporte("BUG");
         setTitulo("");
