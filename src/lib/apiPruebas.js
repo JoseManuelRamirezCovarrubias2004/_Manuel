@@ -430,6 +430,28 @@ async function http(
   return res.text();
 }
 
+function getNumeroAsesorIA(numeroAsesor) {
+  const raw = String(numeroAsesor || "").trim();
+
+  if (!raw) {
+    throw new Error("Falta seleccionar una línea de WhatsApp.");
+  }
+
+  if (["GLOBAL", "TODOS", "ALL", "*"].includes(raw.toUpperCase())) {
+    throw new Error(
+      "La configuración global ya no está permitida. Selecciona un número de WhatsApp.",
+    );
+  }
+
+  const numero = normalizaTelefonoMx(raw);
+
+  if (!numero) {
+    throw new Error("Número de WhatsApp inválido.");
+  }
+
+  return numero;
+}
+
 export const api = {
   // Helpers genéricos
   get: (path) => http(path),
@@ -661,63 +683,43 @@ export const api = {
   // Configuración IA
   iaLineas: () => http("/digitales/ia/lineas/"),
 
-  iaConfigGet: (numeroAsesor) =>
-    http(`/digitales/ia/config/${encodeURIComponent(numeroAsesor)}/`),
+  iaConfigGet: (numeroAsesor) => {
+    const numero = getNumeroAsesorIA(numeroAsesor);
 
-  iaConfigPatch: (numeroAsesor, payload) =>
-    http(`/digitales/ia/config/${encodeURIComponent(numeroAsesor)}/`, {
+    return http(`/digitales/ia/config/${encodeURIComponent(numero)}/`);
+  },
+
+  iaConfigPatch: (numeroAsesor, payload) => {
+    const numero = getNumeroAsesorIA(numeroAsesor);
+
+    return http(`/digitales/ia/config/${encodeURIComponent(numero)}/`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext(payload)),
-    }),
-
-  iaConfigPublicar: (numeroAsesor) =>
-    http(`/digitales/ia/config/${encodeURIComponent(numeroAsesor)}/publicar/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({})),
-    }),
-
-  iaPausarConversacion: ({ tel, motivo = "manual", numero_asesor = "" }) => {
-    const payload = {
-      tel,
-      motivo,
-      ...(numero_asesor ? { numero_asesor } : {}),
-    };
-
-    return http("/digitales/ia/conversacion/pausar/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext(payload)),
+      body: JSON.stringify(
+        withRequestContext({
+          ...(payload || {}),
+          numero_asesor: numero,
+        }),
+      ),
     });
   },
 
-  iaReactivarConversacion: ({ tel, numero_asesor = "" }) => {
-    const payload = {
-      tel,
-      ...(numero_asesor ? { numero_asesor } : {}),
-    };
-
-    return http("/digitales/ia/conversacion/reactivar/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext(payload)),
-    });
-  },
-
-  iaEstadoConversacion: ({ tel, numero_asesor = "" }) => {
-    const numero = numero_asesor || getWhatsAppNumberFromSources();
-    const usuario = getCrmUsername();
+  iaConfigPublicar: (numeroAsesor) => {
+    const numero = getNumeroAsesorIA(numeroAsesor);
 
     return http(
-      `/digitales/ia/conversacion/estado/${buildQuery({
-        tel,
-        numero_asesor: numero,
-        usuario,
-      })}`,
+      `/digitales/ia/config/${encodeURIComponent(numero)}/publicar/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          withRequestContext({
+            numero_asesor: numero,
+          }),
+        ),
+      },
     );
   },
-
   // Catálogo IA
   catalogoVehiculos: ({
     activo = "true",

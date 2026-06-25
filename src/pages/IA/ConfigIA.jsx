@@ -22,16 +22,30 @@ const C = {
     text: "#1A1F3C",
     textSub: "#515778",
 };
-const IA_GLOBAL_KEY = "GLOBAL";
-
 function normalizaNumeroConfigIA(value) {
     const raw = String(value || "").trim();
 
+    if (!raw) return "";
+
+    // Ya no se permite configuración global.
+    // Cualquier intento de GLOBAL, TODOS, ALL o * se trata como inválido.
     if (["GLOBAL", "TODOS", "ALL", "*"].includes(raw.toUpperCase())) {
-        return IA_GLOBAL_KEY;
+        return "";
     }
 
     return normalizaTelefonoMx(raw);
+}
+
+function resetConfigIAFormulario({
+    setSwiftActivo,
+    setHorarios,
+    setCampos,
+    setCondFijas,
+}) {
+    setSwiftActivo(false);
+    setHorarios(horarioInicial());
+    setCampos(Object.fromEntries(secciones.map((s) => [s.id, ""])));
+    setCondFijas(CONDICIONES_FIJAS);
 }
 
 // ─── Datos estáticos
@@ -1021,43 +1035,60 @@ export default function ConfigIA() {
             const res = await api.iaLineas();
             const items = Array.isArray(res?.items) ? res.items : [];
 
-            const globalItem = {
-                numero: IA_GLOBAL_KEY,
-                key: "global",
-                label: "Configuración global - Todas las líneas",
-                asesor_digital: "IA Global",
-                agencia: "Todas las agencias",
-                business: "Todos",
-                ia_configurada: true,
-                ia_activa: items.some((item) => item.ia_activa),
-                en_horario: items.some((item) => item.en_horario),
-                puede_responder_linea: items.some((item) => item.puede_responder_linea),
-                bloqueos_linea: [],
-                config_origen: "global",
-                numero_config: IA_GLOBAL_KEY,
-            };
+            // Solo líneas reales. Nada de GLOBAL.
+            const finalItems = items
+                .map((item) => {
+                    const numero = normalizaNumeroConfigIA(item.numero);
 
-            const finalItems = [globalItem, ...items];
+                    return {
+                        ...item,
+                        numero,
+                    };
+                })
+                .filter((item) => item.numero);
 
             setLineasIA(finalItems);
 
-            if (!numeroSeleccionado) {
-                setNumero(IA_GLOBAL_KEY);
-            }
-        } catch {
-            showToast("No se pudieron cargar las líneas de WhatsApp.", "error");
+            setNumero((numeroActual) => {
+                const numeroNormalizado = normalizaNumeroConfigIA(numeroActual);
+
+                const existeActual = finalItems.some(
+                    (item) => item.numero === numeroNormalizado
+                );
+
+                if (numeroNormalizado && existeActual) {
+                    return numeroNormalizado;
+                }
+
+                return finalItems[0]?.numero || "";
+            });
+        } catch (e) {
+            setLineasIA([]);
+            setNumero("");
+            showToast(
+                e?.message || "No se pudieron cargar las líneas de WhatsApp.",
+                "error"
+            );
         }
     }
 
     async function cargarConfig(numero = numeroSeleccionado) {
         const num = normalizaNumeroConfigIA(numero);
 
-        if (!num) return;
+        if (!num) {
+            resetConfigIAFormulario({
+                setSwiftActivo,
+                setHorarios,
+                setCampos,
+                setCondFijas,
+            });
+            return;
+        }
 
         setCargandoConfig(true);
 
         try {
-            const res = await api.get(`/digitales/ia/config/${encodeURIComponent(num)}/`);
+            const res = await api.iaConfigGet(num);
             const item = res?.item || res || {};
 
             setSwiftActivo(Boolean(item.activo));
@@ -1078,21 +1109,32 @@ export default function ConfigIA() {
             });
 
             setCondFijas(item.condiciones_fijas || CONDICIONES_FIJAS);
-        } catch {
-            setSwiftActivo(false);
-            setHorarios(horarioInicial());
-            setCampos(Object.fromEntries(secciones.map((s) => [s.id, ""])));
-            setCondFijas(CONDICIONES_FIJAS);
-            showToast("No se pudo cargar la configuración.", "error");
+        } catch (e) {
+            resetConfigIAFormulario({
+                setSwiftActivo,
+                setHorarios,
+                setCampos,
+                setCondFijas,
+            });
+
+            showToast(
+                e?.message || "No se pudo cargar la configuración de este número.",
+                "error"
+            );
         } finally {
             setCargandoConfig(false);
         }
     }
 
-    async function guardarConfig(extra = {}) {
+    async function guardarConfig(extra = {}, opciones = {}) {
+        const { mostrarToast = true, mantenerLoader = false } = opciones;
+
         const num = normalizaNumeroConfigIA(numeroSeleccionado);
 
-        if (!num) return;
+        if (!num) {
+            showToast("Selecciona una línea de WhatsApp válida.", "error");
+            return false;
+        }
 
         setGuardandoConfig(true);
 
@@ -1101,7 +1143,7 @@ export default function ConfigIA() {
                 secciones.map((s) => [s.id, campos[s.id] || ""])
             );
 
-            await api.patch(`/digitales/ia/config/${encodeURIComponent(num)}/`, {
+            await api.iaConfigPatch(num, {
                 activo: swiftActivo,
                 horarios,
                 ...payloadSecciones,
@@ -1109,27 +1151,58 @@ export default function ConfigIA() {
                 ...extra,
             });
 
-            showToast("Configuración guardada correctamente.");
+            if (mostrarToast) {
+                showToast("Configuración guardada correctamente.");
+            }
+
+            await cargarLineasIA();
+
+            return true;
         } catch (e) {
-            showToast(e?.message || "No se pudo guardar.", "error");
+            showToast(e?.message || "No se pudo guardar la configuración.", "error");
+            return false;
+        } finally {
+            if (!mantenerLoader) {
+                setGuardandoConfig(false);
+            }
+        }
+    }
+    async function publicarConfig() {
+        const num = normalizaNumeroConfigIA(numeroSeleccionado);
+
+        if (!num) {
+            showToast("Selecciona una línea de WhatsApp válida.", "error");
+            return;
+        }
+
+        setGuardandoConfig(true);
+
+        try {
+            const guardado = await guardarConfig(
+                {},
+                {
+                    mostrarToast: false,
+                    mantenerLoader: true,
+                }
+            );
+
+            if (!guardado) {
+                return;
+            }
+
+            await api.iaConfigPublicar(num);
+
+            setSwiftActivo(true);
+
+            await cargarLineasIA();
+
+            showToast("IA publicada y encendida para este número.", "success");
+        } catch (e) {
+            showToast(e?.message || "No se pudo publicar la IA.", "error");
         } finally {
             setGuardandoConfig(false);
         }
     }
-
-    async function publicarConfig() {
-        const num = normalizaNumeroConfigIA(numeroSeleccionado);
-        if (!num) return;
-        setGuardandoConfig(true);
-        try {
-            await guardarConfig();
-            await api.post(`/digitales/ia/config/${encodeURIComponent(num)}/publicar/`, {});
-            await cargarLineasIA();
-            showToast("IA publicada y encendida correctamente.", "success");
-        } catch (e) { showToast(e?.message || "No se pudo publicar.", "error"); }
-        finally { setGuardandoConfig(false); }
-    }
-
     async function cargarCatalogo() {
         setCargCat(true);
         try {
@@ -1219,88 +1292,88 @@ export default function ConfigIA() {
 
             {/* Top bar */}
             {/* Top bar */}
-<header
-    className="sticky top-0 z-40 w-full border-b bg-white"
-    style={{ borderColor: "#131E5C22" }}
->
-    <div className="flex min-h-[76px] items-center gap-4 px-4 md:px-6 lg:px-8">
-        <div className="flex shrink-0 items-center gap-3 md:gap-4">
-            <img
-                src={vwDark}
-                alt="Volkswagen"
-                className="h-16 w-16 object-contain md:h-20 md:w-20"
-                loading="lazy"
-            />
-            <div
-                className="text-[24px] font-extrabold tracking-[-0.04em] md:text-[30px]"
-                style={{ color: "#131E5C" }}
+            <header
+                className="sticky top-0 z-40 w-full border-b bg-white"
+                style={{ borderColor: "#131E5C22" }}
             >
-                Panel de Inteligencias Artificiales
-            </div>
-        </div>
+                <div className="flex min-h-[76px] items-center gap-4 px-4 md:px-6 lg:px-8">
+                    <div className="flex shrink-0 items-center gap-3 md:gap-4">
+                        <img
+                            src={vwDark}
+                            alt="Volkswagen"
+                            className="h-16 w-16 object-contain md:h-20 md:w-20"
+                            loading="lazy"
+                        />
+                        <div
+                            className="text-[24px] font-extrabold tracking-[-0.04em] md:text-[30px]"
+                            style={{ color: "#131E5C" }}
+                        >
+                            Panel de Inteligencias Artificiales
+                        </div>
+                    </div>
 
-        <div
-            className="hidden h-[2px] min-w-[60px] flex-1 rounded-full lg:block"
-            style={{ background: "#131E5C" }}
-        />
+                    <div
+                        className="hidden h-[2px] min-w-[60px] flex-1 rounded-full lg:block"
+                        style={{ background: "#131E5C" }}
+                    />
 
-        <nav className="ml-auto flex max-w-full items-center gap-2 overflow-x-auto py-2">
-            {[
-                { id: "config", label: "Configuración", icon: Bot },
-                { id: "catalogo", label: "Catálogo", icon: Car },
-            ].map(({ id, label, icon: Icon }) => (
-                <button
-                    key={id}
-                    onClick={() => setTab(id)}
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition"
-                    style={{
-                        borderColor: "#131E5C",
-                        backgroundColor: tab === id ? "#131E5C" : "#FFFFFF",
-                        color: tab === id ? "#FFFFFF" : "#131E5C",
-                    }}
-                >
-                    <Icon className="h-4 w-4" />
-                    <span className="hidden sm:inline">{label}</span>
-                </button>
-            ))}
+                    <nav className="ml-auto flex max-w-full items-center gap-2 overflow-x-auto py-2">
+                        {[
+                            { id: "config", label: "Configuración", icon: Bot },
+                            { id: "catalogo", label: "Catálogo", icon: Car },
+                        ].map(({ id, label, icon: Icon }) => (
+                            <button
+                                key={id}
+                                onClick={() => setTab(id)}
+                                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition"
+                                style={{
+                                    borderColor: "#131E5C",
+                                    backgroundColor: tab === id ? "#131E5C" : "#FFFFFF",
+                                    color: tab === id ? "#FFFFFF" : "#131E5C",
+                                }}
+                            >
+                                <Icon className="h-4 w-4" />
+                                <span className="hidden sm:inline">{label}</span>
+                            </button>
+                        ))}
 
-            {tab === "config" && (
-                <>
-                    <button
-                        onClick={() => cargarConfig(numeroSeleccionado)}
-                        disabled={cargandoConfig}
-                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition disabled:opacity-50"
-                        style={{ borderColor: "#131E5C", backgroundColor: "#FFFFFF", color: "#131E5C" }}
-                    >
-                        {cargandoConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                        <span className="hidden sm:inline">Sincronizar</span>
-                    </button>
+                        {tab === "config" && (
+                            <>
+                                <button
+                                    onClick={() => cargarConfig(numeroSeleccionado)}
+                                    disabled={cargandoConfig}
+                                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition disabled:opacity-50"
+                                    style={{ borderColor: "#131E5C", backgroundColor: "#FFFFFF", color: "#131E5C" }}
+                                >
+                                    {cargandoConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                    <span className="hidden sm:inline">Sincronizar</span>
+                                </button>
 
-                    <button
-                        onClick={publicarConfig}
-                        disabled={guardandoConfig}
-                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition text-white disabled:opacity-50"
-                        style={{ borderColor: "#131E5C", backgroundColor: "#131E5C" }}
-                    >
-                        {guardandoConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                        <span className="hidden sm:inline">Publicar IA</span>
-                    </button>
-                </>
-            )}
+                                <button
+                                    onClick={publicarConfig}
+                                    disabled={guardandoConfig}
+                                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition text-white disabled:opacity-50"
+                                    style={{ borderColor: "#131E5C", backgroundColor: "#131E5C" }}
+                                >
+                                    {guardandoConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                                    <span className="hidden sm:inline">Publicar IA</span>
+                                </button>
+                            </>
+                        )}
 
-            {tab === "catalogo" && (
-                <button
-                    onClick={abrirNuevoVehiculo}
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition text-white"
-                    style={{ borderColor: "#131E5C", backgroundColor: "#131E5C" }}
-                >
-                    <Plus className="h-4 w-4" />
-                    <span className="hidden sm:inline">Nuevo vehículo</span>
-                </button>
-            )}
-        </nav>
-    </div>
-</header>
+                        {tab === "catalogo" && (
+                            <button
+                                onClick={abrirNuevoVehiculo}
+                                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition text-white"
+                                style={{ borderColor: "#131E5C", backgroundColor: "#131E5C" }}
+                            >
+                                <Plus className="h-4 w-4" />
+                                <span className="hidden sm:inline">Nuevo vehículo</span>
+                            </button>
+                        )}
+                    </nav>
+                </div>
+            </header>
 
             <div className="mx-auto max-w-full px-4 py-6 sm:px-6 lg:px-8">
 
