@@ -29,12 +29,6 @@ import { apiHojaIngresos } from "../../lib/apiHojaIngresos";
 import { useAuth } from "../../auth/AuthContext";
 import AgendaView from "./AgendaView";
 
-// ---------------------------------------------------------------------------
-// Diseño VW integrado en este JSX.
-// No depende de designTokens.js.
-// Inspirado en el lenguaje visual actual de Volkswagen: superficies limpias,
-// azul corporativo, mucho aire, tarjetas editoriales y acentos luminosos.
-// ---------------------------------------------------------------------------
 const COLOR = {
     brand: "#131E5C",
     white: "#FFFFFF",
@@ -100,7 +94,6 @@ function tipoServicioMeta(tipo) {
     };
 }
 
-
 const DEALERS = [
     "VW Cordoba",
     "VW Orizaba",
@@ -157,7 +150,7 @@ function getAsesoresPorAgencia(agencia, incluirTodos = false) {
     return ASESORES_POR_DEALER[dealer] || [];
 }
 
-function AsesorBadge({ asesor, agencia }) {
+function AsesorBadge({ asesor }) {
     const text = normalizeStr(asesor);
     if (!text) return <span style={{ color: COLOR.inkFaint }}>—</span>;
 
@@ -210,17 +203,21 @@ function formatDate(value) {
     const local = toDTLocal(value);
     return local ? local.replace("T", "  ·  ") : "—";
 }
+
+// ✅ FIX: regresa "—" en lugar de "Sin nombre" para que la condición en abrirEditar funcione
 function getClienteNombre(row) {
     return (
         row?.cliente_nombre ||
-        row?.cliente?.nombre ||
         row?.nombre_cliente ||
-        "Sin nombre"
+        row?.cliente?.nombre ||
+        "—"
     );
 }
+
 function getTelefono(row) {
     return row?.telefono || row?.cliente?.telefono || "—";
 }
+
 function getCorreo(row) {
     return (
         row?.correo || row?.correo_electronico || row?.cliente?.correo || row?.cliente?.correo_electronico || "—"
@@ -257,8 +254,6 @@ function crearDraftBase(userAgencia = "", isAdmin = true) {
         venta_mano_obra: "",
     };
 }
-
-
 
 function SkeletonRow({ columns = 10 }) {
     return (
@@ -322,17 +317,18 @@ function FilterBlock({ label, children }) {
         </div>
     );
 }
+
 function Modal({ open, title, onClose, children, footer }) {
     if (!open) return null;
     return createPortal(
         <div className="fixed inset-0 z-[70]">
-           
+            {/* Backdrop cubre todo */}
             <div
                 className="absolute inset-0 bg-[#131E5C]/55 backdrop-blur-sm"
                 onClick={onClose}
             />
 
-           
+            {/* Área de contenido — empieza DESPUÉS del sidebar */}
             <div
                 className="absolute inset-y-0 right-0 overflow-y-auto"
                 style={{ left: "var(--sidebar-w, 0px)" }}
@@ -346,7 +342,7 @@ function Modal({ open, title, onClose, children, footer }) {
                             borderColor: "rgba(255,255,255,0.24)",
                         }}
                     >
-                       
+                        {/* Header */}
                         <div
                             className="flex items-center justify-between gap-3 px-5 py-4"
                             style={{ background: COLOR.brand }}
@@ -372,7 +368,7 @@ function Modal({ open, title, onClose, children, footer }) {
                             </button>
                         </div>
 
-                        
+                        {/* Body */}
                         <div
                             className="overflow-y-auto p-5"
                             style={{
@@ -383,7 +379,7 @@ function Modal({ open, title, onClose, children, footer }) {
                             {children}
                         </div>
 
-                       
+                        {/* Footer */}
                         {footer ? (
                             <div
                                 className="flex flex-col gap-2 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-end"
@@ -460,6 +456,7 @@ function BooleanButton({ row, field, updatingInline, onToggle }) {
         </button>
     );
 }
+
 function MetricCard({ icon: Icon, label, value, hint }) {
     return (
         <div
@@ -491,9 +488,6 @@ function MetricCard({ icon: Icon, label, value, hint }) {
         </div>
     );
 }
-
-
-
 
 export default function HojaRegistros() {
     const { user } = useAuth();
@@ -528,7 +522,6 @@ export default function HojaRegistros() {
     const [updatingInline, setUpdatingInline] = useState({});
 
     const [sort, setSort] = useState({ key: "fecha_ingreso", dir: "desc" });
-
     const [filters, setFilters] = useState({ q: "", agencia: "Todos", desde: "", hasta: "" });
     const [touchedSave, setTouchedSave] = useState(false);
 
@@ -561,8 +554,11 @@ export default function HojaRegistros() {
         { key: "vin", label: "VIN" },
         { key: "medio_concertacion", label: "Medio" },
     ];
+
     const required = useMemo(() => ({
-        cliente_nombre: "Cliente", cliente_telefono: "Teléfono", fecha_ingreso: "Fecha ingreso",
+        cliente_nombre: "Cliente",
+        cliente_telefono: "Teléfono",
+        fecha_ingreso: "Fecha ingreso",
     }), []);
 
     const missing = useMemo(() => {
@@ -576,7 +572,10 @@ export default function HojaRegistros() {
     const isInvalid = (key) => touchedSave && missing.includes(key);
 
     const telDigits = useMemo(() => String(draft?.cliente_telefono || "").replace(/\D/g, ""), [draft?.cliente_telefono]);
-    const telIsOk = useMemo(() => /^(?:\d{10}|52\d{10})$/.test(telDigits), [telDigits]);
+    const telIsOk = useMemo(
+        () => /^(?:271\d{7}|52\d{10})$/.test(telDigits),
+        [telDigits]
+    );
 
     const telefonoBloqueado = useMemo(() => {
         if (!draft?.cliente_telefono) return false;
@@ -586,11 +585,17 @@ export default function HojaRegistros() {
 
     const telError = useMemo(() => {
         if (!openModal || !draft || !telDigits) return "";
-        if (/^\d{10}$/.test(telDigits) || /^52\d{10}$/.test(telDigits)) return "";
-        if (telDigits.length < 10) return "Número incompleto. Debe tener 10 dígitos.";
-        if (telDigits.length === 11) return "Número inválido. 11 dígitos no es válido.";
-        if (telDigits.length === 12 && !telDigits.startsWith("52")) return "Número inválido. Si tiene 12 dígitos debe iniciar con 52.";
-        if (telDigits.length > 12) return "Número demasiado largo.";
+        if (/^\d{10}$/.test(telDigits)) return "";        // 10 dígitos libres ✅
+        if (/^52\d{10}$/.test(telDigits)) return "";      // 52 + 10 dígitos ✅
+
+        if (telDigits.startsWith("52")) {
+            if (telDigits.length < 12) return "Con prefijo 52 debes ingresar 12 dígitos en total.";
+            if (telDigits.length > 12) return "Número demasiado largo. Máximo 12 dígitos con prefijo 52.";
+        } else {
+            if (telDigits.length < 10) return "Número incompleto. Debe tener 10 dígitos.";
+            if (telDigits.length > 10) return "Número inválido. Sin prefijo 52 solo se permiten 10 dígitos.";
+        }
+
         return "Número inválido.";
     }, [openModal, draft, telDigits]);
 
@@ -666,7 +671,6 @@ export default function HojaRegistros() {
         });
     }, [rows, filters, isAdmin, userAgencia]);
 
-
     const sorted = useMemo(() => {
         const data = [...filtered];
         const { key, dir } = sort;
@@ -715,7 +719,6 @@ export default function HojaRegistros() {
         setCtxMenu({ open: true, x: event.clientX, y: event.clientY, row });
     }
 
-   
     function abrirNuevo(preset = null) {
         setTouchedSave(false);
         setMode("create");
@@ -757,6 +760,10 @@ export default function HojaRegistros() {
                 }
             }
 
+            // ✅ FIX: ahora getClienteNombre devuelve "—" cuando no hay nombre,
+            // así la condición funciona correctamente
+            const nombreCliente = getClienteNombre(data);
+
             setDraft({
                 id: data.id,
                 cliente_id: data?.cliente?.id ?? data?.cliente ?? data?.cliente_id ?? null,
@@ -772,10 +779,17 @@ export default function HojaRegistros() {
                 torre: data.torre || "",
                 asesor: data.asesor || "",
                 agendado_por: data.agendado_por || "",
-                cliente_nombre: getClienteNombre(data) === "—" ? "" : getClienteNombre(data),
+                cliente_nombre: nombreCliente === "—" ? "" : nombreCliente,
                 cliente_telefono: data.telefono || data?.cliente?.telefono || "",
-                cliente_correo_electronico: data.correo || data.correo_electronico || data?.cliente?.correo || data?.cliente?.correo_electronico || "",
-                tipo_cita: data.tipo_cita ? String(data.tipo_cita).split(",").map((t) => t.trim()).filter(Boolean) : [],
+                cliente_correo_electronico:
+                    data.correo ||
+                    data.correo_electronico ||
+                    data?.cliente?.correo ||
+                    data?.cliente?.correo_electronico ||
+                    "",
+                tipo_cita: data.tipo_cita
+                    ? String(data.tipo_cita).split(",").map((t) => t.trim()).filter(Boolean)
+                    : [],
                 declaracion_textual_cliente: data.declaracion_textual_cliente || "",
                 comentarios: data.comentarios || "",
                 vin: data.vin || "",
@@ -783,7 +797,10 @@ export default function HojaRegistros() {
                 modelo: data.modelo || "",
                 medio_concertacion: data.medio_concertacion || "",
                 pauta_origen: data.pauta_origen || "",
-                venta_mano_obra: data.venta_mano_obra === null || data.venta_mano_obra === undefined ? "" : String(data.venta_mano_obra),
+                venta_mano_obra:
+                    data.venta_mano_obra === null || data.venta_mano_obra === undefined
+                        ? ""
+                        : String(data.venta_mano_obra),
             });
         } catch (error) {
             console.error(error);
@@ -802,21 +819,16 @@ export default function HojaRegistros() {
 
     function buildPayload() {
         const nombreCliente = normalizeStr(draft.cliente_nombre);
-
         return {
             cliente_id: draft.cliente_id || null,
-
             cliente_nombre: nombreCliente,
             nombre_cliente: nombreCliente,
-
             cliente_telefono: normalizeStr(draft.cliente_telefono),
             cliente_correo_electronico: draft.cliente_correo_electronico || "",
-
             agencia: isAdmin ? normalizeStr(draft.agencia) : userAgencia,
             fecha_ingreso: fromDTLocalToISO(draft.fecha_ingreso),
             asistencia: !!draft.asistencia,
             citado: !!draft.citado,
-
             no_orden: draft.no_orden || "",
             diss: draft.diss || "",
             pauta: draft.pauta || "",
@@ -825,11 +837,9 @@ export default function HojaRegistros() {
             torre: draft.torre || "",
             asesor: draft.asesor || "",
             agendado_por: draft.agendado_por || "",
-
             tipo_cita: Array.isArray(draft.tipo_cita)
                 ? draft.tipo_cita.join(", ")
                 : draft.tipo_cita || "",
-
             declaracion_textual_cliente: draft.declaracion_textual_cliente || "",
             comentarios: draft.comentarios || "",
             vin: draft.vin || "",
@@ -847,10 +857,11 @@ export default function HojaRegistros() {
     async function guardar() {
         if (!draft || saving) return;
         setTouchedSave(true);
+
         if (missing.length) return;
 
         if (!telIsOk) {
-            alert("Revisa el teléfono del cliente.");
+            alert(`Revisa el teléfono del cliente.\nDígitos capturados: "${telDigits}" (${telDigits.length} dígitos)`);
             return;
         }
 
@@ -859,10 +870,10 @@ export default function HojaRegistros() {
             const payload = buildPayload();
             if (mode === "create") await apiHojaIngresos.create(payload);
             else await apiHojaIngresos.update(draft.id, payload);
-            await refreshList();
+
             cerrarModal();
+            refreshList();
         } catch (error) {
-            console.error(error);
             alert(`No se pudo guardar el registro: ${error.message}`);
         } finally {
             setSaving(false);
@@ -914,7 +925,6 @@ export default function HojaRegistros() {
         }
     }
 
-
     async function setAsistenciaDesdeAgenda(row, value) {
         if (!row?.id) return;
         const previous = boolFromAny(row.asistencia);
@@ -939,6 +949,7 @@ export default function HojaRegistros() {
     }
 
     const tipoCitaList = (value) => (Array.isArray(value) ? value : value ? [value] : []);
+
     const fechaLegible = useMemo(() => {
         const [y, m, d] = selectedDate.split("-").map(Number);
         if (!y) return "";
@@ -966,9 +977,7 @@ export default function HojaRegistros() {
     }, [rows, selectedDate, agenciaSeleccionada]);
 
     return (
-        <div
-            className="w-full min-h-screen rounded-[14px]"
-        >
+        <div className="w-full min-h-screen rounded-[14px]">
             {/* Cabecera del módulo y métricas */}
             <section className="mb-4 text-[#131E5C]">
                 <div className="grid gap-5 py-5 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -1104,286 +1113,280 @@ export default function HojaRegistros() {
             </section>
 
             {/* Filtros — solo vista tabla */}
-            {
-                viewMode === "tabla" && (
-                    <div className="mb-3 rounded-lg border p-3" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
-                        <div className="grid gap-3 md:grid-cols-12">
-                            <div className="md:col-span-5">
-                                <FilterBlock label="Búsqueda">
-                                    <div className="flex items-center gap-2 rounded-lg border px-3 py-2" style={{ borderColor: COLOR.line }}>
-                                        <Search className="h-3.5 w-3.5" style={{ color: COLOR.inkFaint }} />
-                                        <input
-                                            value={filters.q}
-                                            onChange={(event) => setFilters((prev) => ({ ...prev, q: event.target.value }))}
-                                            placeholder="Cliente, teléfono, VIN, asesor, orden..."
-                                            className="w-full text-[13px] font-medium outline-none"
-                                            style={{ color: COLOR.ink }}
-                                        />
-                                        {filters.q && (
-                                            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, q: "" }))}>
-                                                <X className="h-3.5 w-3.5" style={{ color: COLOR.inkFaint }} />
-                                            </button>
-                                        )}
-                                    </div>
-                                </FilterBlock>
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <FilterBlock label="Dealer">
-                                    <select
-                                        value={filters.agencia}
-                                        onChange={(event) => setFilters((prev) => ({ ...prev, agencia: event.target.value }))}
-                                        className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
-                                        style={{ borderColor: COLOR.line, color: COLOR.ink }}
-                                    >
-                                        {dealers.map((dealer) => (
-                                            <option key={dealer} value={dealer}>{dealer}</option>
-                                        ))}
-                                    </select>
-                                </FilterBlock>
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <FilterBlock label="Desde">
+            {viewMode === "tabla" && (
+                <div className="mb-3 rounded-lg border p-3" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
+                    <div className="grid gap-3 md:grid-cols-12">
+                        <div className="md:col-span-5">
+                            <FilterBlock label="Búsqueda">
+                                <div className="flex items-center gap-2 rounded-lg border px-3 py-2" style={{ borderColor: COLOR.line }}>
+                                    <Search className="h-3.5 w-3.5" style={{ color: COLOR.inkFaint }} />
                                     <input
-                                        type="date"
-                                        value={filters.desde}
-                                        onChange={(event) => setFilters((prev) => ({ ...prev, desde: event.target.value }))}
-                                        className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
-                                        style={{ borderColor: COLOR.line, color: COLOR.ink }}
+                                        value={filters.q}
+                                        onChange={(event) => setFilters((prev) => ({ ...prev, q: event.target.value }))}
+                                        placeholder="Cliente, teléfono, VIN, asesor, orden..."
+                                        className="w-full text-[13px] font-medium outline-none"
+                                        style={{ color: COLOR.ink }}
                                     />
-                                </FilterBlock>
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <FilterBlock label="Hasta">
-                                    <input
-                                        type="date"
-                                        value={filters.hasta}
-                                        onChange={(event) => setFilters((prev) => ({ ...prev, hasta: event.target.value }))}
-                                        className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
-                                        style={{ borderColor: COLOR.line, color: COLOR.ink }}
-                                    />
-                                </FilterBlock>
-                            </div>
-
-                            <div className="md:col-span-1">
-                                <FilterBlock label=" ">
-                                    <div className="flex gap-1.5">
-                                        <button
-                                            type="button"
-                                            onClick={setHoy}
-                                            title="Filtrar por hoy"
-                                            className="flex-1 rounded-lg py-2 text-[11px] font-semibold"
-                                            style={{ background: COLOR.brandSoft, color: COLOR.brand }}
-                                        >
-                                            Hoy
+                                    {filters.q && (
+                                        <button type="button" onClick={() => setFilters((prev) => ({ ...prev, q: "" }))}>
+                                            <X className="h-3.5 w-3.5" style={{ color: COLOR.inkFaint }} />
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={resetFilters}
-                                            title="Limpiar filtros"
-                                            className="flex-1 rounded-lg border py-2 text-[11px] font-semibold"
-                                            style={{ borderColor: COLOR.line, color: COLOR.inkSoft }}
-                                        >
-                                            Limpiar
-                                        </button>
-                                    </div>
-                                </FilterBlock>
-                            </div>
+                                    )}
+                                </div>
+                            </FilterBlock>
                         </div>
 
-                        <div className="mt-2.5 flex items-center gap-1.5 text-[11.5px]" style={{ color: COLOR.inkFaint }}>
-                            <span className="font-semibold" style={{ color: COLOR.ink }}>{sorted.length}</span>
-                            registro{sorted.length === 1 ? "" : "s"} encontrado{sorted.length === 1 ? "" : "s"}
+                        <div className="md:col-span-2">
+                            <FilterBlock label="Dealer">
+                                <select
+                                    value={filters.agencia}
+                                    onChange={(event) => setFilters((prev) => ({ ...prev, agencia: event.target.value }))}
+                                    className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
+                                    style={{ borderColor: COLOR.line, color: COLOR.ink }}
+                                >
+                                    {dealers.map((dealer) => (
+                                        <option key={dealer} value={dealer}>{dealer}</option>
+                                    ))}
+                                </select>
+                            </FilterBlock>
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <FilterBlock label="Desde">
+                                <input
+                                    type="date"
+                                    value={filters.desde}
+                                    onChange={(event) => setFilters((prev) => ({ ...prev, desde: event.target.value }))}
+                                    className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
+                                    style={{ borderColor: COLOR.line, color: COLOR.ink }}
+                                />
+                            </FilterBlock>
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <FilterBlock label="Hasta">
+                                <input
+                                    type="date"
+                                    value={filters.hasta}
+                                    onChange={(event) => setFilters((prev) => ({ ...prev, hasta: event.target.value }))}
+                                    className="w-full rounded-lg border px-3 py-2 text-[13px] font-medium outline-none"
+                                    style={{ borderColor: COLOR.line, color: COLOR.ink }}
+                                />
+                            </FilterBlock>
+                        </div>
+
+                        <div className="md:col-span-1">
+                            <FilterBlock label=" ">
+                                <div className="flex gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={setHoy}
+                                        title="Filtrar por hoy"
+                                        className="flex-1 rounded-lg py-2 text-[11px] font-semibold"
+                                        style={{ background: COLOR.brandSoft, color: COLOR.brand }}
+                                    >
+                                        Hoy
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={resetFilters}
+                                        title="Limpiar filtros"
+                                        className="flex-1 rounded-lg border py-2 text-[11px] font-semibold"
+                                        style={{ borderColor: COLOR.line, color: COLOR.inkSoft }}
+                                    >
+                                        Limpiar
+                                    </button>
+                                </div>
+                            </FilterBlock>
                         </div>
                     </div>
-                )
-            }
+
+                    <div className="mt-2.5 flex items-center gap-1.5 text-[11.5px]" style={{ color: COLOR.inkFaint }}>
+                        <span className="font-semibold" style={{ color: COLOR.ink }}>{sorted.length}</span>
+                        registro{sorted.length === 1 ? "" : "s"} encontrado{sorted.length === 1 ? "" : "s"}
+                    </div>
+                </div>
+            )}
 
             {/* Contenido: tabla o agenda */}
-            {
-                viewMode === "tabla" ? (
-                    <>
-                        {/* TABLA DESKTOP */}
-                        <div className="hidden overflow-hidden rounded-lg border lg:block" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
-                            <div className="w-full overflow-x-auto">
-                                <table className="min-w-[1500px] w-full text-left text-[13px]">
-                                    <thead className="sticky top-0 z-10" style={{ background: COLOR.brand }}>
+            {viewMode === "tabla" ? (
+                <>
+                    {/* TABLA DESKTOP */}
+                    <div className="hidden overflow-hidden rounded-lg border lg:block" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
+                        <div className="w-full overflow-x-auto">
+                            <table className="min-w-[1500px] w-full text-left text-[13px]">
+                                <thead className="sticky top-0 z-10" style={{ background: COLOR.brand }}>
+                                    <tr>
+                                        {columns.map((column) => (
+                                            <th key={column.key} className="whitespace-nowrap px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-white/90">
+                                                {column.sortable ? (
+                                                    <button type="button" onClick={() => toggleSort(column.key)} className="inline-flex items-center gap-1">
+                                                        {column.label}
+                                                        {sort.key === column.key ? (
+                                                            sort.dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                                                        ) : (
+                                                            <ArrowUpDown className="h-3 w-3 opacity-50" />
+                                                        )}
+                                                    </button>
+                                                ) : (
+                                                    column.label
+                                                )}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {loadingList ? (
+                                        Array.from({ length: 8 }).map((_, index) => <SkeletonRow key={index} columns={columns.length} />)
+                                    ) : sorted.length === 0 ? (
                                         <tr>
-                                            {columns.map((column) => (
-                                                <th key={column.key} className="whitespace-nowrap px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-white/90">
-                                                    {column.sortable ? (
-                                                        <button type="button" onClick={() => toggleSort(column.key)} className="inline-flex items-center gap-1">
-                                                            {column.label}
-                                                            {sort.key === column.key ? (
-                                                                sort.dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                                                            ) : (
-                                                                <ArrowUpDown className="h-3 w-3 opacity-50" />
-                                                            )}
-                                                        </button>
-                                                    ) : (
-                                                        column.label
-                                                    )}
-                                                </th>
-                                            ))}
+                                            <td colSpan={columns.length}>
+                                                <EmptyState />
+                                            </td>
                                         </tr>
-                                    </thead>
+                                    ) : (
+                                        sorted.map((row, index) => {
+                                            const servicio = tipoServicioMeta(row.tipo_cita);
+                                            return (
+                                                <tr
+                                                    key={row.id}
+                                                    onDoubleClick={() => abrirEditar(row)}
+                                                    onContextMenu={(event) => onRowContextMenu(event, row)}
+                                                    title="Doble clic para editar"
+                                                    className="cursor-pointer transition-colors"
+                                                    style={{
+                                                        background: index % 2 === 0 ? COLOR.surface : COLOR.paper,
+                                                        borderTop: `1px solid ${COLOR.line}`,
+                                                    }}
+                                                >
+                                                    <td className="whitespace-nowrap px-4 py-2.5 tabular-nums" style={{ color: COLOR.inkSoft }}>
+                                                        {formatDate(row.fecha_ingreso)}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-2.5">
+                                                        <div className="font-semibold" style={{ color: COLOR.ink }}>{getClienteNombre(row)}</div>
+                                                        <div className="text-[11px]" style={{ color: COLOR.inkFaint }}>{getTelefono(row)}</div>
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-2.5">
+                                                        <BooleanButton row={row} field="asistencia" updatingInline={updatingInline} onToggle={patchBoolean} />
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-2.5">
+                                                        <AsesorBadge asesor={row.asesor} />
+                                                    </td>
+                                                    <td className="max-w-[200px] px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
+                                                        <span className="line-clamp-1">{row.pauta || "—"}</span>
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-2.5">
+                                                        <BooleanButton row={row} field="citado" updatingInline={updatingInline} onToggle={patchBoolean} />
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
+                                                        {row.torre || "—"}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-2.5">
+                                                        {row.tipo_cita ? (
+                                                            <span
+                                                                className="inline-block rounded px-2 py-0.5 text-[11px] font-semibold"
+                                                                style={{ background: servicio.bg, color: servicio.text }}
+                                                            >
+                                                                {row.tipo_cita}
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ color: COLOR.inkFaint }}>—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-2.5 font-mono text-[12px]" style={{ color: COLOR.inkSoft }}>
+                                                        {row.vin || "—"}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
+                                                        {row.medio_concertacion || "—"}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
 
-                                    <tbody>
-                                        {loadingList ? (
-                                            Array.from({ length: 8 }).map((_, index) => <SkeletonRow key={index} columns={columns.length} />)
-                                        ) : sorted.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={columns.length}>
-                                                    <EmptyState />
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            sorted.map((row, index) => {
-                                                const servicio = tipoServicioMeta(row.tipo_cita);
-                                                return (
-                                                    <tr
-                                                        key={row.id}
-                                                        onDoubleClick={() => abrirEditar(row)}
-                                                        onContextMenu={(event) => onRowContextMenu(event, row)}
-                                                        title="Doble clic para editar"
-                                                        className="cursor-pointer transition-colors"
-                                                        style={{
-                                                            background: index % 2 === 0 ? COLOR.surface : COLOR.paper,
-                                                            borderTop: `1px solid ${COLOR.line}`,
-                                                        }}
-                                                    >
-                                                        <td className="whitespace-nowrap px-4 py-2.5 tabular-nums" style={{ color: COLOR.inkSoft }}>
-                                                            {formatDate(row.fecha_ingreso)}
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-4 py-2.5">
-                                                            <div className="font-semibold" style={{ color: COLOR.ink }}>{getClienteNombre(row)}</div>
-                                                            <div className="text-[11px]" style={{ color: COLOR.inkFaint }}>{getTelefono(row)}</div>
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-4 py-2.5">
-                                                            <BooleanButton row={row} field="asistencia" updatingInline={updatingInline} onToggle={patchBoolean} />
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-4 py-2.5">
-                                                            <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
-                                                        </td>
-                                                        <td className="max-w-[200px] px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
-                                                            <span className="line-clamp-1">{row.pauta || "—"}</span>
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-4 py-2.5">
-                                                            <BooleanButton row={row} field="citado" updatingInline={updatingInline} onToggle={patchBoolean} />
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
-                                                            {row.torre || "—"}
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-4 py-2.5">
-                                                            {row.tipo_cita ? (
-                                                                <span
-                                                                    className="inline-block rounded px-2 py-0.5 text-[11px] font-semibold"
-                                                                    style={{ background: servicio.bg, color: servicio.text }}
-                                                                >
-                                                                    {row.tipo_cita}
-                                                                </span>
-                                                            ) : (
-                                                                <span style={{ color: COLOR.inkFaint }}>—</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-4 py-2.5 font-mono text-[12px]" style={{ color: COLOR.inkSoft }}>
-                                                            {row.vin || "—"}
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-4 py-2.5" style={{ color: COLOR.inkSoft }}>
-                                                            {row.medio_concertacion || "—"}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-
-                                <ContextMenu ctxMenu={ctxMenu} onDelete={eliminar} onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })} />
-                            </div>
+                            <ContextMenu ctxMenu={ctxMenu} onDelete={eliminar} onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })} />
                         </div>
+                    </div>
 
-                        {/* VISTA MÓVIL */}
-                        <div className="grid gap-2.5 lg:hidden">
-                            {loadingList ? (
-                                <div className="rounded-[24px] border p-5" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
-                                    <div className="flex items-center gap-2 font-semibold" style={{ color: COLOR.ink }}>
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Cargando...
-                                    </div>
+                    {/* VISTA MÓVIL */}
+                    <div className="grid gap-2.5 lg:hidden">
+                        {loadingList ? (
+                            <div className="rounded-[24px] border p-5" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
+                                <div className="flex items-center gap-2 font-semibold" style={{ color: COLOR.ink }}>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Cargando...
                                 </div>
-                            ) : sorted.length === 0 ? (
-                                <div className="rounded-[24px] border p-8" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
-                                    <EmptyState />
-                                </div>
-                            ) : (
-                                sorted.map((row) => (
-                                    <button
-                                        key={row.id}
-                                        type="button"
-                                        onClick={() => abrirEditar(row)}
-                                        className="rounded-[24px] border p-3.5 text-left"
-                                        style={{ background: COLOR.surface, borderColor: COLOR.line }}
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <div className="truncate text-[14px] font-semibold" style={{ color: COLOR.ink }}>
-                                                    {getClienteNombre(row)}
-                                                </div>
-                                                <div className="mt-0.5 text-[12px]" style={{ color: COLOR.inkSoft }}>
-                                                    {row.agencia || "—"} · {getTelefono(row)}
-                                                </div>
-                                                <div className="mt-0.5 text-[11.5px] tabular-nums" style={{ color: COLOR.inkFaint }}>
-                                                    {formatDate(row.fecha_ingreso)}
-                                                </div>
-                                                <div className="mt-2">
-                                                    <AsesorBadge asesor={row.asesor} agencia={row.agencia} />
-                                                </div>
+                            </div>
+                        ) : sorted.length === 0 ? (
+                            <div className="rounded-[24px] border p-8" style={{ background: COLOR.surface, borderColor: COLOR.line }}>
+                                <EmptyState />
+                            </div>
+                        ) : (
+                            sorted.map((row) => (
+                                <button
+                                    key={row.id}
+                                    type="button"
+                                    onClick={() => abrirEditar(row)}
+                                    className="rounded-[24px] border p-3.5 text-left"
+                                    style={{ background: COLOR.surface, borderColor: COLOR.line }}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="truncate text-[14px] font-semibold" style={{ color: COLOR.ink }}>
+                                                {getClienteNombre(row)}
                                             </div>
-
-                                            <span
-                                                className="inline-flex shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold"
-                                                style={
-                                                    boolFromAny(row.citado)
-                                                        ? { background: COLOR.okSoft, color: COLOR.ok }
-                                                        : { background: COLOR.dangerSoft, color: COLOR.danger }
-                                                }
-                                            >
-                                                {boolFromAny(row.citado) ? "Citado" : "No citado"}
-                                            </span>
+                                            <div className="mt-0.5 text-[12px]" style={{ color: COLOR.inkSoft }}>
+                                                {row.agencia || "—"} · {getTelefono(row)}
+                                            </div>
+                                            <div className="mt-0.5 text-[11.5px] tabular-nums" style={{ color: COLOR.inkFaint }}>
+                                                {formatDate(row.fecha_ingreso)}
+                                            </div>
+                                            <div className="mt-2">
+                                                <AsesorBadge asesor={row.asesor} />
+                                            </div>
                                         </div>
 
-                                        {(row.comentarios || row.pauta) && (
-                                            <div className="mt-2.5 line-clamp-2 text-[12.5px]" style={{ color: COLOR.inkSoft }}>
-                                                {row.comentarios || row.pauta}
-                                            </div>
-                                        )}
-                                    </button>
-                                ))
-                            )}
-                        </div>
-                    </>
-                ) : (
-                    <AgendaView
-                        citas={rows}
-                        agenciaSeleccionada={agenciaSeleccionada}
-                        selectedDate={selectedDate}
-                        abrirEditar={abrirEditar}
-                        onSlotClick={onAgendaSlotClick}
-                        onSetAsistencia={setAsistenciaDesdeAgenda}
-                        updatingInline={updatingInline}
-                    />
-                )
-            }
+                                        <span
+                                            className="inline-flex shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold"
+                                            style={
+                                                boolFromAny(row.citado)
+                                                    ? { background: COLOR.okSoft, color: COLOR.ok }
+                                                    : { background: COLOR.dangerSoft, color: COLOR.danger }
+                                            }
+                                        >
+                                            {boolFromAny(row.citado) ? "Citado" : "No citado"}
+                                        </span>
+                                    </div>
+
+                                    {(row.comentarios || row.pauta) && (
+                                        <div className="mt-2.5 line-clamp-2 text-[12.5px]" style={{ color: COLOR.inkSoft }}>
+                                            {row.comentarios || row.pauta}
+                                        </div>
+                                    )}
+                                </button>
+                            ))
+                        )}
+                    </div>
+                </>
+            ) : (
+                <AgendaView
+                    citas={rows}
+                    agenciaSeleccionada={agenciaSeleccionada}
+                    selectedDate={selectedDate}
+                    abrirEditar={abrirEditar}
+                    onSlotClick={onAgendaSlotClick}
+                    onSetAsistencia={setAsistenciaDesdeAgenda}
+                    updatingInline={updatingInline}
+                />
+            )}
 
             {/* Modal crear/editar */}
             <Modal
                 open={openModal}
-                title={
-                    mode === "create" ? "Nueva cita" : `Editar cita #${draft?.id}`
-                }
+                title={mode === "create" ? "Nueva cita" : `Editar cita #${draft?.id}`}
                 onClose={cerrarModal}
                 footer={
                     <>
@@ -1461,20 +1464,15 @@ export default function HojaRegistros() {
                                 placeholder="No. preorden"
                             />
                         </Field>
+
                         <Field label="Cliente" required>
                             <input
                                 value={draft.cliente_nombre}
-                                onChange={(event) =>
-                                    setDraft((prev) => ({
-                                        ...prev,
-                                        cliente_nombre: event.target.value,
-                                    }))
-                                }
+                                onChange={(event) => setDraft((prev) => ({ ...prev, cliente_nombre: event.target.value }))}
                                 className={inputBase}
                                 style={inputStyle(isInvalid("cliente_nombre"))}
                                 placeholder="Nombre completo"
                             />
-
                             {isInvalid("cliente_nombre") && (
                                 <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>
                                     Cliente es requerido.
@@ -1486,9 +1484,11 @@ export default function HojaRegistros() {
                             <input
                                 maxLength={12}
                                 value={draft.cliente_telefono}
-                                onChange={(event) =>
-                                    setDraft((prev) => ({ ...prev, cliente_telefono: event.target.value.replace(/\D/g, "").slice(0, 12) }))
-                                }
+                                onChange={(event) => {
+                                    const digits = event.target.value.replace(/\D/g, "");
+                                    const maxLen = digits.startsWith("52") ? 12 : 10;
+                                    setDraft((prev) => ({ ...prev, cliente_telefono: digits.slice(0, maxLen) }));
+                                }}
                                 disabled={telefonoBloqueado}
                                 className={inputBase}
                                 style={{
@@ -1563,7 +1563,7 @@ export default function HojaRegistros() {
                             </select>
                             {draft.asesor && (
                                 <div className="mt-2">
-                                    <AsesorBadge asesor={draft.asesor} agencia={draft.agencia} />
+                                    <AsesorBadge asesor={draft.asesor} />
                                 </div>
                             )}
                         </Field>
@@ -1751,6 +1751,6 @@ export default function HojaRegistros() {
                     </div>
                 )}
             </Modal>
-        </div >
+        </div>
     );
 }
