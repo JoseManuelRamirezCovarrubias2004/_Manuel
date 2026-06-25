@@ -1,5 +1,5 @@
 // src/pages/Entregas/RegistroEntregas.jsx
-import { useMemo, useState, useEffect, useCallback  } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
     Plus,
     Search,
@@ -764,7 +764,7 @@ export default function RegistroEntregas() {
         "Verde Vibrante",
     ];
 
-     const ASESORES = [
+    const ASESORES = [
         "AURA MARLIZETH FERNANDEZ LOPEZ",
         "Bianca Isabel Chavez Alarcon",
         "ERENDIRA SANTOS COYOTZI",
@@ -828,7 +828,7 @@ export default function RegistroEntregas() {
         "Paul Serrano Vera",
         "Luis Manuel Alvarez Martinez"
     ];
-    
+
     const MODELOS = [
         "Virtus",
         "Polo",
@@ -1409,7 +1409,7 @@ export default function RegistroEntregas() {
             acc[modelo].total += 1;
             return acc;
         }, {})
-    ).sort((a,b) => b.total - a.total);
+    ).sort((a, b) => b.total - a.total);
 
     const topAsesor = entregasPorAsesor.length ? entregasPorAsesor[0] : null;
 
@@ -1866,7 +1866,7 @@ export default function RegistroEntregas() {
                     </div>
                 </div>
             ) : null}
-            
+
             {/* NUEVA SECCIÓN DE GRÁFICAS - Estilo captura con efectos hover */}
             {viewMode === "graficas" ? (
                 <div className="space-y-6 bg-[#F8FAFC] p-4 rounded-xl">
@@ -1875,7 +1875,8 @@ export default function RegistroEntregas() {
                         <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-[#131E5C]/20 cursor-pointer">
                             <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Total entregas</p>
                             <h2 className="mt-2 text-4xl font-black text-[#131E5C]">{sorted.length}</h2>
-                            <p className="mt-1 text-xs font-semibold text-blue-600">Registros de VW Cordoba</p>
+                            <p className="mt-1 text-xs font-semibold text-blue-600">
+                                {filters.agencia === "Todos" ? "Registros de todos los dealers" : `Registros de ${filters.agencia}`}</p>
                         </div>
 
                         <div className="rounded-xl border border-emerald-100 bg-[#EFFDF5] p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-emerald-300 cursor-pointer">
@@ -1980,7 +1981,7 @@ export default function RegistroEntregas() {
                                         return (
                                             <div key={item.modelo} className="flex flex-col items-center gap-1 h-full justify-end group">
                                                 <span className="text-[11px] font-bold text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity">{item.total}</span>
-                                                <div 
+                                                <div
                                                     className={`w-full rounded-t ${modeloColors[index % modeloColors.length]} opacity-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-y-105 group-hover:brightness-110`}
                                                     style={{ height: `${Math.max(heightPercentage, 6)}%` }}
                                                 ></div>

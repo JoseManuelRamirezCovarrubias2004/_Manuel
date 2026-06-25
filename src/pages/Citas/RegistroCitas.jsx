@@ -869,6 +869,14 @@ export default function RegistroCitas() {
         return ["Todos", ...Array.from(set)];
     }, [citas]);
 
+    const asesoresPisoFiltro = useMemo(() => {
+        const set = new Set([
+            ...ASESORES.map((a) => normalizeStr(a)),
+            ...(citas || []).map((c) => normalizeStr(c.asesor_piso)),
+        ].filter(Boolean));
+        return ["Todos", ...Array.from(set)];
+    }, [citas]);
+
     const filtered = useMemo(() => {
         const q = filters.q.trim().toLowerCase();
         const desdeInt = ymdToInt(filters.rangoDesde);
@@ -880,6 +888,7 @@ export default function RegistroCitas() {
             const matchQ = !q || [c.agencia, nombreCliente, telCliente, c.auto_interes, c.tipo_cita, c.fuente_prospeccion, c.asesor_digital, c.asesor_piso, c.comentarios].some((v) => normalizeStr(v).toLowerCase().includes(q));
             const matchAgencia = filters.agencia === "Todos" || normalizeStr(c.agencia) === normalizeStr(filters.agencia);
             const matchAsesorDigital = filters.asesorDigital === "Todos" || normalizeStr(c.asesor_digital) === normalizeStr(filters.asesorDigital);
+            const matchAsesorPiso = filters.asesorPiso === "Todos" || normalizeStr(c.asesor_piso) === normalizeStr(filters.asesorPiso);
             let matchRango = true;
             if (desdeInt !== null || hastaInt !== null) {
                 const ymdInt = ymdToInt(c.fecha_hora_cita ? toYMDLocal(c.fecha_hora_cita) : "");
@@ -888,6 +897,7 @@ export default function RegistroCitas() {
                 if (hastaInt !== null && ymdInt > hastaInt) matchRango = false;
             }
             return matchQ && matchAgencia && matchAsesorDigital && matchRango;
+            return matchQ && matchAgencia && matchAsesorDigital && matchAsesorPiso && matchRango;
         });
     }, [citas, filters, isAdmin, userAgencias, userTieneAgencia]);
 
@@ -985,7 +995,7 @@ export default function RegistroCitas() {
         finally { setUpdatingInline((p) => { const n = { ...p }; delete n[id]; return n; }); }
     };
 
-    const resetFilters = () => setFilters({ q: "", agencia: "Todos", asesorDigital: "Todos", rangoDesde: "", rangoHasta: "" });
+    const resetFilters = () => setFilters({ q: "", agencia: "Todos", asesorDigital: "Todos", asesorPiso: "Todos", rangoDesde: "", rangoHasta: "" });
     const setHoy = () => { const hoy = toYMDLocal(new Date()); setFilters((p) => ({ ...p, rangoDesde: hoy, rangoHasta: hoy })); };
 
     const ViewToggle = () => (
@@ -1127,16 +1137,41 @@ export default function RegistroCitas() {
                             </div>
                         </FilterBlock>
                     </div>
-                    <div className="md:col-span-6">
-                        <FilterBlock label="Desde">
-                            <input type="date" value={filters.rangoDesde} onChange={(e) => setFilters((p) => ({ ...p, rangoDesde: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none" />
-                        </FilterBlock>
-                    </div>
-                    <div className="md:col-span-6">
-                        <FilterBlock label="Hasta">
-                            <input type="date" value={filters.rangoHasta} onChange={(e) => setFilters((p) => ({ ...p, rangoHasta: e.target.value }))} className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none" />
-                        </FilterBlock>
-                    </div>
+                   <div className="md:col-span-4">
+    <FilterBlock label="Asesor Piso">
+        <select
+            value={filters.asesorPiso}
+            onChange={(e) => setFilters((p) => ({ ...p, asesorPiso: e.target.value }))}
+            className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+        >
+            {asesoresPisoFiltro.map((a) => (
+                <option key={a} value={a}>{a}</option>
+            ))}
+        </select>
+    </FilterBlock>
+</div>
+
+<div className="md:col-span-4">
+    <FilterBlock label="Desde">
+        <input
+            type="date"
+            value={filters.rangoDesde}
+            onChange={(e) => setFilters((p) => ({ ...p, rangoDesde: e.target.value }))}
+            className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+        />
+    </FilterBlock>
+</div>
+
+<div className="md:col-span-4">
+    <FilterBlock label="Hasta">
+        <input
+            type="date"
+            value={filters.rangoHasta}
+            onChange={(e) => setFilters((p) => ({ ...p, rangoHasta: e.target.value }))}
+            className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+        />
+    </FilterBlock>
+</div>
                 </div>
             </div>
 
