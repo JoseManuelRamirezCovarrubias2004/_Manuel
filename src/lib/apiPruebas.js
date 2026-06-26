@@ -496,7 +496,7 @@ export const api = {
 
   digitalesUpdateProspecto: (id, payload) =>
     http(`/digitales/api/prospectos/${id}/`, {
-      method: "PUT",
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),

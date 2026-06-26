@@ -21,6 +21,7 @@ import { apiCitas } from "../../lib/apiCitas";
 import { useAuth } from "../../auth/AuthContext";
 import * as XLSX from "xlsx";
 import { FunnelChart as RechartsFunnel, Funnel, LabelList, Tooltip as RechartsTooltip } from "recharts";
+import { apiEntregas } from "../../lib/apiEntregas";
 
 const BRAND_BLUE = "#131E5C";
 const PAGE_SIZE = 200;
@@ -167,15 +168,21 @@ const DEALERS = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW 
 function getBadgeEstadoSimple(estado) {
     const map = {
         "sin respuesta": { label: "Sin respuesta", bg: "#FEE2E2", color: "#991B1B" },
-        "calificado":    { label: "Caliente",       bg: "#D1FAE5", color: "#065F46" },
-        "contactado":    { label: "Tibio",           bg: "#FEF3C7", color: "#92400E" },
+        "calificado": { label: "Caliente", bg: "#D1FAE5", color: "#065F46" },
+        "contactado": { label: "Tibio", bg: "#FEF3C7", color: "#92400E" },
         "pendiente de cotización": { label: "Tibio", bg: "#FEF3C7", color: "#92400E" },
-        "requiere asesor": { label: "Alta",          bg: "#FFE4E6", color: "#9F1239" },
-        "financiamiento": { label: "Crédito",        bg: "#EDE9FE", color: "#5B21B6" },
-        "descalificado":  { label: "Frío",           bg: "#F1F5F9", color: "#475569" },
+        "requiere asesor": { label: "Alta", bg: "#FFE4E6", color: "#9F1239" },
+        "financiamiento": { label: "Crédito", bg: "#EDE9FE", color: "#5B21B6" },
+        "descalificado": { label: "Frío", bg: "#F1F5F9", color: "#475569" },
     };
     const key = String(estado || "").trim().toLowerCase();
     return map[key] || { label: estado || "Sin estado", bg: "#F1F5F9", color: "#475569" };
+}
+
+function entregaFisicaActiva(value) {
+    if (value === true || value === 1) return true;
+    const v = String(value ?? "").trim().toLowerCase();
+    return ["si", "sí", "true", "1", "yes", "entregada", "reportada"].includes(v);
 }
 
 function getScorePill(score) {
@@ -237,7 +244,14 @@ function getContextoDigitalPorNumero(numero) {
 
 function toDTLocal(isoOrNull) {
     if (!isoOrNull) return "";
-    const s = String(isoOrNull);
+    const s = String(isoOrNull).trim();
+    if (!s) return "";
+    return s;
+}
+
+function toDTLocalInput(isoOrNull) {
+    if (!isoOrNull) return "";
+    const s = String(isoOrNull).trim();
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return s.slice(0, 16);
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T00:00`;
     if (s.includes("T")) return s.slice(0, 16);
@@ -299,28 +313,33 @@ function normalizeProspecto(p) {
         linea: p.business || "", origen: p.canal_contacto || "",
         pauta: p.pauta || "", estado: p.estado || "",
         comentarios: p.comentarios || "", resumen: p.resumen || "",
-        resumen_actualizado_at: toDTLocal(p.resumen_actualizado_at),
+        resumen_actualizado_at: toDTLocalInput(p.resumen_actualizado_at),
         resumen_fuente: p.resumen_fuente || "",
         cliente_interes: p.auto_interes || "",
         asesor_digital: p.asesor_digital || "", asesor_solicita: p.asesor_ventas || "",
-        primer_contacto_at: toDTLocal(p.primer_contacto_at),
-        ultimo_contacto_at: toDTLocal(p.ultimo_contacto_at),
-        creado: toDTLocal(p.creado),
+        primer_contacto_at: p.primer_mensaje_cliente || null,
+        ultimo_contacto_at: p.ultimo_contacto_asesor || null,
+        creado: toDTLocalInput(p.creado),
         fecha_atencion: onlyDate(p.primer_contacto_at) || onlyDate(p.creado),
         fecha_contacto: onlyDate(p.ultimo_contacto_at),
         fecha_reclamacion: onlyDate(p.creado),
         requiere_asesor: Boolean(p.requiere_asesor),
         motivo_requiere_asesor: p.motivo_requiere_asesor || "",
         cotizacion_pendiente: Boolean(p.cotizacion_pendiente),
-        cotizacion_solicitada_at: toDTLocal(p.cotizacion_solicitada_at),
+        cotizacion_solicitada_at: toDTLocalInput(p.cotizacion_solicitada_at),
         enganche_monto: p.enganche_monto || "", presupuesto_mensual: p.presupuesto_mensual || "",
         buro_estado: p.buro_estado || "", forma_pago: p.forma_pago || "",
         tipo_cliente: p.tipo_cliente || "", uso_vehiculo: p.uso_vehiculo || "",
         plazo_compra: p.plazo_compra || "", comprobacion_ingresos: p.comprobacion_ingresos || "",
         ia_pausada: Boolean(p.ia_pausada),
         ia_pausada_motivo: p.ia_pausada_motivo || "",
-        ultima_cita_agendada: toDTLocal(p.ultima_cita_agendada),
+        ultima_cita_agendada: toDTLocalInput(p.ultima_cita_agendada),
         asistencia: Boolean(p.asistencia),
+        id_cotizacion: p.id_cotizacion || "",
+        folio_solicitud_credito: p.folio_solicitud_credito || "",
+        solicitud_credito_estado: p.solicitud_credito_estado || "",
+        vin_facturado: p.vin_facturado || "",
+        vin_estatus_entrega: p.vin_estatus_entrega || "",
     };
 }
 
@@ -746,83 +765,98 @@ function LeadScoreRing({ score }) {
 
 // ─── Funnel Chart ─────────────────────────────────────────────────────────────
 
-function FunnelChart({ rows }) {
-    const total = rows.length || 1;
+function FunnelChart({ rows = [], telefonosEntregados }) {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const total = safeRows.length || 1;
 
     const etapas = useMemo(() => {
-        const contactados = rows.filter(r =>
-            ["contactado", "calificado", "pendiente de cotización", "requiere asesor",
-             "financiamiento", "sin respuesta"].includes(
-                String(r.estado || "").trim().toLowerCase()
-            )
+        const contactados = rows.filter(r => r.ultimo_contacto_at || r.primer_contacto_at).length;
+
+        const descalificados = rows.filter(r =>
+            String(r.estado || "").trim().toLowerCase() === "descalificado"
         ).length;
 
-        const calificados = rows.filter(r =>
-            ["calificado", "pendiente de cotización", "requiere asesor", "financiamiento"]
-                .includes(String(r.estado || "").trim().toLowerCase())
+        const conCotizacion = rows.filter(r => {
+            const val = String(r.id_cotizacion || "").trim().toLowerCase();
+            return val !== "" && val !== "null" && val !== "undefined" && val !== "0";
+        }).length;
+
+        const conCredito = rows.filter(r => {
+            const val = String(r.folio_solicitud_credito || "").trim().toLowerCase();
+            return val !== "" && val !== "null" && val !== "undefined" && val !== "0";
+        }).length;
+
+        const facturadas = rows.filter(r => {
+            const val = String(r.vin_facturado || "").trim().toLowerCase();
+            return val !== "" && val !== "null" && val !== "undefined" && val !== "0";
+        }).length;
+
+
+        const entregadas = rows.filter(r =>
+            telefonosEntregados?.has(normalizaTelefonoMx(r.telefono))
         ).length;
-
-        const conCotizacion = rows.filter(r =>
-            String(r.estado || "").trim().toLowerCase() === "pendiente de cotización" ||
-            r.cotizacion_pendiente
-        ).length;
-
-        const conAsesor = rows.filter(r => r.requiere_asesor || r.asesor_solicita).length;
-
-        const financiamiento = rows.filter(r =>
-            ["credito", "arrendamiento"].includes(
-                String(r.forma_pago || "").trim().toLowerCase()
-            )
-        ).length;
-
-        const conCita = rows.filter(r => r.ultima_cita_agendada).length;
 
         return [
-            { name: "Prospectos",   value: rows.length,   color: "#131E5C" },
-            { name: "Contactados",  value: contactados,   color: "#1e3a8a" },
-            { name: "Calificados",  value: calificados,   color: "#1d6fa4" },
-            { name: "Cotizaciones", value: conCotizacion, color: "#0ea5e9" },
-            { name: "Con asesor",   value: conAsesor,     color: "#38bdf8" },
-            { name: "Financiam.",   value: financiamiento,color: "#7dd3fc" },
-            { name: "Citas",        value: conCita,       color: "#bae6fd" },
+            { name: "Prospectos", value: rows.length, color: "#131E5C" },
+            { name: "Contactados", value: contactados, color: "#1e3a8a" },
+            { name: "Descalificados", value: descalificados, color: "#1d6fa4" },
+            { name: "Cotización", value: conCotizacion, color: "#0ea5e9" },
+            { name: "Sol. de crédito", value: conCredito, color: "#38bdf8" },
+            { name: "Facturadas", value: facturadas, color: "#7dd3fc" },
+            { name: "Entregadas", value: entregadas, color: "#bae6fd" },
         ];
-    }, [rows]);
+    }, [rows, telefonosEntregados]);
 
     const W = 280;
-    const H = 340;
+    const H = 350;
     const n = etapas.length;
     const sliceH = H / n;
-    // ancho máximo (boca del embudo) y mínimo (base)
     const maxW = W;
-    const minW = W * 0.18;
+    const minW = W * 0.16;
+    const GAP = 2;
 
-    // Para cada etapa calculamos el trapecio
-    // El ancho de cada nivel se basa en su posición (no en su valor)
-    // para que siempre se vea como embudo aunque los valores bajen mucho
     const shapes = etapas.map((etapa, i) => {
-        const topW  = maxW - (maxW - minW) * (i / n);
-        const botW  = maxW - (maxW - minW) * ((i + 1) / n);
-        const topY  = i * sliceH;
-        const botY  = (i + 1) * sliceH;
+        const topW = maxW - (maxW - minW) * (i / n);
+        const botW = maxW - (maxW - minW) * ((i + 1) / n);
+        const topY = i * sliceH + (i === 0 ? 0 : GAP / 2);
+        const botY = (i + 1) * sliceH - (i === n - 1 ? 0 : GAP / 2);
         const topX1 = (W - topW) / 2;
         const topX2 = (W + topW) / 2;
         const botX1 = (W - botW) / 2;
         const botX2 = (W + botW) / 2;
-        return { ...etapa, topX1, topX2, botX1, botX2, topY, botY, midY: (topY + botY) / 2 };
+        return {
+            ...etapa,
+            topX1, topX2, botX1, botX2,
+            topY, botY,
+            midY: (topY + botY) / 2,
+        };
     });
 
     const [tooltip, setTooltip] = useState(null);
+
+
+    if (safeRows.length === 0) {
+        return (
+            <div style={{ width: W, height: H }} className="flex items-center justify-center text-xs text-gray-400 font-medium">
+                Cargando embudo...
+            </div>
+        );
+    }
 
     return (
         <div className="relative select-none">
             <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
                 {shapes.map((s, i) => {
                     const points = `${s.topX1},${s.topY} ${s.topX2},${s.topY} ${s.botX2},${s.botY} ${s.botX1},${s.botY}`;
+                    const pct = Math.round(s.value / total * 100);
+
                     const isLight = i >= 4;
                     const textColor = isLight ? "#0c4a6e" : "#ffffff";
+                    const subTextColor = isLight ? "#1c3d5a" : "rgba(255,255,255,0.75)";
+
                     return (
                         <g key={s.name}
-                            onMouseEnter={() => setTooltip(s)}
+                            onMouseEnter={() => setTooltip({ ...s, pct, prev: i > 0 ? etapas[i - 1].value : null })}
                             onMouseLeave={() => setTooltip(null)}
                             className="cursor-pointer">
                             <polygon
@@ -831,19 +865,20 @@ function FunnelChart({ rows }) {
                                 stroke="#fff"
                                 strokeWidth="2"
                             />
-                            {/* Valor centrado */}
+                            {/* Valor */}
                             <text
-                                x={W / 2}
-                                y={s.midY + 1}
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                                fill={textColor}
-                                fontSize="12"
-                                fontWeight="800"
-                            >
+                                x={W / 2} y={s.midY - 5}
+                                textAnchor="middle" dominantBaseline="middle"
+                                fill={textColor} fontSize="13" fontWeight="800">
                                 {s.value.toLocaleString("es-MX")}
                             </text>
-                           
+                            {/* Etiqueta + porcentaje */}
+                            <text
+                                x={W / 2} y={s.midY + 11}
+                                textAnchor="middle" dominantBaseline="middle"
+                                fill={subTextColor} fontSize="11" fontWeight="600">
+                                {s.name}{i > 0 ? ` · ${pct}%` : ""}
+                            </text>
                         </g>
                     );
                 })}
@@ -851,13 +886,20 @@ function FunnelChart({ rows }) {
 
             {/* Tooltip */}
             {tooltip && (
-                <div className="pointer-events-none absolute left-1/2 -top-10 -translate-x-1/2 rounded-xl bg-[#131E5C] px-3 py-1.5 text-[11px] font-bold text-white shadow-xl whitespace-nowrap">
-                    {tooltip.name}: {tooltip.value.toLocaleString("es-MX")} · {Math.round(tooltip.value / total * 100)}%
+                <div className="pointer-events-none absolute left-1/2 -top-12 -translate-x-1/2 rounded-xl bg-[#131E5C] px-3 py-2 text-[11px] font-bold text-white shadow-xl whitespace-nowrap">
+                    <div>{tooltip.name}: {tooltip.value.toLocaleString("es-MX")} · {tooltip.pct}% del total</div>
+                    {tooltip.prev !== null && (
+                        <div className="font-normal opacity-75 mt-0.5">
+                            {Math.round(tooltip.value / (tooltip.prev || 1) * 100)}% conv. respecto a etapa anterior
+                        </div>
+                    )}
                 </div>
             )}
         </div>
     );
+    <FunnelChart rows={sorted} telefonosEntregados={telefonosEntregados} />
 }
+
 // ─── Panel de estadísticas lateral ───────────────────────────────────────────
 function SidePanel({ rows, highlighted, onSelectHighlight }) {
     const statsPorEstado = useMemo(() => {
@@ -1251,219 +1293,219 @@ function VistaGraficos({ rows }) {
                                 <th className="px-3 py-2 text-center font-black">Total</th>
                             </tr>
                         </thead>
-                     <tbody className="divide-y divide-slate-100">
-    {loadingCases
-        ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
-        : paginatedRows.map(row => {
-            const score = calcLeadScore(row);
-            const badgeEstado = getBadgeEstadoSimple(row.estado);
-            const scorePill = getScorePill(score);
-            const prioridad = getPrioridad(row);
-            const perfilFin = getPerfilFinancieroDiagnostico(row);
-            const isUpdating = !!updatingEstado[row.id_exp];
-            return (
-                <tr key={row.id_exp}
-                    onDoubleClick={() => openEdit(row)}
-                    onContextMenu={e => onRowContextMenu(e, row)}
-                    onClick={() => setHighlightedRow(row)}
-                    className={cls(
-                        "cursor-pointer transition-colors hover:bg-slate-50",
-                        highlightedRow?.id_exp === row.id_exp ? "bg-blue-50/50" : ""
-                    )}>
+                        <tbody className="divide-y divide-slate-100">
+                            {loadingCases
+                                ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
+                                : paginatedRows.map(row => {
+                                    const score = calcLeadScore(row);
+                                    const badgeEstado = getBadgeEstadoSimple(row.estado);
+                                    const scorePill = getScorePill(score);
+                                    const prioridad = getPrioridad(row);
+                                    const perfilFin = getPerfilFinancieroDiagnostico(row);
+                                    const isUpdating = !!updatingEstado[row.id_exp];
+                                    return (
+                                        <tr key={row.id_exp}
+                                            onDoubleClick={() => openEdit(row)}
+                                            onContextMenu={e => onRowContextMenu(e, row)}
+                                            onClick={() => setHighlightedRow(row)}
+                                            className={cls(
+                                                "cursor-pointer transition-colors hover:bg-slate-50",
+                                                highlightedRow?.id_exp === row.id_exp ? "bg-blue-50/50" : ""
+                                            )}>
 
-                    {/* Checkbox */}
-                    <td className="pl-4 pr-2 py-3" onClick={e => e.stopPropagation()}>
-                        <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#131E5C] cursor-pointer" />
-                    </td>
+                                            {/* Checkbox */}
+                                            <td className="pl-4 pr-2 py-3" onClick={e => e.stopPropagation()}>
+                                                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#131E5C] cursor-pointer" />
+                                            </td>
 
-                    {/* Dealer */}
-                    <td className="px-3 py-3 text-xs font-semibold text-[#131E5C] whitespace-nowrap">
-                        {row.agencia || "—"}
-                    </td>
+                                            {/* Dealer */}
+                                            <td className="px-3 py-3 text-xs font-semibold text-[#131E5C] whitespace-nowrap">
+                                                {row.agencia || "—"}
+                                            </td>
 
-                    {/* Nombre + teléfono */}
-                    <td className="px-3 py-3 min-w-[150px]">
-                        <div className="text-sm font-semibold text-[#131E5C] leading-tight truncate max-w-[140px]">
-                            {`${row.cliente_nombre} ${row.cliente_apellidos}`.trim() || "Sin nombre"}
-                        </div>
-                        <div className="text-xs text-slate-400 mt-0.5">{formatTelefonoMx(row.telefono)}</div>
-                    </td>
+                                            {/* Nombre + teléfono */}
+                                            <td className="px-3 py-3 min-w-[150px]">
+                                                <div className="text-sm font-semibold text-[#131E5C] leading-tight truncate max-w-[140px]">
+                                                    {`${row.cliente_nombre} ${row.cliente_apellidos}`.trim() || "Sin nombre"}
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-0.5">{formatTelefonoMx(row.telefono)}</div>
+                                            </td>
 
-                    {/* Fecha reg */}
-                    <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
-                        {row.fecha_reclamacion || "—"}
-                    </td>
+                                            {/* Fecha reg */}
+                                            <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
+                                                {row.fecha_reclamacion || "—"}
+                                            </td>
 
-                    {/* Último contacto */}
-                    <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
-                        {row.ultimo_contacto_at
-                            ? (() => {
-                                const d = new Date(row.ultimo_contacto_at);
-                                const diffH = (Date.now() - d) / 36e5;
-                                if (diffH < 24) return `Hoy, ${d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`;
-                                if (diffH < 48) return `Ayer, ${d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`;
-                                return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short" }) + ", " + d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-                            })()
-                            : "—"}
-                    </td>
+                                            {/* Último contacto */}
+                                            <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
+                                                {row.ultimo_contacto_at
+                                                    ? (() => {
+                                                        const d = new Date(row.ultimo_contacto_at);
+                                                        const diffH = (Date.now() - d) / 36e5;
+                                                        if (diffH < 24) return `Hoy, ${d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`;
+                                                        if (diffH < 48) return `Ayer, ${d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`;
+                                                        return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short" }) + ", " + d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+                                                    })()
+                                                    : "—"}
+                                            </td>
 
-                    {/* Business */}
-                    <td className="px-3 py-3 text-xs font-semibold text-[#131E5C]">
-                        {row.linea || "—"}
-                    </td>
+                                            {/* Business */}
+                                            <td className="px-3 py-3 text-xs font-semibold text-[#131E5C]">
+                                                {row.linea || "—"}
+                                            </td>
 
-                    {/* Interés */}
-                    <td className="px-3 py-3 text-xs text-[#131E5C]">
-                        {row.cliente_interes || "—"}
-                    </td>
+                                            {/* Interés */}
+                                            <td className="px-3 py-3 text-xs text-[#131E5C]">
+                                                {row.cliente_interes || "—"}
+                                            </td>
 
-                    {/* Prioridad */}
-                    <td className="px-3 py-3">
-                        <span className={cls("inline-flex text-[11px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap", prioridad.cls)}>
-                            {prioridad.label}
-                        </span>
-                    </td>
+                                            {/* Prioridad */}
+                                            <td className="px-3 py-3">
+                                                <span className={cls("inline-flex text-[11px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap", prioridad.cls)}>
+                                                    {prioridad.label}
+                                                </span>
+                                            </td>
 
-                    {/* Estado — badge simple en lugar de select */}
-                    <td className="px-3 py-3">
-                        <span style={{ background: badgeEstado.bg, color: badgeEstado.color }}
-                            className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap">
-                            {badgeEstado.label}
-                        </span>
-                    </td>
+                                            {/* Estado — badge simple en lugar de select */}
+                                            <td className="px-3 py-3">
+                                                <span style={{ background: badgeEstado.bg, color: badgeEstado.color }}
+                                                    className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap">
+                                                    {badgeEstado.label}
+                                                </span>
+                                            </td>
 
-                    {/* Canal */}
-                    <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
-                        {row.origen || "—"}
-                    </td>
+                                            {/* Canal */}
+                                            <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
+                                                {row.origen || "—"}
+                                            </td>
 
-                    {/* Asesor Digital */}
-                    <td className="px-3 py-3">
-                        <div className="flex items-center gap-1.5">
-                            <div className={cls(
-                                "h-1.5 w-1.5 rounded-full flex-shrink-0",
-                                row.asesor_digital?.toLowerCase().includes("ia") ? "bg-emerald-500" : "bg-slate-300"
-                            )} />
-                            <span className="text-xs text-[#131E5C] truncate max-w-[110px]" title={row.asesor_digital || ""}>
-                                {row.asesor_digital || "—"}
-                            </span>
-                        </div>
-                    </td>
+                                            {/* Asesor Digital */}
+                                            <td className="px-3 py-3">
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className={cls(
+                                                        "h-1.5 w-1.5 rounded-full flex-shrink-0",
+                                                        row.asesor_digital?.toLowerCase().includes("ia") ? "bg-emerald-500" : "bg-slate-300"
+                                                    )} />
+                                                    <span className="text-xs text-[#131E5C] truncate max-w-[110px]" title={row.asesor_digital || ""}>
+                                                        {row.asesor_digital || "—"}
+                                                    </span>
+                                                </div>
+                                            </td>
 
-                    {/* Asesor Piso */}
-                    <td className="px-3 py-3 min-w-[150px]">
-                        {row.asesor_solicita ? (
-                            <div>
-                                <div className="text-xs font-semibold text-[#131E5C] truncate max-w-[140px]" title={row.asesor_solicita}>
-                                    {row.asesor_solicita}
-                                </div>
-                                <div className="text-[11px] text-slate-400 mt-0.5">Asesor de piso/ventas</div>
-                            </div>
-                        ) : (
-                            <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">
-                                Sin asignar
-                            </span>
-                        )}
-                    </td>
+                                            {/* Asesor Piso */}
+                                            <td className="px-3 py-3 min-w-[150px]">
+                                                {row.asesor_solicita ? (
+                                                    <div>
+                                                        <div className="text-xs font-semibold text-[#131E5C] truncate max-w-[140px]" title={row.asesor_solicita}>
+                                                            {row.asesor_solicita}
+                                                        </div>
+                                                        <div className="text-[11px] text-slate-400 mt-0.5">Asesor de piso/ventas</div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                                                        Sin asignar
+                                                    </span>
+                                                )}
+                                            </td>
 
-                    {/* Score pill */}
-                    <td className="px-3 py-3">
-                        <div className="flex items-center gap-2">
-                            <span style={{ background: scorePill.bg, color: scorePill.color }}
-                                className="inline-flex items-center justify-center rounded-full w-9 h-9 text-sm font-bold flex-shrink-0">
-                                {score}
-                            </span>
-                            <span style={{ color: scorePill.color }}
-                                className="text-xs font-semibold hidden xl:inline">
-                                {score >= 80 ? "Muy alto" : score >= 60 ? "Alto" : score >= 35 ? "Medio" : "Bajo"}
-                            </span>
-                        </div>
-                    </td>
+                                            {/* Score pill */}
+                                            <td className="px-3 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span style={{ background: scorePill.bg, color: scorePill.color }}
+                                                        className="inline-flex items-center justify-center rounded-full w-9 h-9 text-sm font-bold flex-shrink-0">
+                                                        {score}
+                                                    </span>
+                                                    <span style={{ color: scorePill.color }}
+                                                        className="text-xs font-semibold hidden xl:inline">
+                                                        {score >= 80 ? "Muy alto" : score >= 60 ? "Alto" : score >= 35 ? "Medio" : "Bajo"}
+                                                    </span>
+                                                </div>
+                                            </td>
 
-                    {/* Perfil financiero */}
-                    <td className="px-3 py-3 min-w-[200px]">
-                        <div className="text-xs font-semibold text-[#131E5C]">
-                            Eng. {formatMoneyMXN(row.enganche_monto)}
-                        </div>
-                        <div className={cls("text-[11px] font-semibold mt-0.5",
-                            perfilFin.engancheSuficiente ? "text-emerald-600" : "text-amber-700")}>
-                            Mín. 20%: {formatMoneyMXN(perfilFin.engancheMinimo)}
-                        </div>
-                        {perfilFin.faltanteEnganche > 0 ? (
-                            <div className="text-[11px] font-bold text-red-500 mt-0.5">
-                                Faltan {formatMoneyMXN(perfilFin.faltanteEnganche)}
-                            </div>
-                        ) : (
-                            <div className="text-[11px] font-bold text-emerald-600 mt-0.5">
-                                Enganche suficiente
-                            </div>
-                        )}
-                        <div className="text-[11px] text-slate-500 mt-0.5">
-                            Mens. {formatMoneyMXN(row.presupuesto_mensual)} · Est. {formatMoneyMXN(perfilFin.mensualidadMinima)}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                            Buró {valueOrDash(row.buro_estado)} · {valueOrDash(row.forma_pago)}
-                        </div>
-                    </td>
+                                            {/* Perfil financiero */}
+                                            <td className="px-3 py-3 min-w-[200px]">
+                                                <div className="text-xs font-semibold text-[#131E5C]">
+                                                    Eng. {formatMoneyMXN(row.enganche_monto)}
+                                                </div>
+                                                <div className={cls("text-[11px] font-semibold mt-0.5",
+                                                    perfilFin.engancheSuficiente ? "text-emerald-600" : "text-amber-700")}>
+                                                    Mín. 20%: {formatMoneyMXN(perfilFin.engancheMinimo)}
+                                                </div>
+                                                {perfilFin.faltanteEnganche > 0 ? (
+                                                    <div className="text-[11px] font-bold text-red-500 mt-0.5">
+                                                        Faltan {formatMoneyMXN(perfilFin.faltanteEnganche)}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-[11px] font-bold text-emerald-600 mt-0.5">
+                                                        Enganche suficiente
+                                                    </div>
+                                                )}
+                                                <div className="text-[11px] text-slate-500 mt-0.5">
+                                                    Mens. {formatMoneyMXN(row.presupuesto_mensual)} · Est. {formatMoneyMXN(perfilFin.mensualidadMinima)}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400 mt-0.5">
+                                                    Buró {valueOrDash(row.buro_estado)} · {valueOrDash(row.forma_pago)}
+                                                </div>
+                                            </td>
 
-                    {/* Perfil compra */}
-                    <td className="px-3 py-3 min-w-[170px]">
-                        <div className="text-xs font-semibold text-[#131E5C]">{valueOrDash(row.tipo_cliente)}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">Plazo: {valueOrDash(row.plazo_compra)}</div>
-                        <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[160px]">
-                            Uso: {valueOrDash(row.uso_vehiculo)} · Ing: {valueOrDash(row.comprobacion_ingresos)}
-                        </div>
-                    </td>
+                                            {/* Perfil compra */}
+                                            <td className="px-3 py-3 min-w-[170px]">
+                                                <div className="text-xs font-semibold text-[#131E5C]">{valueOrDash(row.tipo_cliente)}</div>
+                                                <div className="text-[11px] text-slate-500 mt-0.5">Plazo: {valueOrDash(row.plazo_compra)}</div>
+                                                <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[160px]">
+                                                    Uso: {valueOrDash(row.uso_vehiculo)} · Ing: {valueOrDash(row.comprobacion_ingresos)}
+                                                </div>
+                                            </td>
 
-                    {/* Resumen */}
-                    <td className="px-3 py-3 max-w-[180px]">
-                        <div className="flex items-start gap-1.5">
-                            <button type="button" onClick={e => { e.stopPropagation(); openSummaryViewer(row); }}
-                                className="text-left min-w-0 flex-1">
-                                <span className="line-clamp-2 text-xs text-slate-500">{row.resumen || "Sin resumen"}</span>
-                            </button>
-                            <button type="button"
-                                onClick={e => { e.stopPropagation(); generarResumenInline(row); }}
-                                disabled={!!generatingSummary[row.id_exp]}
-                                className="h-7 w-7 flex-shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
-                                title="Generar resumen">
-                                {generatingSummary[row.id_exp]
-                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#131E5C]" />
-                                    : <ClipboardCheck className="h-3.5 w-3.5 text-[#131E5C]" />}
-                            </button>
-                        </div>
-                    </td>
+                                            {/* Resumen */}
+                                            <td className="px-3 py-3 max-w-[180px]">
+                                                <div className="flex items-start gap-1.5">
+                                                    <button type="button" onClick={e => { e.stopPropagation(); openSummaryViewer(row); }}
+                                                        className="text-left min-w-0 flex-1">
+                                                        <span className="line-clamp-2 text-xs text-slate-500">{row.resumen || "Sin resumen"}</span>
+                                                    </button>
+                                                    <button type="button"
+                                                        onClick={e => { e.stopPropagation(); generarResumenInline(row); }}
+                                                        disabled={!!generatingSummary[row.id_exp]}
+                                                        className="h-7 w-7 flex-shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
+                                                        title="Generar resumen">
+                                                        {generatingSummary[row.id_exp]
+                                                            ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#131E5C]" />
+                                                            : <ClipboardCheck className="h-3.5 w-3.5 text-[#131E5C]" />}
+                                                    </button>
+                                                </div>
+                                            </td>
 
-                    {/* Acciones */}
-                    <td className="px-3 py-3">
-                        <div className="flex items-center gap-1.5">
-                            <button type="button"
-                                onClick={e => { e.stopPropagation(); abrirAgendaCita(row); }}
-                                className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500"
-                                title="Agendar cita">
-                                <CalendarPlus className="h-4 w-4" />
-                            </button>
-                            <button type="button"
-                                onClick={e => { e.stopPropagation(); navigate(`/comercial/prospectos/contacto?tel=${encodeURIComponent(row.telefono || "")}&direct=1`); }}
-                                className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 disabled:opacity-40"
-                                disabled={!row.telefono}
-                                title="Abrir chat">
-                                <MessageSquareShare className="h-4 w-4" />
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            );
-        })
-    }
-    {!loadingCases && paginatedRows.length === 0 && (
-        <tr>
-            <td colSpan={17} className="px-4 py-12 text-center text-slate-400">
-                No hay resultados con esos filtros.
-            </td>
-        </tr>
-    )}
-</tbody>
+                                            {/* Acciones */}
+                                            <td className="px-3 py-3">
+                                                <div className="flex items-center gap-1.5">
+                                                    <button type="button"
+                                                        onClick={e => { e.stopPropagation(); abrirAgendaCita(row); }}
+                                                        className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500"
+                                                        title="Agendar cita">
+                                                        <CalendarPlus className="h-4 w-4" />
+                                                    </button>
+                                                    <button type="button"
+                                                        onClick={e => { e.stopPropagation(); navigate(`/comercial/prospectos/contacto?tel=${encodeURIComponent(row.telefono || "")}&direct=1`); }}
+                                                        className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 disabled:opacity-40"
+                                                        disabled={!row.telefono}
+                                                        title="Abrir chat">
+                                                        <MessageSquareShare className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            }
+                            {!loadingCases && paginatedRows.length === 0 && (
+                                <tr>
+                                    <td colSpan={17} className="px-4 py-12 text-center text-slate-400">
+                                        No hay resultados con esos filtros.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -1682,6 +1724,26 @@ export default function DigitalesProspectos() {
         [userAgencias]
     );
 
+    const [telefonosEntregados, setTelefonosEntregados] = useState(() => new Set());
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const data = await apiEntregas.list();
+                const set = new Set(
+                    (Array.isArray(data) ? data : [])
+                        .filter(item => entregaFisicaActiva(item.entrega_reportada))
+                        .map(item => normalizaTelefonoMx(item?.cliente?.telefono))
+                        .filter(Boolean)
+                );
+                setTelefonosEntregados(set);
+            } catch (e) {
+                console.error(e);
+                setTelefonosEntregados(new Set());
+            }
+        })();
+    }, []);
+
     const numeroUsuarioSesion = useMemo(() => getNumeroUsuarioSesion(user), [user]);
     const contextoDigitalSesion = useMemo(() => getContextoDigitalPorNumero(numeroUsuarioSesion), [numeroUsuarioSesion]);
 
@@ -1772,6 +1834,7 @@ export default function DigitalesProspectos() {
             setLoadingCases(true);
             try {
                 const data = await api.digitalesListProspectos();
+
                 setCases((Array.isArray(data) ? data : []).map(normalizeProspecto));
             } catch (e) { console.error(e); setCases([]); }
             finally { setLoadingCases(false); }
@@ -1929,6 +1992,37 @@ export default function DigitalesProspectos() {
         return opciones.sort((a, b) => a.label.localeCompare(b.label, "es", { sensitivity: "base" }));
     }, [pautasMeta]);
 
+
+    function calcTiempoRespuesta(creado, primerContacto) {
+        if (!creado || !primerContacto) return null;
+        const diff = new Date(primerContacto).getTime() - new Date(creado).getTime();
+        if (diff < 0) return null;
+
+        const totalSegundos = Math.round(diff / 1000);
+
+        // Si es menos de 60 segundos, mostrar solo segundos
+        if (totalSegundos < 60) {
+            return `${totalSegundos}s`;
+        }
+
+        const horas = Math.floor(totalSegundos / 3600);
+        const minutos = Math.floor((totalSegundos % 3600) / 60);
+        const segundos = totalSegundos % 60;
+
+        let resultado = "";
+        if (horas > 0) {
+            resultado += `${horas}h `;
+        }
+        if (minutos > 0 || horas > 0) {
+            resultado += `${minutos}m `;
+        }
+        if (segundos > 0 || (horas === 0 && minutos === 0)) {
+            resultado += `${segundos}s`;
+        }
+
+        return resultado.trim();
+    }
+
     const dtFmt = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
     function fmtDTIntl(value) {
         if (!value) return "—";
@@ -2030,9 +2124,9 @@ export default function DigitalesProspectos() {
                 comentarios: p.comentarios || "", resumen: p.resumen || "",
                 resumen_actualizado_at: toDTLocal(p.resumen_actualizado_at),
                 resumen_fuente: p.resumen_fuente || "", asesor_digital: p.asesor_digital || "",
-                asesor_solicita: p.asesor_ventas || "", creado: toDTLocal(p.creado),
-                primer_contacto_at: toDTLocal(p.primer_contacto_at),
-                ultimo_contacto_at: toDTLocal(p.ultimo_contacto_at),
+                asesor_solicita: p.asesor_ventas || "", creado: toDTLocalInput(p.creado),
+                primer_contacto_at: p.primer_mensaje_cliente || null,
+                ultimo_contacto_at: p.ultimo_contacto_asesor || null,
                 enganche_monto: p.enganche_monto || "",
                 presupuesto_mensual: p.presupuesto_mensual || "",
                 buro_estado: p.buro_estado || "",
@@ -2063,6 +2157,7 @@ export default function DigitalesProspectos() {
             const asesorDigitalFinal = !isAdmin && contextoDigitalSesion?.asesor_digital ? contextoDigitalSesion.asesor_digital : (draft.asesor_digital || "");
             const nombreCapturado = getNombreCompletoDraft(draft);
             const nombreFinal = draft.tiene_nombre && nombreCapturado ? nombreCapturado : "SIN NOMBRE";
+
             const payload = {
                 nombre: nombreFinal,
                 telefono: draft.telefono,
@@ -2089,12 +2184,27 @@ export default function DigitalesProspectos() {
                 solicitud_credito_estado: draft.solicitud_credito_estado || "",
                 vin_facturado: draft.vin_facturado || "",
                 vin_estatus_entrega: draft.vin_estatus_entrega || "",
+                primer_mensaje_cliente: draft.primer_contacto_at || null,
+                ultimo_contacto_asesor: draft.ultimo_contacto_at || null,
             };
-            if (mode === "create") { payload.primer_contacto_at = draft.primer_contacto_at || null; payload.ultimo_contacto_at = draft.ultimo_contacto_at || null; await api.digitalesCreateProspecto(payload); }
-            else { await api.digitalesUpdateProspecto(draft.id_exp, payload); }
-            await refreshList(); closeModal();
-        } catch (e) { console.error(e); alert("Error guardando el prospecto."); }
-        finally { setSaving(false); }
+
+
+
+            if (mode === "create") {
+                await api.digitalesCreateProspecto(payload);
+            } else {
+
+                await api.digitalesUpdateProspecto(draft.id_exp, payload);
+            }
+
+            await refreshList();
+            closeModal();
+        } catch (e) {
+            console.error(e);
+            alert("Error guardando el prospecto.");
+        } finally {
+            setSaving(false);
+        }
     };
 
     useEffect(() => {
@@ -2117,11 +2227,32 @@ export default function DigitalesProspectos() {
     const updateEstadoInline = async (row, newEstado) => {
         const id = row?.id_exp; if (!id) return;
         const prevEstado = row.estado;
-        setCases(prev => prev.map(c => c.id_exp === id ? { ...c, estado: newEstado } : c));
+        const prevPrimer = row.primer_contacto_at;
+        const prevUltimo = row.ultimo_contacto_at;
+
+        const now = new Date();
+        const nowLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const primerContactoNuevo = row.primer_contacto_at || nowLocal; // solo se fija la primera vez
+
+        setCases(prev => prev.map(c => c.id_exp === id
+            ? { ...c, estado: newEstado, primer_contacto_at: primerContactoNuevo, ultimo_contacto_at: nowLocal }
+            : c));
         setUpdatingEstado(p => ({ ...p, [id]: true }));
-        try { await api.digitalesPatchProspecto(id, { estado: newEstado }); }
-        catch (e) { console.error(e); setCases(prev => prev.map(c => c.id_exp === id ? { ...c, estado: prevEstado } : c)); alert("No se pudo actualizar el estado."); }
-        finally { setUpdatingEstado(p => { const n = { ...p }; delete n[id]; return n; }); }
+        try {
+            await api.digitalesPatchProspecto(id, {
+                estado: newEstado,
+                primer_mensaje_cliente: primerContactoNuevo,
+                ultimo_contacto_asesor: nowLocal,
+            });
+        } catch (e) {
+            console.error(e);
+            setCases(prev => prev.map(c => c.id_exp === id
+                ? { ...c, estado: prevEstado, primer_contacto_at: prevPrimer, ultimo_contacto_at: prevUltimo }
+                : c));
+            alert("No se pudo actualizar el estado.");
+        } finally {
+            setUpdatingEstado(p => { const n = { ...p }; delete n[id]; return n; });
+        }
     };
 
     const generarResumenInline = async (row) => {
@@ -2154,16 +2285,16 @@ export default function DigitalesProspectos() {
     const isQuickActive = (desde, hasta) => filters.fechaRegistroDesde === desde && filters.fechaRegistroHasta === hasta;
 
     // ── KPI Cards ────────────────────────────────────────────────────────────────
-const KPICard = ({ icon: Icon, label, value, sub, subColor = "text-slate-400", iconColor = "text-[#131E5C]" }) => (
-    <div className="flex items-start gap-3 py-4 px-6 border-r border-slate-200 last:border-r-0">
-        <Icon className={cls("h-6 w-6 flex-shrink-0 mt-1", iconColor)} />
-        <div className="min-w-0">
-            <div className="text-2xl font-black text-[#131E5C] leading-tight">{value}</div>
-            <div className="text-xs font-semibold text-slate-500 mt-0.5">{label}</div>
-            {sub && <div className={cls("text-[11px] font-semibold mt-1", subColor)}>{sub}</div>}
+    const KPICard = ({ icon: Icon, label, value, sub, subColor = "text-slate-400", iconColor = "text-[#131E5C]" }) => (
+        <div className="flex items-start gap-3 py-4 px-6 border-r border-slate-200 last:border-r-0">
+            <Icon className={cls("h-6 w-6 flex-shrink-0 mt-1", iconColor)} />
+            <div className="min-w-0">
+                <div className="text-2xl font-black text-[#131E5C] leading-tight">{value}</div>
+                <div className="text-xs font-semibold text-slate-500 mt-0.5">{label}</div>
+                {sub && <div className={cls("text-[11px] font-semibold mt-1", subColor)}>{sub}</div>}
+            </div>
         </div>
-    </div>
-);
+    );
 
     const filtrosActivos = useMemo(() => {
         const items = [];
@@ -2286,36 +2417,36 @@ const KPICard = ({ icon: Icon, label, value, sub, subColor = "text-slate-400", i
                 </div>
             </div>
 
-           {/* KPIs + Funnel juntos */}
-<div className="flex gap-3 mb-5">
-    
-    {/* Funnel a la izquierda */}
-    <div className="overflow-visible rounded-2xl border border-black/10 bg-white shadow-sm w-96">        
-        <div className="p-5 max-w-sm">
-            <FunnelChart rows={sorted} />
-        </div>
-    </div>
+            {/* KPIs + Funnel juntos */}
+            <div className="flex gap-3 mb-5">
 
-    {/* KPIs a la derecha en grid */}
-    <div className="grid grid-cols-3 gap-0 flex-1">
-    <KPICard icon={Users} label="Total prospectos hoy" value={kpis.total.toLocaleString()} sub={`${sorted.length} con filtros`} subColor="text-slate-400" />
-    <KPICard icon={Bot} label="Pendientes de respuesta IA" value={kpis.pendIA} sub={kpis.pendIA > 0 ? "Requieren atención" : "Sin pendientes"}
-        subColor={kpis.pendIA > 0 ? "text-amber-600" : "text-emerald-600"}
-        iconColor="text-amber-700" />
-    <KPICard icon={Clock} label="Sin respuesta" value={kpis.sinResp} sub={kpis.sinResp > 0 ? "> 24h sin contacto" : "Todo al día"}
-        subColor={kpis.sinResp > 0 ? "text-red-600" : "text-emerald-600"}
-        iconColor="text-red-500" />
-    <div className="col-span-3 border-t border-slate-200 my-1"></div>
-    <KPICard icon={UserCheck} label="Perfil comercial" value={`${percent(kpis.conPerfil, kpis.total || 1)}%`} sub={`${kpis.conPerfil} con datos de compra`}
-        subColor="text-sky-600" iconColor="text-sky-700" />
-    <KPICard icon={HandCoins} label="Crédito / arrendamiento" value={kpis.financiamiento} sub="Oportunidad financiera"
-        subColor="text-violet-600" iconColor="text-violet-700" />
-    <KPICard icon={Gauge} label="Ventana prom. respuesta" value={kpis.avgResp !== null ? `${kpis.avgResp < 60 ? kpis.avgResp + "m" : Math.floor(kpis.avgResp / 60) + "h " + (kpis.avgResp % 60) + "m"}` : "—"}
-        sub="Objetivo < 4h" subColor="text-sky-600" iconColor="text-sky-700" />
-</div>
-</div>
+                {/* Funnel a la izquierda */}
+                <div className="overflow-visible rounded-2xl border border-black/10 bg-white shadow-sm w-96">
+                    <div className="p-5 max-w-sm">
+                        <FunnelChart rows={sorted} />
+                    </div>
+                </div>
 
-  
+                {/* KPIs a la derecha en grid */}
+                <div className="grid grid-cols-3 gap-0 flex-1">
+                    <KPICard icon={Users} label="Total prospectos hoy" value={kpis.total.toLocaleString()} sub={`${sorted.length} con filtros`} subColor="text-slate-400" />
+                    <KPICard icon={Bot} label="Pendientes de respuesta IA" value={kpis.pendIA} sub={kpis.pendIA > 0 ? "Requieren atención" : "Sin pendientes"}
+                        subColor={kpis.pendIA > 0 ? "text-amber-600" : "text-emerald-600"}
+                        iconColor="text-amber-700" />
+                    <KPICard icon={Clock} label="Sin respuesta" value={kpis.sinResp} sub={kpis.sinResp > 0 ? "> 24h sin contacto" : "Todo al día"}
+                        subColor={kpis.sinResp > 0 ? "text-red-600" : "text-emerald-600"}
+                        iconColor="text-red-500" />
+                    <div className="col-span-3 border-t border-slate-200 my-1"></div>
+                    <KPICard icon={UserCheck} label="Perfil comercial" value={`${percent(kpis.conPerfil, kpis.total || 1)}%`} sub={`${kpis.conPerfil} con datos de compra`}
+                        subColor="text-sky-600" iconColor="text-sky-700" />
+                    <KPICard icon={HandCoins} label="Crédito / arrendamiento" value={kpis.financiamiento} sub="Oportunidad financiera"
+                        subColor="text-violet-600" iconColor="text-violet-700" />
+                    <KPICard icon={Gauge} label="Ventana prom. respuesta" value={kpis.avgResp !== null ? `${kpis.avgResp < 60 ? kpis.avgResp + "m" : Math.floor(kpis.avgResp / 60) + "h " + (kpis.avgResp % 60) + "m"}` : "—"}
+                        sub="Objetivo < 4h" subColor="text-sky-600" iconColor="text-sky-700" />
+                </div>
+            </div>
+
+
 
             {/* Filtros */}
             {/* Filtros compactos */}
@@ -2598,45 +2729,47 @@ const KPICard = ({ icon: Icon, label, value, sub, subColor = "text-slate-400", i
                         <div className="hidden overflow-hidden rounded-xl bg-white border border-black/10 shadow-sm lg:block">
                             <div className="overflow-x-auto">
                                 <table className="min-w-full text-left text-sm">
-                             <thead className="border-b border-slate-200 bg-white">
-    <tr className="text-xs">
-       
-        {[
-            { key: "agencia",            label: "Dealer" },
-            { key: null,                 label: "Cliente" },
-            { key: "fecha_reclamacion",  label: "Fecha reg." },
-            { key: "ultimo_contacto_at", label: "Último contacto" },
-            { key: null,                 label: "Business" },
-            { key: null,                 label: "Interés" },
-            { key: null,                 label: "Prioridad" },
-            { key: "estado",             label: "Estado" },
-            { key: null,                 label: "Canal" },
-            { key: null,                 label: "Asesor Digital" },
-            { key: null,                 label: "Asesor Piso" },
-            { key: null,                 label: "Score" },
-            { key: null,                 label: "Perfil financiero" },
-            { key: null,                 label: "Perfil compra" },
-            { key: null,                 label: "Resumen" },
-            { key: null,                 label: "Acciones" },
-        ].map(({ key, label }) => (
-            <th key={label} className="px-3 py-3 whitespace-nowrap text-left">
-                {key ? (
-                    <button type="button" onClick={() => toggleSort(key)}
-                        className="inline-flex items-center gap-1 text-xs font-bold text-[#131E5C] hover:text-[#131E5C]/70">
-                        {label}
-                        <span className="opacity-50">
-                            {sort.key === key
-                                ? (sort.dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
-                                : <ArrowUpDown className="h-3 w-3" />}
-                        </span>
-                    </button>
-                ) : (
-                    <span className="text-xs font-bold text-[#131E5C]">{label}</span>
-                )}
-            </th>
-        ))}
-    </tr>
-</thead>
+                                    <thead className="border-b border-slate-200 bg-white">
+                                        <tr className="text-xs">
+
+                                            {[
+                                                { key: "agencia", label: "Dealer" },
+                                                { key: null, label: "Cliente" },
+                                                { key: "fecha_reclamacion", label: "Fecha y hora registro" },
+                                                { key: "primer_contacto_at", label: "Primer contacto asesor" },
+                                                { key: "ultimo_contacto_at", label: "Último contacto asesor" },
+                                                { key: null, label: "Tiempo respuesta" },
+                                                { key: null, label: "Business" },
+                                                { key: null, label: "Interés" },
+                                                { key: null, label: "Prioridad" },
+                                                { key: "estado", label: "Estado" },
+                                                { key: null, label: "Canal" },
+                                                { key: null, label: "Asesor Digital" },
+                                                { key: null, label: "Asesor Piso" },
+                                                { key: null, label: "Score" },
+                                                { key: null, label: "Perfil financiero" },
+                                                { key: null, label: "Perfil compra" },
+                                                { key: null, label: "Resumen" },
+                                                { key: null, label: "Acciones" },
+                                            ].map(({ key, label }) => (
+                                                <th key={label} className="px-3 py-3 whitespace-nowrap text-left">
+                                                    {key ? (
+                                                        <button type="button" onClick={() => toggleSort(key)}
+                                                            className="inline-flex items-center gap-1 text-xs font-bold text-[#131E5C] hover:text-[#131E5C]/70">
+                                                            {label}
+                                                            <span className="opacity-50">
+                                                                {sort.key === key
+                                                                    ? (sort.dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
+                                                                    : <ArrowUpDown className="h-3 w-3" />}
+                                                            </span>
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-xs font-bold text-[#131E5C]">{label}</span>
+                                                    )}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
                                     <tbody className="divide-y divide-black/[0.06]">
                                         {loadingCases
                                             ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
@@ -2660,8 +2793,39 @@ const KPICard = ({ icon: Icon, label, value, sub, subColor = "text-slate-400", i
                                                             </div>
                                                             <div className="text-[11px] text-slate-400">{formatTelefonoMx(row.telefono)}</div>
                                                         </td>
-                                                        <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">{row.fecha_reclamacion || "—"}</td>
-                                                        <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">{fmtDTIntl(row.ultimo_contacto_at)}</td>
+                                                    
+                                                        <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">
+                                                            {fmtDTIntl(row.creado) || row.fecha_reclamacion || "—"}
+                                                        </td>
+
+                                                      
+                                                        <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">
+                                                            {row.primer_contacto_at ? fmtDTIntl(row.primer_contacto_at) : "—"}
+                                                        </td>
+
+                                                     
+                                                        <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">
+                                                            {row.ultimo_contacto_at ? fmtDTIntl(row.ultimo_contacto_at) : "—"}
+                                                        </td>
+
+                                                       
+                                                        <td className="px-3 py-2.5 whitespace-nowrap">
+                                                            {(() => {
+                                                                const t = calcTiempoRespuesta(row.creado, row.primer_contacto_at);
+                                                                if (!t) return <span className="text-xs text-slate-400">—</span>;
+                                                                const segundos = (new Date(row.primer_contacto_at) - new Date(row.creado)) / 1000;
+                                                                const color = segundos <= 300
+                                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                                    : segundos <= 3600
+                                                                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                                                                        : "bg-red-50 text-red-700 border-red-200";
+                                                                return (
+                                                                    <span className={cls("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold", color)}>
+                                                                        {t}
+                                                                    </span>
+                                                                );
+                                                            })()}
+                                                        </td>
                                                         <td className="px-3 py-2.5 text-xs text-[#131E5C] font-semibold">{row.linea || "—"}</td>
                                                         <td className="px-3 py-2.5 text-xs text-[#131E5C]">{row.cliente_interes || "—"}</td>
                                                         <td className="px-3 py-2.5">
@@ -2803,7 +2967,7 @@ const KPICard = ({ icon: Icon, label, value, sub, subColor = "text-slate-400", i
                                         }
                                         {!loadingCases && paginatedRows.length === 0 && (
                                             <tr>
-                                                <td colSpan={15} className="px-4 py-12 text-center text-slate-400">
+                                                <td colSpan={18} className="px-4 py-12 text-center text-slate-400">
                                                     No hay resultados con esos filtros.
                                                 </td>
                                             </tr>
@@ -2969,6 +3133,19 @@ const KPICard = ({ icon: Icon, label, value, sub, subColor = "text-slate-400", i
                                     </div>
                                     <div className="">
                                         <div className="mb-1 text-sm font-bold text-[#131E5C]">Estado</div>
+
+                                        <div>
+                                            <div className="mb-1 text-sm font-bold text-[#131E5C]">Primer contacto asesor</div>
+                                            <input type="datetime-local" value={draft.primer_contacto_at || ""}
+                                                onChange={e => setDraft(p => ({ ...p, primer_contacto_at: e.target.value }))}
+                                                className={cls(inputBase, inputOk)} />
+                                        </div>
+                                        <div>
+                                            <div className="mb-1 text-sm font-bold text-[#131E5C]">Último contacto asesor</div>
+                                            <input type="datetime-local" value={draft.ultimo_contacto_at || ""}
+                                                onChange={e => setDraft(p => ({ ...p, ultimo_contacto_at: e.target.value }))}
+                                                className={cls(inputBase, inputOk)} />
+                                        </div>
 
                                         <select value={draft.estado || ""} onChange={e => setDraft(p => ({ ...p, estado: e.target.value }))} className={cls(inputBase, inputOk)}>
                                             {ESTADOS_PROSPECTO.map(s => <option key={s} value={s}>{s}</option>)}
