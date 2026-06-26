@@ -1,113 +1,480 @@
-function limpiarCandidato(candidato = {}) {
-  return {
-    id: candidato.id || candidato.id_candidato || null,
-    id_candidato: candidato.id_candidato || candidato.id || null,
+// src/lib/apiClient.js
 
-    nombre: candidato.nombre || "",
-    sexo: candidato.sexo || "",
-    telefono: candidato.telefono || "",
-    correo: candidato.correo || "",
-    ubicacion: candidato.ubicacion || "",
+export const API_ROOT = (
+  import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com"
+).replace(/\/+$/, "");
 
-    puesto_postulado: candidato.puesto_postulado || "",
-    fuente: candidato.fuente || "",
-    estatus: candidato.estatus || "Nuevo",
+const LOGIN_PATH = "/crm/login";
 
-    cv: candidato.cv || "",
-    cv_archivo: candidato.cv_archivo || null, // ✅ esto faltaba
+function cleanToken(value) {
+  const token = String(value || "").trim();
 
-    fecha_entrevista_do: normalizarFecha(candidato.fecha_entrevista_do),
-    fecha_entrevista_gerente: normalizarFecha(candidato.fecha_entrevista_gerente),
-    fecha_respuesta_gerente: normalizarFecha(candidato.fecha_respuesta_gerente),
+  if (!token) return "";
+  if (token === "undefined") return "";
+  if (token === "null") return "";
 
-    fecha_alta_khor: normalizarFecha(candidato.fecha_alta_khor),
-    fecha_realizacion_khor: normalizarFecha(candidato.fecha_realizacion_khor),
-    fecha_entrega_resultados_khor: normalizarFecha(candidato.fecha_entrega_resultados_khor),
-
-    tipo_validacion_socioeconomica: candidato.tipo_validacion_socioeconomica || "No aplica",
-
-    fecha_solicitud_estudio_socioeconomico: normalizarFecha(candidato.fecha_solicitud_estudio_socioeconomico),
-    fecha_entrega_reporte_socioeconomico: normalizarFecha(candidato.fecha_entrega_reporte_socioeconomico),
-
-    fecha_solicitud_referencias_laborales: normalizarFecha(candidato.fecha_solicitud_referencias_laborales),
-    fecha_entrega_referencias_laborales: normalizarFecha(candidato.fecha_entrega_referencias_laborales),
-
-    fecha_solicitud_alta: normalizarFecha(candidato.fecha_solicitud_alta),
-    fecha_respuesta_alta: normalizarFecha(candidato.fecha_respuesta_alta),
-    fecha_ingreso: normalizarFecha(candidato.fecha_ingreso),
-
-    // ✅ campos del cronograma
-    fecha_primera_entrevista: normalizarFecha(candidato.fecha_primera_entrevista),
-    fecha_segunda_entrevista: normalizarFecha(candidato.fecha_segunda_entrevista),
-    fecha_prueba_khor: normalizarFecha(candidato.fecha_prueba_khor),
-    estatus_linea_tiempo: candidato.estatus_linea_tiempo || "en proceso",
-    motivo_descalificacion: candidato.motivo_descalificacion || "",
-
-    comentarios: candidato.comentarios || "",
-  };
+  return token;
 }
 
-function construirFormData(payload = {}) {
-  const candidatos = Array.isArray(payload.candidatos)
-    ? payload.candidatos.map(limpiarCandidato)
-    : [];
+function isJwt(token) {
+  const value = cleanToken(token);
 
-  const archivos = [];
-  const candidatosSinArchivo = candidatos.map((c, index) => {
-    if (c.cv_archivo instanceof File) {
-      archivos.push({ index, archivo: c.cv_archivo });
-    }
-    const { cv_archivo, ...resto } = c;
-    return resto;
-  });
+  // JWT: header.payload.signature
+  return value.split(".").length === 3;
+}
 
-  const base = {
-    estatus: payload.estatus || "Publicada",
-    puesto: payload.puesto || "",
-    dealer: payload.dealer || "",
-    fuente_reclutamiento: payload.fuente_reclutamiento || "Base de datos",
-    solicitado_por: payload.solicitado_por || "",
-  };
+function safeJsonParse(value, fallback = null) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
 
-  // Sin archivos → JSON normal
-  if (archivos.length === 0) {
-    return { esFormData: false, data: { ...base, candidatos: candidatosSinArchivo } };
+function getAuthObject() {
+  const raw = localStorage.getItem("auth");
+
+  if (!raw || raw === "undefined" || raw === "null") {
+    return null;
   }
 
-  // Con archivos → FormData
-  const formData = new FormData();
-  Object.entries(base).forEach(([k, v]) => formData.append(k, v));
-  formData.append("candidatos", JSON.stringify(candidatosSinArchivo));
-  archivos.forEach(({ index, archivo }) => {
-    formData.append(`cv_archivo_${index}`, archivo);
-  });
+  const parsed = safeJsonParse(raw, null);
 
-  return { esFormData: true, data: formData };
+  return parsed && typeof parsed === "object" ? parsed : null;
 }
 
-export const apiReclutamiento = {
-  async listarVacantes(params = {}) {
-    const { q, ...rest } = params || {};
-    const data = await http(
-      `${ENDPOINT}${buildQuery({ ...rest, buscar: q || rest.buscar })}`,
-    );
-    return normalizarLista(data);
-  },
+function saveAuthObject(auth) {
+  try {
+    localStorage.setItem("auth", JSON.stringify(auth || {}));
+  } catch {
+    // Sin acción.
+  }
+}
 
-  async crearVacante(payload) {
-    const { data } = construirFormData(payload);
-    return http(ENDPOINT, { method: "POST", body: data });
-  },
+export function getStoredUser() {
+  const auth = getAuthObject();
 
-  async actualizarVacante(idVacante, payload) {
-    const { data } = construirFormData(payload);
-    return http(`${ENDPOINT}${idVacante}/`, { method: "PATCH", body: data });
-  },
+  if (auth?.user && typeof auth.user === "object") {
+    return auth.user;
+  }
 
-  async eliminarVacante(idVacante) {
-    await http(`${ENDPOINT}${idVacante}/`, { method: "DELETE" });
-    return { ok: true };
-  },
-};
+  const candidateKeys = ["crm.user", "user"];
 
-export default apiReclutamiento;
+  for (const key of candidateKeys) {
+    const raw = localStorage.getItem(key);
+    if (!raw || raw === "undefined" || raw === "null") continue;
+
+    const parsed = safeJsonParse(raw, null);
+
+    if (!parsed || typeof parsed !== "object") continue;
+
+    if (parsed.user && typeof parsed.user === "object") {
+      return parsed.user;
+    }
+
+    return parsed;
+  }
+
+  return null;
+}
+
+export function getAccessToken() {
+  const directCandidates = [
+    localStorage.getItem("@token_access_jwt"),
+    localStorage.getItem("auth.access"),
+    localStorage.getItem("access"),
+    localStorage.getItem("accessToken"),
+    localStorage.getItem("token"),
+    localStorage.getItem("authToken"),
+  ];
+
+  for (const candidate of directCandidates) {
+    const token = cleanToken(candidate);
+    if (isJwt(token)) return token;
+  }
+
+  const auth = getAuthObject();
+
+  const authCandidates = [
+    auth?.access,
+    auth?.access_token,
+    auth?.token,
+    auth?.jwt,
+    auth?.auth?.access,
+    auth?.auth?.token,
+  ];
+
+  for (const candidate of authCandidates) {
+    const token = cleanToken(candidate);
+    if (isJwt(token)) return token;
+  }
+
+  return "";
+}
+
+export function getRefreshToken() {
+  const directCandidates = [
+    localStorage.getItem("@token_refresh_jwt"),
+    localStorage.getItem("auth.refresh"),
+    localStorage.getItem("refresh"),
+    localStorage.getItem("refreshToken"),
+  ];
+
+  for (const candidate of directCandidates) {
+    const token = cleanToken(candidate);
+    if (isJwt(token)) return token;
+  }
+
+  const auth = getAuthObject();
+
+  const authCandidates = [
+    auth?.refresh,
+    auth?.refresh_token,
+    auth?.auth?.refresh,
+  ];
+
+  for (const candidate of authCandidates) {
+    const token = cleanToken(candidate);
+    if (isJwt(token)) return token;
+  }
+
+  return "";
+}
+
+export function saveJwtTokens({ access, refresh, user } = {}) {
+  const accessToken = cleanToken(access);
+  const refreshToken = cleanToken(refresh);
+
+  const auth = getAuthObject() || {};
+  const storedUser = user || getStoredUser() || auth.user || null;
+
+  if (storedUser) {
+    auth.user = storedUser;
+
+    try {
+      localStorage.setItem("crm.user", JSON.stringify(storedUser));
+      localStorage.setItem("user", JSON.stringify(storedUser));
+    } catch {
+      // Sin acción.
+    }
+  }
+
+  if (isJwt(accessToken)) {
+    localStorage.setItem("@token_access_jwt", accessToken);
+    localStorage.setItem("auth.access", accessToken);
+    localStorage.setItem("access", accessToken);
+
+    auth.access = accessToken;
+    auth.token = accessToken;
+  }
+
+  if (isJwt(refreshToken)) {
+    localStorage.setItem("@token_refresh_jwt", refreshToken);
+    localStorage.setItem("auth.refresh", refreshToken);
+    localStorage.setItem("refresh", refreshToken);
+
+    auth.refresh = refreshToken;
+  }
+
+  saveAuthObject(auth);
+}
+
+export function clearJwtTokens() {
+  const keys = [
+    "@token_access_jwt",
+    "@token_refresh_jwt",
+    "auth.access",
+    "auth.refresh",
+    "auth.token",
+    "access",
+    "accessToken",
+    "refresh",
+    "refreshToken",
+    "token",
+    "authToken",
+  ];
+
+  keys.forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Sin acción.
+    }
+  });
+
+  const auth = getAuthObject();
+
+  if (auth && typeof auth === "object") {
+    delete auth.access;
+    delete auth.refresh;
+    delete auth.token;
+    delete auth.access_token;
+    delete auth.refresh_token;
+    delete auth.jwt;
+
+    saveAuthObject(auth);
+  }
+}
+
+export function getAuthHeader() {
+  const token = getAccessToken();
+
+  if (!token) return {};
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+export function getWebSocketAuthQuery() {
+  const token = getAccessToken();
+
+  if (!token) return "";
+
+  return `token=${encodeURIComponent(token)}`;
+}
+
+function redirectToLogin() {
+  if (window.location.pathname !== LOGIN_PATH) {
+    window.location.href = LOGIN_PATH;
+  }
+}
+
+async function parseResponseData(res) {
+  if (res.status === 204) return null;
+
+  const contentType = res.headers.get("content-type") || "";
+
+  try {
+    if (contentType.includes("application/json")) {
+      return await res.json();
+    }
+
+    const text = await res.text();
+    return text || null;
+  } catch {
+    return null;
+  }
+}
+
+async function refreshAccessToken() {
+  const refresh = getRefreshToken();
+
+  if (!refresh) {
+    throw new Error("No hay refresh token disponible.");
+  }
+
+  const res = await fetch(`${API_ROOT}/conformidad/api/auth/token/refresh/`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refresh }),
+  });
+
+  const data = await parseResponseData(res);
+
+  if (!res.ok || !data?.access) {
+    throw new Error(data?.detail || "No se pudo renovar la sesión.");
+  }
+
+  saveJwtTokens({
+    access: data.access,
+    refresh,
+    user: getStoredUser(),
+  });
+
+  return data.access;
+}
+
+function isFormData(body) {
+  return typeof FormData !== "undefined" && body instanceof FormData;
+}
+
+function isBlobLike(body) {
+  return typeof Blob !== "undefined" && body instanceof Blob;
+}
+
+function buildUrl(path) {
+  const value = String(path || "");
+
+  if (/^https?:\/\//i.test(value)) return value;
+
+  return `${API_ROOT}${value.startsWith("/") ? value : `/${value}`}`;
+}
+
+function getFirstFieldError(data) {
+  if (!data || typeof data !== "object") return "";
+
+  const firstKey = Object.keys(data)[0];
+  if (!firstKey) return "";
+
+  const value = data[firstKey];
+
+  if (Array.isArray(value)) return `${firstKey}: ${value.join(", ")}`;
+  if (typeof value === "string") return `${firstKey}: ${value}`;
+  if (value && typeof value === "object") {
+    return `${firstKey}: ${JSON.stringify(value)}`;
+  }
+
+  return "";
+}
+
+function resolveErrorMessage(data, status) {
+  if (!data) return `HTTP ${status}`;
+
+  if (typeof data === "string" && data.trim()) return data;
+
+  return (
+    data?.detail ||
+    data?.error ||
+    data?.mensaje ||
+    data?.message ||
+    getFirstFieldError(data) ||
+    `HTTP ${status}`
+  );
+}
+
+function shouldRedirectOnUnauthorized(path) {
+  const value = String(path || "");
+
+  // Rutas públicas: no conviene mandar al login del CRM.
+  return !value.includes("/api/public/");
+}
+
+function buildHeaders({ headers = {}, body, auth = true } = {}) {
+  const token = auth ? getAccessToken() : "";
+
+  const finalHeaders = {
+    Accept: "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(headers || {}),
+  };
+
+  if (isFormData(body)) {
+    delete finalHeaders["Content-Type"];
+    delete finalHeaders["content-type"];
+    return finalHeaders;
+  }
+
+  const hasBody = body !== undefined && body !== null;
+
+  if (hasBody && !isBlobLike(body) && !finalHeaders["Content-Type"]) {
+    finalHeaders["Content-Type"] = "application/json";
+  }
+
+  return finalHeaders;
+}
+
+function buildBody({ body, data } = {}) {
+  if (data !== undefined) return JSON.stringify(data);
+
+  if (body === undefined || body === null) return body;
+  if (typeof body === "string") return body;
+  if (isFormData(body) || isBlobLike(body)) return body;
+
+  return JSON.stringify(body);
+}
+
+export async function http(
+  path,
+  {
+    method = "GET",
+    body,
+    data,
+    headers = {},
+    signal,
+    auth = true,
+    retryRefresh = true,
+    retryWithoutAuth = true,
+    redirectOnUnauthorized = shouldRedirectOnUnauthorized(path),
+  } = {},
+) {
+  const finalBody = buildBody({ body, data });
+
+  const finalHeaders = buildHeaders({
+    headers,
+    body: finalBody,
+    auth,
+  });
+
+  const res = await fetch(buildUrl(path), {
+    method,
+    headers: finalHeaders,
+    body: finalBody,
+    signal,
+  });
+
+  const responseData = await parseResponseData(res);
+
+  if (res.status === 401 && auth && retryRefresh) {
+    try {
+      await refreshAccessToken();
+
+      return http(path, {
+        method,
+        body,
+        data,
+        headers,
+        signal,
+        auth: true,
+        retryRefresh: false,
+        retryWithoutAuth,
+        redirectOnUnauthorized,
+      });
+    } catch {
+      clearJwtTokens();
+
+      // Permite que endpoints AllowAny no fallen por un Bearer inválido.
+      if (retryWithoutAuth) {
+        return http(path, {
+          method,
+          body,
+          data,
+          headers,
+          signal,
+          auth: false,
+          retryRefresh: false,
+          retryWithoutAuth: false,
+          redirectOnUnauthorized,
+        });
+      }
+    }
+  }
+
+  if (!res.ok) {
+    const message = resolveErrorMessage(responseData, res.status);
+    const error = new Error(message);
+
+    error.status = res.status;
+    error.data = responseData;
+    error.code = res.status === 401 ? "SESSION_EXPIRED" : "API_ERROR";
+
+    if (res.status === 401) {
+      clearJwtTokens();
+
+      if (redirectOnUnauthorized) {
+        redirectToLogin();
+      }
+    }
+
+    throw error;
+  }
+
+  return responseData;
+}
+
+export function buildQuery(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    if (value === "Todos" || value === "Todas") return;
+    query.append(key, value);
+  });
+
+  const text = query.toString();
+
+  return text ? `?${text}` : "";
+}
