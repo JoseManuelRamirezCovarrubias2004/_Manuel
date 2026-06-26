@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import EvaluacionView from './EvaluacionView';
 import ListaPuestosView from './ListaPuestosView';
+import { ClipboardList, BriefcaseBusiness } from 'lucide-react';
 
 export default function Puestos() {
     const [activeTab, setActiveTab] = useState('evaluacion');
@@ -8,26 +9,28 @@ export default function Puestos() {
     return (
         <div className="w-full">
             {/* Pestañas superiores */}
-            <div className="border-b border-slate-200 bg-white px-4 sticky top-0 z-10">
-                <div className="flex gap-6">
+            <div className="bg-white px-4 py-3">
+                <div className="flex gap-2">
                     <button
                         onClick={() => setActiveTab('evaluacion')}
-                        className={`pb-3 pt-4 text-sm font-semibold transition-all ${
+                        className={`inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-full transition-all ${
                             activeTab === 'evaluacion'
-                                ? 'border-b-2 border-[#131E5C] text-[#131E5C]'
-                                : 'text-slate-500 hover:text-[#131E5C]'
+                                ? 'bg-[#131E5C] text-white shadow-md'
+                                : 'border border-[#131E5C] text-[#131E5C] bg-white hover:bg-slate-50'
                         }`}
                     >
+                        <ClipboardList className="h-4 w-4" />
                         Evaluación de puestos
                     </button>
                     <button
                         onClick={() => setActiveTab('lista')}
-                        className={`pb-3 pt-4 text-sm font-semibold transition-all ${
+                        className={`inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-full transition-all ${
                             activeTab === 'lista'
-                                ? 'border-b-2 border-[#131E5C] text-[#131E5C]'
-                                : 'text-slate-500 hover:text-[#131E5C]'
+                                ? 'bg-[#131E5C] text-white shadow-md'
+                                : 'border border-[#131E5C] text-[#131E5C] bg-white hover:bg-slate-50'
                         }`}
                     >
+                        <BriefcaseBusiness className="h-4 w-4" />
                         Lista de puestos
                     </button>
                 </div>

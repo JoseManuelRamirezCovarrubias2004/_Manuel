@@ -1318,6 +1318,10 @@ const userTieneAgencia = useCallback(
                                                                             <option value="mejor_perfil">Otro candidato mejor perfilado</option>
                                                                             <option value="propenso_robo">Propenso al robo</option>
                                                                             <option value="bajo_psicometria">Bajo resultado en psicometría</option>
+                                                                            {/* ========== NUEVOS MOTIVOS ========== */}
+                                                                            <option value="falta_interes">Falta de interés</option>
+                                                                            <option value="escala_valores">No recomendable por su escala de valores</option>
+                                                                            <option value="deserta_voluntariamente">Deserta voluntariamente</option>
                                                                         </select>
                                                                     </div>
                                                                 )}
