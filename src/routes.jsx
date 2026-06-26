@@ -895,13 +895,9 @@ export const router = createBrowserRouter(
                         },
 
                         {
-                            path: "configuracion",
-                            element: (
-                                <RequirePermission anyOf={["USUARIOS_ADMIN"]}>
-                                    <Settings />
-                                </RequirePermission>
-                            ),
-                        },
+    path: "configuracion",
+    element: <Settings />,
+},
 
                         {
                             path: "*",

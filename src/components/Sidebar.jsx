@@ -384,25 +384,24 @@ export default function Sidebar() {
                             <FadeSlide show={showText}>Sugerencias y errores</FadeSlide>
                         </button>
 
-                        {canSeeSettings ? (
-                            <NavLink
-                                to="/configuracion"
-                                onClick={() => {
-                                    if (isMobile) setMobileOpen(false);
-                                }}
-                                className={({ isActive }) =>
-                                    cls(
-                                        "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-semibold transition",
-                                        !showText && !isMobile && "justify-center px-0",
-                                        isActive ? "bg-white text-[#001E50]" : "text-white/66 hover:bg-white/10 hover:text-white"
-                                    )
-                                }
-                                title="Usuarios"
-                            >
-                                <UserCircle2 size={18} className="shrink-0" />
-                                <FadeSlide show={showText}>Usuarios</FadeSlide>
-                            </NavLink>
-                        ) : null}
+                       {/* Admins → Usuarios, usuarios normales → Mi perfil */}
+<NavLink
+    to="/configuracion"
+    onClick={() => { if (isMobile) setMobileOpen(false); }}
+    className={({ isActive }) =>
+        cls(
+            "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-semibold transition",
+            !showText && !isMobile && "justify-center px-0",
+            isActive ? "bg-white text-[#001E50]" : "text-white/66 hover:bg-white/10 hover:text-white"
+        )
+    }
+    title={canSeeSettings ? "Usuarios" : "Mi perfil"}
+>
+    <UserCircle2 size={18} className="shrink-0" />
+    <FadeSlide show={showText}>
+        {canSeeSettings ? "Usuarios" : "Mi perfil"}
+    </FadeSlide>
+</NavLink>
 
                         <button
                             type="button"
