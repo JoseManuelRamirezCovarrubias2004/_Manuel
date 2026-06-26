@@ -8,7 +8,7 @@ import {
     CalendarCheck, Phone, LayoutList, UserStar, ClipboardCheck, BrainCircuit,
     CalendarRange, Table2, BarChart3, Clock3, Flame, AlertCircle, TrendingUp,
     TrendingDown, Eye, MessageCircle, Zap, Activity, Target, Radio, Paperclip,
-    UploadCloud,
+    UploadCloud, Users, Bot, Clock, UserCheck, HandCoins, Gauge
 } from "lucide-react";
 import CONCESIONARIO from "/concesionario.png";
 import WAP from "/whatsapp.svg";
@@ -843,18 +843,7 @@ function FunnelChart({ rows }) {
                             >
                                 {s.value.toLocaleString("es-MX")}
                             </text>
-                            {/* Etiqueta a la derecha */}
-                            <text
-                                x={s.topX2 + 8}
-                                y={s.midY + 1}
-                                textAnchor="start"
-                                dominantBaseline="middle"
-                                fill="#334155"
-                                fontSize="11"
-                                fontWeight="600"
-                            >
-                                {s.name}
-                            </text>
+                           
                         </g>
                     );
                 })}
@@ -2165,18 +2154,16 @@ export default function DigitalesProspectos() {
     const isQuickActive = (desde, hasta) => filters.fechaRegistroDesde === desde && filters.fechaRegistroHasta === hasta;
 
     // ── KPI Cards ────────────────────────────────────────────────────────────────
-    const KPICard = ({ icon: Icon, label, value, sub, subColor = "text-slate-400", bg = "bg-white", iconBg = "bg-[#131E5C]/10", iconColor = "text-[#131E5C]" }) => (
-        <div className={cls("rounded-2xl border border-black/10 shadow-sm p-4 flex items-start gap-3", bg)}>
-            <div className={cls("h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0", iconBg)}>
-                <Icon className={cls("h-5 w-5", iconColor)} />
-            </div>
-            <div className="min-w-0">
-                <div className="text-2xl font-black text-[#131E5C] leading-tight">{value}</div>
-                <div className="text-xs font-semibold text-slate-500 mt-0.5">{label}</div>
-                {sub && <div className={cls("text-[11px] font-semibold mt-1", subColor)}>{sub}</div>}
-            </div>
+const KPICard = ({ icon: Icon, label, value, sub, subColor = "text-slate-400", iconColor = "text-[#131E5C]" }) => (
+    <div className="flex items-start gap-3 py-4 px-6 border-r border-slate-200 last:border-r-0">
+        <Icon className={cls("h-6 w-6 flex-shrink-0 mt-1", iconColor)} />
+        <div className="min-w-0">
+            <div className="text-2xl font-black text-[#131E5C] leading-tight">{value}</div>
+            <div className="text-xs font-semibold text-slate-500 mt-0.5">{label}</div>
+            {sub && <div className={cls("text-[11px] font-semibold mt-1", subColor)}>{sub}</div>}
         </div>
-    );
+    </div>
+);
 
     const filtrosActivos = useMemo(() => {
         const items = [];
@@ -2310,22 +2297,22 @@ export default function DigitalesProspectos() {
     </div>
 
     {/* KPIs a la derecha en grid */}
-    <div className="grid grid-cols-2 gap-3 flex-1 content-start">
-        <KPICard icon={User} label="Total prospectos hoy" value={kpis.total.toLocaleString()} sub={`${sorted.length} con filtros`} subColor="text-slate-400" />
-        <KPICard icon={Zap} label="Pendientes de respuesta IA" value={kpis.pendIA} sub={kpis.pendIA > 0 ? "Requieren atención" : "Sin pendientes"}
-            subColor={kpis.pendIA > 0 ? "text-amber-600" : "text-emerald-600"}
-            iconBg="bg-amber-100" iconColor="text-amber-700" />
-        <KPICard icon={AlertCircle} label="Sin respuesta" value={kpis.sinResp} sub={kpis.sinResp > 0 ? "> 24h sin contacto" : "Todo al día"}
-            subColor={kpis.sinResp > 0 ? "text-red-600" : "text-emerald-600"}
-            iconBg="bg-red-50" iconColor="text-red-500" />
-        <KPICard icon={ClipboardCheck} label="Perfil comercial" value={`${percent(kpis.conPerfil, kpis.total || 1)}%`} sub={`${kpis.conPerfil} con datos de compra`}
-            subColor="text-sky-600" iconBg="bg-sky-100" iconColor="text-sky-700" />
-        <KPICard icon={Target} label="Crédito / arrendamiento" value={kpis.financiamiento} sub="Oportunidad financiera"
-            subColor="text-violet-600" iconBg="bg-violet-100" iconColor="text-violet-700" />
-        <KPICard icon={Clock3} label="Ventana prom. respuesta" value={kpis.avgResp !== null ? `${kpis.avgResp < 60 ? kpis.avgResp + "m" : Math.floor(kpis.avgResp / 60) + "h " + (kpis.avgResp % 60) + "m"}` : "—"}
-            sub="Objetivo < 4h" subColor="text-sky-600" iconBg="bg-sky-100" iconColor="text-sky-700" />
-    </div>
-
+    <div className="grid grid-cols-3 gap-0 flex-1">
+    <KPICard icon={Users} label="Total prospectos hoy" value={kpis.total.toLocaleString()} sub={`${sorted.length} con filtros`} subColor="text-slate-400" />
+    <KPICard icon={Bot} label="Pendientes de respuesta IA" value={kpis.pendIA} sub={kpis.pendIA > 0 ? "Requieren atención" : "Sin pendientes"}
+        subColor={kpis.pendIA > 0 ? "text-amber-600" : "text-emerald-600"}
+        iconColor="text-amber-700" />
+    <KPICard icon={Clock} label="Sin respuesta" value={kpis.sinResp} sub={kpis.sinResp > 0 ? "> 24h sin contacto" : "Todo al día"}
+        subColor={kpis.sinResp > 0 ? "text-red-600" : "text-emerald-600"}
+        iconColor="text-red-500" />
+    <div className="col-span-3 border-t border-slate-200 my-1"></div>
+    <KPICard icon={UserCheck} label="Perfil comercial" value={`${percent(kpis.conPerfil, kpis.total || 1)}%`} sub={`${kpis.conPerfil} con datos de compra`}
+        subColor="text-sky-600" iconColor="text-sky-700" />
+    <KPICard icon={HandCoins} label="Crédito / arrendamiento" value={kpis.financiamiento} sub="Oportunidad financiera"
+        subColor="text-violet-600" iconColor="text-violet-700" />
+    <KPICard icon={Gauge} label="Ventana prom. respuesta" value={kpis.avgResp !== null ? `${kpis.avgResp < 60 ? kpis.avgResp + "m" : Math.floor(kpis.avgResp / 60) + "h " + (kpis.avgResp % 60) + "m"}` : "—"}
+        sub="Objetivo < 4h" subColor="text-sky-600" iconColor="text-sky-700" />
+</div>
 </div>
 
   

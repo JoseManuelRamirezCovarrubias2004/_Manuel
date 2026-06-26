@@ -1,6 +1,8 @@
 // src/pages/Settings.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { ArrowLeft, Users, Plus, RefreshCw, Upload, Eye, EyeOff, Building2, ChevronDown, Pencil } from "lucide-react";
+import { ArrowLeft, Users, Plus, RefreshCw, Upload, Eye, EyeOff,
+         Building2, ChevronDown, Pencil, Save, AtSign, Mail,
+         User, Lock, Briefcase } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
@@ -225,6 +227,7 @@ function UserModal({ user, roles, token, onClose, onSaved }) {
         fd.append("nombre", form.nombre); fd.append("apellidos", form.apellidos);
         fd.append("usuario", form.usuario); fd.append("correo", form.correo);
         fd.append("id_rol", form.id_rol); fd.append("estado", form.estado);
+        fd.append("estado", estadoNuevo);
         fd.append("agencia", form.agencies.join("|"));
         if (password) fd.append("contrasena", password);
         if (foto) fd.append("foto", foto);
@@ -411,44 +414,35 @@ function AgencyBlock({ agency, users, onEdit }) {
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
                             <tr style={{ background: "#fafafa" }}>
-                                {["", "Nombre", "Usuario", "Rol", "Estado", "Correo", ""].map((h, i) => (
-                                    <th key={i} style={{ padding: "8px 14px", textAlign: "left", fontSize: 11, color: "#94a3b8", fontWeight: 600, borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>
-                                        {h}
-                                    </th>
-                                ))}
+                                {["", "Nombre", "Usuario", "Rol", "Estado", "Correo"].map((h, i) => (
+    <th key={i} style={{ padding: "8px 14px", textAlign: "left", fontSize: 11, color: "#94a3b8", fontWeight: 600, borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>
+        {h}
+    </th>
+))}
                             </tr>
                         </thead>
                         <tbody>
-                            {agUsers.length === 0 ? (
-                                <tr><td colSpan={7} style={{ textAlign: "center", padding: "24px 0", fontSize: 13, color: "#94a3b8" }}>Sin usuarios en esta agencia</td></tr>
-                            ) : agUsers.map((u, idx) => (
-                                <tr
-                                    key={u.id}
-                                    style={{ borderBottom: idx < agUsers.length - 1 ? "1px solid #f8fafc" : "none", transition: "background 0.1s" }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-                                    onMouseLeave={e => (e.currentTarget.style.background = "")}
-                                >
-                                    <td style={{ padding: "10px 14px" }}><Avatar user={u} size={32} /></td>
-                                    <td style={{ padding: "10px 14px" }}>
-                                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{u.nombre} {u.apellidos}</span>
-                                    </td>
-                                    <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>@{u.usuario}</td>
-                                    <td style={{ padding: "10px 14px" }}><RoleBadge rol={u.rol || u.nombre_rol} /></td>
-                                    <td style={{ padding: "10px 14px" }}><StatusPill estado={u.estado || "Activo"} /></td>
-                                    <td style={{ padding: "10px 14px", fontSize: 12, color: "#94a3b8", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.correo}</td>
-                                    <td style={{ padding: "10px 14px" }}>
-                                        <button
-                                            onClick={() => onEdit(u)}
-                                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 7, border: "1px solid #e2e8f0", background: "#fff", fontSize: 11, color: "#374151", cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}
-                                            onMouseEnter={e => { e.currentTarget.style.borderColor = "#131E5C"; e.currentTarget.style.color = "#131E5C"; }}
-                                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#374151"; }}
-                                        >
-                                            <Pencil size={10} /> Editar
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
+    {agUsers.length === 0 ? (
+        <tr><td colSpan={6} style={{ textAlign: "center", padding: "24px 0", fontSize: 13, color: "#94a3b8" }}>Sin usuarios en esta agencia</td></tr>
+    ) : agUsers.map((u, idx) => (
+        <tr
+            key={u.id}
+            onDoubleClick={() => onEdit(u)}
+            style={{ borderBottom: idx < agUsers.length - 1 ? "1px solid #f8fafc" : "none", transition: "background 0.1s", cursor: "pointer" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+            onMouseLeave={e => (e.currentTarget.style.background = "")}
+        >
+            <td style={{ padding: "10px 14px" }}><Avatar user={u} size={32} /></td>
+            <td style={{ padding: "10px 14px" }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{u.nombre} {u.apellidos}</span>
+            </td>
+            <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>@{u.usuario}</td>
+            <td style={{ padding: "10px 14px" }}><RoleBadge rol={u.rol || u.nombre_rol} /></td>
+            <td style={{ padding: "10px 14px" }}><StatusPill estado={u.estado || "Activo"} /></td>
+            <td style={{ padding: "10px 14px", fontSize: 12, color: "#94a3b8", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.correo}</td>
+        </tr>
+    ))}
+</tbody>
                     </table>
                 </div>
             )}
@@ -545,7 +539,143 @@ function PerfilUsuario({ token, user }) {
 }
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
+// ── Input con ícono a la izquierda (externo) ──
+function InputWithSideIcon({ icon: Icon, label, value, onChange, type = "text", placeholder, disabled = false, error }) {
+    return (
+        <div>
+            <FLabel>{label}</FLabel>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: "#eff2ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon size={15} color="#131E5C" />
+                </div>
+                <input
+                    type={type} value={value} onChange={onChange}
+                    placeholder={placeholder} disabled={disabled}
+                    style={{ ...inputBase(error), flex: 1 }}
+                    onFocus={e => { e.target.style.borderColor = "#131E5C"; e.target.style.boxShadow = "0 0 0 3px rgba(19,30,92,0.08)"; }}
+                    onBlur={e => { e.target.style.borderColor = error ? "#fca5a5" : "#e2e8f0"; e.target.style.boxShadow = "none"; }}
+                />
+            </div>
+            {error && <span style={{ fontSize: 11, color: "#ef4444", marginTop: 3, display: "block" }}>{error}</span>}
+        </div>
+    );
+}
+
+// ── Password con ícono externo + toggle ojo ──
+function PasswordSideField({ label, value, onChange, placeholder }) {
+    const [show, setShow] = useState(false);
+    return (
+        <div>
+            <FLabel>{label}</FLabel>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: "#eff2ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Lock size={15} color="#131E5C" />
+                </div>
+                <div style={{ position: "relative", flex: 1 }}>
+                    <input
+                        type={show ? "text" : "password"} value={value} onChange={onChange}
+                        placeholder={placeholder}
+                        style={{ ...inputBase(false), width: "100%", paddingRight: 36, boxSizing: "border-box" }}
+                        onFocus={e => { e.target.style.borderColor = "#131E5C"; e.target.style.boxShadow = "0 0 0 3px rgba(19,30,92,0.08)"; }}
+                        onBlur={e => { e.target.style.borderColor = "#e2e8f0"; e.target.style.boxShadow = "none"; }}
+                    />
+                    <button type="button" onClick={() => setShow(v => !v)}
+                        style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center" }}>
+                        {show ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Rol con ícono externo ──
+function RolSideField({ label, value, onChange, roles }) {
+    return (
+        <div>
+            <FLabel>{label}</FLabel>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: "#eff2ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Briefcase size={15} color="#131E5C" />
+                </div>
+                <select value={value} onChange={onChange}
+                    style={{ ...inputBase(false), flex: 1, cursor: "pointer", appearance: "auto" }}
+                    onFocus={e => { e.target.style.borderColor = "#131E5C"; e.target.style.boxShadow = "0 0 0 3px rgba(19,30,92,0.08)"; }}
+                    onBlur={e => { e.target.style.borderColor = "#e2e8f0"; e.target.style.boxShadow = "none"; }}>
+                    <option value="">Selecciona rol...</option>
+                    {roles.map(r => <option key={r.id_rol} value={String(r.id_rol)}>{r.nombre}</option>)}
+                </select>
+            </div>
+        </div>
+    );
+}
+
+function RolToggle({ value, onChange, roles }) {
+    return (
+        <div>
+            <FLabel>Rol</FLabel>
+            <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                {roles.map(r => {
+                    const active = String(value) === String(r.id_rol);
+                    return (
+                        <button key={r.id_rol} type="button"
+                            onClick={() => onChange(String(r.id_rol))}
+                            style={{
+                                display: "inline-flex", alignItems: "center", gap: 6,
+                                padding: "9px 16px", borderRadius: 10, cursor: "pointer",
+                                border: active ? "none" : "1px solid #e2e8f0",
+                                background: active ? "#131E5C" : "#f8fafc",
+                                color: active ? "#fff" : "#374151",
+                                fontSize: 13, fontWeight: 600,
+                                transition: "all 0.15s",
+                                boxShadow: active ? "0 2px 8px rgba(19,30,92,0.25)" : "none",
+                            }}>
+                            <Users size={13} />
+                            {r.nombre}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function EstadoToggle({ value, onChange }) {
+    const opciones = [
+        { value: "Activo",   icon: "✓", color: "#16a34a", bg: "#dcfce7", border: "#86efac" },
+        { value: "Inactivo", icon: "○", color: "#94a3b8", bg: "#f8fafc", border: "#e2e8f0" },
+    ];
+    return (
+        <div>
+            <FLabel>Estado</FLabel>
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                {opciones.map(op => {
+                    const active = value === op.value;
+                    return (
+                        <button key={op.value} type="button"
+                            onClick={() => onChange(op.value)}
+                            style={{
+                                display: "inline-flex", alignItems: "center", gap: 6,
+                                padding: "9px 20px", borderRadius: 10, cursor: "pointer",
+                                border: `1px solid ${active ? op.border : "#e2e8f0"}`,
+                                background: active ? op.bg : "#f8fafc",
+                                color: active ? op.color : "#94a3b8",
+                                fontSize: 13, fontWeight: 600,
+                                transition: "all 0.15s",
+                            }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: active ? op.color : "#cbd5e1" }} />
+                            {op.value}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 export default function Settings() {
+
+    const [estadoNuevo, setEstadoNuevo] = useState("Activo");
     const { token, user } = useAuth();
 
     const isAdminUI = useMemo(() => {
@@ -610,11 +740,11 @@ export default function Settings() {
         setAgenciasSeleccionadas(prev => prev.includes(agencia) ? prev.filter(i => i !== agencia) : [...prev, agencia]);
     };
 
-    const limpiarFormulario = () => {
-        setNuevoUsuario({ nombre: "", apellidos: "", usuario: "", correo: "", contrasena: "", agencia: "", id_rol: selectedRolId || "", foto: null });
-        setAgenciasSeleccionadas([]);
-    };
-
+   const limpiarFormulario = () => {
+    setNuevoUsuario({ nombre: "", apellidos: "", usuario: "", correo: "", contrasena: "", agencia: "", id_rol: selectedRolId || "", foto: null });
+    setAgenciasSeleccionadas([]);
+    setEstadoNuevo("Activo"); // ← agrega esto
+};
     const crearUsuario = async (e) => {
         e.preventDefault();
         const usuarioLimpio = String(nuevoUsuario.usuario || "").trim();
@@ -655,112 +785,160 @@ export default function Settings() {
 
     if (!isAdminUI) return <PerfilUsuario token={token} user={user} />;
 
-    return (
-        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "28px 20px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-            {/* Top bar */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-                <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 14px", borderRadius: 9, background: "#131E5C", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
-                    <ArrowLeft size={13} /> Volver
-                </Link>
-                {msg && (
-                    <div style={{ padding: "8px 16px", borderRadius: 9, fontSize: 12, fontWeight: 500, background: msg.startsWith("✓") ? "#dcfce7" : "#fee2e2", color: msg.startsWith("✓") ? "#15803d" : "#b91c1c", border: `1px solid ${msg.startsWith("✓") ? "#bbf7d0" : "#fecaca"}` }}>
-                        {msg}
-                    </div>
-                )}
-            </div>
+ return (
+        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "28px 20px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
-            {/* ── Card principal crear usuario ── */}
-            <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", marginBottom: 24, overflow: "hidden" }}>
-                {/* Header card */}
-                <div style={{ padding: "16px 22px", background: "#131E5C", display: "flex", alignItems: "center", gap: 12, borderRadius: "16px 16px 0 0" }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Users size={16} color="#fff" />
-                    </div>
-                    <div>
-                        <h2 style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>Gestión de usuarios</h2>
-                        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", margin: 0 }}>Crear usuarios y asignar agencias.</p>
-                    </div>
+            
+
+            {/* ── Card formulario (ancho completo) ── */}
+            <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", marginBottom: 24 }}>
+
+                {/* Header banner */}
+               
+<div style={{
+    padding: "28px 32px",
+    background: "linear-gradient(135deg, #131E5C 0%, #1a2d8a 100%)",
+    display: "flex", alignItems: "center", gap: 18,
+    position: "relative", overflow: "hidden",
+}}>
+    <div style={{ position: "absolute", right: 160, top: -20, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
+    <div style={{ position: "absolute", right: 100, top: 10, width: 50, height: 50, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+    <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Users size={26} color="#fff" />
+    </div>
+    <div>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#fff", margin: 0 }}>Gestión de usuarios</h2>
+        {/* Botón Volver en lugar del subtítulo */}
+        <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, padding: "5px 12px", borderRadius: 8, background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(255,255,255,0.2)" }}>
+            <ArrowLeft size={12} /> Volver
+        </Link>
+    </div>
+    <div style={{ marginLeft: "auto", position: "relative", width: 100, height: 60 }}>
+        <div style={{ position: "absolute", right: 0, top: -10, width: 60, height: 60, borderRadius: "50%", background: "rgba(99,102,241,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Users size={24} color="rgba(255,255,255,0.8)" />
+        </div>
+        <div style={{ position: "absolute", right: 45, top: 5, width: 40, height: 40, borderRadius: "50%", background: "rgba(99,102,241,0.4)" }} />
+        <div style={{ position: "absolute", right: 20, top: -5, fontSize: 16, color: "rgba(255,255,255,0.5)" }}>✦</div>
+        <div style={{ position: "absolute", right: 75, top: 0, fontSize: 10, color: "rgba(255,255,255,0.3)" }}>✦</div>
+    </div>
+</div>
+
+               {/* Formulario */}
+<form onSubmit={crearUsuario} style={{ padding: "28px 32px" }}>
+
+    {/* Fila 1: Nombre, Apellidos, Usuario */}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "18px 24px", marginBottom: 20 }}>
+        <InputWithSideIcon icon={User} label="Nombre(s)" value={nuevoUsuario.nombre}
+            onChange={e => setNuevoUsuario(p => ({ ...p, nombre: e.target.value }))} placeholder="Ej. Juan Carlos" />
+        <InputWithSideIcon icon={User} label="Apellidos" value={nuevoUsuario.apellidos}
+            onChange={e => setNuevoUsuario(p => ({ ...p, apellidos: e.target.value }))} placeholder="Ej. Pérez García" />
+        <InputWithSideIcon icon={AtSign} label="Usuario" value={nuevoUsuario.usuario}
+            onChange={e => setNuevoUsuario(p => ({ ...p, usuario: e.target.value }))} placeholder="Ej. juancarlos" />
+    </div>
+
+    {/* Fila 2: Correo + Contraseña */}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 24px", marginBottom: 20 }}>
+        <InputWithSideIcon icon={Mail} label="Correo electrónico" type="email" value={nuevoUsuario.correo}
+            onChange={e => setNuevoUsuario(p => ({ ...p, correo: e.target.value }))} placeholder="Ej. juancarlos@correo.com" />
+        <PasswordSideField label="Contraseña" value={nuevoUsuario.contrasena}
+            onChange={e => setNuevoUsuario(p => ({ ...p, contrasena: e.target.value }))} placeholder="Mín. 8 caracteres" />
+    </div>
+
+    {/* Fila 3: Rol como botones toggle */}
+    <div style={{ marginBottom: 20 }}>
+        <RolToggle
+            value={nuevoUsuario.id_rol}
+            onChange={v => { setSelectedRolId(v); setNuevoUsuario(p => ({ ...p, id_rol: v })); }}
+            roles={roles} />
+    </div>
+
+    {/* Fila 4: Estado + Foto lado a lado */}
+    <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 24, marginBottom: 20, alignItems: "start" }}>
+        <EstadoToggle value={estadoNuevo} onChange={setEstadoNuevo} />
+        <div>
+            <FLabel>Foto de perfil <span style={{ color: "#94a3b8", fontWeight: 400 }}>(opcional)</span></FLabel>
+            <label style={{
+                display: "flex", alignItems: "center", gap: 14,
+                marginTop: 6, padding: "12px 18px",
+                borderRadius: 12, border: "1px dashed #c7d2fe",
+                background: "#f8faff", cursor: "pointer",
+            }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: "#e0e7ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Upload size={16} color="#131E5C" />
                 </div>
+                <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", margin: 0 }}>
+                        {nuevoUsuario.foto ? nuevoUsuario.foto.name : "Arrastra una imagen o haz clic para seleccionar"}
+                    </p>
+                    <p style={{ fontSize: 11, color: "#94a3b8", margin: "2px 0 0" }}>JPG, PNG o WEBP. Máx. 2MB</p>
+                </div>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <User size={20} color="#94a3b8" />
+                </div>
+                <input type="file" accept="image/*" style={{ display: "none" }}
+                    onChange={e => setNuevoUsuario(p => ({ ...p, foto: e.target.files[0] }))} />
+            </label>
+        </div>
+    </div>
 
-                {/* Cuerpo formulario */}
-                <form onSubmit={crearUsuario}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 240px" }}>
-                        {/* Campos */}
-                        <div style={{ padding: "20px 22px", borderRight: "1px solid #f1f5f9" }}>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
-                                <FInput label="Nombre(s)" value={nuevoUsuario.nombre} onChange={e => setNuevoUsuario(p => ({ ...p, nombre: e.target.value }))} placeholder="Canelo" />
-                                <FInput label="Apellidos" value={nuevoUsuario.apellidos} onChange={e => setNuevoUsuario(p => ({ ...p, apellidos: e.target.value }))} placeholder="Pérez" />
-                                <FInput label="Usuario" value={nuevoUsuario.usuario} onChange={e => setNuevoUsuario(p => ({ ...p, usuario: e.target.value }))} placeholder="máx 10 caracteres" />
-                                <FInput label="Correo electrónico" type="email" value={nuevoUsuario.correo} onChange={e => setNuevoUsuario(p => ({ ...p, correo: e.target.value }))} placeholder="correo@gmail.com" />
-                                <FInput label="Contraseña" type="password" value={nuevoUsuario.contrasena} onChange={e => setNuevoUsuario(p => ({ ...p, contrasena: e.target.value }))} placeholder="••••••••" />
-                                <FSelect label="Rol" value={nuevoUsuario.id_rol} onChange={e => { setSelectedRolId(e.target.value); setNuevoUsuario(p => ({ ...p, id_rol: e.target.value })); }}>
-                                    <option value="">Selecciona rol...</option>
-                                    {roles.map(r => <option key={r.id_rol} value={String(r.id_rol)}>{r.nombre}</option>)}
-                                </FSelect>
-
-                                {/* Foto */}
-                                <div style={{ gridColumn: "1 / -1" }}>
-                                    <FLabel>Foto de perfil</FLabel>
-                                    <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, padding: "9px 14px", borderRadius: 10, border: "1px dashed #cbd5e1", background: "#f8fafc", cursor: "pointer" }}>
-                                        <Upload size={13} color="#94a3b8" />
-                                        <span style={{ fontSize: 12, color: nuevoUsuario.foto ? "#0f172a" : "#94a3b8" }}>
-                                            {nuevoUsuario.foto ? nuevoUsuario.foto.name : "Elegir archivo · No se eligió ningún archivo"}
-                                        </span>
-                                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => setNuevoUsuario(p => ({ ...p, foto: e.target.files[0] }))} />
-                                    </label>
-                                </div>
-                            </div>
-
-                            {/* Agencias */}
-                            <div>
-                                <FLabel>Agencias</FLabel>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 9, marginTop: 8 }}>
-                                    {DEALERS.map(dealer => (
-                                        <AgencyCheck key={dealer} label={dealer} checked={agenciasSeleccionadas.includes(dealer)} onChange={() => toggleAgencia(dealer)} />
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Panel acciones */}
-                        <div style={{ padding: "20px 18px", background: "#fafafa", display: "flex", flexDirection: "column", gap: 16 }}>
-                            <div>
-                                <p style={{ fontSize: 12, fontWeight: 700, color: "#374151", margin: "0 0 12px" }}>Acciones</p>
-                                <button
-                                    type="submit" disabled={loading}
-                                    style={{ width: "100%", padding: "10px", borderRadius: 10, border: "none", background: loading ? "#94a3b8" : "#131E5C", color: "#fff", fontSize: 13, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}
-                                >
-                                    <Plus size={14} />
-                                    {loading ? "Guardando..." : "Crear usuario"}
-                                </button>
-                            </div>
-
-                            {/* Resumen */}
-                            <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", padding: "12px 14px" }}>
-                                <p style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", margin: "0 0 10px", letterSpacing: "0.05em" }}>RESUMEN</p>
-                                {[["Total usuarios", usuarios.length], ["Agencias", DEALERS.length]].map(([label, val]) => (
-                                    <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                        <span style={{ fontSize: 12, color: "#64748b" }}>{label}</span>
-                                        <span style={{ fontSize: 15, fontWeight: 700, color: "#131E5C" }}>{val}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </form>
+    {/* Agencias con Seleccionar todas */}
+    <div style={{ marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <Building2 size={14} color="#131E5C" />
+                <FLabel>Agencia(s)</FLabel>
             </div>
+            <button type="button"
+                onClick={() => setAgenciasSeleccionadas(
+                    agenciasSeleccionadas.length === DEALERS.length ? [] : [...DEALERS]
+                )}
+                style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    padding: "5px 12px", borderRadius: 8,
+                    border: "1px solid #e2e8f0", background: "#fff",
+                    fontSize: 12, fontWeight: 600, color: "#131E5C", cursor: "pointer",
+                }}>
+                {agenciasSeleccionadas.length === DEALERS.length ? "Deseleccionar todas" : "Seleccionar todas"}
+                <ChevronDown size={13} />
+            </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
+            {DEALERS.map(dealer => (
+                <AgencyCheck key={dealer} label={dealer}
+                    checked={agenciasSeleccionadas.includes(dealer)}
+                    onChange={() => toggleAgencia(dealer)} />
+            ))}
+        </div>
+    </div>
+
+    {/* Botones */}
+    <div style={{ display: "flex", justifyContent: "center", gap: 12, paddingTop: 20, borderTop: "1px solid #f1f5f9" }}>
+        <button type="button" onClick={limpiarFormulario}
+            style={{ padding: "11px 32px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            Cancelar
+        </button>
+        <button type="button" onClick={limpiarFormulario}
+            style={{ padding: "11px 32px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #4f46e5, #6366f1)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 14px rgba(99,102,241,0.35)" }}>
+            <Plus size={15} /> Crear usuario
+        </button>
+        <button type="submit" disabled={loading}
+            style={{ padding: "11px 32px", borderRadius: 10, border: "none", background: loading ? "#94a3b8" : "#131E5C", color: "#fff", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 14px rgba(19,30,92,0.3)" }}>
+            <Save size={15} />
+            {loading ? "Guardando..." : "Guardar cambios"}
+        </button>
+    </div>
+</form>
+</div>
 
             {/* ── Tabla usuarios ── */}
-            <div>
+            <div style={{ marginBottom: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                     <div>
                         <h2 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", margin: "0 0 2px" }}>Usuarios por agencia</h2>
-                        <p style={{ fontSize: 12, color: "#94a3b8", margin: 0 }}>Haz clic en "Editar" para modificar un usuario</p>
+                        <p style={{ fontSize: 12, color: "#94a3b8", margin: 0 }}>Haz doble clic en un usuario para modificarlo</p>
                     </div>
-                    <button
-                        onClick={cargarUsuarios} disabled={loadingTable}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 9, border: "1px solid #e2e8f0", background: "#fff", fontSize: 12, color: "#374151", cursor: loadingTable ? "not-allowed" : "pointer", fontWeight: 500 }}
-                    >
+                    <button onClick={cargarUsuarios} disabled={loadingTable}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 9, border: "1px solid #e2e8f0", background: "#fff", fontSize: 12, color: "#374151", cursor: loadingTable ? "not-allowed" : "pointer", fontWeight: 500 }}>
                         <RefreshCw size={11} style={{ animation: loadingTable ? "spin 1s linear infinite" : "none" }} />
                         Actualizar
                     </button>
@@ -775,6 +953,24 @@ export default function Settings() {
                 ) : (
                     DEALERS.map(ag => <AgencyBlock key={ag} agency={ag} users={usuarios} onEdit={openEdit} />)
                 )}
+            </div>
+
+            {/* ── Resumen (debajo de la tabla) ── */}
+            <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", padding: "20px 24px", marginBottom: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e0e7ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: 13 }}>🌐</span>
+                    </div>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Resumen</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 200px)", gap: 0 }}>
+                    {[["Total usuarios", usuarios.length], ["Agencias", DEALERS.length]].map(([label, val]) => (
+                        <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", borderBottom: "1px solid #f1f5f9", borderRight: "1px solid #f1f5f9" }}>
+                            <span style={{ fontSize: 13, color: "#64748b" }}>{label}</span>
+                            <span style={{ fontSize: 18, fontWeight: 800, color: "#131E5C", marginLeft: 16 }}>{val}</span>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* Modal */}
