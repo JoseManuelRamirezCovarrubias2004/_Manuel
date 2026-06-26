@@ -770,7 +770,9 @@ function FunnelChart({ rows = [], telefonosEntregados }) {
     const total = safeRows.length || 1;
 
     const etapas = useMemo(() => {
-        const contactados = rows.filter(r => r.ultimo_contacto_at || r.primer_contacto_at).length;
+        const contactados = rows.filter(r =>
+            String(r.estado || "").toLowerCase() === "contactado"
+        ).length;
 
         const descalificados = rows.filter(r =>
             String(r.estado || "").trim().toLowerCase() === "descalificado"
@@ -1671,6 +1673,52 @@ function OrigenPicker({ value, onChange }) {
     );
 }
 
+function EvidenceCard({ item, onRemove }) {
+    const isImage = item.type?.startsWith("image/") || !!item.previewUrl;
+    const isExistente = !!item.id;
+    const url = item.previewUrl || item.url || null;
+    const sizeKB = item.size ? Math.round(item.size / 1024) : null;
+
+    return (
+        <div className="relative flex items-start gap-3 rounded-xl border border-black/10 bg-white p-3 shadow-sm">
+            <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-black/10 bg-slate-100 flex items-center justify-center">
+                {isImage && url ? (
+                    <img src={url} alt={item.name} className="h-full w-full object-cover" />
+                ) : (
+                    <Paperclip className="h-6 w-6 text-slate-400" />
+                )}
+            </div>
+            <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-bold text-[#131E5C]" title={item.name}>
+                    {item.name || "Archivo"}
+                </div>
+                {sizeKB && (
+                    <div className="mt-0.5 text-[11px] text-slate-400">
+                        {sizeKB < 1024 ? `${sizeKB} KB` : `${(sizeKB / 1024).toFixed(1)} MB`}
+                    </div>
+                )}
+                {isExistente && url && (
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-sky-600 hover:underline">
+                        Ver archivo
+                    </a>
+                )}
+                {!isExistente && (
+                    <span className="mt-1 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+                        Nueva
+                    </span>
+                )}
+            </div>
+            <button type="button" onClick={onRemove}
+                className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-500 hover:bg-red-100"
+                title="Quitar">
+                <X className="h-3.5 w-3.5" />
+            </button>
+        </div>
+    );
+}
+
+
 function ContextMenu({ ctxMenu, onDelete, onClose }) {
     if (!ctxMenu.open || !ctxMenu.row) return null;
     return createPortal(
@@ -1771,6 +1819,7 @@ export default function DigitalesProspectos() {
     const [drafter, setDrafter] = useState({ agencia: "", fecha_cita: "", asesor_digital: "", asesor_solicita: "", tipo_cita: "" });
     const [savingo, setSavingo] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
+    const [uploadingFiles, setUploadingFiles] = useState(false);
 
     const totalEvidenciasDraft =
         (draft?.evidencias_existentes?.length || 0) +
@@ -1993,6 +2042,37 @@ export default function DigitalesProspectos() {
     }, [pautasMeta]);
 
 
+    function handleAddFiles(fileList) {
+        if (!fileList?.length) return;
+        const nuevas = Array.from(fileList).map(file => ({
+            _tmpId: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            file,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+        }));
+        setDraft(prev => ({
+            ...prev,
+            evidencias_nuevas: [...(prev.evidencias_nuevas || []), ...nuevas],
+        }));
+    }
+
+    function removeNuevaEvidencia(tmpId) {
+        setDraft(prev => ({
+            ...prev,
+            evidencias_nuevas: (prev.evidencias_nuevas || []).filter(e => e._tmpId !== tmpId),
+        }));
+    }
+
+    function removeEvidenciaExistente(id) {
+        setDraft(prev => ({
+            ...prev,
+            evidencias_existentes: (prev.evidencias_existentes || []).filter(e => e.id !== id),
+            delete_evidencia_ids: [...(prev.delete_evidencia_ids || []), id],
+        }));
+    }
+
     function calcTiempoRespuesta(creado, primerContacto) {
         if (!creado || !primerContacto) return null;
         const diff = new Date(primerContacto).getTime() - new Date(creado).getTime();
@@ -2089,6 +2169,9 @@ export default function DigitalesProspectos() {
             asesor_solicita: "", creado: nowLocal, primer_contacto_at: "", ultimo_contacto_at: "",
             enganche_monto: "", presupuesto_mensual: "", buro_estado: "", forma_pago: "",
             tipo_cliente: "", uso_vehiculo: "", plazo_compra: "", comprobacion_ingresos: "",
+            evidencias_existentes: [],
+            evidencias_nuevas: [],
+            delete_evidencia_ids: [],
         });
         setOpenModal(true);
     };
@@ -2112,19 +2195,34 @@ export default function DigitalesProspectos() {
     const openEdit = async (row) => {
         try {
             setTouchedSave(false); setMode("edit"); setLoadingDetail(true); setOpenModal(true);
-            const p = await api.digitalesGetProspecto(row.id_exp);
+
+            const [p, evidenciasData] = await Promise.all([
+                api.digitalesGetProspecto(row.id_exp),
+                api.digitalesListEvidencias(row.id_exp).catch(() => []),
+            ]);
+
             const nombreCompleto = String(p.nombre || "").trim();
             const tieneNombre = tieneNombreReal(nombreCompleto);
+
             setDraft({
-                id_exp: p.id, agencia: p.agencia || "", tiene_nombre: tieneNombre,
+                id_exp: p.id,
+                agencia: p.agencia || "",
+                tiene_nombre: tieneNombre,
                 nombre_cliente: tieneNombre ? nombreCompleto : "",
-                telefono: String(p.telefono || ""), correo: p.correo || "",
-                linea: p.business || "", origen: p.canal_contacto || "", pauta: p.pauta || "",
-                estado: p.estado || "", cliente_interes: p.auto_interes || "",
-                comentarios: p.comentarios || "", resumen: p.resumen || "",
+                telefono: String(p.telefono || ""),
+                correo: p.correo || "",
+                linea: p.business || "",
+                origen: p.canal_contacto || "",
+                pauta: p.pauta || "",
+                estado: p.estado || "",
+                cliente_interes: p.auto_interes || "",
+                comentarios: p.comentarios || "",
+                resumen: p.resumen || "",
                 resumen_actualizado_at: toDTLocal(p.resumen_actualizado_at),
-                resumen_fuente: p.resumen_fuente || "", asesor_digital: p.asesor_digital || "",
-                asesor_solicita: p.asesor_ventas || "", creado: toDTLocalInput(p.creado),
+                resumen_fuente: p.resumen_fuente || "",
+                asesor_digital: p.asesor_digital || "",
+                asesor_solicita: p.asesor_ventas || "",
+                creado: toDTLocalInput(p.creado),
                 primer_contacto_at: p.primer_mensaje_cliente || null,
                 ultimo_contacto_at: p.ultimo_contacto_asesor || null,
                 enganche_monto: p.enganche_monto || "",
@@ -2135,9 +2233,27 @@ export default function DigitalesProspectos() {
                 uso_vehiculo: p.uso_vehiculo || "",
                 plazo_compra: p.plazo_compra || "",
                 comprobacion_ingresos: p.comprobacion_ingresos || "",
+                id_cotizacion: p.id_cotizacion || "",
+                folio_solicitud_credito: p.folio_solicitud_credito || "",
+                solicitud_credito_estado: p.solicitud_credito_estado || "",
+                vin_facturado: p.vin_facturado || "",
+                vin_estatus_entrega: p.vin_estatus_entrega || "",
+                evidencias_existentes: Array.isArray(evidenciasData)
+                    ? evidenciasData
+                    : Array.isArray(evidenciasData?.results)
+                        ? evidenciasData.results
+                        : [],
+                evidencias_nuevas: [],
+                delete_evidencia_ids: [],
             });
-        } catch (e) { console.error(e); alert("No se pudo abrir el prospecto para editar."); setOpenModal(false); }
-        finally { setLoadingDetail(false); }
+
+        } catch (e) {
+            console.error(e);
+            alert("No se pudo abrir el prospecto para editar.");
+            setOpenModal(false);
+        } finally {
+            setLoadingDetail(false);
+        }
     };
 
     const closeModal = () => { if (saving) return; setOpenModal(false); setDraft(null); };
@@ -2190,15 +2306,36 @@ export default function DigitalesProspectos() {
 
 
 
-            if (mode === "create") {
-                await api.digitalesCreateProspecto(payload);
-            } else {
+            let idFinal = draft.id_exp;
 
+            if (mode === "create") {
+                const created = await api.digitalesCreateProspecto(payload);
+                idFinal = created?.id || created?.id_exp || draft.id_exp;
+            } else {
                 await api.digitalesUpdateProspecto(draft.id_exp, payload);
+            }
+
+            // Upload evidencias nuevas
+            const nuevas = draft.evidencias_nuevas || [];
+            if (nuevas.length > 0 && idFinal) {
+                const fd = new FormData();
+                nuevas.forEach(e => fd.append("archivos", e.file));
+                await api.digitalesUploadEvidencias(idFinal, fd).catch(err => {
+                    console.error("Error subiendo evidencias:", err);
+                });
+            }
+
+            // Eliminar evidencias marcadas
+            const toDelete = draft.delete_evidencia_ids || [];
+            if (toDelete.length > 0 && idFinal) {
+                await Promise.allSettled(
+                    toDelete.map(id => api.digitalesDeleteEvidencia(idFinal, id))
+                );
             }
 
             await refreshList();
             closeModal();
+
         } catch (e) {
             console.error(e);
             alert("Error guardando el prospecto.");
@@ -2793,22 +2930,22 @@ export default function DigitalesProspectos() {
                                                             </div>
                                                             <div className="text-[11px] text-slate-400">{formatTelefonoMx(row.telefono)}</div>
                                                         </td>
-                                                    
+
                                                         <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">
                                                             {fmtDTIntl(row.creado) || row.fecha_reclamacion || "—"}
                                                         </td>
 
-                                                      
+
                                                         <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">
                                                             {row.primer_contacto_at ? fmtDTIntl(row.primer_contacto_at) : "—"}
                                                         </td>
 
-                                                     
+
                                                         <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">
                                                             {row.ultimo_contacto_at ? fmtDTIntl(row.ultimo_contacto_at) : "—"}
                                                         </td>
 
-                                                       
+
                                                         <td className="px-3 py-2.5 whitespace-nowrap">
                                                             {(() => {
                                                                 const t = calcTiempoRespuesta(row.creado, row.primer_contacto_at);
@@ -3316,18 +3453,18 @@ export default function DigitalesProspectos() {
                                                             : "entregado",
                                                 }))
                                             }
-                                            className={`relative flex h-9 w-28 items-center rounded-full px-1 transition-all duration-300 ${draft.comprobacion_ingresos === "entregado"
+                                            className={`relative flex h-9 w-28 items-center rounded-full px-1 transition-all duration-300 ${draft.vin_estatus_entrega === "entregado"
                                                 ? "bg-emerald-500"
                                                 : "bg-red-500"
                                                 }`}
                                         >
                                             <span
-                                                className={`flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold shadow-md transition-all duration-300 ${draft.comprobacion_ingresos === "entregado"
+                                                className={`flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold shadow-md transition-all duration-300 ${draft.vin_estatus_entrega === "entregado"
                                                     ? "translate-x-[76px] text-emerald-600"
                                                     : "translate-x-0 text-red-600"
                                                     }`}
                                             >
-                                                {draft.comprobacion_ingresos === "entregado" ? "✓" : "×"}
+                                                {draft.vin_estatus_entrega === "entregado" ? "✓" : "×"}
                                             </span>
                                         </button>
 
@@ -3335,12 +3472,12 @@ export default function DigitalesProspectos() {
                                             Estado actual:{" "}
                                             <span
                                                 className={
-                                                    draft.comprobacion_ingresos === "entregado"
+                                                    draft.vin_estatus_entrega === "entregado"
                                                         ? "text-emerald-600"
                                                         : "text-red-600"
                                                 }
                                             >
-                                                {draft.comprobacion_ingresos === "entregado"
+                                                {draft.vin_estatus_entrega === "entregado"
                                                     ? "Entregado"
                                                     : "Cancelado"}
                                             </span>

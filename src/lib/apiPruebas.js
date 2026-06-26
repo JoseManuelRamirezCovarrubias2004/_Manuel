@@ -286,12 +286,12 @@ function getCrmUsername() {
 
   return String(
     user.usuario ||
-      user.username ||
-      user.user ||
-      user.nombre_usuario ||
-      user.correo ||
-      user.email ||
-      "",
+    user.username ||
+    user.user ||
+    user.nombre_usuario ||
+    user.correo ||
+    user.email ||
+    "",
   ).trim();
 }
 
@@ -302,10 +302,10 @@ function getWhatsAppNumberFromSources() {
 
   const numero = normalizaTelefonoMx(
     user.telefono ||
-      user.numero_asesor ||
-      user.whatsapp_number ||
-      user.phone ||
-      "",
+    user.numero_asesor ||
+    user.whatsapp_number ||
+    user.phone ||
+    "",
   );
 
   return numero || "";
@@ -517,6 +517,27 @@ export const api = {
     http(`/digitales/api/prospectos/${id}/generar-resumen/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+    }),
+
+  digitalesGenerarResumen: (id) =>
+    http(`/digitales/api/prospectos/${id}/generar-resumen/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }),
+
+  
+  digitalesListEvidencias: (idProspecto) =>
+    http(`/digitales/api/prospectos/${idProspecto}/evidencias/`),
+
+  digitalesUploadEvidencias: (idProspecto, formData) =>
+    http(`/digitales/api/prospectos/${idProspecto}/evidencias/`, {
+      method: "POST",
+      body: formData,
+    }),
+
+  digitalesDeleteEvidencia: (idProspecto, idEvidencia) =>
+    http(`/digitales/api/prospectos/${idProspecto}/evidencias/${idEvidencia}/`, {
+      method: "DELETE",
     }),
 
   digitalesCampanasMeta: (days = 30) =>
