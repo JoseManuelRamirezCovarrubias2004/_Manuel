@@ -573,7 +573,7 @@ export default function HojaRegistros() {
 
     const telDigits = useMemo(() => String(draft?.cliente_telefono || "").replace(/\D/g, ""), [draft?.cliente_telefono]);
     const telIsOk = useMemo(
-        () => /^(?:271\d{7}|52\d{10})$/.test(telDigits),
+        () => /^\d{10}$/.test(telDigits) || /^52\d{10}$/.test(telDigits),
         [telDigits]
     );
 
