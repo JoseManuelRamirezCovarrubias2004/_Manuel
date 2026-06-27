@@ -25,6 +25,7 @@ import {
     Send,
     Sparkles,
     LayoutList,
+    Workflow,
 } from "lucide-react";
 import vwWhite from "../assets/vw_white.png";
 import ryr from "../assets/ryr.png";
@@ -152,7 +153,7 @@ export default function Sidebar() {
         };
     }, [mobileOpen]);
 
-    
+
 
     useEffect(() => {
         const updateSidebarWidth = () => {
@@ -214,13 +215,6 @@ export default function Sidebar() {
             },
             {
                 section: "Comercial",
-                to: "/timeforaction",
-                label: "TimeForAction",
-                icon: Zap,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
-            },
-            {
-                section: "Comercial",
                 to: "/comercial",
                 label: "Gestión Comercial",
                 icon: HandCoins,
@@ -262,14 +256,28 @@ export default function Sidebar() {
                 show: hasAnyPermission(["CRM_FINANCIEROS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]),
             },
             {
-                section: "Analítica",
+                section: "Herramientas",
                 to: "/configuracion_ia",
                 label: "Panel de Inteligencias Artificiales",
                 icon: BrainCircuit,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_DIGITALES"]),
             },
             {
-                section: "Configuración",
+                section: "Herramientas",
+                to: "/timeforaction",
+                label: "TimeForAction",
+                icon: Zap,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
+            },
+            {
+                section: "Herramientas",
+                to: "/flujo_procesos",
+                label: "Flows",
+                icon: Workflow,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
+            },
+            {
+                section: "Administrativos",
                 to: "/administrativos",
                 label: "Reclutamiento y Seleccion",
                 icon: UserSearch,
@@ -283,7 +291,7 @@ export default function Sidebar() {
     }, [hasAnyPermission]);
 
     const sections = useMemo(() => {
-        const order = ["Comercial", "Marketing", "Financiero", "Analítica", "Configuración"];
+        const order = ["Comercial", "Marketing", "Financiero", "Herramientas", "Administrativos", "Configuración"];
         return order
             .map((section) => ({ section, items: links.filter((item) => item.section === section) }))
             .filter((group) => group.items.length > 0);
@@ -345,7 +353,7 @@ export default function Sidebar() {
                         {sections.map((group) => (
                             <div key={group.section}>
                                 <FadeSlide show={showText}>
-                                    <div className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.22em] text-white/38">
+                                    <div className="mb-2 px-2 text-[12px] font-medium uppercase tracking-[0.22em] text-white/80">
                                         {group.section}
                                     </div>
                                 </FadeSlide>
