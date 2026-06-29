@@ -108,8 +108,12 @@ const ASESORES_POR_DEALER = {
 };
 
 const MEDIOS_CONCERTACION = [
-    "Facebook", "WhatsApp", "Llamada entrante", "Llamada saliente",
-    "Base de datos", "Cartera", "Piso", "Web", "Otro",
+    "Prospección de Bases de Datos",
+    "Prospección de Campaña",
+    "Publicidad de META",
+    "Mensaje del Cliente",
+    "Llamada Entrante",
+    "Recepción de Servicio",
 ];
 
 const MODELOS = [
@@ -127,7 +131,13 @@ const TIPOS_SERVICIO = [
     "Garantía", "Hojalatería y pintura", "Campaña", "Reclamación", "Otro",
 ];
 
-const AGENDADO = ["Asistente", "Call Center", "Asesor de Servicio"];
+const AGENDADO = [
+    "Contact Center",
+    "Recepción de Servicio",
+    "Asesor de Servicio",
+    "Gerente de Servicio",
+    "Fuerza de Ventas",
+];
 
 function normalizeStr(value) {
     return String(value ?? "").trim();
@@ -232,7 +242,6 @@ function crearDraftBase(userAgencia = "", isAdmin = true) {
         fecha_ingreso: "",
         asistencia: false,
         citado: false,
-        no_orden: "",
         diss: "",
         pauta: "",
         indicador_resultados: "",
@@ -251,7 +260,12 @@ function crearDraftBase(userAgencia = "", isAdmin = true) {
         modelo: "",
         medio_concertacion: "",
         pauta_origen: "",
-        venta_mano_obra: "",
+        // Nuevos campos
+        long_drive: null,           // true | false | null
+        hora_promesa: "",           // datetime-local
+        pre_picking_hecho: false,   // checkbox
+        pre_picking_notas: "",      // textarea
+        evidencias: [],             // array de File objects
     };
 }
 
@@ -797,10 +811,11 @@ export default function HojaRegistros() {
                 modelo: data.modelo || "",
                 medio_concertacion: data.medio_concertacion || "",
                 pauta_origen: data.pauta_origen || "",
-                venta_mano_obra:
-                    data.venta_mano_obra === null || data.venta_mano_obra === undefined
-                        ? ""
-                        : String(data.venta_mano_obra),
+                long_drive: data.long_drive === null || data.long_drive === undefined ? null : boolFromAny(data.long_drive),
+hora_promesa: toDTLocal(data.hora_promesa),
+pre_picking_hecho: !!data.pre_picking_hecho,
+pre_picking_notas: data.pre_picking_notas || "",
+evidencias: [],
             });
         } catch (error) {
             console.error(error);
@@ -818,41 +833,40 @@ export default function HojaRegistros() {
     }
 
     function buildPayload() {
-        const nombreCliente = normalizeStr(draft.cliente_nombre);
-        return {
-            cliente_id: draft.cliente_id || null,
-            cliente_nombre: nombreCliente,
-            nombre_cliente: nombreCliente,
-            cliente_telefono: normalizeStr(draft.cliente_telefono),
-            cliente_correo_electronico: draft.cliente_correo_electronico || "",
-            agencia: isAdmin ? normalizeStr(draft.agencia) : userAgencia,
-            fecha_ingreso: fromDTLocalToISO(draft.fecha_ingreso),
-            asistencia: !!draft.asistencia,
-            citado: !!draft.citado,
-            no_orden: draft.no_orden || "",
-            diss: draft.diss || "",
-            pauta: draft.pauta || "",
-            indicador_resultados: draft.indicador_resultados || "",
-            alcance: draft.alcance || "",
-            torre: draft.torre || "",
-            asesor: draft.asesor || "",
-            agendado_por: draft.agendado_por || "",
-            tipo_cita: Array.isArray(draft.tipo_cita)
-                ? draft.tipo_cita.join(", ")
-                : draft.tipo_cita || "",
-            declaracion_textual_cliente: draft.declaracion_textual_cliente || "",
-            comentarios: draft.comentarios || "",
-            vin: draft.vin || "",
-            anio_vehiculo: draft.anio_vehiculo || "",
-            modelo: draft.modelo || "",
-            medio_concertacion: draft.medio_concertacion || "",
-            pauta_origen: draft.pauta_origen || "",
-            venta_mano_obra:
-                draft.venta_mano_obra === "" || draft.venta_mano_obra === null
-                    ? "0"
-                    : draft.venta_mano_obra,
-        };
-    }
+    const nombreCliente = normalizeStr(draft.cliente_nombre);
+    return {
+        cliente_id: draft.cliente_id || null,
+        cliente_nombre: nombreCliente,
+        nombre_cliente: nombreCliente,
+        cliente_telefono: normalizeStr(draft.cliente_telefono),
+        cliente_correo_electronico: draft.cliente_correo_electronico || "",
+        agencia: isAdmin ? normalizeStr(draft.agencia) : userAgencia,
+        fecha_ingreso: fromDTLocalToISO(draft.fecha_ingreso),
+        asistencia: !!draft.asistencia,
+        citado: !!draft.citado,
+        diss: draft.diss || "",
+        pauta: draft.pauta || "",
+        indicador_resultados: draft.indicador_resultados || "",
+        alcance: draft.alcance || "",
+        torre: draft.torre || "",
+        asesor: draft.asesor || "",
+        agendado_por: draft.agendado_por || "",
+        tipo_cita: Array.isArray(draft.tipo_cita)
+            ? draft.tipo_cita.join(", ")
+            : draft.tipo_cita || "",
+        declaracion_textual_cliente: draft.declaracion_textual_cliente || "",
+        comentarios: draft.comentarios || "",
+        vin: draft.vin || "",
+        anio_vehiculo: draft.anio_vehiculo || "",
+        modelo: draft.modelo || "",
+        medio_concertacion: draft.medio_concertacion || "",
+        pauta_origen: draft.pauta_origen || "",
+        long_drive: draft.long_drive,
+        hora_promesa: fromDTLocalToISO(draft.hora_promesa),
+        pre_picking_hecho: !!draft.pre_picking_hecho,
+        pre_picking_notas: draft.pre_picking_notas || "",
+    };
+}
 
     async function guardar() {
         if (!draft || saving) return;
@@ -1422,333 +1436,328 @@ export default function HojaRegistros() {
                         ))}
                     </div>
                 ) : !draft ? null : (
-                    <div className="grid gap-x-4 gap-y-3.5 md:grid-cols-3">
-                        <SectionHeading icon={User}>Cliente y cita</SectionHeading>
+                   <div className="grid gap-x-4 gap-y-3.5 md:grid-cols-3">
 
-                        <Field label="Dealer" required>
-                            <select
-                                value={draft.agencia || ""}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, agencia: event.target.value, asesor: "" }))}
-                                disabled={!isAdmin}
-                                className={inputBase}
-                                style={{ ...inputStyle(false), opacity: !isAdmin ? 0.7 : 1, cursor: !isAdmin ? "not-allowed" : "pointer" }}
+    <SectionHeading icon={User}>Cliente y cita</SectionHeading>
+
+    <Field label="Dealer" required>
+        <select
+            value={draft.agencia || ""}
+            onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value, asesor: "" }))}
+            disabled={!isAdmin}
+            className={inputBase}
+            style={{ ...inputStyle(false), opacity: !isAdmin ? 0.7 : 1, cursor: !isAdmin ? "not-allowed" : "pointer" }}
+        >
+            <option value="" disabled>Selecciona un dealer...</option>
+            {(isAdmin ? DEALERS : userAgencias.length > 0 ? userAgencias : DEALERS).map((d) => (
+                <option key={d} value={d}>{d}</option>
+            ))}
+        </select>
+    </Field>
+
+    <Field label="Fecha de ingreso" required>
+        <input
+            type="datetime-local"
+            value={draft.fecha_ingreso}
+            onChange={(e) => setDraft((p) => ({ ...p, fecha_ingreso: e.target.value }))}
+            className={inputBase}
+            style={inputStyle(isInvalid("fecha_ingreso"))}
+        />
+        {isInvalid("fecha_ingreso") && (
+            <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>Fecha de ingreso es requerida.</div>
+        )}
+    </Field>
+
+    {/* Hora y día promesa */}
+    <Field label="Hora y día promesa">
+        <input
+            type="datetime-local"
+            value={draft.hora_promesa}
+            onChange={(e) => setDraft((p) => ({ ...p, hora_promesa: e.target.value }))}
+            className={inputBase}
+            style={inputStyle(false)}
+        />
+    </Field>
+
+    <Field label="Cliente" required>
+        <input
+            value={draft.cliente_nombre}
+            onChange={(e) => setDraft((p) => ({ ...p, cliente_nombre: e.target.value }))}
+            className={inputBase}
+            style={inputStyle(isInvalid("cliente_nombre"))}
+            placeholder="Nombre completo"
+        />
+        {isInvalid("cliente_nombre") && (
+            <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>Cliente es requerido.</div>
+        )}
+    </Field>
+
+    <Field label="Teléfono" required>
+        <input
+            maxLength={12}
+            value={draft.cliente_telefono}
+            onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "");
+                const maxLen = digits.startsWith("52") ? 12 : 10;
+                setDraft((p) => ({ ...p, cliente_telefono: digits.slice(0, maxLen) }));
+            }}
+            disabled={telefonoBloqueado}
+            className={inputBase}
+            style={{ ...inputStyle(isInvalid("cliente_telefono") || !!telError), opacity: telefonoBloqueado ? 0.7 : 1, cursor: telefonoBloqueado ? "not-allowed" : "text" }}
+            placeholder="10 dígitos"
+        />
+        {telefonoBloqueado && <div className="mt-1 text-[11px]" style={{ color: COLOR.inkFaint }}>Teléfono bloqueado.</div>}
+        {isInvalid("cliente_telefono") && <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>Teléfono es requerido.</div>}
+        {!isInvalid("cliente_telefono") && telError && <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>{telError}</div>}
+    </Field>
+
+    <Field label="Correo electrónico">
+        <input
+            type="email"
+            value={draft.cliente_correo_electronico}
+            onChange={(e) => setDraft((p) => ({ ...p, cliente_correo_electronico: e.target.value }))}
+            className={inputBase}
+            style={inputStyle(false)}
+            placeholder="correo@empresa.com"
+        />
+    </Field>
+
+    <Field label="DISS">
+        <input value={draft.diss} onChange={(e) => setDraft((p) => ({ ...p, diss: e.target.value }))} className={inputBase} style={inputStyle(false)} />
+    </Field>
+
+    <Field label="Torre">
+        <input value={draft.torre} onChange={(e) => setDraft((p) => ({ ...p, torre: e.target.value }))} className={inputBase} style={inputStyle(false)} />
+    </Field>
+
+    {/* Long Drive — botón Sí/No */}
+    <Field label="Long Drive">
+        <div className="flex gap-2">
+            {[true, false].map((val) => (
+                <button
+                    key={String(val)}
+                    type="button"
+                    onClick={() => setDraft((p) => ({ ...p, long_drive: p.long_drive === val ? null : val }))}
+                    className="flex-1 rounded-2xl border py-2 text-[13px] font-semibold transition-colors"
+                    style={{
+                        background: draft.long_drive === val ? COLOR.brand : COLOR.surface,
+                        borderColor: draft.long_drive === val ? COLOR.brand : COLOR.line,
+                        color: draft.long_drive === val ? "#fff" : COLOR.ink,
+                    }}
+                >
+                    {val ? "Sí" : "No"}
+                </button>
+            ))}
+        </div>
+    </Field>
+
+    <SectionHeading icon={Star}>Asignación</SectionHeading>
+
+    <Field label="Asesor">
+        <select
+            value={draft.asesor || ""}
+            onChange={(e) => setDraft((p) => ({ ...p, asesor: e.target.value }))}
+            className={inputBase}
+            style={inputStyle(false)}
+        >
+            <option value="" disabled>Selecciona un asesor...</option>
+            {availableAsesores.length === 0 && <option value="" disabled>Selecciona primero VW Cordoba o VW Orizaba...</option>}
+            {availableAsesores.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        {draft.asesor && <div className="mt-2"><AsesorBadge asesor={draft.asesor} /></div>}
+    </Field>
+
+    <Field label="Agendado por">
+        <select
+            value={draft.agendado_por || ""}
+            onChange={(e) => setDraft((p) => ({ ...p, agendado_por: e.target.value }))}
+            className={inputBase}
+            style={inputStyle(false)}
+        >
+            <option value="" disabled>Selecciona una opción...</option>
+            {AGENDADO.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+    </Field>
+
+    <Field label="Medio de concertación">
+        <select
+            value={draft.medio_concertacion || ""}
+            onChange={(e) => setDraft((p) => ({ ...p, medio_concertacion: e.target.value }))}
+            className={inputBase}
+            style={inputStyle(false)}
+        >
+            <option value="">Selecciona...</option>
+            {MEDIOS_CONCERTACION.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+    </Field>
+
+    <SectionHeading icon={CarFront}>Vehículo y servicio</SectionHeading>
+
+    <Field label="VIN">
+        <input value={draft.vin} onChange={(e) => setDraft((p) => ({ ...p, vin: e.target.value }))} className={inputBase} style={inputStyle(false)} />
+    </Field>
+
+    <Field label="Año del vehículo">
+        <input value={draft.anio_vehiculo} onChange={(e) => setDraft((p) => ({ ...p, anio_vehiculo: e.target.value }))} className={inputBase} style={inputStyle(false)} />
+    </Field>
+
+    <Field label="Modelo">
+        <select value={draft.modelo || ""} onChange={(e) => setDraft((p) => ({ ...p, modelo: e.target.value }))} className={inputBase} style={inputStyle(false)}>
+            <option value="">Selecciona...</option>
+            {MODELOS.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+    </Field>
+
+    <div className="md:col-span-2">
+        <Field label="Tipo de servicio">
+            <div className="grid max-h-[160px] grid-cols-2 gap-1 overflow-y-auto rounded-2xl border p-2" style={{ borderColor: COLOR.line }}>
+                {TIPOS_SERVICIO.map((tipo) => (
+                    <label key={tipo} className="flex items-center gap-2 rounded px-2 py-1.5 text-[12px] font-medium hover:bg-[#131E5C]/5" style={{ color: COLOR.ink }}>
+                        <input
+                            type="checkbox"
+                            checked={(draft.tipo_cita || []).includes(tipo)}
+                            onChange={(e) => {
+                                let tipos = [...(draft.tipo_cita || [])];
+                                if (e.target.checked) tipos.push(tipo); else tipos = tipos.filter((t) => t !== tipo);
+                                setDraft((p) => ({ ...p, tipo_cita: tipos }));
+                            }}
+                            className="h-3.5 w-3.5"
+                            style={{ accentColor: COLOR.brand }}
+                        />
+                        {tipo}
+                    </label>
+                ))}
+            </div>
+            {tipoCitaList(draft.tipo_cita).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                    {tipoCitaList(draft.tipo_cita).map((tipo) => {
+                        const meta = tipoServicioMeta(tipo);
+                        return <span key={tipo} className="rounded px-2 py-0.5 text-[11px] font-semibold" style={{ background: meta.bg, color: meta.text }}>{tipo}</span>;
+                    })}
+                </div>
+            )}
+        </Field>
+    </div>
+
+    <SectionHeading icon={CheckCircle2}>Estado</SectionHeading>
+
+    <Field label="Citado">
+        <label className="flex h-9 items-center gap-2.5 rounded-2xl border px-3 text-[13px] font-medium" style={{ borderColor: COLOR.line, color: COLOR.ink }}>
+            <input type="checkbox" checked={!!draft.citado} onChange={(e) => setDraft((p) => ({ ...p, citado: e.target.checked }))} className="h-3.5 w-3.5" style={{ accentColor: COLOR.brand }} />
+            ¿Cliente citado?
+        </label>
+    </Field>
+
+    <Field label="Asistencia">
+        <label className="flex h-9 items-center gap-2.5 rounded-2xl border px-3 text-[13px] font-medium" style={{ borderColor: COLOR.line, color: COLOR.ink }}>
+            <input type="checkbox" checked={!!draft.asistencia} onChange={(e) => setDraft((p) => ({ ...p, asistencia: e.target.checked }))} className="h-3.5 w-3.5" style={{ accentColor: COLOR.brand }} />
+            ¿Asistió?
+        </label>
+    </Field>
+
+    <Field label="Campaña">
+        <input value={draft.pauta} onChange={(e) => setDraft((p) => ({ ...p, pauta: e.target.value }))} className={inputBase} style={inputStyle(false)} />
+    </Field>
+
+    {/* Pre-Picking */}
+    <SectionHeading icon={ClipboardList}>Pre-Picking</SectionHeading>
+
+    <Field label="Pre-Picking realizado">
+        <label className="flex h-9 items-center gap-2.5 rounded-2xl border px-3 text-[13px] font-medium" style={{ borderColor: COLOR.line, color: COLOR.ink }}>
+            <input type="checkbox" checked={!!draft.pre_picking_hecho} onChange={(e) => setDraft((p) => ({ ...p, pre_picking_hecho: e.target.checked }))} className="h-3.5 w-3.5" style={{ accentColor: COLOR.brand }} />
+            ¿Pre-Picking hecho?
+        </label>
+    </Field>
+
+    <div className="md:col-span-2">
+        <Field label="Notas de Pre-Picking (refacciones revisadas)">
+            <textarea
+                value={draft.pre_picking_notas}
+                onChange={(e) => setDraft((p) => ({ ...p, pre_picking_notas: e.target.value }))}
+                className={inputBase}
+                style={{ ...inputStyle(false), minHeight: 80 }}
+                placeholder="Documenta las refacciones revisadas por Pre-Picking..."
+            />
+        </Field>
+    </div>
+
+    {/* Evidencias */}
+    <SectionHeading icon={Save}>Evidencias</SectionHeading>
+
+    <div className="md:col-span-3">
+        <Field label="Anexar evidencias (mín. consulta de campaña en ELSA) — Fotos y PDF">
+            <label
+                className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-4 py-5 text-center transition hover:bg-[#131E5C]/5"
+                style={{ borderColor: COLOR.line }}
+            >
+                <div className="text-[13px] font-semibold" style={{ color: COLOR.brand }}>
+                    Haz clic o arrastra archivos aquí
+                </div>
+                <div className="text-[11px]" style={{ color: COLOR.inkFaint }}>
+                    JPG, PNG, WEBP o PDF · Mínimo: consulta de campaña en ELSA
+                </div>
+                <input
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setDraft((p) => ({ ...p, evidencias: [...(p.evidencias || []), ...files] }));
+                    }}
+                />
+            </label>
+
+            {/* Lista de archivos adjuntos */}
+            {(draft.evidencias || []).length > 0 && (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {draft.evidencias.map((file, idx) => (
+                        <div key={idx} className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: COLOR.line }}>
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold" style={{ background: COLOR.brandSoft, color: COLOR.brand }}>
+                                {file.type.includes("pdf") ? "PDF" : "IMG"}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="truncate text-[12px] font-semibold" style={{ color: COLOR.ink }}>{file.name}</div>
+                                <div className="text-[11px]" style={{ color: COLOR.inkFaint }}>{(file.size / 1024).toFixed(0)} KB</div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setDraft((p) => ({ ...p, evidencias: p.evidencias.filter((_, i) => i !== idx) }))}
+                                className="shrink-0"
+                                style={{ color: COLOR.danger }}
                             >
-                                <option value="" disabled>Selecciona un dealer...</option>
-                                {(isAdmin ? DEALERS : userAgencias.length > 0 ? userAgencias : DEALERS).map((dealer) => (
-                                    <option key={dealer} value={dealer}>{dealer}</option>
-                                ))}
-                            </select>
-                        </Field>
-
-                        <Field label="Fecha de ingreso" required>
-                            <input
-                                type="datetime-local"
-                                value={draft.fecha_ingreso}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, fecha_ingreso: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(isInvalid("fecha_ingreso"))}
-                            />
-                            {isInvalid("fecha_ingreso") && (
-                                <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>
-                                    Fecha de ingreso es requerida.
-                                </div>
-                            )}
-                        </Field>
-
-                        <Field label="No. preorden">
-                            <input
-                                value={draft.no_orden}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, no_orden: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                                placeholder="No. preorden"
-                            />
-                        </Field>
-
-                        <Field label="Cliente" required>
-                            <input
-                                value={draft.cliente_nombre}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, cliente_nombre: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(isInvalid("cliente_nombre"))}
-                                placeholder="Nombre completo"
-                            />
-                            {isInvalid("cliente_nombre") && (
-                                <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>
-                                    Cliente es requerido.
-                                </div>
-                            )}
-                        </Field>
-
-                        <Field label="Teléfono" required>
-                            <input
-                                maxLength={12}
-                                value={draft.cliente_telefono}
-                                onChange={(event) => {
-                                    const digits = event.target.value.replace(/\D/g, "");
-                                    const maxLen = digits.startsWith("52") ? 12 : 10;
-                                    setDraft((prev) => ({ ...prev, cliente_telefono: digits.slice(0, maxLen) }));
-                                }}
-                                disabled={telefonoBloqueado}
-                                className={inputBase}
-                                style={{
-                                    ...inputStyle(isInvalid("cliente_telefono") || !!telError),
-                                    opacity: telefonoBloqueado ? 0.7 : 1,
-                                    cursor: telefonoBloqueado ? "not-allowed" : "text",
-                                }}
-                                placeholder="10 dígitos"
-                            />
-                            {telefonoBloqueado && (
-                                <div className="mt-1 text-[11px] font-medium" style={{ color: COLOR.inkFaint }}>
-                                    Teléfono bloqueado después de capturarse.
-                                </div>
-                            )}
-                            {isInvalid("cliente_telefono") && (
-                                <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>
-                                    Teléfono es requerido.
-                                </div>
-                            )}
-                            {!isInvalid("cliente_telefono") && telError && (
-                                <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>
-                                    {telError}
-                                </div>
-                            )}
-                        </Field>
-
-                        <Field label="Correo electrónico">
-                            <input
-                                type="email"
-                                value={draft.cliente_correo_electronico}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, cliente_correo_electronico: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                                placeholder="correo@empresa.com"
-                            />
-                        </Field>
-
-                        <Field label="DISS">
-                            <input
-                                value={draft.diss}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, diss: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                            />
-                        </Field>
-
-                        <Field label="Torre">
-                            <input
-                                value={draft.torre}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, torre: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                            />
-                        </Field>
-
-                        <SectionHeading icon={Star}>Asignación</SectionHeading>
-
-                        <Field label="Asesor">
-                            <select
-                                value={draft.asesor || ""}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, asesor: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                            >
-                                <option value="" disabled>Selecciona un asesor...</option>
-                                {availableAsesores.length === 0 ? (
-                                    <option value="" disabled>Selecciona primero VW Cordoba o VW Orizaba...</option>
-                                ) : null}
-                                {availableAsesores.map((asesor) => (
-                                    <option key={asesor} value={asesor}>{asesor}</option>
-                                ))}
-                            </select>
-                            {draft.asesor && (
-                                <div className="mt-2">
-                                    <AsesorBadge asesor={draft.asesor} />
-                                </div>
-                            )}
-                        </Field>
-
-                        <Field label="Agendado por">
-                            <select
-                                value={draft.agendado_por || ""}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, agendado_por: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                            >
-                                <option value="" disabled>Selecciona una opción...</option>
-                                {AGENDADO.map((d) => (
-                                    <option key={d} value={d}>{d}</option>
-                                ))}
-                            </select>
-                        </Field>
-
-                        <Field label="Medio de concertación">
-                            <select
-                                value={draft.medio_concertacion || ""}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, medio_concertacion: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                            >
-                                <option value="">Selecciona...</option>
-                                {MEDIOS_CONCERTACION.map((medio) => (
-                                    <option key={medio} value={medio}>{medio}</option>
-                                ))}
-                            </select>
-                        </Field>
-
-                        <SectionHeading icon={CarFront}>Vehículo y servicio</SectionHeading>
-
-                        <Field label="VIN">
-                            <input
-                                value={draft.vin}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, vin: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                            />
-                        </Field>
-
-                        <Field label="Año del vehículo">
-                            <input
-                                value={draft.anio_vehiculo}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, anio_vehiculo: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                            />
-                        </Field>
-
-                        <Field label="Modelo">
-                            <select
-                                value={draft.modelo || ""}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, modelo: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                            >
-                                <option value="">Selecciona...</option>
-                                {MODELOS.map((tipo) => (
-                                    <option key={tipo} value={tipo}>{tipo}</option>
-                                ))}
-                            </select>
-                        </Field>
-
-                        <div className="md:col-span-2">
-                            <Field label="Tipo de servicio">
-                                <div
-                                    className="grid max-h-[160px] grid-cols-2 gap-1 overflow-y-auto rounded-2xl border p-2"
-                                    style={{ borderColor: COLOR.line, background: COLOR.surface }}
-                                >
-                                    {TIPOS_SERVICIO.map((tipo) => (
-                                        <label
-                                            key={tipo}
-                                            className="flex items-center gap-2 rounded px-2 py-1.5 text-[12px] font-medium hover:bg-[#131E5C]/5"
-                                            style={{ color: COLOR.ink }}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={(draft.tipo_cita || []).includes(tipo)}
-                                                onChange={(event) => {
-                                                    let nuevosTipos = [...(draft.tipo_cita || [])];
-                                                    if (event.target.checked) nuevosTipos.push(tipo);
-                                                    else nuevosTipos = nuevosTipos.filter((t) => t !== tipo);
-                                                    setDraft((prev) => ({ ...prev, tipo_cita: nuevosTipos }));
-                                                }}
-                                                className="h-3.5 w-3.5"
-                                                style={{ accentColor: COLOR.brand }}
-                                            />
-                                            {tipo}
-                                        </label>
-                                    ))}
-                                </div>
-
-                                {tipoCitaList(draft.tipo_cita).length > 0 && (
-                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                        {tipoCitaList(draft.tipo_cita).map((tipo) => {
-                                            const meta = tipoServicioMeta(tipo);
-                                            return (
-                                                <span
-                                                    key={tipo}
-                                                    className="rounded px-2 py-0.5 text-[11px] font-semibold"
-                                                    style={{ background: meta.bg, color: meta.text }}
-                                                >
-                                                    {tipo}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </Field>
+                                <X className="h-3.5 w-3.5" />
+                            </button>
                         </div>
+                    ))}
+                </div>
+            )}
+        </Field>
+    </div>
 
-                        <Field label="Venta mano de obra">
-                            <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={draft.venta_mano_obra}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, venta_mano_obra: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                            />
-                        </Field>
+    <div className="md:col-span-2">
+        <Field label="Declaración textual del cliente">
+            <textarea
+                value={draft.declaracion_textual_cliente}
+                onChange={(e) => setDraft((p) => ({ ...p, declaracion_textual_cliente: e.target.value }))}
+                className={inputBase}
+                style={{ ...inputStyle(false), minHeight: 88 }}
+            />
+        </Field>
+    </div>
 
-                        <SectionHeading icon={CheckCircle2}>Estado</SectionHeading>
+    <div className="md:col-span-3">
+        <Field label="Comentarios">
+            <textarea
+                value={draft.comentarios}
+                onChange={(e) => setDraft((p) => ({ ...p, comentarios: e.target.value }))}
+                className={inputBase}
+                style={{ ...inputStyle(false), minHeight: 88 }}
+            />
+        </Field>
+    </div>
 
-                        <Field label="Citado">
-                            <label className="flex h-9 items-center gap-2.5 rounded-2xl border px-3 text-[13px] font-medium" style={{ borderColor: COLOR.line, color: COLOR.ink }}>
-                                <input
-                                    type="checkbox"
-                                    checked={!!draft.citado}
-                                    onChange={(event) => setDraft((prev) => ({ ...prev, citado: event.target.checked }))}
-                                    className="h-3.5 w-3.5"
-                                    style={{ accentColor: COLOR.brand }}
-                                />
-                                ¿Cliente citado?
-                            </label>
-                        </Field>
-
-                        <Field label="Asistencia">
-                            <label className="flex h-9 items-center gap-2.5 rounded-2xl border px-3 text-[13px] font-medium" style={{ borderColor: COLOR.line, color: COLOR.ink }}>
-                                <input
-                                    type="checkbox"
-                                    checked={!!draft.asistencia}
-                                    onChange={(event) => setDraft((prev) => ({ ...prev, asistencia: event.target.checked }))}
-                                    className="h-3.5 w-3.5"
-                                    style={{ accentColor: COLOR.brand }}
-                                />
-                                ¿Asistió?
-                            </label>
-                        </Field>
-
-                        <Field label="Campaña">
-                            <input
-                                value={draft.pauta}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, pauta: event.target.value }))}
-                                className={inputBase}
-                                style={inputStyle(false)}
-                            />
-                        </Field>
-
-                        <div className="md:col-span-2">
-                            <Field label="Declaración textual del cliente">
-                                <textarea
-                                    value={draft.declaracion_textual_cliente}
-                                    onChange={(event) => setDraft((prev) => ({ ...prev, declaracion_textual_cliente: event.target.value }))}
-                                    className={inputBase}
-                                    style={{ ...inputStyle(false), minHeight: 88 }}
-                                />
-                            </Field>
-                        </div>
-
-                        <div className="md:col-span-3">
-                            <Field label="Comentarios">
-                                <textarea
-                                    value={draft.comentarios}
-                                    onChange={(event) => setDraft((prev) => ({ ...prev, comentarios: event.target.value }))}
-                                    className={inputBase}
-                                    style={{ ...inputStyle(false), minHeight: 88 }}
-                                />
-                            </Field>
-                        </div>
-                    </div>
+</div>
                 )}
             </Modal>
         </div>

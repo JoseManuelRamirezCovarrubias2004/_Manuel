@@ -556,7 +556,7 @@ function PerfilUsuario({ token, user }) {
         ? new Date(user.date_joined).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })
         : "—";
 
- const guardarCambios = async () => {
+ const guardarCambios = async () => { 
     setLoading(true); setMsg("");
     
     // Busca el ID en TODOS los campos posibles que Django podría devolver
