@@ -95,6 +95,7 @@ import WhatsIndex from "./pages/EnvioWhats/EnvioIndex";
 
 import EncPiso from "./pages/Calidad/EncPiso";
 import ConfigIA from "./pages/IA/ConfigIA";
+import FlujoProcesos from "./pages/FlujoProcesos/FlujoProcesos";
 
 import InventarioLayout from "./pages/Inventario/InventarioLayout";
 import InventarioIndex from "./pages/Inventario/InventarioIndex";
@@ -886,6 +887,15 @@ export const router = createBrowserRouter(
                         },
 
                         {
+                            path: "flujo_procesos",
+                            element: (
+                                <RequirePermission anyOf={["USUARIOS_ADMIN"]}>
+                                    <FlujoProcesos />
+                                </RequirePermission>
+                            ),
+                        },
+
+                        {
                             path: "configuracion_ia",
                             element: (
                                 <RequirePermission anyOf={["USUARIOS_ADMIN"]}>
@@ -895,9 +905,9 @@ export const router = createBrowserRouter(
                         },
 
                         {
-    path: "configuracion",
-    element: <Settings />,
-},
+                            path: "configuracion",
+                            element: <Settings />,
+                        },
 
                         {
                             path: "*",

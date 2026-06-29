@@ -211,6 +211,27 @@ function normalizeText(value) {
     return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+function normalizeDealerGrupo(value) {
+    const raw = String(value || "").trim();
+    const text = normalizeText(raw);
+
+    if (!text) return "";
+
+    if (text.includes("cordoba")) return "VW Cordoba";
+    if (text.includes("orizaba")) return "VW Orizaba";
+    if (text.includes("poza rica")) return "VW Poza Rica";
+    if (text.includes("tuxtepec")) return "VW Tuxtepec";
+    if (text.includes("tuxpan")) return "VW Tuxpan";
+
+    return raw;
+}
+
+function dealerMatchesFilter(agencia, filtro) {
+    if (!filtro || filtro === "Todos") return true;
+
+    return normalizeDealerGrupo(agencia) === normalizeDealerGrupo(filtro);
+}
+
 function tryParseJson(text) { try { return JSON.parse(text); } catch { return null; } }
 
 function getNumeroUsuarioSesion(user) {
@@ -677,6 +698,138 @@ function getAccionRequerida(row) {
     if (row.ia_pausada) return { label: "IA pausada", cls: "bg-slate-100 text-slate-700 border-slate-300" };
     return null;
 }
+function hasValidValue(value) {
+    const val = String(value || "").trim().toLowerCase();
+
+    return val !== "" &&
+        val !== "null" &&
+        val !== "undefined" &&
+        val !== "0";
+}
+function asArray(data) {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.results)) return data.results;
+    return [];
+}
+
+function getTelefonoRelacionado(item) {
+    return normalizaTelefonoMx(
+        item?.telefono ||
+        item?.telefono_cliente ||
+        item?.cliente_telefono ||
+        item?.cliente?.telefono ||
+        item?.prospecto?.telefono ||
+        item?.contacto?.telefono ||
+        ""
+    );
+}
+
+function getClienteIdRelacionado(item) {
+    return String(
+        item?.cliente_id ||
+        item?.id_cliente ||
+        item?.cliente?.id ||
+        item?.cliente?.id_cliente ||
+        item?.prospecto?.cliente_id ||
+        ""
+    ).trim();
+}
+
+function citaActiva(item) {
+    const estado = normalizeText(
+        item?.estado ||
+        item?.estatus ||
+        item?.status ||
+        item?.estado_cita ||
+        ""
+    );
+
+    return ![
+        "cancelada",
+        "cancelado",
+        "eliminada",
+        "eliminado",
+    ].includes(estado);
+}
+
+function entregaActiva(item) {
+    return entregaFisicaActiva(
+        item?.entrega_reportada ??
+        item?.entregada ??
+        item?.entrega_fisica ??
+        item?.reportada ??
+        item?.estatus_entrega ??
+        item?.estado_entrega ??
+        item?.status
+    );
+}
+
+function rowExisteEnRelacion(row, telefonosSet, clienteIdsSet) {
+    const telefono = normalizaTelefonoMx(row?.telefono);
+    const clienteId = String(row?.cliente_id || "").trim();
+
+    return Boolean(
+        (telefono && telefonosSet?.has(telefono)) ||
+        (clienteId && clienteIdsSet?.has(clienteId))
+    );
+}
+
+function matchFunnelFilter(row, filter, relacionesFunnel = {}) {
+    if (!filter || filter === "prospectos") return true;
+
+    if (filter === "contactados") {
+        return String(row.estado || "").trim().toLowerCase() === "contactado";
+    }
+
+    if (filter === "citas") {
+        return rowExisteEnRelacion(
+            row,
+            relacionesFunnel.telefonosConCita,
+            relacionesFunnel.clienteIdsConCita
+        );
+    }
+
+    if (filter === "descalificados") {
+        return String(row.estado || "").trim().toLowerCase() === "descalificado";
+    }
+
+    if (filter === "cotizacion") {
+        return hasValidValue(row.id_cotizacion);
+    }
+
+    if (filter === "credito") {
+        return hasValidValue(row.folio_solicitud_credito);
+    }
+
+    if (filter === "facturadas") {
+        return hasValidValue(row.vin_facturado);
+    }
+
+    if (filter === "entregadas" || filter === "entregas") {
+        return rowExisteEnRelacion(
+            row,
+            relacionesFunnel.telefonosEntregados,
+            relacionesFunnel.clienteIdsEntregados
+        );
+    }
+
+    return true;
+}
+
+function getFunnelFilterLabel(filter) {
+    const labels = {
+        prospectos: "Prospectos",
+        contactados: "Contactados",
+        citas: "Citas",
+        descalificados: "Descalificados",
+        cotizacion: "Cotización",
+        credito: "Solicitud de crédito",
+        facturadas: "Facturadas",
+        entregadas: "Entregas",
+    };
+
+    return labels[filter] || "Prospectos";
+}
 
 // ─── UI Utilities ─────────────────────────────────────────────────────────────
 
@@ -765,52 +918,106 @@ function LeadScoreRing({ score }) {
 
 // ─── Funnel Chart ─────────────────────────────────────────────────────────────
 
-function FunnelChart({ rows = [], telefonosEntregados }) {
+function FunnelChart({
+    rows = [],
+    relacionesFunnel = {},
+    selectedFilter = "prospectos",
+    onSelectFilter,
+}) {
     const safeRows = Array.isArray(rows) ? rows : [];
     const total = safeRows.length || 1;
 
     const etapas = useMemo(() => {
-        const contactados = rows.filter(r =>
+        const contactados = safeRows.filter(r =>
             String(r.estado || "").toLowerCase() === "contactado"
         ).length;
 
-        const descalificados = rows.filter(r =>
+        const conCita = safeRows.filter(r =>
+            rowExisteEnRelacion(
+                r,
+                relacionesFunnel.telefonosConCita,
+                relacionesFunnel.clienteIdsConCita
+            )
+        ).length;
+
+        const descalificados = safeRows.filter(r =>
             String(r.estado || "").trim().toLowerCase() === "descalificado"
         ).length;
 
-        const conCotizacion = rows.filter(r => {
-            const val = String(r.id_cotizacion || "").trim().toLowerCase();
-            return val !== "" && val !== "null" && val !== "undefined" && val !== "0";
-        }).length;
+        const conCotizacion = safeRows.filter(r =>
+            hasValidValue(r.id_cotizacion)
+        ).length;
 
-        const conCredito = rows.filter(r => {
-            const val = String(r.folio_solicitud_credito || "").trim().toLowerCase();
-            return val !== "" && val !== "null" && val !== "undefined" && val !== "0";
-        }).length;
+        const conCredito = safeRows.filter(r =>
+            hasValidValue(r.folio_solicitud_credito)
+        ).length;
 
-        const facturadas = rows.filter(r => {
-            const val = String(r.vin_facturado || "").trim().toLowerCase();
-            return val !== "" && val !== "null" && val !== "undefined" && val !== "0";
-        }).length;
+        const facturadas = safeRows.filter(r =>
+            hasValidValue(r.vin_facturado)
+        ).length;
 
-
-        const entregadas = rows.filter(r =>
-            telefonosEntregados?.has(normalizaTelefonoMx(r.telefono))
+        const entregadas = safeRows.filter(r =>
+            rowExisteEnRelacion(
+                r,
+                relacionesFunnel.telefonosEntregados,
+                relacionesFunnel.clienteIdsEntregados
+            )
         ).length;
 
         return [
-            { name: "Prospectos", value: rows.length, color: "#131E5C" },
-            { name: "Contactados", value: contactados, color: "#1e3a8a" },
-            { name: "Descalificados", value: descalificados, color: "#1d6fa4" },
-            { name: "Cotización", value: conCotizacion, color: "#0ea5e9" },
-            { name: "Sol. de crédito", value: conCredito, color: "#38bdf8" },
-            { name: "Facturadas", value: facturadas, color: "#7dd3fc" },
-            { name: "Entregadas", value: entregadas, color: "#bae6fd" },
+            {
+                name: "Prospectos",
+                value: safeRows.length,
+                color: "#131E5C",
+                filter: "prospectos",
+            },
+            {
+                name: "Contactados",
+                value: contactados,
+                color: "#1e3a8a",
+                filter: "contactados",
+            },
+            {
+                name: "Citas",
+                value: conCita,
+                color: "#2563eb",
+                filter: "citas",
+            },
+            {
+                name: "Descalificados",
+                value: descalificados,
+                color: "#1d6fa4",
+                filter: "descalificados",
+            },
+            {
+                name: "Cotización",
+                value: conCotizacion,
+                color: "#0ea5e9",
+                filter: "cotizacion",
+            },
+            {
+                name: "Sol. de crédito",
+                value: conCredito,
+                color: "#38bdf8",
+                filter: "credito",
+            },
+            {
+                name: "Facturadas",
+                value: facturadas,
+                color: "#7dd3fc",
+                filter: "facturadas",
+            },
+            {
+                name: "Entregas",
+                value: entregadas,
+                color: "#bae6fd",
+                filter: "entregadas",
+            },
         ];
-    }, [rows, telefonosEntregados]);
+    }, [safeRows, relacionesFunnel]);
 
     const W = 280;
-    const H = 350;
+    const H = 400;
     const n = etapas.length;
     const sliceH = H / n;
     const maxW = W;
@@ -826,21 +1033,28 @@ function FunnelChart({ rows = [], telefonosEntregados }) {
         const topX2 = (W + topW) / 2;
         const botX1 = (W - botW) / 2;
         const botX2 = (W + botW) / 2;
+
         return {
             ...etapa,
-            topX1, topX2, botX1, botX2,
-            topY, botY,
+            topX1,
+            topX2,
+            botX1,
+            botX2,
+            topY,
+            botY,
             midY: (topY + botY) / 2,
         };
     });
 
     const [tooltip, setTooltip] = useState(null);
 
-
     if (safeRows.length === 0) {
         return (
-            <div style={{ width: W, height: H }} className="flex items-center justify-center text-xs text-gray-400 font-medium">
-                Cargando embudo...
+            <div
+                style={{ width: W, height: H }}
+                className="flex items-center justify-center text-xs font-medium text-gray-400"
+            >
+                Sin datos para el embudo
             </div>
         );
     }
@@ -850,56 +1064,82 @@ function FunnelChart({ rows = [], telefonosEntregados }) {
             <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
                 {shapes.map((s, i) => {
                     const points = `${s.topX1},${s.topY} ${s.topX2},${s.topY} ${s.botX2},${s.botY} ${s.botX1},${s.botY}`;
-                    const pct = Math.round(s.value / total * 100);
+                    const pct = Math.round((s.value / total) * 100);
 
-                    const isLight = i >= 4;
+                    const isLight = i >= 5;
                     const textColor = isLight ? "#0c4a6e" : "#ffffff";
                     const subTextColor = isLight ? "#1c3d5a" : "rgba(255,255,255,0.75)";
 
                     return (
-                        <g key={s.name}
-                            onMouseEnter={() => setTooltip({ ...s, pct, prev: i > 0 ? etapas[i - 1].value : null })}
+                        <g
+                            key={s.name}
+                            onClick={() => onSelectFilter?.(s.filter)}
+                            onMouseEnter={() =>
+                                setTooltip({
+                                    ...s,
+                                    pct,
+                                    prev: i > 0 ? etapas[i - 1].value : null,
+                                })
+                            }
                             onMouseLeave={() => setTooltip(null)}
-                            className="cursor-pointer">
+                            className="cursor-pointer"
+                        >
                             <polygon
                                 points={points}
                                 fill={s.color}
-                                stroke="#fff"
-                                strokeWidth="2"
+                                stroke={selectedFilter === s.filter ? "#FACC15" : "#FFFFFF"}
+                                strokeWidth={selectedFilter === s.filter ? "4" : "2"}
+                                opacity={
+                                    selectedFilter === s.filter || selectedFilter === "prospectos"
+                                        ? 1
+                                        : 0.72
+                                }
                             />
-                            {/* Valor */}
+
                             <text
-                                x={W / 2} y={s.midY - 5}
-                                textAnchor="middle" dominantBaseline="middle"
-                                fill={textColor} fontSize="13" fontWeight="800">
+                                x={W / 2}
+                                y={s.midY - 5}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fill={textColor}
+                                fontSize="13"
+                                fontWeight="800"
+                            >
                                 {s.value.toLocaleString("es-MX")}
                             </text>
-                            {/* Etiqueta + porcentaje */}
+
                             <text
-                                x={W / 2} y={s.midY + 11}
-                                textAnchor="middle" dominantBaseline="middle"
-                                fill={subTextColor} fontSize="11" fontWeight="600">
-                                {s.name}{i > 0 ? ` · ${pct}%` : ""}
+                                x={W / 2}
+                                y={s.midY + 11}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fill={subTextColor}
+                                fontSize="11"
+                                fontWeight="600"
+                            >
+                                {s.name}
+                                {i > 0 ? ` · ${pct}%` : ""}
                             </text>
                         </g>
                     );
                 })}
             </svg>
 
-            {/* Tooltip */}
             {tooltip && (
-                <div className="pointer-events-none absolute left-1/2 -top-12 -translate-x-1/2 rounded-xl bg-[#131E5C] px-3 py-2 text-[11px] font-bold text-white shadow-xl whitespace-nowrap">
-                    <div>{tooltip.name}: {tooltip.value.toLocaleString("es-MX")} · {tooltip.pct}% del total</div>
+                <div className="pointer-events-none absolute left-1/2 -top-12 -translate-x-1/2 whitespace-nowrap rounded-xl bg-[#131E5C] px-3 py-2 text-[11px] font-bold text-white shadow-xl">
+                    <div>
+                        {tooltip.name}: {tooltip.value.toLocaleString("es-MX")} · {tooltip.pct}% del total
+                    </div>
+
                     {tooltip.prev !== null && (
-                        <div className="font-normal opacity-75 mt-0.5">
-                            {Math.round(tooltip.value / (tooltip.prev || 1) * 100)}% conv. respecto a etapa anterior
+                        <div className="mt-0.5 font-normal opacity-75">
+                            {Math.round((tooltip.value / (tooltip.prev || 1)) * 100)}% conv. respecto a etapa anterior
                         </div>
                     )}
                 </div>
             )}
         </div>
     );
-    <FunnelChart rows={sorted} telefonosEntregados={telefonosEntregados} />
 }
 
 // ─── Panel de estadísticas lateral ───────────────────────────────────────────
@@ -941,15 +1181,13 @@ function SidePanel({ rows, highlighted, onSelectHighlight }) {
     const total = rows.length || 1;
 
     return (
-        <aside className="flex flex-col gap-4 w-64 flex-shrink-0">
-
-            {/* Prospecto destacado */}
-            <div className="rounded-2xl border border-black/10 bg-white shadow-sm overflow-hidden">
-                <div className="px-4 py-3 flex items-center gap-2" style={{ background: BRAND_BLUE }}>
-                    <Target className="h-4 w-4 text-white/70" />
-                    <span className="text-sm font-bold text-white">Prospecto destacado</span>
+        <aside className="grid w-full min-w-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">            {/* Prospecto destacado */}
+            <div className="bg-white overflow-hidden">
+                <div className="px-4 py-3 flex items-center gap-2">
+                    <Target className="h-4 w-4 text-[#131E5C]" />
+                    <span className="text-sm font-bold text-[#131E5C]">Prospecto destacado</span>
                     {topHighlight && (
-                        <span className="ml-auto text-[10px] bg-emerald-400/30 text-emerald-200 px-2 py-0.5 rounded-full font-semibold">
+                        <span className="ml-auto text-[10px] bg-emerald-400/30 text-[#131E5C]-200 px-2 py-0.5 rounded-full font-semibold">
                             {topLabel === "Muy alto" ? "Requiere seguimiento hoy" : "Pendiente"}
                         </span>
                     )}
@@ -1019,10 +1257,10 @@ function SidePanel({ rows, highlighted, onSelectHighlight }) {
             </div>
 
             {/* Alertas y oportunidades */}
-            <div className="rounded-2xl border border-black/10 bg-white shadow-sm overflow-hidden">
-                <div className="px-4 py-3 flex items-center gap-2" style={{ background: BRAND_BLUE }}>
-                    <AlertCircle className="h-4 w-4 text-white/70" />
-                    <span className="text-sm font-bold text-white">Alertas y oportunidades</span>
+            <div className="rounded-2xl bg-white overflow-hidden">
+                <div className="px-4 py-3 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-[#131E5C]" />
+                    <span className="text-sm font-bold text-[#131E5C]">Alertas y oportunidades</span>
                 </div>
                 <div className="p-3 space-y-2">
                     {leadsCalientes > 0 && (
@@ -1059,10 +1297,10 @@ function SidePanel({ rows, highlighted, onSelectHighlight }) {
             </div>
 
             {/* Distribución por estado */}
-            <div className="rounded-2xl border border-black/10 bg-white shadow-sm overflow-hidden">
-                <div className="px-4 py-3 flex items-center gap-2" style={{ background: BRAND_BLUE }}>
-                    <Activity className="h-4 w-4 text-white/70" />
-                    <span className="text-sm font-bold text-white">Distribución por estado</span>
+            <div className="rounded-2xl bg-white overflow-hidden">
+                <div className="px-4 py-3 flex items-center gap-2" >
+                    <Activity className="h-4 w-4 text-[#131E5C]" />
+                    <span className="text-sm font-bold text-[#131E5C]">Distribución por estado</span>
                 </div>
                 <div className="p-4 space-y-2.5">
                     {statsPorEstado.map(([label, count], i) => (
@@ -1081,10 +1319,10 @@ function SidePanel({ rows, highlighted, onSelectHighlight }) {
             </div>
 
             {/* Canales principales */}
-            <div className="rounded-2xl border border-black/10 bg-white shadow-sm overflow-hidden">
-                <div className="px-4 py-3 flex items-center gap-2" style={{ background: BRAND_BLUE }}>
-                    <Radio className="h-4 w-4 text-white/70" />
-                    <span className="text-sm font-bold text-white">Canales principales</span>
+            <div className="rounded-2xlbg-white overflow-hidden">
+                <div className="px-4 py-3 flex items-center gap-2">
+                    <Radio className="h-4 w-4 text-[#131E5C]" />
+                    <span className="text-sm font-bold text-[#131E5C]">Canales principales</span>
                 </div>
                 <div className="p-4 space-y-2.5">
                     {statsPorCanal.map(([label, count], i) => (
@@ -1745,6 +1983,7 @@ export default function DigitalesProspectos() {
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [viewMode, setViewMode] = useState("tabla");
     const [highlightedRow, setHighlightedRow] = useState(null);
+    const [funnelFilter, setFunnelFilter] = useState("prospectos");
     const fileInputRef = useRef(null);
 
     const VIEW_MODES = [
@@ -1771,26 +2010,63 @@ export default function DigitalesProspectos() {
         },
         [userAgencias]
     );
-
     const [telefonosEntregados, setTelefonosEntregados] = useState(() => new Set());
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const data = await apiEntregas.list();
-                const set = new Set(
-                    (Array.isArray(data) ? data : [])
-                        .filter(item => entregaFisicaActiva(item.entrega_reportada))
-                        .map(item => normalizaTelefonoMx(item?.cliente?.telefono))
-                        .filter(Boolean)
-                );
-                setTelefonosEntregados(set);
-            } catch (e) {
-                console.error(e);
-                setTelefonosEntregados(new Set());
-            }
-        })();
+    const [relacionesFunnel, setRelacionesFunnel] = useState(() => ({
+        telefonosConCita: new Set(),
+        clienteIdsConCita: new Set(),
+        telefonosEntregados: new Set(),
+        clienteIdsEntregados: new Set(),
+    }));
+    const cargarRelacionesFunnel = useCallback(async () => {
+        const [citasResult, entregasResult] = await Promise.allSettled([
+            apiCitas.list(),
+            apiEntregas.list(),
+        ]);
+
+        const citas = citasResult.status === "fulfilled"
+            ? asArray(citasResult.value).filter(citaActiva)
+            : [];
+
+        const entregas = entregasResult.status === "fulfilled"
+            ? asArray(entregasResult.value).filter(entregaActiva)
+            : [];
+
+        if (citasResult.status === "rejected") {
+            console.error("No se pudieron cargar las citas para el funnel:", citasResult.reason);
+        }
+
+        if (entregasResult.status === "rejected") {
+            console.error("No se pudieron cargar las entregas para el funnel:", entregasResult.reason);
+        }
+
+        setRelacionesFunnel({
+            telefonosConCita: new Set(
+                citas
+                    .map(getTelefonoRelacionado)
+                    .filter(Boolean)
+            ),
+            clienteIdsConCita: new Set(
+                citas
+                    .map(getClienteIdRelacionado)
+                    .filter(Boolean)
+            ),
+            telefonosEntregados: new Set(
+                entregas
+                    .map(getTelefonoRelacionado)
+                    .filter(Boolean)
+            ),
+            clienteIdsEntregados: new Set(
+                entregas
+                    .map(getClienteIdRelacionado)
+                    .filter(Boolean)
+            ),
+        });
     }, []);
+
+    useEffect(() => {
+        cargarRelacionesFunnel();
+    }, [cargarRelacionesFunnel]);
 
     const numeroUsuarioSesion = useMemo(() => getNumeroUsuarioSesion(user), [user]);
     const contextoDigitalSesion = useMemo(() => getContextoDigitalPorNumero(numeroUsuarioSesion), [numeroUsuarioSesion]);
@@ -1917,9 +2193,31 @@ export default function DigitalesProspectos() {
     }, [isAdmin, selectedNumeroAsesor, numeroUsuarioSesion]);
 
     const dealers = useMemo(() => {
-        const d = new Set(cases.map(c => c.agencia).filter(Boolean));
-        if (!isAdmin && userAgencias.length > 0) return ["Todos", ...userAgencias];
-        return ["Todos", ...Array.from(d)];
+        const ordenDealers = [
+            "VW Cordoba",
+            "VW Orizaba",
+            "VW Poza Rica",
+            "VW Tuxtepec",
+            "VW Tuxpan",
+        ];
+
+        const source = !isAdmin && userAgencias.length > 0
+            ? userAgencias
+            : cases.map((c) => c.agencia);
+
+        const grupos = new Set(
+            source
+                .map((agencia) => normalizeDealerGrupo(agencia))
+                .filter(Boolean)
+        );
+
+        const ordenados = ordenDealers.filter((dealer) => grupos.has(dealer));
+
+        const extras = Array.from(grupos)
+            .filter((dealer) => !ordenDealers.includes(dealer))
+            .sort((a, b) => a.localeCompare(b, "es"));
+
+        return ["Todos", ...ordenados, ...extras];
     }, [cases, isAdmin, userAgencias]);
 
     const estados = useMemo(() => {
@@ -1960,26 +2258,49 @@ export default function DigitalesProspectos() {
 
     const updateFilter = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
 
-    const filtered = useMemo(() => {
+    const baseFiltered = useMemo(() => {
         const q = deferredQ.trim().toLowerCase();
+
         return cases.filter(c => {
             const nombre = `${c.cliente_nombre || ""} ${c.cliente_apellidos || ""}`.trim();
+
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) return false;
+
             if (filtroNumeroActivo) {
                 if (normalizeText(c.asesor_digital) !== normalizeText(filtroNumeroActivo.asesor_digital)) return false;
                 if (normalizeText(c.agencia) !== normalizeText(filtroNumeroActivo.agencia)) return false;
-            } else if (!isAdmin) return false;
+            } else if (!isAdmin) {
+                return false;
+            }
+
             const matchQ = !q || [
-                c.id_exp, c.cliente_id, c.agencia, nombre, c.comentarios, c.estado,
-                c.telefono, c.correo, c.asesor_digital, c.asesor_solicita, c.linea,
-                c.origen, c.cliente_interes, c.pauta, c.enganche_monto,
-                c.presupuesto_mensual, c.buro_estado, c.forma_pago, c.tipo_cliente,
-                c.uso_vehiculo, c.plazo_compra, c.comprobacion_ingresos,
+                c.id_exp,
+                c.cliente_id,
+                c.agencia,
+                nombre,
+                c.comentarios,
+                c.estado,
+                c.telefono,
+                c.correo,
+                c.asesor_digital,
+                c.asesor_solicita,
+                c.linea,
+                c.origen,
+                c.cliente_interes,
+                c.pauta,
+                c.enganche_monto,
+                c.presupuesto_mensual,
+                c.buro_estado,
+                c.forma_pago,
+                c.tipo_cliente,
+                c.uso_vehiculo,
+                c.plazo_compra,
+                c.comprobacion_ingresos,
             ].some(v => String(v || "").toLowerCase().includes(q));
 
             return matchQ &&
                 (filters.estado === "Todos" || c.estado === filters.estado) &&
-                (filters.agencia === "Todos" || c.agencia === filters.agencia) &&
+                dealerMatchesFilter(c.agencia, filters.agencia) &&
                 (filters.linea === "Todos" || c.linea === filters.linea) &&
                 (filters.buro === "Todos" || c.buro_estado === filters.buro) &&
                 (filters.formaPago === "Todos" || c.forma_pago === filters.formaPago) &&
@@ -1987,7 +2308,20 @@ export default function DigitalesProspectos() {
                 isDateInRange(c.fecha_reclamacion, filters.fechaRegistroDesde, filters.fechaRegistroHasta) &&
                 isDateInRange(c.fecha_contacto || c.ultimo_contacto_at, filters.fechaContactoDesde, filters.fechaContactoHasta);
         });
-    }, [cases, deferredQ, filters, isAdmin, filtroNumeroActivo, userAgencias, userTieneAgencia]);
+    }, [
+        cases,
+        deferredQ,
+        filters,
+        isAdmin,
+        filtroNumeroActivo,
+        userAgencias,
+        userTieneAgencia,
+    ]);
+    const filtered = useMemo(() => {
+        return baseFiltered.filter(row =>
+            matchFunnelFilter(row, funnelFilter, telefonosEntregados)
+        );
+    }, [baseFiltered, funnelFilter, telefonosEntregados]);
 
     const sorted = useMemo(() => {
         const data = [...filtered];
@@ -2356,7 +2690,7 @@ export default function DigitalesProspectos() {
         try {
             setSavingo(true); setErrorMsg("");
             await apiCitas.create({ cliente_id: agendaInfo.cliente_id, nombre: agendaInfo.nombre, telefono: agendaInfo.telefono, correo: agendaInfo.correo || "", auto_interes: agendaInfo.auto_interes || "", agencia: agendaInfo.agencia || "", fecha_hora_cita: drafter.fecha_cita || null, fuente_prospeccion: agendaInfo.fuente_prospeccion || "", asesor_digital: drafter.asesor_digital || "", asesor_solicita: drafter.asesor_solicita || "", asesor_asignado: drafter.asesor_solicita || "", tipo_cita: drafter.tipo_cita || "" });
-            await refreshList(); closeAgendaModal();
+            await cargarRelacionesFunnel(); await refreshList(); closeAgendaModal();
         } catch (err) { setErrorMsg(err?.message || "No se pudo crear la cita"); }
         finally { setSavingo(false); }
     }
@@ -2408,8 +2742,12 @@ export default function DigitalesProspectos() {
         finally { setGeneratingSummary(prev => { const n = { ...prev }; delete n[id]; return n; }); }
     };
 
-    const resetFilters = () => { setFilters(INITIAL_FILTERS); setSelectedNumeroAsesor(isAdmin ? "Todos" : numeroUsuarioSesion || ""); };
-
+    const resetFilters = () => {
+        setFilters(INITIAL_FILTERS);
+        setSelectedNumeroAsesor(isAdmin ? "Todos" : numeroUsuarioSesion || "");
+        setFunnelFilter("prospectos");
+        setPage(1);
+    };
     const now = new Date();
     const todayStr = formatDateYMDLocal(now);
     const yesterdayStr = formatDateYMDLocal(addDays(now, -1));
@@ -2429,6 +2767,35 @@ export default function DigitalesProspectos() {
                 <div className="text-2xl font-black text-[#131E5C] leading-tight">{value}</div>
                 <div className="text-xs font-semibold text-slate-500 mt-0.5">{label}</div>
                 {sub && <div className={cls("text-[11px] font-semibold mt-1", subColor)}>{sub}</div>}
+            </div>
+        </div>
+    );
+    const FilterButtonGroup = ({ label, value, options, onChange }) => (
+        <div className="min-w-0">
+            <div className="mb-1.5 text-xs font-black uppercase tracking-wide text-[#131E5C]/70">
+                {label}
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-1">
+                {options.map((option) => {
+                    const active = value === option;
+
+                    return (
+                        <button
+                            key={option}
+                            type="button"
+                            onClick={() => onChange(option)}
+                            className={cls(
+                                "inline-flex h-10 shrink-0 items-center justify-center rounded-lg border px-4 text-sm font-black transition active:scale-[0.98]",
+                                active
+                                    ? "border-[#131E5C] bg-[#131E5C] text-white"
+                                    : "border-[#131E5C] bg-white text-[#131E5C] hover:bg-[#131E5C]/5"
+                            )}
+                        >
+                            {option === "Todos" ? "Todos" : option}
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );
@@ -2527,9 +2894,6 @@ export default function DigitalesProspectos() {
                 <div>
                     <h2 className="text-xl font-extrabold text-[#131E5C] flex items-center gap-2">
                         Gestión Comercial
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-[#131E5C]/10 text-[#131E5C] px-2 py-0.5 rounded-full">
-                            <Activity className="h-3 w-3" /> IA activa
-                        </span>
                     </h2>
                     <p className="text-sm text-slate-400 mt-0.5">Monitorea tus prospectos y su información clave para el seguimiento asistido por IA.</p>
                 </div>
@@ -2554,35 +2918,125 @@ export default function DigitalesProspectos() {
                 </div>
             </div>
 
-            {/* KPIs + Funnel juntos */}
-            <div className="flex gap-3 mb-5">
+            {/* KPIs arriba */}
+            <div className="mb-5 overflow-hidden rounded-2xl bg-white">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6">
+                    <KPICard
+                        icon={Users}
+                        label="Total prospectos hoy"
+                        value={kpis.total.toLocaleString()}
+                        sub={`${sorted.length} con filtros`}
+                        subColor="text-slate-400"
+                    />
 
-                {/* Funnel a la izquierda */}
-                <div className="overflow-visible rounded-2xl border border-black/10 bg-white shadow-sm w-96">
-                    <div className="p-5 max-w-sm">
-                        <FunnelChart rows={sorted} />
-                    </div>
-                </div>
-
-                {/* KPIs a la derecha en grid */}
-                <div className="grid grid-cols-3 gap-0 flex-1">
-                    <KPICard icon={Users} label="Total prospectos hoy" value={kpis.total.toLocaleString()} sub={`${sorted.length} con filtros`} subColor="text-slate-400" />
-                    <KPICard icon={Bot} label="Pendientes de respuesta IA" value={kpis.pendIA} sub={kpis.pendIA > 0 ? "Requieren atención" : "Sin pendientes"}
+                    <KPICard
+                        icon={Bot}
+                        label="Pendientes de respuesta IA"
+                        value={kpis.pendIA}
+                        sub={kpis.pendIA > 0 ? "Requieren atención" : "Sin pendientes"}
                         subColor={kpis.pendIA > 0 ? "text-amber-600" : "text-emerald-600"}
-                        iconColor="text-amber-700" />
-                    <KPICard icon={Clock} label="Sin respuesta" value={kpis.sinResp} sub={kpis.sinResp > 0 ? "> 24h sin contacto" : "Todo al día"}
+                        iconColor="text-amber-700"
+                    />
+
+                    <KPICard
+                        icon={Clock}
+                        label="Sin respuesta"
+                        value={kpis.sinResp}
+                        sub={kpis.sinResp > 0 ? "> 24h sin contacto" : "Todo al día"}
                         subColor={kpis.sinResp > 0 ? "text-red-600" : "text-emerald-600"}
-                        iconColor="text-red-500" />
-                    <div className="col-span-3 border-t border-slate-200 my-1"></div>
-                    <KPICard icon={UserCheck} label="Perfil comercial" value={`${percent(kpis.conPerfil, kpis.total || 1)}%`} sub={`${kpis.conPerfil} con datos de compra`}
-                        subColor="text-sky-600" iconColor="text-sky-700" />
-                    <KPICard icon={HandCoins} label="Crédito / arrendamiento" value={kpis.financiamiento} sub="Oportunidad financiera"
-                        subColor="text-violet-600" iconColor="text-violet-700" />
-                    <KPICard icon={Gauge} label="Ventana prom. respuesta" value={kpis.avgResp !== null ? `${kpis.avgResp < 60 ? kpis.avgResp + "m" : Math.floor(kpis.avgResp / 60) + "h " + (kpis.avgResp % 60) + "m"}` : "—"}
-                        sub="Objetivo < 4h" subColor="text-sky-600" iconColor="text-sky-700" />
+                        iconColor="text-red-500"
+                    />
+
+                    <KPICard
+                        icon={UserCheck}
+                        label="Perfil comercial"
+                        value={`${percent(kpis.conPerfil, kpis.total || 1)}%`}
+                        sub={`${kpis.conPerfil} con datos de compra`}
+                        subColor="text-sky-600"
+                        iconColor="text-sky-700"
+                    />
+
+                    <KPICard
+                        icon={HandCoins}
+                        label="Crédito / arrendamiento"
+                        value={kpis.financiamiento}
+                        sub="Oportunidad financiera"
+                        subColor="text-violet-600"
+                        iconColor="text-violet-700"
+                    />
+
+                    <KPICard
+                        icon={Gauge}
+                        label="Ventana prom. respuesta"
+                        value={
+                            kpis.avgResp !== null
+                                ? `${kpis.avgResp < 60
+                                    ? kpis.avgResp + "m"
+                                    : Math.floor(kpis.avgResp / 60) + "h " + (kpis.avgResp % 60) + "m"
+                                }`
+                                : "—"
+                        }
+                        sub="Objetivo < 4h"
+                        subColor="text-sky-600"
+                        iconColor="text-sky-700"
+                    />
                 </div>
             </div>
 
+            {/* Filtros Dealer/Business + Funnel + SidePanel */}
+            <div className="mb-5 space-y-4">
+
+                {/* Botones arriba del funnel */}
+                <div className="bg-white p-4">
+                    <div className="grid gap-4 xl:grid-cols-2">
+                        <FilterButtonGroup
+                            label="Dealer"
+                            value={filters.agencia}
+                            options={dealers}
+                            onChange={(value) => {
+                                updateFilter("agencia", value);
+                                setPage(1);
+                            }}
+                        />
+
+                        <FilterButtonGroup
+                            label="Business"
+                            value={filters.linea}
+                            options={businessOptions}
+                            onChange={(value) => {
+                                updateFilter("linea", value);
+                                setPage(1);
+                            }}
+                        />
+                    </div>
+                </div>
+
+                {/* Funnel + tarjetas */}
+                <div className="flex flex-col items-center gap-4 xl:flex-row xl:items-start xl:justify-center">
+
+                    {/* Funnel */}
+                    <div className="w-full max-w-[360px] shrink-0 overflow-visible rounded-2xl bg-white">
+                        <div className="flex justify-center p-5">
+                            <FunnelChart
+                                rows={baseFiltered}
+                                relacionesFunnel={relacionesFunnel}
+                                selectedFilter={funnelFilter}
+                                onSelectFilter={(filter) => {
+                                    setFunnelFilter(filter);
+                                    setPage(1);
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Tarjetas horizontales */}
+                    <SidePanel
+                        rows={sorted}
+                        highlighted={highlightedRow}
+                        onSelectHighlight={setHighlightedRow}
+                    />
+                </div>
+            </div>
 
 
             {/* Filtros */}
@@ -2591,7 +3045,7 @@ export default function DigitalesProspectos() {
                 <div className="p-3">
                     <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
                         {/* Buscador principal */}
-                        <div className="relative min-w-0 flex-1">
+                        <div className="relative min-w-0 flex-1 mt-5">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#131E5C]/60" />
 
                             <input
@@ -2614,46 +3068,62 @@ export default function DigitalesProspectos() {
                         </div>
 
                         {/* Filtros principales */}
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:items-center">
-                            <select
-                                value={filters.agencia}
-                                onChange={(e) => updateFilter("agencia", e.target.value)}
-                                className="h-11 rounded-xl border border-[#131E5C]/15 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition hover:bg-slate-50 focus:ring-4 focus:ring-[#131E5C]/10"
-                            >
-                                {dealers.map((d) => (
-                                    <option key={d} value={d}>
-                                        {d === "Todos" ? "Dealer" : d}
-                                    </option>
-                                ))}
-                            </select>
+                        <div className="grid min-w-0 flex-1 gap-3 xl:grid-cols-[1fr_1fr_180px] xl:items-end">
 
-                            <select
-                                value={filters.linea}
-                                onChange={(e) => updateFilter("linea", e.target.value)}
-                                className="h-11 rounded-xl border border-[#131E5C]/15 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition hover:bg-slate-50 focus:ring-4 focus:ring-[#131E5C]/10"
-                            >
-                                {businessOptions.map((l) => (
-                                    <option key={l} value={l}>
-                                        {l === "Todos" ? "Business" : l}
-                                    </option>
-                                ))}
-                            </select>
+                            <div>
+                                <div className="mb-1.5 text-xs font-black uppercase tracking-wide text-[#131E5C]/70">
+                                    Buró
+                                </div>
+                                <select
+                                    value={filters.buro}
+                                    onChange={(e) => updateFilter("buro", e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-[#131E5C]/15 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition hover:bg-slate-50 focus:ring-4 focus:ring-[#131E5C]/10"
+                                >
+                                    {buroOptions.map((s) => (
+                                        <option key={s} value={s}>
+                                            {s === "Todos" ? "Todos" : valueOrDash(s)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <div className="mb-1.5 text-xs font-black uppercase tracking-wide text-[#131E5C]/70">
+                                    Forma de pago
+                                </div>
+                                <select
+                                    value={filters.formaPago}
+                                    onChange={(e) => updateFilter("formaPago", e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-[#131E5C]/15 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition hover:bg-slate-50 focus:ring-4 focus:ring-[#131E5C]/10"
+                                >
+                                    {formaPagoOptions.map((s) => (
+                                        <option key={s} value={s}>
+                                            {s === "Todos" ? "Todos" : valueOrDash(s)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
 
-                            <select
-                                value={filters.estado}
-                                onChange={(e) => updateFilter("estado", e.target.value)}
-                                className="h-11 rounded-xl border border-[#131E5C]/15 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition hover:bg-slate-50 focus:ring-4 focus:ring-[#131E5C]/10"
-                            >
-                                {estados.map((s) => (
-                                    <option key={s} value={s}>
-                                        {s === "Todos" ? "Estado" : s}
-                                    </option>
-                                ))}
-                            </select>
+
+                            <div>
+                                <div className="mb-1.5 text-xs font-black uppercase tracking-wide text-[#131E5C]/70">
+                                    Estado
+                                </div>
+
+                                <select
+                                    value={filters.estado}
+                                    onChange={(e) => updateFilter("estado", e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-[#131E5C]/15 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition hover:bg-slate-50 focus:ring-4 focus:ring-[#131E5C]/10"
+                                >
+                                    {estados.map((s) => (
+                                        <option key={s} value={s}>
+                                            {s === "Todos" ? "Todos" : s}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-
                         {/* Acciones rápidas */}
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 mt-5">
                             {[
                                 {
                                     label: "Hoy",
@@ -2767,37 +3237,7 @@ export default function DigitalesProspectos() {
                         </div>
 
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
-                            <div className="xl:col-span-2">
-                                <label className={filterLabelCls}>Buró</label>
-                                <select
-                                    value={filters.buro}
-                                    onChange={(e) => updateFilter("buro", e.target.value)}
-                                    className={filterControlCls}
-                                >
-                                    {buroOptions.map((s) => (
-                                        <option key={s} value={s}>
-                                            {s === "Todos" ? "Todos" : valueOrDash(s)}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="xl:col-span-2">
-                                <label className={filterLabelCls}>Forma de pago</label>
-                                <select
-                                    value={filters.formaPago}
-                                    onChange={(e) => updateFilter("formaPago", e.target.value)}
-                                    className={filterControlCls}
-                                >
-                                    {formaPagoOptions.map((s) => (
-                                        <option key={s} value={s}>
-                                            {s === "Todos" ? "Todos" : valueOrDash(s)}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="xl:col-span-2">
+                            <div className="xl:col-span-3">
                                 <label className={filterLabelCls}>Tipo cliente</label>
                                 <select
                                     value={filters.tipoCliente}
@@ -2831,7 +3271,7 @@ export default function DigitalesProspectos() {
                                 </div>
                             ) : null}
 
-                            <div className={cls(isAdmin ? "xl:col-span-3" : "xl:col-span-6")}>
+                            <div className={cls(isAdmin ? "xl:col-span-6" : "xl:col-span-6")}>
                                 <label className={filterLabelCls}>Fecha de registro</label>
                                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                                     <input
@@ -2859,7 +3299,7 @@ export default function DigitalesProspectos() {
 
             {/* Vista Tabla */}
             {viewMode === "tabla" && (
-                <div className="flex gap-4 items-start">
+                <div className="min-w-0">
 
                     {/* Tabla principal */}
                     <div className="flex-1 min-w-0">
@@ -3180,10 +3620,6 @@ export default function DigitalesProspectos() {
                             )}
                         </div>
                     </div>
-
-                    {/* Panel lateral — solo tabla */}
-                    <SidePanel rows={sorted} highlighted={highlightedRow} onSelectHighlight={setHighlightedRow} />
-
                 </div>
             )}
 

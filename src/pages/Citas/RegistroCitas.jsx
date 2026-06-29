@@ -783,7 +783,8 @@ export default function RegistroCitas() {
         "Yoseth Ruiz Castellanos",
         "Luis Alberto Ramirez Santamaria",
         "Paul Serrano Vera",
-        "Luis Manuel Alvarez Martinez"
+        "Luis Manuel Alvarez Martinez",
+        "Estefano Marlom De Azcue Aparicio",
     ];
 
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
@@ -1137,41 +1138,41 @@ export default function RegistroCitas() {
                             </div>
                         </FilterBlock>
                     </div>
-                   <div className="md:col-span-4">
-    <FilterBlock label="Asesor Piso">
-        <select
-            value={filters.asesorPiso}
-            onChange={(e) => setFilters((p) => ({ ...p, asesorPiso: e.target.value }))}
-            className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
-        >
-            {asesoresPisoFiltro.map((a) => (
-                <option key={a} value={a}>{a}</option>
-            ))}
-        </select>
-    </FilterBlock>
-</div>
+                    <div className="md:col-span-4">
+                        <FilterBlock label="Asesor Piso">
+                            <select
+                                value={filters.asesorPiso}
+                                onChange={(e) => setFilters((p) => ({ ...p, asesorPiso: e.target.value }))}
+                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+                            >
+                                {asesoresPisoFiltro.map((a) => (
+                                    <option key={a} value={a}>{a}</option>
+                                ))}
+                            </select>
+                        </FilterBlock>
+                    </div>
 
-<div className="md:col-span-4">
-    <FilterBlock label="Desde">
-        <input
-            type="date"
-            value={filters.rangoDesde}
-            onChange={(e) => setFilters((p) => ({ ...p, rangoDesde: e.target.value }))}
-            className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
-        />
-    </FilterBlock>
-</div>
+                    <div className="md:col-span-4">
+                        <FilterBlock label="Desde">
+                            <input
+                                type="date"
+                                value={filters.rangoDesde}
+                                onChange={(e) => setFilters((p) => ({ ...p, rangoDesde: e.target.value }))}
+                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+                            />
+                        </FilterBlock>
+                    </div>
 
-<div className="md:col-span-4">
-    <FilterBlock label="Hasta">
-        <input
-            type="date"
-            value={filters.rangoHasta}
-            onChange={(e) => setFilters((p) => ({ ...p, rangoHasta: e.target.value }))}
-            className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
-        />
-    </FilterBlock>
-</div>
+                    <div className="md:col-span-4">
+                        <FilterBlock label="Hasta">
+                            <input
+                                type="date"
+                                value={filters.rangoHasta}
+                                onChange={(e) => setFilters((p) => ({ ...p, rangoHasta: e.target.value }))}
+                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+                            />
+                        </FilterBlock>
+                    </div>
                 </div>
             </div>
 
