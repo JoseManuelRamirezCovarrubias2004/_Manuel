@@ -571,34 +571,47 @@ export default function HojaRegistros() {
 
     const isInvalid = (key) => touchedSave && missing.includes(key);
 
-    const telDigits = useMemo(() => String(draft?.cliente_telefono || "").replace(/\D/g, ""), [draft?.cliente_telefono]);
-    const telIsOk = useMemo(
-        () => /^\d{10}$/.test(telDigits) || /^52\d{10}$/.test(telDigits),
-        [telDigits]
-    );
+    const telDigits = useMemo(() => {
+        return String(draft?.cliente_telefono || "").replace(/\D/g, "");
+    }, [draft?.cliente_telefono]);
 
-    const telefonoBloqueado = useMemo(() => {
-        if (!draft?.cliente_telefono) return false;
-        if (mode === "edit") return true;
-        return telIsOk;
-    }, [draft?.cliente_telefono, mode, telIsOk]);
+    const telIsOk = useMemo(() => {
+        if (!telDigits) return false;
+
+        // Formato nacional: 10 dígitos
+        if (!telDigits.startsWith("52")) {
+            return telDigits.length === 10;
+        }
+
+        // Formato con prefijo México: 52 + 10 dígitos = 12 dígitos
+        return telDigits.length === 12;
+    }, [telDigits]);
 
     const telError = useMemo(() => {
         if (!openModal || !draft || !telDigits) return "";
-        if (/^\d{10}$/.test(telDigits)) return "";        // 10 dígitos libres ✅
-        if (/^52\d{10}$/.test(telDigits)) return "";      // 52 + 10 dígitos ✅
 
-        if (telDigits.startsWith("52")) {
-            if (telDigits.length < 12) return "Con prefijo 52 debes ingresar 12 dígitos en total.";
-            if (telDigits.length > 12) return "Número demasiado largo. Máximo 12 dígitos con prefijo 52.";
-        } else {
-            if (telDigits.length < 10) return "Número incompleto. Debe tener 10 dígitos.";
-            if (telDigits.length > 10) return "Número inválido. Sin prefijo 52 solo se permiten 10 dígitos.";
+        if (!telDigits.startsWith("52")) {
+            if (telDigits.length < 10) {
+                return "Número incompleto. Debe tener 10 dígitos.";
+            }
+
+            if (telDigits.length > 10) {
+                return "Número inválido. Sin prefijo 52 solo se permiten 10 dígitos.";
+            }
+
+            return "";
         }
 
-        return "Número inválido.";
-    }, [openModal, draft, telDigits]);
+        if (telDigits.length < 12) {
+            return "Con prefijo 52 debes ingresar 12 dígitos en total.";
+        }
 
+        if (telDigits.length > 12) {
+            return "Número demasiado largo. Máximo 12 dígitos con prefijo 52.";
+        }
+
+        return "";
+    }, [openModal, draft, telDigits]);
     useEffect(() => {
         const close = () => setCtxMenu((prev) => ({ ...prev, open: false, row: null }));
         window.addEventListener("click", close);
@@ -823,7 +836,7 @@ export default function HojaRegistros() {
             cliente_id: draft.cliente_id || null,
             cliente_nombre: nombreCliente,
             nombre_cliente: nombreCliente,
-            cliente_telefono: normalizeStr(draft.cliente_telefono),
+            cliente_telefono: String(draft.cliente_telefono || "").replace(/\D/g, ""),
             cliente_correo_electronico: draft.cliente_correo_electronico || "",
             agencia: isAdmin ? normalizeStr(draft.agencia) : userAgencia,
             fecha_ingreso: fromDTLocalToISO(draft.fecha_ingreso),
@@ -1482,39 +1495,29 @@ export default function HojaRegistros() {
 
                         <Field label="Teléfono" required>
                             <input
-                                maxLength={12}
+                                inputMode="numeric"
                                 value={draft.cliente_telefono}
                                 onChange={(event) => {
                                     const digits = event.target.value.replace(/\D/g, "");
-                                    const maxLen = digits.startsWith("52") ? 12 : 10;
-                                    setDraft((prev) => ({ ...prev, cliente_telefono: digits.slice(0, maxLen) }));
+                                    setDraft((prev) => ({ ...prev, cliente_telefono: digits }));
                                 }}
-                                disabled={telefonoBloqueado}
                                 className={inputBase}
-                                style={{
-                                    ...inputStyle(isInvalid("cliente_telefono") || !!telError),
-                                    opacity: telefonoBloqueado ? 0.7 : 1,
-                                    cursor: telefonoBloqueado ? "not-allowed" : "text",
-                                }}
-                                placeholder="10 dígitos"
+                                style={inputStyle(isInvalid("cliente_telefono") || !!telError)}
+                                placeholder="10 dígitos o 52 + 10 dígitos"
                             />
-                            {telefonoBloqueado && (
-                                <div className="mt-1 text-[11px] font-medium" style={{ color: COLOR.inkFaint }}>
-                                    Teléfono bloqueado después de capturarse.
-                                </div>
-                            )}
+
                             {isInvalid("cliente_telefono") && (
                                 <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>
                                     Teléfono es requerido.
                                 </div>
                             )}
+
                             {!isInvalid("cliente_telefono") && telError && (
                                 <div className="mt-1 text-[11px] font-semibold" style={{ color: COLOR.danger }}>
                                     {telError}
                                 </div>
                             )}
                         </Field>
-
                         <Field label="Correo electrónico">
                             <input
                                 type="email"
