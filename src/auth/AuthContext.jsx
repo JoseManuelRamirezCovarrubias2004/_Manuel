@@ -34,6 +34,21 @@ function looksLikeJwt(token) {
     return value.split(".").length === 3;
 }
 
+// ─── NUEVO: normalización de foto_url ─────────────────────────────────────
+function resolveFotoUrl(url) {
+    if (!url) return url;
+    const limpio = String(url).trim();
+    if (!limpio) return limpio;
+    if (limpio.startsWith("http://") || limpio.startsWith("https://")) return limpio;
+    return `${API}${limpio.startsWith("/") ? "" : "/"}${limpio}`;
+}
+
+function normalizarUser(user) {
+    if (!user) return user;
+    return { ...user, foto_url: resolveFotoUrl(user.foto_url) };
+}
+// ────────────────────────────────────────────────────────────────────────
+
 function getUserAgenciasFromUser(user) {
     const agencia = user?.agencia || "";
 
@@ -233,7 +248,7 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
         const storedToken = getStoredTokenFromSources();
-        const storedUser = getStoredUserFromSources();
+        const storedUser = normalizarUser(getStoredUserFromSources());
 
         setToken(storedToken || null);
         setUser(storedUser || null);
@@ -256,14 +271,15 @@ export function AuthProvider({ children }) {
                 if (!res.ok) return;
 
                 const data = await res.json();
+                const userNormalizado = normalizarUser(data);
 
-                setUser(data);
+                setUser(userNormalizado);
 
                 saveSession({
                     token: token || jwtAccess,
                     access: jwtAccess,
                     refresh: getStoredRefreshFromSources(),
-                    user: data,
+                    user: userNormalizado,
                 });
             } catch {
                 // No cerramos sesión aquí para no sacar al usuario por fallos temporales de red.
@@ -276,9 +292,10 @@ export function AuthProvider({ children }) {
     const login = ({ token, access, refresh, user }) => {
         const finalToken = String(access || token || "").trim();
         const finalRefresh = String(refresh || "").trim();
+        const userNormalizado = normalizarUser(user);
 
         setToken(finalToken || null);
-        setUser(user || null);
+        setUser(userNormalizado || null);
 
         localStorage.setItem(
             "auth",
@@ -286,7 +303,7 @@ export function AuthProvider({ children }) {
                 token: finalToken,
                 access: finalToken,
                 ...(finalRefresh ? { refresh: finalRefresh } : {}),
-                user,
+                user: userNormalizado,
             })
         );
 
@@ -302,9 +319,9 @@ export function AuthProvider({ children }) {
             localStorage.setItem("auth.refresh", finalRefresh);
         }
 
-        if (user) {
-            localStorage.setItem("crm.user", JSON.stringify(user));
-            localStorage.setItem("user", JSON.stringify(user));
+        if (userNormalizado) {
+            localStorage.setItem("crm.user", JSON.stringify(userNormalizado));
+            localStorage.setItem("user", JSON.stringify(userNormalizado));
         }
     };
 

@@ -556,13 +556,11 @@ function PerfilUsuario({ token, user }) {
         ? new Date(user.date_joined).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })
         : "—";
 
- const guardarCambios = async () => { 
+const guardarCambios = async () => { 
     setLoading(true); setMsg("");
     
-    // Busca el ID en TODOS los campos posibles que Django podría devolver
-const userId = user?.id_usuario;    
+    const userId = user?.id_usuario;    
     if (!userId) {
-        // Muestra todos los campos del user para diagnosticar
         setMsg(`Error: ID no encontrado. Campos disponibles: ${Object.keys(user || {}).join(", ")}`);
         setLoading(false);
         return;
@@ -577,7 +575,8 @@ const userId = user?.id_usuario;
     if (foto) fd.append("foto", foto);
     
     try {
-const res = await fetch(`${API}/conformidad/api/auth/me/`, {      method: "PATCH",
+        const res = await fetch(`${API}/conformidad/api/perfil/`, {
+            method: "PATCH",
             headers: { Authorization: `Bearer ${token}` },
             body: fd,
         });
@@ -585,7 +584,24 @@ const res = await fetch(`${API}/conformidad/api/auth/me/`, {      method: "PATCH
         if (res.ok) {
             setMsg("✓ Datos actualizados correctamente");
             setFoto(null);
-            setTimeout(() => window.location.reload(), 1200);
+
+            // Vuelve a pedir los datos actualizados del usuario (incluye la foto nueva)
+            try {
+                const meRes = await fetch(`${API}/conformidad/api/auth/me/`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (meRes.ok) {
+                    const updatedUser = await meRes.json();
+                    localStorage.setItem("crm.user", JSON.stringify(updatedUser));
+                    localStorage.setItem("user", JSON.stringify(updatedUser));
+                    const auth = JSON.parse(localStorage.getItem("auth") || "{}");
+                    localStorage.setItem("auth", JSON.stringify({ ...auth, user: updatedUser }));
+                }
+            } catch (e) {
+                console.error("Error refrescando usuario:", e);
+            }
+
+            setTimeout(() => window.location.reload(), 800);
         } else {
             let err = {};
             try { err = JSON.parse(responseText); } catch {}
@@ -627,8 +643,7 @@ const res = await fetch(`${API}/conformidad/api/admin/usuarios/${userId}/`, {
 };
 
     return (
-        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "32px 20px", fontFamily: "system-ui, sans-serif" }}>
-
+<div style={{ maxWidth: 1500, margin: "0 auto", padding: "32px 20px", fontFamily: "system-ui, sans-serif" }}>
             {/* Header perfil */}
             {/* Header perfil */}
 <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", marginBottom: 20 }}>
@@ -688,8 +703,7 @@ const res = await fetch(`${API}/conformidad/api/admin/usuarios/${userId}/`, {
 
             {/* Contenido principal — dos columnas */}
             {/* Contenido principal */}
-<div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20, alignItems: "start" }}>
-
+<div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24, alignItems: "start" }}>
                 {/* Columna izquierda */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
