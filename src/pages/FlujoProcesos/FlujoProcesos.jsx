@@ -15,7 +15,7 @@ import {
     useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-
+import { apiFlujo } from "../../lib/apiFlujo";
 import {
     Circle,
     CircleDot,
@@ -292,6 +292,7 @@ function makeProject({ name, steps = INITIAL_STEPS } = {}) {
         steps: safeSteps,
         nodes: stepsToNodes(safeSteps),
         edges: stepsToEdges(safeSteps),
+        metadata: {},
     };
 }
 
@@ -334,7 +335,7 @@ function loadProjectStore() {
     }
 }
 
-function saveProjectStore(projects, activeProjectId) {
+async function saveProjectStore(projects, activeProjectId) {
     localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
@@ -342,6 +343,14 @@ function saveProjectStore(projects, activeProjectId) {
             projects,
         })
     );
+
+    const activeProject = projects.find(
+        (project) => project.id === activeProjectId
+    );
+
+    if (!activeProject) return null;
+
+    return apiFlujo.save(activeProject);
 }
 
 function nodeId(stepId) {
@@ -500,23 +509,6 @@ function Badge({ children, variant = "default", dot = false }) {
             )}
             {children}
         </span>
-    );
-}
-
-function HeaderButton({ icon: Icon, children, active = false }) {
-    return (
-        <button
-            type="button"
-            className={cx(
-                "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition",
-                active
-                    ? "border-[#131E5C] bg-[#131E5C] text-white shadow-sm"
-                    : "border-[#131E5C] bg-white text-[#131E5C] hover:bg-[#F7F8FC]"
-            )}
-        >
-            {Icon && <Icon className="h-4 w-4" />}
-            <span className="hidden sm:inline">{children}</span>
-        </button>
     );
 }
 
@@ -1491,6 +1483,52 @@ function ProcessDesignerInner() {
         [steps]
     );
 
+    function aplicarProyectoGuardado(proyectoGuardado, idAnterior = activeProjectId) {
+        if (!proyectoGuardado?.id) return;
+
+        let nextProjects = [];
+
+        setProjects((currentProjects) => {
+            const existe = currentProjects.some(
+                (project) => project.id === proyectoGuardado.id
+            );
+
+            if (existe) {
+                nextProjects = currentProjects.map((project) =>
+                    project.id === proyectoGuardado.id
+                        ? {
+                            ...project,
+                            ...proyectoGuardado,
+                        }
+                        : project
+                );
+            } else {
+                nextProjects = currentProjects.map((project) =>
+                    project.id === idAnterior
+                        ? {
+                            ...project,
+                            ...proyectoGuardado,
+                        }
+                        : project
+                );
+            }
+
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify({
+                    activeProjectId: proyectoGuardado.id,
+                    projects: nextProjects,
+                })
+            );
+
+            return nextProjects;
+        });
+
+        if (idAnterior !== proyectoGuardado.id) {
+            setActiveProjectId(proyectoGuardado.id);
+        }
+    }
+
     function updateCurrentProject(patch, markDirty = true) {
         setProjects((currentProjects) =>
             currentProjects.map((project) =>
@@ -1632,7 +1670,7 @@ function ProcessDesignerInner() {
         });
     }
 
-    function createProject() {
+    async function createProject() {
         const project = makeProject({
             name: makeProjectName(projects.length + 1),
         });
@@ -1645,6 +1683,31 @@ function ProcessDesignerInner() {
         setSelectedStepId(project.steps[0]?.id || null);
         setSaved(false);
 
+        try {
+            const creado = await apiFlujo.create(project);
+
+            setProjects((currentProjects) =>
+                currentProjects.map((item) =>
+                    item.id === project.id ? creado : item
+                )
+            );
+
+            setActiveProjectId(creado.id);
+            setSteps(creado.steps);
+            setNodes(
+                creado.nodes?.length ? creado.nodes : stepsToNodes(creado.steps || [])
+            );
+            setEdges(
+                creado.edges?.length ? creado.edges : stepsToEdges(creado.steps || [])
+            );
+            setSelectedStepId(creado.steps?.[0]?.id || null);
+            setSaved(true);
+            setLastSaved(nowTime());
+        } catch (error) {
+            console.error("No se pudo crear el diagrama en backend:", error);
+            setSaved(false);
+        }
+
         setTimeout(() => {
             fitView({ padding: 0.18, duration: 500 });
         }, 80);
@@ -1654,21 +1717,65 @@ function ProcessDesignerInner() {
         const project = projects.find((item) => item.id === projectId);
         if (!project) return;
 
+        const nextSteps = Array.isArray(project.steps) ? project.steps : [];
+        const nextNodes =
+            Array.isArray(project.nodes) && project.nodes.length > 0
+                ? project.nodes
+                : stepsToNodes(nextSteps);
+
+        const nextEdges =
+            Array.isArray(project.edges) && project.edges.length > 0
+                ? project.edges
+                : stepsToEdges(nextSteps);
+
         setActiveProjectId(project.id);
-        setSteps(project.steps || []);
-        setNodes(project.nodes || stepsToNodes(project.steps || []));
-        setEdges(project.edges || stepsToEdges(project.steps || []));
-        setSelectedStepId(project.steps?.[0]?.id || null);
+        setSteps(nextSteps);
+        setNodes(nextNodes);
+        setEdges(nextEdges);
+        setSelectedStepId(nextSteps?.[0]?.id || null);
         setSaved(true);
+
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({
+                activeProjectId: project.id,
+                projects,
+            })
+        );
 
         setTimeout(() => {
             fitView({ padding: 0.18, duration: 500 });
         }, 80);
     }
 
-    function duplicateProject(projectId) {
+    async function duplicateProject(projectId) {
         const project = projects.find((item) => item.id === projectId);
         if (!project) return;
+
+        if (apiFlujo.isBackendId(projectId)) {
+            try {
+                const copia = await apiFlujo.duplicate(projectId);
+
+                setProjects((currentProjects) => [...currentProjects, copia]);
+                setActiveProjectId(copia.id);
+                setSteps(copia.steps);
+                setNodes(
+                    copia.nodes?.length ? copia.nodes : stepsToNodes(copia.steps || [])
+                );
+                setEdges(
+                    copia.edges?.length ? copia.edges : stepsToEdges(copia.steps || [])
+                );
+                setSelectedStepId(copia.steps?.[0]?.id || null);
+                setSaved(true);
+                setLastSaved(nowTime());
+
+                return;
+            } catch (error) {
+                console.error("No se pudo duplicar en backend:", error);
+                alert(error?.message || "No se pudo duplicar el diagrama.");
+                return;
+            }
+        }
 
         const copy = {
             ...project,
@@ -1690,16 +1797,31 @@ function ProcessDesignerInner() {
         setSaved(false);
     }
 
-    function deleteProject(projectId) {
+    async function deleteProject(projectId) {
         if (projects.length <= 1) {
-            alert("Debe existir al menos un proyecto.");
+            alert("Debe existir al menos un diagrama.");
             return;
         }
 
-        if (!confirm("¿Eliminar este proyecto?")) return;
+        if (!confirm("¿Eliminar este diagrama?")) return;
+
+        if (apiFlujo.isBackendId(projectId)) {
+            try {
+                await apiFlujo.remove(projectId);
+            } catch (error) {
+                if (error?.status !== 404) {
+                    console.error("Error eliminando diagrama:", error);
+                    alert(error?.message || "No se pudo eliminar el diagrama.");
+                    return;
+                }
+            }
+        }
 
         const remaining = projects.filter((project) => project.id !== projectId);
-        const nextActive = projectId === activeProjectId ? remaining[0] : activeProject;
+        const nextActive =
+            projectId === activeProjectId
+                ? remaining[0]
+                : activeProject;
 
         setProjects(remaining);
         setActiveProjectId(nextActive.id);
@@ -1712,7 +1834,7 @@ function ProcessDesignerInner() {
 
     function renameActiveProject(name) {
         updateCurrentProject({
-            name: name || "Proceso sin nombre",
+            name,
         });
     }
 
@@ -1833,25 +1955,37 @@ function ProcessDesignerInner() {
         event.dataTransfer.dropEffect = "move";
     }, []);
 
-    function saveNow() {
+    async function saveNow() {
         setSaving(true);
 
-        setTimeout(() => {
-            saveProjectStore(projects, activeProjectId);
+        try {
+            const proyectoGuardado = await saveProjectStore(projects, activeProjectId);
+
+            if (proyectoGuardado) {
+                aplicarProyectoGuardado(proyectoGuardado, activeProjectId);
+            }
+
             setSaved(true);
             setLastSaved(nowTime());
+        } catch (error) {
+            console.error("Error guardando diagrama:", error);
+            alert(error?.message || "No se pudo guardar el diagrama.");
+        } finally {
             setSaving(false);
-        }, 250);
+        }
     }
 
     function exportJson() {
         const projectPayload = {
-            marca: "Volkswagen",
-            modulo: "PostVenta",
-            project: activeProject,
-            steps,
-            nodes,
-            edges,
+            diagrama: {
+                id: activeProject?.id || "",
+                nombre: activeProject?.name || "",
+                descripcion: activeProject?.description || "",
+            },
+            pasos: steps,
+            nodos: nodes,
+            conexiones: edges,
+            metadatos: activeProject?.metadata || {},
         };
 
         const blob = new Blob([JSON.stringify(projectPayload, null, 2)], {
@@ -1862,7 +1996,7 @@ function ProcessDesignerInner() {
         const a = document.createElement("a");
 
         a.href = url;
-        a.download = `${activeProject?.name || "proceso-postventa-volkswagen"}.json`;
+        a.download = `${activeProject?.name || "diagrama-flujo"}.json`;
         a.click();
 
         URL.revokeObjectURL(url);
@@ -1877,7 +2011,7 @@ function ProcessDesignerInner() {
         reader.onload = () => {
             try {
                 const parsed = JSON.parse(String(reader.result || "{}"));
-                const importedSteps = parsed.steps || parsed.project?.steps;
+                const importedSteps = parsed.pasos || parsed.steps || parsed.diagrama?.pasos || parsed.project?.steps;
 
                 if (!Array.isArray(importedSteps)) {
                     alert("El archivo no contiene una tabla de pasos válida.");
@@ -1898,17 +2032,27 @@ function ProcessDesignerInner() {
                 }));
 
                 const project = makeProject({
-                    name: parsed.project?.name || parsed.name || `Importado ${projects.length + 1}`,
+                    name: parsed.diagrama?.nombre || parsed.project?.name || parsed.nombre || parsed.name || `Importado ${projects.length + 1}`,
                     steps: safeSteps,
                 });
 
-                project.nodes = Array.isArray(parsed.nodes)
-                    ? parsed.nodes
-                    : stepsToNodes(safeSteps);
+                project.nodes = Array.isArray(parsed.nodos)
+                    ? parsed.nodos
+                    : Array.isArray(parsed.nodes)
+                        ? parsed.nodes
+                        : stepsToNodes(safeSteps);
 
-                project.edges = Array.isArray(parsed.edges)
-                    ? parsed.edges
-                    : stepsToEdges(safeSteps);
+                project.edges = Array.isArray(parsed.conexiones)
+                    ? parsed.conexiones
+                    : Array.isArray(parsed.edges)
+                        ? parsed.edges
+                        : stepsToEdges(safeSteps);
+
+                project.metadata =
+                    parsed.metadatos ||
+                    parsed.metadata ||
+                    parsed.diagrama?.metadatos ||
+                    {};
 
                 setProjects((currentProjects) => [...currentProjects, project]);
                 setActiveProjectId(project.id);
@@ -1931,17 +2075,82 @@ function ProcessDesignerInner() {
         reader.readAsText(file);
     }
     useEffect(() => {
-        if (saved) return;
+        let activo = true;
 
-        const timer = setTimeout(() => {
-            setSaving(true);
+        async function cargarDiagramasFlujo() {
+            try {
+                const diagramas = await apiFlujo.list();
 
-            setTimeout(() => {
-                saveProjectStore(projects, activeProjectId);
+                if (!activo || !Array.isArray(diagramas) || diagramas.length === 0) {
+                    return;
+                }
+
+                const primerDiagrama = diagramas[0];
+
+                setProjects(diagramas);
+                setActiveProjectId(primerDiagrama.id);
+                setSteps(primerDiagrama.steps || []);
+                setNodes(
+                    Array.isArray(primerDiagrama.nodes) &&
+                        primerDiagrama.nodes.length > 0
+                        ? primerDiagrama.nodes
+                        : stepsToNodes(primerDiagrama.steps || [])
+                );
+                setEdges(
+                    Array.isArray(primerDiagrama.edges) &&
+                        primerDiagrama.edges.length > 0
+                        ? primerDiagrama.edges
+                        : stepsToEdges(primerDiagrama.steps || [])
+                );
+                setSelectedStepId(primerDiagrama.steps?.[0]?.id || null);
                 setSaved(true);
                 setLastSaved(nowTime());
+
+                localStorage.setItem(
+                    STORAGE_KEY,
+                    JSON.stringify({
+                        activeProjectId: primerDiagrama.id,
+                        projects: diagramas,
+                    })
+                );
+
+                setTimeout(() => {
+                    fitView({ padding: 0.18, duration: 500 });
+                }, 100);
+            } catch (error) {
+                console.warn("No se pudieron cargar diagramas desde backend:", error);
+            }
+        }
+
+        cargarDiagramasFlujo();
+
+        return () => {
+            activo = false;
+        };
+    }, []);
+    useEffect(() => {
+        if (saved) return;
+
+        const timer = setTimeout(async () => {
+            setSaving(true);
+
+            try {
+                const proyectoGuardado = await saveProjectStore(
+                    projects,
+                    activeProjectId
+                );
+
+                if (proyectoGuardado) {
+                    aplicarProyectoGuardado(proyectoGuardado, activeProjectId);
+                }
+
+                setSaved(true);
+                setLastSaved(nowTime());
+            } catch (error) {
+                console.error("Error en autoguardado de diagrama:", error);
+            } finally {
                 setSaving(false);
-            }, 250);
+            }
         }, 900);
 
         return () => clearTimeout(timer);
