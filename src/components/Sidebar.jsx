@@ -308,8 +308,14 @@ export default function Sidebar() {
                 cls(
                     "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-all hover:text-[15px]",
                     !showText && !isMobile && "justify-center px-0",
+
                     isActive
-                        ? "bg-[#0A64FF] text-white shadow-[0_12px_32px_rgba(10,100,255,0.32)] pl-6"
+                        ? cls(
+                            "bg-[#0A64FF] text-white shadow-[0_12px_32px_rgba(10,100,255,0.32)]",
+                            showText || isMobile ? "pl-6" : "px-0",
+                            "before:absolute before:left-0 before:top-1/2 before:h-7 before:w-1",
+                            "before:-translate-y-1/2 before:rounded-r-full before:bg-white"
+                        )
                         : "text-white/66 hover:bg-white/10 hover:text-white"
                 )
             }
@@ -392,24 +398,24 @@ export default function Sidebar() {
                             <FadeSlide show={showText}>Sugerencias y errores</FadeSlide>
                         </button>
 
-                       {/* Admins → Usuarios, usuarios normales → Mi perfil */}
-<NavLink
-    to="/configuracion"
-    onClick={() => { if (isMobile) setMobileOpen(false); }}
-    className={({ isActive }) =>
-        cls(
-            "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-semibold transition",
-            !showText && !isMobile && "justify-center px-0",
-            isActive ? "bg-white text-[#001E50]" : "text-white/66 hover:bg-white/10 hover:text-white"
-        )
-    }
-    title={canSeeSettings ? "Usuarios" : "Mi perfil"}
->
-    <UserCircle2 size={18} className="shrink-0" />
-    <FadeSlide show={showText}>
-        {canSeeSettings ? "Usuarios" : "Mi perfil"}
-    </FadeSlide>
-</NavLink>
+                        {/* Admins → Usuarios, usuarios normales → Mi perfil */}
+                        <NavLink
+                            to="/configuracion"
+                            onClick={() => { if (isMobile) setMobileOpen(false); }}
+                            className={({ isActive }) =>
+                                cls(
+                                    "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-semibold transition",
+                                    !showText && !isMobile && "justify-center px-0",
+                                    isActive ? "bg-white text-[#001E50]" : "text-white/66 hover:bg-white/10 hover:text-white"
+                                )
+                            }
+                            title={canSeeSettings ? "Usuarios" : "Mi perfil"}
+                        >
+                            <UserCircle2 size={18} className="shrink-0" />
+                            <FadeSlide show={showText}>
+                                {canSeeSettings ? "Usuarios" : "Mi perfil"}
+                            </FadeSlide>
+                        </NavLink>
 
                         <button
                             type="button"

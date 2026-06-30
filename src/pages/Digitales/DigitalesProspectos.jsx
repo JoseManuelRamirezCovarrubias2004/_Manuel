@@ -3707,19 +3707,6 @@ export default function DigitalesProspectos() {
                                     <div className="">
                                         <div className="mb-1 text-sm font-bold text-[#131E5C]">Estado</div>
 
-                                        <div>
-                                            <div className="mb-1 text-sm font-bold text-[#131E5C]">Primer contacto asesor</div>
-                                            <input type="datetime-local" value={draft.primer_contacto_at || ""}
-                                                onChange={e => setDraft(p => ({ ...p, primer_contacto_at: e.target.value }))}
-                                                className={cls(inputBase, inputOk)} />
-                                        </div>
-                                        <div>
-                                            <div className="mb-1 text-sm font-bold text-[#131E5C]">Último contacto asesor</div>
-                                            <input type="datetime-local" value={draft.ultimo_contacto_at || ""}
-                                                onChange={e => setDraft(p => ({ ...p, ultimo_contacto_at: e.target.value }))}
-                                                className={cls(inputBase, inputOk)} />
-                                        </div>
-
                                         <select value={draft.estado || ""} onChange={e => setDraft(p => ({ ...p, estado: e.target.value }))} className={cls(inputBase, inputOk)}>
                                             {ESTADOS_PROSPECTO.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>

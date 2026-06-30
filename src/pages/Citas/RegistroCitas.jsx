@@ -719,8 +719,8 @@ export default function RegistroCitas() {
     const [citas, setCitas] = useState([]);
     const [vista, setVista] = useState("tabla");
 
-    const DEALERS = useMemo(() => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"], []);
-    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "Candy Denisse Marquez Cortes", "IA Vagen"];
+    const DEALERS = useMemo(() => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"], []);
+    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Edgar Omar Nogera Solis",];
     const ASESORES = [
         "AURA MARLIZETH FERNANDEZ LOPEZ",
         "Bianca Isabel Chavez Alarcon",

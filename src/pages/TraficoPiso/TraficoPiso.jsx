@@ -299,33 +299,33 @@ function PasatiemposPicker({ value, onChange, invalid }) {
 function AsesorAutocomplete({ value, onChange, invalid }) {
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef(null);
-    
-    const opciones = useMemo(() => { 
-        const q = normalizarBusqueda(value); 
-        if (!q) return ASESORES.slice(0, 20); 
-        return ASESORES.filter((asesor) => normalizarBusqueda(asesor).includes(q)).slice(0, 20); 
+
+    const opciones = useMemo(() => {
+        const q = normalizarBusqueda(value);
+        if (!q) return ASESORES.slice(0, 20);
+        return ASESORES.filter((asesor) => normalizarBusqueda(asesor).includes(q)).slice(0, 20);
     }, [value]);
-    
-    useEffect(() => { 
-        const onClick = (event) => { 
-            if (!wrapperRef.current) return; 
-            if (!wrapperRef.current.contains(event.target)) setOpen(false); 
-        }; 
-        window.addEventListener("mousedown", onClick); 
-        return () => window.removeEventListener("mousedown", onClick); 
+
+    useEffect(() => {
+        const onClick = (event) => {
+            if (!wrapperRef.current) return;
+            if (!wrapperRef.current.contains(event.target)) setOpen(false);
+        };
+        window.addEventListener("mousedown", onClick);
+        return () => window.removeEventListener("mousedown", onClick);
     }, []);
-    
+
     return (
         <div ref={wrapperRef} className="relative">
-            <Input 
-                value={value} 
-                invalid={invalid} 
-                onChange={(e) => { 
-                    onChange(e.target.value); 
-                    setOpen(true); 
-                }} 
-                onFocus={() => setOpen(true)} 
-                placeholder="Escribe para buscar asesor..." 
+            <Input
+                value={value}
+                invalid={invalid}
+                onChange={(e) => {
+                    onChange(e.target.value);
+                    setOpen(true);
+                }}
+                onFocus={() => setOpen(true)}
+                placeholder="Escribe para buscar asesor..."
             />
             {open && (
                 <div className="absolute left-0 right-0 top-12 z-30 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
@@ -334,22 +334,22 @@ function AsesorAutocomplete({ value, onChange, invalid }) {
                     </div>
                     <div className="max-h-56 overflow-y-auto">
                         {opciones.length === 0 && (
-                            <button 
-                                type="button" 
-                                onClick={() => setOpen(false)} 
+                            <button
+                                type="button"
+                                onClick={() => setOpen(false)}
                                 className="block w-full px-3 py-3 text-left text-sm font-semibold text-slate-500 hover:bg-slate-50"
                             >
                                 No encontré coincidencias. Puedes dejar el nombre escrito manualmente.
                             </button>
                         )}
                         {opciones.map((asesor) => (
-                            <button 
-                                key={asesor} 
-                                type="button" 
-                                onClick={() => { 
-                                    onChange(asesor); 
-                                    setOpen(false); 
-                                }} 
+                            <button
+                                key={asesor}
+                                type="button"
+                                onClick={() => {
+                                    onChange(asesor);
+                                    setOpen(false);
+                                }}
                                 className="block w-full px-3 py-3 text-left hover:bg-slate-50"
                             >
                                 <div className="text-sm font-extrabold text-[#131E5C]">{asesor}</div>
@@ -364,8 +364,8 @@ function AsesorAutocomplete({ value, onChange, invalid }) {
 
 function SortButton({ label, sortKey, sort, onClick }) { const active = sort.key === sortKey; return <button type="button" onClick={() => onClick(sortKey)} className="inline-flex items-center gap-1 text-xs font-bold">{label}<span className="opacity-70">{active ? (sort.dir === "asc" ? <ChevronUp className="h-4" /> : <ChevronDown className="h-4" />) : <ArrowUpDown className="h-4" />}</span></button>; }
 
-function ContextMenu({ ctxMenu, onDelete, onClose }) { 
-    if (!ctxMenu.open || !ctxMenu.row) return null; 
+function ContextMenu({ ctxMenu, onDelete, onClose }) {
+    if (!ctxMenu.open || !ctxMenu.row) return null;
     return createPortal(
         <div className="fixed z-[9999]" style={{ left: ctxMenu.x, top: ctxMenu.y }} onClick={(e) => e.stopPropagation()}>
             <div className="w-48 overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl">
@@ -376,9 +376,9 @@ function ContextMenu({ ctxMenu, onDelete, onClose }) {
                     Cerrar
                 </button>
             </div>
-        </div>, 
+        </div>,
         document.body
-    ); 
+    );
 }
 
 // ==================== COMPONENTES DE GRÁFICOS ====================
@@ -732,7 +732,7 @@ export default function TraficoPiso() {
         if (!draft.auto_suenos) map.add("auto_suenos");
         if (draft.deja_auto_cuenta && !normalizeStr(draft.modelo_auto_cuenta)) map.add("modelo_auto_cuenta");
         if (!draft.forma_capitalizacion) map.add("forma_capitalizacion");
-        if (Number(draft.presupuesto_estimado || 0) < 100000) map.add("presupuesto_estimado");
+        if (Number(draft.presupuesto_estimado || 0) < 10000) map.add("presupuesto_estimado");
         if (Number(draft.enganche_presupuestado || 0) < 10000) map.add("enganche_presupuestado");
         if (!draft.mensualidades_presupuestadas) map.add("mensualidades_presupuestadas");
         if (!draft.forma_comprobar_ingresos) map.add("forma_comprobar_ingresos");
@@ -794,70 +794,70 @@ export default function TraficoPiso() {
         }
     }, [guardarRespuesta, encuestaMap, setEncuesta]);
 
- const BASE_URL = "https://crm.grupoautomotrizryr.com";
+    const BASE_URL = "https://crm.grupoautomotrizryr.com";
 
-const abrirResultados = useCallback(async (item) => {
-    setModalResultados({ open: true, item });
-    setResultadosEncuesta([]);
-    setErrorResultados("");
-    setLoadingResultados(true);
+    const abrirResultados = useCallback(async (item) => {
+        setModalResultados({ open: true, item });
+        setResultadosEncuesta([]);
+        setErrorResultados("");
+        setLoadingResultados(true);
 
-    try {
-        // 1. Caché local primero
-        const respuestasGuardadas = obtenerRespuesta(item.id_trafico);
-        if (respuestasGuardadas && respuestasGuardadas.length > 0) {
-            setResultadosEncuesta(respuestasGuardadas);
-            setLoadingResultados(false);
-            return;
-        }
-
-        // 2. Buscar en /piso/ con los 3 filtros del ViewSet
-        const token = getStoredToken();
-        const headers = {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        };
-
-        const telefono = soloNumeros(item.telefono || "");
-        const flowToken = `trafico_${item.id_trafico}`;
-
-        const intentos = [
-            `${BASE_URL}/api/encuestas/piso/?id_trafico=${item.id_trafico}`,
-            `${BASE_URL}/api/encuestas/piso/?flow_token=${encodeURIComponent(flowToken)}`,
-            `${BASE_URL}/api/encuestas/piso/?telefono=${telefono}`,
-        ];
-
-        for (const url of intentos) {
-            try {
-                const res = await fetch(url, { method: "GET", headers });
-                if (!res.ok) continue;
-                const data = await res.json();
-                const lista = Array.isArray(data) ? data : (data.results ?? []);
-                if (lista.length > 0) {
-                    guardarRespuestasReales(item.id_trafico, lista);
-                    setResultadosEncuesta(lista);
-                    setLoadingResultados(false);
-                    return;
-                }
-            } catch (e) {
-                console.warn("Intento fallido:", url, e.message);
+        try {
+            // 1. Caché local primero
+            const respuestasGuardadas = obtenerRespuesta(item.id_trafico);
+            if (respuestasGuardadas && respuestasGuardadas.length > 0) {
+                setResultadosEncuesta(respuestasGuardadas);
+                setLoadingResultados(false);
+                return;
             }
-        }
 
-        // 3. Sin resultados
-        const estadoEnc = encuestaMap[item.id_trafico];
-        setErrorResultados(
-            !estadoEnc?.enviada
-                ? "🔔 La encuesta aún no ha sido enviada al cliente."
-                : "⏳ El cliente aún no ha respondido la encuesta."
-        );
-    } catch (err) {
-        setErrorResultados(`Error al cargar: ${err.message}`);
-    } finally {
-        setLoadingResultados(false);
-    }
-}, [obtenerRespuesta, guardarRespuestasReales, encuestaMap, getStoredToken]);
- 
+            // 2. Buscar en /piso/ con los 3 filtros del ViewSet
+            const token = getStoredToken();
+            const headers = {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            };
+
+            const telefono = soloNumeros(item.telefono || "");
+            const flowToken = `trafico_${item.id_trafico}`;
+
+            const intentos = [
+                `${BASE_URL}/api/encuestas/piso/?id_trafico=${item.id_trafico}`,
+                `${BASE_URL}/api/encuestas/piso/?flow_token=${encodeURIComponent(flowToken)}`,
+                `${BASE_URL}/api/encuestas/piso/?telefono=${telefono}`,
+            ];
+
+            for (const url of intentos) {
+                try {
+                    const res = await fetch(url, { method: "GET", headers });
+                    if (!res.ok) continue;
+                    const data = await res.json();
+                    const lista = Array.isArray(data) ? data : (data.results ?? []);
+                    if (lista.length > 0) {
+                        guardarRespuestasReales(item.id_trafico, lista);
+                        setResultadosEncuesta(lista);
+                        setLoadingResultados(false);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn("Intento fallido:", url, e.message);
+                }
+            }
+
+            // 3. Sin resultados
+            const estadoEnc = encuestaMap[item.id_trafico];
+            setErrorResultados(
+                !estadoEnc?.enviada
+                    ? "🔔 La encuesta aún no ha sido enviada al cliente."
+                    : "⏳ El cliente aún no ha respondido la encuesta."
+            );
+        } catch (err) {
+            setErrorResultados(`Error al cargar: ${err.message}`);
+        } finally {
+            setLoadingResultados(false);
+        }
+    }, [obtenerRespuesta, guardarRespuestasReales, encuestaMap, getStoredToken]);
+
 
 
     // ── Función para simular/guardar respuesta de prueba ──
@@ -877,21 +877,21 @@ const abrirResultados = useCallback(async (item) => {
             id_trafico: item.id_trafico,
             flow_token: `trafico_${item.id_trafico}`
         }];
-        
+
         guardarRespuestasReales(item.id_trafico, respuestasSimuladas);
-        
+
         setModalResultados({ open: true, item });
         setResultadosEncuesta(respuestasSimuladas);
         setErrorResultados("");
         setLoadingResultados(false);
-        
+
         // También marcar la encuesta como resuelta
         setEncuesta(item.id_trafico, {
             enviada: true,
             resuelta: true,
             fechaRespuesta: new Date().toISOString()
         });
-        
+
         setOk(`✅ Respuesta de prueba guardada para ${item.nombre_prospecto}`);
     }, [guardarRespuestasReales, setEncuesta]);
 
@@ -1515,10 +1515,10 @@ const abrirResultados = useCallback(async (item) => {
                                                                         type="button"
                                                                         onClick={() => {
                                                                             // Marcar como resuelta manualmente
-                                                                            setEncuesta(item.id_trafico, { 
-                                                                                ...estadoEnc, 
-                                                                                resuelta: true, 
-                                                                                fechaRespuesta: new Date().toISOString() 
+                                                                            setEncuesta(item.id_trafico, {
+                                                                                ...estadoEnc,
+                                                                                resuelta: true,
+                                                                                fechaRespuesta: new Date().toISOString()
                                                                             });
                                                                             // Y recargar los resultados
                                                                             abrirResultados(item);
@@ -1694,162 +1694,162 @@ const abrirResultados = useCallback(async (item) => {
                                 )}
 
                                 {!loadingResultados && resultadosEncuesta.map((r, idx) => {
-    const fecha = r.creado_en
-        ? new Date(r.creado_en).toLocaleString("es-MX", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-        : "—";
+                                    const fecha = r.creado_en
+                                        ? new Date(r.creado_en).toLocaleString("es-MX", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                                        : "—";
 
-    // Mapeo de palabras a número de estrellas
-    const STAR_MAP = { cinco: 5, cuatro: 4, tres: 3, dos: 2, uno: 1 };
+                                    // Mapeo de palabras a número de estrellas
+                                    const STAR_MAP = { cinco: 5, cuatro: 4, tres: 3, dos: 2, uno: 1 };
 
-    // Labels para campos de opción múltiple
-    const FINANCIAMIENTO_LABELS = {
-        si: "Sí, fue claro",
-        no_claro: "Información no fue clara",
-        incompleto: "No indicó todos los tipos",
-    };
-    const MEDIO_CONTACTO_LABELS = {
-        si: "Sí",
-        parcial: "Parcialmente",
-        no: "No",
-    };
-    const PRUEBA_MANEJO_LABELS = {
-        si_realice: "Sí, realicé prueba de manejo",
-        no_auto: "No estaba el auto deseado",
-        no_ofrecio: "No se me ofreció",
-    };
-    const RECOMENDACION_LABELS = {
-        cumplio: "Sí, completamente",
-        parcial: "Parcialmente",
-        no_cumplio: "No",
-    };
-    const SI_NO_LABELS = { si: "Sí", no: "No" };
+                                    // Labels para campos de opción múltiple
+                                    const FINANCIAMIENTO_LABELS = {
+                                        si: "Sí, fue claro",
+                                        no_claro: "Información no fue clara",
+                                        incompleto: "No indicó todos los tipos",
+                                    };
+                                    const MEDIO_CONTACTO_LABELS = {
+                                        si: "Sí",
+                                        parcial: "Parcialmente",
+                                        no: "No",
+                                    };
+                                    const PRUEBA_MANEJO_LABELS = {
+                                        si_realice: "Sí, realicé prueba de manejo",
+                                        no_auto: "No estaba el auto deseado",
+                                        no_ofrecio: "No se me ofreció",
+                                    };
+                                    const RECOMENDACION_LABELS = {
+                                        cumplio: "Sí, completamente",
+                                        parcial: "Parcialmente",
+                                        no_cumplio: "No",
+                                    };
+                                    const SI_NO_LABELS = { si: "Sí", no: "No" };
 
-    const renderStars = (val, max = 5) => {
-    // val ya viene como número desde la API, no necesita STAR_MAP
-    const n = Math.min(Math.max(parseInt(val) || 0, 0), max);
-    return (
-        <div className="flex gap-0.5 items-center">
-            {Array.from({ length: max }, (_, i) => (
-                <span key={i} style={{ color: i < n ? "#f59e0b" : "#d1d5db", fontSize: "1.2rem" }}>
-                    {i < n ? "★" : "☆"}
-                </span>
-            ))}
-            <span className="ml-1 text-lg font-extrabold text-[#131E5C]">{n}</span>
-        </div>
-    );
-};
+                                    const renderStars = (val, max = 5) => {
+                                        // val ya viene como número desde la API, no necesita STAR_MAP
+                                        const n = Math.min(Math.max(parseInt(val) || 0, 0), max);
+                                        return (
+                                            <div className="flex gap-0.5 items-center">
+                                                {Array.from({ length: max }, (_, i) => (
+                                                    <span key={i} style={{ color: i < n ? "#f59e0b" : "#d1d5db", fontSize: "1.2rem" }}>
+                                                        {i < n ? "★" : "☆"}
+                                                    </span>
+                                                ))}
+                                                <span className="ml-1 text-lg font-extrabold text-[#131E5C]">{n}</span>
+                                            </div>
+                                        );
+                                    };
 
-    const renderOpcion = (valor, labels) => (
-        <span className={[
-            "inline-flex items-center rounded-full px-3 py-1 text-xs font-bold border",
-            valor === "si" || valor === "cumplio" || valor === "si_realice"
-                ? "bg-emerald-100 border-emerald-300 text-emerald-800"
-                : valor === "parcial"
-                    ? "bg-amber-100 border-amber-300 text-amber-700"
-                    : "bg-red-100 border-red-300 text-red-700"
-        ].join(" ")}>
-            {labels[valor] ?? valor ?? "—"}
-        </span>
-    );
+                                    const renderOpcion = (valor, labels) => (
+                                        <span className={[
+                                            "inline-flex items-center rounded-full px-3 py-1 text-xs font-bold border",
+                                            valor === "si" || valor === "cumplio" || valor === "si_realice"
+                                                ? "bg-emerald-100 border-emerald-300 text-emerald-800"
+                                                : valor === "parcial"
+                                                    ? "bg-amber-100 border-amber-300 text-amber-700"
+                                                    : "bg-red-100 border-red-300 text-red-700"
+                                        ].join(" ")}>
+                                            {labels[valor] ?? valor ?? "—"}
+                                        </span>
+                                    );
 
-    // Las 4 preguntas con estrellas
-    const preguntasEstrellas = [
-        { label: "Atención al llegar", icon: "⭐", campo: "atencion_llegada" },
-        { label: "Instalaciones / Amenidades", icon: "🏢", campo: "amenidades" },
-        { label: "Atención del asesor", icon: "👤", campo: "atencion_asesor" },
-        { label: "Experiencia general", icon: "🌟", campo: "experiencia" },
-    ];
+                                    // Las 4 preguntas con estrellas
+                                    const preguntasEstrellas = [
+                                        { label: "Atención al llegar", icon: "⭐", campo: "atencion_llegada" },
+                                        { label: "Instalaciones / Amenidades", icon: "🏢", campo: "amenidades" },
+                                        { label: "Atención del asesor", icon: "👤", campo: "atencion_asesor" },
+                                        { label: "Experiencia general", icon: "🌟", campo: "experiencia" },
+                                    ];
 
-    return (
-        <div key={idx} className="mb-5 rounded-xl border border-black/10 bg-white overflow-hidden shadow-sm">
-            {/* Header */}
-            <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-black/10 bg-[#131E5C]/5">
-                <div className="min-w-0">
-                    <div className="text-sm font-extrabold text-[#131E5C] truncate">
-                        👤 {r.nombre_cliente || modalResultados.item.nombre_prospecto || "—"}
-                    </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                        {r.agencia || modalResultados.item.agencia || "—"} · {fecha}
-                    </div>
-                    {r.id_trafico && (
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                            ID: {r.id_trafico} {r.flow_token && `· ${r.flow_token}`}
-                        </div>
-                    )}
-                </div>
-                <span className="inline-flex items-center rounded-full border border-blue-300 bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800 shrink-0">
-                    Encuesta Piso
-                </span>
-            </div>
+                                    return (
+                                        <div key={idx} className="mb-5 rounded-xl border border-black/10 bg-white overflow-hidden shadow-sm">
+                                            {/* Header */}
+                                            <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-black/10 bg-[#131E5C]/5">
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-extrabold text-[#131E5C] truncate">
+                                                        👤 {r.nombre_cliente || modalResultados.item.nombre_prospecto || "—"}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 mt-0.5">
+                                                        {r.agencia || modalResultados.item.agencia || "—"} · {fecha}
+                                                    </div>
+                                                    {r.id_trafico && (
+                                                        <div className="text-[10px] text-slate-400 mt-0.5">
+                                                            ID: {r.id_trafico} {r.flow_token && `· ${r.flow_token}`}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <span className="inline-flex items-center rounded-full border border-blue-300 bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800 shrink-0">
+                                                    Encuesta Piso
+                                                </span>
+                                            </div>
 
-            <div className="p-4 space-y-4">
+                                            <div className="p-4 space-y-4">
 
-                {/* Bloque 1: Las 4 calificaciones con estrellas */}
-                <div className="grid grid-cols-2 gap-3">
-                   {preguntasEstrellas.map((p) => (
-    <div key={p.campo} className="rounded-xl border border-black/10 bg-white p-3 shadow-sm flex flex-col gap-2">
-        <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">
-            {p.icon} {p.label}
-        </div>
-        {renderStars(r[p.campo])}
-    </div>
-))}
-                </div>
+                                                {/* Bloque 1: Las 4 calificaciones con estrellas */}
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    {preguntasEstrellas.map((p) => (
+                                                        <div key={p.campo} className="rounded-xl border border-black/10 bg-white p-3 shadow-sm flex flex-col gap-2">
+                                                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                                                                {p.icon} {p.label}
+                                                            </div>
+                                                            {renderStars(r[p.campo])}
+                                                        </div>
+                                                    ))}
+                                                </div>
 
-                {/* Bloque 2: Preguntas de opción */}
-                <div className="rounded-xl border border-black/10 bg-slate-50 p-4 space-y-3">
-                    <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wide mb-1">Preguntas de opción</div>
+                                                {/* Bloque 2: Preguntas de opción */}
+                                                <div className="rounded-xl border border-black/10 bg-slate-50 p-4 space-y-3">
+                                                    <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wide mb-1">Preguntas de opción</div>
 
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-600">💰 Claridad sobre financiamiento</span>
-                        {renderOpcion(r.financiamiento, FINANCIAMIENTO_LABELS)}
-                    </div>
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <span className="text-xs font-semibold text-slate-600">💰 Claridad sobre financiamiento</span>
+                                                        {renderOpcion(r.financiamiento, FINANCIAMIENTO_LABELS)}
+                                                    </div>
 
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-600">🏬 Atendido por área correcta</span>
-                        {renderOpcion(r.medio_contacto, MEDIO_CONTACTO_LABELS)}
-                    </div>
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <span className="text-xs font-semibold text-slate-600">🏬 Atendido por área correcta</span>
+                                                        {renderOpcion(r.medio_contacto, MEDIO_CONTACTO_LABELS)}
+                                                    </div>
 
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-600">🚗 Prueba de manejo</span>
-                        {renderOpcion(r.prueba_manejo, PRUEBA_MANEJO_LABELS)}
-                    </div>
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <span className="text-xs font-semibold text-slate-600">🚗 Prueba de manejo</span>
+                                                        {renderOpcion(r.prueba_manejo, PRUEBA_MANEJO_LABELS)}
+                                                    </div>
 
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-600">✅ ¿Cumplió expectativas?</span>
-                        {renderOpcion(r.recomendacion, RECOMENDACION_LABELS)}
-                    </div>
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <span className="text-xs font-semibold text-slate-600">✅ ¿Cumplió expectativas?</span>
+                                                        {renderOpcion(r.recomendacion, RECOMENDACION_LABELS)}
+                                                    </div>
 
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-600">📞 ¿Te contactó post-visita?</span>
-                        {renderOpcion(r.contacto_post, SI_NO_LABELS)}
-                    </div>
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <span className="text-xs font-semibold text-slate-600">📞 ¿Te contactó post-visita?</span>
+                                                        {renderOpcion(r.contacto_post, SI_NO_LABELS)}
+                                                    </div>
 
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-600">⏱️ ¿Contacto en menos de 48 horas?</span>
-                        {renderOpcion(r.tiempo_contacto, SI_NO_LABELS)}
-                    </div>
-                </div>
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <span className="text-xs font-semibold text-slate-600">⏱️ ¿Contacto en menos de 48 horas?</span>
+                                                        {renderOpcion(r.tiempo_contacto, SI_NO_LABELS)}
+                                                    </div>
+                                                </div>
 
-                {/* Bloque 3: Comentarios */}
-                <div className="rounded-xl border border-black/10 bg-slate-50 p-4" style={{ borderLeft: "4px solid #131E5C" }}>
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">📝 Comentarios</div>
-                    {r.comentarios?.trim()
-                        ? <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{r.comentarios}</p>
-                        : <p className="text-xs text-slate-400 italic">Sin comentarios</p>
-                    }
-                </div>
+                                                {/* Bloque 3: Comentarios */}
+                                                <div className="rounded-xl border border-black/10 bg-slate-50 p-4" style={{ borderLeft: "4px solid #131E5C" }}>
+                                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">📝 Comentarios</div>
+                                                    {r.comentarios?.trim()
+                                                        ? <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{r.comentarios}</p>
+                                                        : <p className="text-xs text-slate-400 italic">Sin comentarios</p>
+                                                    }
+                                                </div>
 
-                {/* Asesor */}
-                {r.asesor_atendio && (
-                    <div className="text-xs text-slate-500 bg-white/50 px-3 py-2 rounded-lg border border-black/5">
-                        <span className="font-bold">Asesor que atendió:</span> {r.asesor_atendio}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-})}
+                                                {/* Asesor */}
+                                                {r.asesor_atendio && (
+                                                    <div className="text-xs text-slate-500 bg-white/50 px-3 py-2 rounded-lg border border-black/5">
+                                                        <span className="font-bold">Asesor que atendió:</span> {r.asesor_atendio}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
 
                                 {!loadingResultados && !errorResultados && resultadosEncuesta.length > 0 && (
                                     <div className="text-center text-xs text-slate-400 pt-2 border-t border-black/10 mt-2">
@@ -1913,7 +1913,7 @@ const abrirResultados = useCallback(async (item) => {
                                 <Field label="Auto de sus sueños" icon={CarFront} required invalid={isInvalid("auto_suenos")}><Select value={draft.auto_suenos} invalid={isInvalid("auto_suenos")} onChange={(e) => updateField("auto_suenos", e.target.value)}><option value="">Seleccionar...</option>{VEHICULOS.map((vehiculo) => <option key={vehiculo} value={vehiculo}>{vehiculo}</option>)}</Select></Field>
                                 <Field label="Modelo de auto a cuenta" icon={CarFront} required={!!draft.deja_auto_cuenta} invalid={isInvalid("modelo_auto_cuenta")}><Input value={draft.modelo_auto_cuenta} invalid={isInvalid("modelo_auto_cuenta")} disabled={!draft.deja_auto_cuenta} onChange={(e) => updateField("modelo_auto_cuenta", e.target.value)} placeholder="Ej. Jetta 2020" /></Field>
                                 <Field label="Forma de capitalización" icon={CircleDollarSign} required invalid={isInvalid("forma_capitalizacion")}><Select value={draft.forma_capitalizacion} invalid={isInvalid("forma_capitalizacion")} onChange={(e) => updateField("forma_capitalizacion", e.target.value)}><option value="">Seleccionar...</option>{FORMAS_CAPITALIZACION.map((x) => <option key={x} value={x}>{x}</option>)}</Select></Field>
-                                <Field label="Presupuesto estimado" icon={BadgeDollarSign} required hint="Mín. 6 dígitos" invalid={isInvalid("presupuesto_estimado")}><Input value={draft.presupuesto_estimado} invalid={isInvalid("presupuesto_estimado")} onChange={(e) => updateField("presupuesto_estimado", soloNumeros(e.target.value))} inputMode="numeric" placeholder="300000" /></Field>
+                                <Field label="Presupuesto estimado" icon={BadgeDollarSign} required hint="Mín. 5 dígitos" invalid={isInvalid("presupuesto_estimado")}><Input value={draft.presupuesto_estimado} invalid={isInvalid("presupuesto_estimado")} onChange={(e) => updateField("presupuesto_estimado", soloNumeros(e.target.value))} inputMode="numeric" placeholder="300000" /></Field>
                                 <Field label="Enganche presupuestado" icon={BadgeDollarSign} required hint="Mín. 5 dígitos" invalid={isInvalid("enganche_presupuestado")}><Input value={draft.enganche_presupuestado} invalid={isInvalid("enganche_presupuestado")} onChange={(e) => updateField("enganche_presupuestado", soloNumeros(e.target.value))} inputMode="numeric" placeholder="50000" /></Field>
                                 <Field label="Mensualidades presupuestadas" icon={CalendarDays} required invalid={isInvalid("mensualidades_presupuestadas")}><Select value={draft.mensualidades_presupuestadas} invalid={isInvalid("mensualidades_presupuestadas")} onChange={(e) => updateField("mensualidades_presupuestadas", e.target.value)}><option value="">Seleccionar...</option>{MENSUALIDADES.map((x) => <option key={x} value={x}>{x}</option>)}</Select></Field>
                             </div>
