@@ -586,10 +586,10 @@ export default function HojaRegistros() {
     const isInvalid = (key) => touchedSave && missing.includes(key);
 
     const telDigits = useMemo(() => String(draft?.cliente_telefono || "").replace(/\D/g, ""), [draft?.cliente_telefono]);
-    const telIsOk = useMemo(
-        () => /^(?:271\d{7}|52\d{10})$/.test(telDigits),
-        [telDigits]
-    );
+const telIsOk = useMemo(
+    () => /^(?:\d{10}|52\d{10})$/.test(telDigits),
+    [telDigits]
+);
 
     const telefonoBloqueado = useMemo(() => {
         if (!draft?.cliente_telefono) return false;
