@@ -280,13 +280,15 @@ function makeProjectName(index) {
     return `Proceso PostVenta VW ${index}`;
 }
 
-function makeProject({ name, steps = INITIAL_STEPS } = {}) {
-    const safeSteps = steps.map((step) => ({ ...step }));
+function makeProject({ name, steps = [] } = {}) {
+    const safeSteps = Array.isArray(steps)
+        ? steps.map((step) => ({ ...step }))
+        : [];
 
     return {
         id: `project-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         name: name || makeProjectName(1),
-        description: "Constructor de flujo operativo para procesos Volkswagen.",
+        description: "",
         createdAt: fullDateTime(),
         updatedAt: fullDateTime(),
         steps: safeSteps,
@@ -301,7 +303,7 @@ function loadProjectStore() {
         const raw = localStorage.getItem(STORAGE_KEY);
 
         if (!raw) {
-            const firstProject = makeProject({ name: "Proceso PostVenta VW" });
+            const firstProject = makeProject({ name: "Nuevo diagrama" });
 
             return {
                 activeProjectId: firstProject.id,
@@ -313,7 +315,7 @@ function loadProjectStore() {
         const projects = Array.isArray(parsed.projects) ? parsed.projects : [];
 
         if (projects.length === 0) {
-            const firstProject = makeProject({ name: "Proceso PostVenta VW" });
+            const firstProject = makeProject({ name: "Nuevo diagrama" });
 
             return {
                 activeProjectId: firstProject.id,
@@ -326,7 +328,7 @@ function loadProjectStore() {
             projects,
         };
     } catch {
-        const firstProject = makeProject({ name: "Proceso PostVenta VW" });
+        const firstProject = makeProject({ name: "Nuevo diagrama" });
 
         return {
             activeProjectId: firstProject.id,
@@ -371,14 +373,38 @@ function getNodeType(step) {
     return "process";
 }
 
-function makeEdge(source, target, label = "") {
+function getDecisionHandle(label) {
+    const clean = String(label || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+    if (clean === "si" || clean === "sí") return "si";
+    if (clean === "no") return "no";
+
+    return "salida";
+}
+
+function makeEdge(
+    source,
+    target,
+    label = "",
+    sourceHandle = "salida",
+    targetHandle = "entrada"
+) {
     return {
-        id: `${source}-${target}-${label || "edge"}`,
+        id: `${source}-${sourceHandle || "salida"}-${target}-${targetHandle || "entrada"}-${label || "edge"}-${Date.now()}`,
         source,
         target,
+        sourceHandle: sourceHandle || "salida",
+        targetHandle: targetHandle || "entrada",
         label,
         type: "smoothstep",
         animated: false,
+        selectable: true,
+        focusable: true,
+        interactionWidth: 28,
         markerEnd: {
             type: MarkerType.ArrowClosed,
             color: "#315BAA",
@@ -387,7 +413,7 @@ function makeEdge(source, target, label = "") {
         },
         style: {
             stroke: "#315BAA",
-            strokeWidth: 2,
+            strokeWidth: 2.2,
         },
         labelStyle: {
             fill: "#315BAA",
@@ -435,12 +461,19 @@ function stepsToEdges(steps) {
 
     steps.forEach((step) => {
         const targets = parseNextLogic(step.siguiente);
+        const isDecision = step.tipo === "Decisión";
 
         targets.forEach((item) => {
             if (!validIds.has(item.target)) return;
 
             nextEdges.push(
-                makeEdge(nodeId(step.id), nodeId(item.target), item.label)
+                makeEdge(
+                    nodeId(step.id),
+                    nodeId(item.target),
+                    item.label,
+                    isDecision ? getDecisionHandle(item.label) : "salida",
+                    "entrada"
+                )
             );
         });
     });
@@ -585,27 +618,70 @@ function startResize(event, setWidth, options = {}) {
 }
 
 function NodeHandles() {
+    const sourceClass =
+        "!h-3.5 !w-3.5 !border-2 !border-white !bg-[#315BAA] !shadow-md !opacity-0 transition-opacity group-hover:!opacity-100";
+
+    const targetClass =
+        "!h-3.5 !w-3.5 !border-2 !border-[#315BAA] !bg-white !shadow-md !opacity-0 transition-opacity group-hover:!opacity-100";
+
     return (
         <>
+            {/* Entradas */}
             <Handle
+                id="entrada"
                 type="target"
                 position={Position.Left}
-                className="!h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
+                className={targetClass}
             />
+
             <Handle
-                type="source"
+                id="entrada-derecha"
+                type="target"
                 position={Position.Right}
-                className="!h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
+                className={targetClass}
             />
+
             <Handle
+                id="entrada-arriba"
                 type="target"
                 position={Position.Top}
-                className="!h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
+                className={targetClass}
             />
+
             <Handle
+                id="entrada-abajo"
+                type="target"
+                position={Position.Bottom}
+                className={targetClass}
+            />
+
+            {/* Salidas */}
+            <Handle
+                id="salida"
+                type="source"
+                position={Position.Right}
+                className={sourceClass}
+            />
+
+            <Handle
+                id="salida-izquierda"
+                type="source"
+                position={Position.Left}
+                className={sourceClass}
+            />
+
+            <Handle
+                id="salida-arriba"
+                type="source"
+                position={Position.Top}
+                className={sourceClass}
+            />
+
+            <Handle
+                id="salida-abajo"
                 type="source"
                 position={Position.Bottom}
-                className="!h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
+                className={sourceClass}
             />
         </>
     );
@@ -618,7 +694,7 @@ function ProcessNode({ data, selected }) {
     return (
         <div
             className={cx(
-                "relative min-w-[220px] max-w-[255px] rounded-xl border bg-white shadow-[0_10px_26px_rgba(19,30,92,0.08)] transition",
+                "group relative min-w-[220px] max-w-[255px] rounded-xl border bg-white shadow-[0_10px_26px_rgba(19,30,92,0.08)] transition",
                 selected
                     ? "border-[#0B5CFF] ring-4 ring-[#0B5CFF]/10"
                     : "border-[#C8CEDF] hover:border-[#8AA4D6]"
@@ -663,12 +739,6 @@ function ProcessNode({ data, selected }) {
                     >
                         {data.actionType}
                     </span>
-
-                    {Number(data.sla) > 0 && (
-                        <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
-                            SLA {data.sla}m
-                        </span>
-                    )}
                 </div>
             </div>
         </div>
@@ -676,28 +746,53 @@ function ProcessNode({ data, selected }) {
 }
 
 function DecisionNode({ data, selected }) {
+    const sourceClass =
+        "!h-3.5 !w-3.5 !border-2 !border-white !shadow-md !opacity-0 transition-opacity group-hover:!opacity-100";
+
+    const targetClass =
+        "!h-3.5 !w-3.5 !border-2 !border-[#315BAA] !bg-white !shadow-md !opacity-0 transition-opacity group-hover:!opacity-100";
+
     return (
-        <div className="relative h-[150px] w-[190px]">
+        <div className="group relative h-[170px] w-[215px]">
             <Handle
+                id="entrada"
                 type="target"
                 position={Position.Left}
-                className="!left-0 !h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
+                className={targetClass}
             />
+
             <Handle
-                type="source"
-                position={Position.Right}
-                className="!right-0 !h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
-            />
-            <Handle
+                id="entrada-arriba"
                 type="target"
                 position={Position.Top}
-                className="!top-0 !h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
+                className={targetClass}
             />
+
             <Handle
+                id="si"
+                type="source"
+                position={Position.Right}
+                className={cx(sourceClass, "!bg-emerald-500")}
+            />
+
+            <Handle
+                id="no"
                 type="source"
                 position={Position.Bottom}
-                className="!bottom-0 !h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
+                className={cx(sourceClass, "!bg-red-500")}
             />
+
+            <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 rounded-full bg-[#F1F5FF] px-2 py-0.5 text-[10px] font-black text-[#315BAA] opacity-0 transition-opacity group-hover:opacity-100">
+                Entrada
+            </span>
+
+            <span className="pointer-events-none absolute right-0 top-[62px] translate-x-[42px] rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700 opacity-0 transition-opacity group-hover:opacity-100">
+                Sí
+            </span>
+
+            <span className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[24px] rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600 opacity-0 transition-opacity group-hover:opacity-100">
+                No
+            </span>
 
             <div
                 className={cx(
@@ -708,7 +803,7 @@ function DecisionNode({ data, selected }) {
                 )}
             />
 
-            <div className="absolute inset-0 flex items-center justify-center px-4 text-center">
+            <div className="absolute inset-0 flex items-center justify-center px-5 text-center">
                 <div>
                     <span className="mb-1 inline-flex rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-black text-purple-700">
                         {data.id}
@@ -719,7 +814,7 @@ function DecisionNode({ data, selected }) {
                     </p>
 
                     <p className="mt-1 text-[10px] font-bold text-[#8891AD]">
-                        {data.next || "Sin lógica"}
+                        {data.next || "Sí -> ; No ->"}
                     </p>
                 </div>
             </div>
@@ -730,27 +825,68 @@ function DecisionNode({ data, selected }) {
 function TerminalNode({ data, selected }) {
     const isStart = String(data.label || "").toLowerCase().includes("inicio");
 
+    const sourceClass =
+        "!h-3.5 !w-3.5 !border-2 !border-white !bg-[#315BAA] !shadow-md !opacity-0 transition-opacity group-hover:!opacity-100";
+
+    const targetClass =
+        "!h-3.5 !w-3.5 !border-2 !border-[#315BAA] !bg-white !shadow-md !opacity-0 transition-opacity group-hover:!opacity-100";
+
     return (
-        <div className="relative flex min-w-[150px] flex-col items-center">
+        <div className="group relative flex min-w-[150px] flex-col items-center">
             <Handle
-                type="target"
-                position={Position.Top}
-                className="!h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
-            />
-            <Handle
+                id="entrada"
                 type="target"
                 position={Position.Left}
-                className="!h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
+                className={targetClass}
             />
+
             <Handle
+                id="entrada-arriba"
+                type="target"
+                position={Position.Top}
+                className={targetClass}
+            />
+
+            <Handle
+                id="entrada-derecha"
+                type="target"
+                position={Position.Right}
+                className={targetClass}
+            />
+
+            <Handle
+                id="entrada-abajo"
+                type="target"
+                position={Position.Bottom}
+                className={targetClass}
+            />
+
+            <Handle
+                id="salida"
                 type="source"
                 position={Position.Bottom}
-                className="!h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
+                className={sourceClass}
             />
+
             <Handle
+                id="salida-derecha"
                 type="source"
                 position={Position.Right}
-                className="!h-3 !w-3 !border-2 !border-white !bg-[#315BAA]"
+                className={sourceClass}
+            />
+
+            <Handle
+                id="salida-izquierda"
+                type="source"
+                position={Position.Left}
+                className={sourceClass}
+            />
+
+            <Handle
+                id="salida-arriba"
+                type="source"
+                position={Position.Top}
+                className={sourceClass}
             />
 
             <div
@@ -779,7 +915,6 @@ function TerminalNode({ data, selected }) {
     );
 }
 
-
 function BasicShapesPanel({
     onAddNode,
     width,
@@ -789,6 +924,7 @@ function BasicShapesPanel({
     onCreateProject,
     onDuplicateProject,
     onDeleteProject,
+    onEditProject,
 }) {
     const [tab, setTab] = useState("proyectos");
     const [qShapes, setQShapes] = useState("");
@@ -900,6 +1036,10 @@ function BasicShapesPanel({
                                         role="button"
                                         tabIndex={0}
                                         onClick={() => onSelectProject(project.id)}
+                                        onDoubleClick={(event) => {
+                                            event.stopPropagation();
+                                            onEditProject(project.id);
+                                        }}
                                         onKeyDown={(event) => {
                                             if (event.key === "Enter") onSelectProject(project.id);
                                         }}
@@ -1427,6 +1567,226 @@ function VWHeader({
     );
 }
 
+function ModalBase({ title, children, onClose }) {
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#07111F]/35 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-[#E4E7F0] bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-[#E4E7F0] px-5 py-4">
+                    <h3 className="text-base font-black text-[#1A1F3C]">
+                        {title}
+                    </h3>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#E4E7F0] text-[#515778] hover:bg-[#F7F8FC]"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                {children}
+            </div>
+        </div>
+    );
+}
+
+function ProjectEditModal({ project, onClose, onSave }) {
+    const [form, setForm] = useState({
+        name: project?.name || "",
+        description: project?.description || "",
+    });
+
+    function updateField(field, value) {
+        setForm((current) => ({
+            ...current,
+            [field]: value,
+        }));
+    }
+
+    return (
+        <ModalBase title="Editar proyecto" onClose={onClose}>
+            <div className="space-y-4 p-5">
+                <div>
+                    <label className="mb-1 block text-xs font-black uppercase tracking-widest text-[#8891AD]">
+                        Nombre
+                    </label>
+
+                    <input
+                        value={form.name}
+                        onChange={(e) => updateField("name", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-[#E4E7F0] px-3 text-sm font-bold outline-none focus:border-[#131E5C]/30 focus:ring-2 focus:ring-[#131E5C]/10"
+                        placeholder="Nombre del proyecto"
+                    />
+                </div>
+
+                <div>
+                    <label className="mb-1 block text-xs font-black uppercase tracking-widest text-[#8891AD]">
+                        Descripción
+                    </label>
+
+                    <textarea
+                        value={form.description}
+                        onChange={(e) => updateField("description", e.target.value)}
+                        rows={4}
+                        className="w-full resize-none rounded-xl border border-[#E4E7F0] px-3 py-2 text-sm font-semibold outline-none focus:border-[#131E5C]/30 focus:ring-2 focus:ring-[#131E5C]/10"
+                        placeholder="Descripción del proyecto"
+                    />
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[#E4E7F0] px-5 py-4">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="h-10 rounded-xl border border-[#E4E7F0] px-4 text-xs font-black text-[#515778] hover:bg-[#F7F8FC]"
+                >
+                    Cancelar
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        if (!form.name.trim()) {
+                            alert("El nombre es obligatorio.");
+                            return;
+                        }
+
+                        onSave({
+                            name: form.name.trim(),
+                            description: form.description.trim(),
+                        });
+                    }}
+                    className="h-10 rounded-xl bg-[#131E5C] px-4 text-xs font-black text-white hover:bg-[#0A1340]"
+                >
+                    Guardar cambios
+                </button>
+            </div>
+        </ModalBase>
+    );
+}
+
+function StepEditModal({ step, onClose, onSave }) {
+    const [form, setForm] = useState({
+        nombre: step?.nombre || "",
+        responsable: step?.responsable || "Asesor",
+        tipo: step?.tipo || "Tarea",
+        siguiente: step?.siguiente || "",
+        detalles: step?.detalles || "",
+    });
+
+    function updateField(field, value) {
+        setForm((current) => ({
+            ...current,
+            [field]: value,
+        }));
+    }
+
+    return (
+        <ModalBase title="Editar paso" onClose={onClose}>
+            <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
+                <div className="md:col-span-2">
+                    <label className="mb-1 block text-xs font-black uppercase tracking-widest text-[#8891AD]">
+                        Nombre del paso
+                    </label>
+
+                    <input
+                        value={form.nombre}
+                        onChange={(e) => updateField("nombre", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-[#E4E7F0] px-3 text-sm font-bold outline-none focus:border-[#131E5C]/30 focus:ring-2 focus:ring-[#131E5C]/10"
+                    />
+                </div>
+
+                <div>
+                    <label className="mb-1 block text-xs font-black uppercase tracking-widest text-[#8891AD]">
+                        Responsable
+                    </label>
+
+                    <select
+                        value={form.responsable}
+                        onChange={(e) => updateField("responsable", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-[#E4E7F0] px-3 text-sm font-bold outline-none focus:border-[#131E5C]/30 focus:ring-2 focus:ring-[#131E5C]/10"
+                    >
+                        {RESPONSABLES.map((item) => (
+                            <option key={item}>{item}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div>
+                    <label className="mb-1 block text-xs font-black uppercase tracking-widest text-[#8891AD]">
+                        Tipo
+                    </label>
+
+                    <select
+                        value={form.tipo}
+                        onChange={(e) => updateField("tipo", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-[#E4E7F0] px-3 text-sm font-bold outline-none focus:border-[#131E5C]/30 focus:ring-2 focus:ring-[#131E5C]/10"
+                    >
+                        {ACTION_TYPES.map((item) => (
+                            <option key={item}>{item}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div>
+                    <label className="mb-1 block text-xs font-black uppercase tracking-widest text-[#8891AD]">
+                        Siguiente paso
+                    </label>
+
+                    <input
+                        value={form.siguiente}
+                        onChange={(e) => updateField("siguiente", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-[#E4E7F0] px-3 text-sm font-bold outline-none focus:border-[#131E5C]/30 focus:ring-2 focus:ring-[#131E5C]/10"
+                        placeholder="2 o Sí -> 4; No -> 6"
+                    />
+                </div>
+
+                <div>
+                    <label className="mb-1 block text-xs font-black uppercase tracking-widest text-[#8891AD]">
+                        Detalles
+                    </label>
+
+                    <input
+                        value={form.detalles}
+                        onChange={(e) => updateField("detalles", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-[#E4E7F0] px-3 text-sm font-bold outline-none focus:border-[#131E5C]/30 focus:ring-2 focus:ring-[#131E5C]/10"
+                    />
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[#E4E7F0] px-5 py-4">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="h-10 rounded-xl border border-[#E4E7F0] px-4 text-xs font-black text-[#515778] hover:bg-[#F7F8FC]"
+                >
+                    Cancelar
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        if (!form.nombre.trim()) {
+                            alert("El nombre del paso es obligatorio.");
+                            return;
+                        }
+
+                        onSave({
+                            ...form,
+                            nombre: form.nombre.trim(),
+                            detalles: form.detalles.trim(),
+                        });
+                    }}
+                    className="h-10 rounded-xl bg-[#131E5C] px-4 text-xs font-black text-white hover:bg-[#0A1340]"
+                >
+                    Guardar cambios
+                </button>
+            </div>
+        </ModalBase>
+    );
+}
+
 function ProcessDesignerInner() {
     const fileInputRef = useRef(null);
     const initialStoreRef = useRef(loadProjectStore());
@@ -1460,6 +1820,9 @@ function ProcessDesignerInner() {
     const [saved, setSaved] = useState(true);
     const [lastSaved, setLastSaved] = useState(nowTime());
 
+    const [editingProjectId, setEditingProjectId] = useState(null);
+    const [editingStepId, setEditingStepId] = useState(null);
+
     const nodeTypes = useMemo(
         () => ({
             process: ProcessNode,
@@ -1472,6 +1835,15 @@ function ProcessDesignerInner() {
     const activeProject = useMemo(
         () => projects.find((project) => project.id === activeProjectId) || projects[0],
         [projects, activeProjectId]
+    );
+    const editingProject = useMemo(
+        () => projects.find((project) => project.id === editingProjectId) || null,
+        [projects, editingProjectId]
+    );
+
+    const editingStep = useMemo(
+        () => steps.find((step) => step.id === editingStepId) || null,
+        [steps, editingStepId]
     );
 
     const stats = useMemo(
@@ -1890,23 +2262,16 @@ function ProcessDesignerInner() {
 
     const onConnect = useCallback(
         (connection) => {
+            const newEdge = makeEdge(
+                connection.source,
+                connection.target,
+                "",
+                connection.sourceHandle || "salida",
+                connection.targetHandle || "entrada"
+            );
+
             setEdges((currentEdges) => {
-                const nextEdges = addEdge(
-                    {
-                        ...connection,
-                        id: `${connection.source}-${connection.target}-${Date.now()}`,
-                        type: "smoothstep",
-                        markerEnd: {
-                            type: MarkerType.ArrowClosed,
-                            color: "#315BAA",
-                        },
-                        style: {
-                            stroke: "#315BAA",
-                            strokeWidth: 2,
-                        },
-                    },
-                    currentEdges
-                );
+                const nextEdges = addEdge(newEdge, currentEdges);
 
                 setProjects((currentProjects) =>
                     currentProjects.map((project) =>
@@ -1927,7 +2292,6 @@ function ProcessDesignerInner() {
         },
         [activeProjectId]
     );
-
     const onDrop = useCallback(
         (event) => {
             event.preventDefault();
@@ -2156,6 +2520,36 @@ function ProcessDesignerInner() {
         return () => clearTimeout(timer);
     }, [projects, activeProjectId, saved]);
 
+    function saveProjectDetails(patch) {
+        if (!editingProjectId) return;
+
+        setProjects((currentProjects) =>
+            currentProjects.map((project) =>
+                project.id === editingProjectId
+                    ? {
+                        ...project,
+                        ...patch,
+                        updatedAt: fullDateTime(),
+                    }
+                    : project
+            )
+        );
+
+        if (editingProjectId === activeProjectId) {
+            updateCurrentProject(patch);
+        } else {
+            setSaved(false);
+        }
+
+        setEditingProjectId(null);
+    }
+
+    function saveStepDetails(patch) {
+        if (!editingStepId) return;
+
+        updateStep(editingStepId, patch);
+        setEditingStepId(null);
+    }
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-[#F7F8FC] text-[#1A1F3C]">
             <style>
@@ -2185,6 +2579,38 @@ function ProcessDesignerInner() {
                         overflow: hidden;
                         box-shadow: 0 18px 50px rgba(19,30,92,0.12);
                     }
+ 
+                    .react-flow__handle {
+                        z-index: 20;
+                    }
+
+                    .react-flow__handle:hover {
+                        transform: scale(1.35);
+                    }
+
+                    .react-flow__edge.selected .react-flow__edge-path,
+                    .react-flow__edge:focus .react-flow__edge-path,
+                    .react-flow__edge:focus-visible .react-flow__edge-path {
+                        stroke: #0B5CFF !important;
+                        stroke-width: 4px !important;
+                        filter: drop-shadow(0 0 6px rgba(11, 92, 255, 0.45));
+                    }
+
+                    .react-flow__edge.selected .react-flow__arrowhead path,
+                    .react-flow__edge:focus .react-flow__arrowhead path,
+                    .react-flow__edge:focus-visible .react-flow__arrowhead path {
+                        fill: #0B5CFF !important;
+                        stroke: #0B5CFF !important;
+                    }
+
+                    .react-flow__edge .react-flow__edge-interaction {
+                        stroke-width: 28px;
+                    }
+
+                    .react-flow__connection-path {
+                        stroke: #0B5CFF !important;
+                        stroke-width: 3px !important;
+                    }
                 `}
             </style>
 
@@ -2195,6 +2621,22 @@ function ProcessDesignerInner() {
                 className="hidden"
                 onChange={importJson}
             />
+
+            {editingProject && (
+                <ProjectEditModal
+                    project={editingProject}
+                    onClose={() => setEditingProjectId(null)}
+                    onSave={saveProjectDetails}
+                />
+            )}
+
+            {editingStep && (
+                <StepEditModal
+                    step={editingStep}
+                    onClose={() => setEditingStepId(null)}
+                    onSave={saveStepDetails}
+                />
+            )}
 
             <VWHeader
                 projectName={activeProject?.name || "Proceso Volkswagen"}
@@ -2224,6 +2666,7 @@ function ProcessDesignerInner() {
                     onCreateProject={createProject}
                     onDuplicateProject={duplicateProject}
                     onDeleteProject={deleteProject}
+                    onEditProject={setEditingProjectId}
                 />
 
                 <ResizeHandle
@@ -2249,7 +2692,12 @@ function ProcessDesignerInner() {
                         onConnect={onConnect}
                         onDrop={onDrop}
                         onDragOver={onDragOver}
+                        connectionMode="loose"
                         onPaneContextMenu={(event) => event.preventDefault()}
+                        onNodeDoubleClick={(_, node) => {
+                            const stepId = getStepIdFromNode(node?.id);
+                            if (stepId) setEditingStepId(stepId);
+                        }}
                         onSelectionChange={({ nodes: selectedNodes }) => {
                             const selected = selectedNodes?.[0];
                             const stepId = getStepIdFromNode(selected?.id);
