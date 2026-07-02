@@ -246,8 +246,48 @@ const userTieneAgencia = useCallback(
     function agregarCandidato() { const nuevo = crearCandidatoBase({ puesto: draft?.puesto || "", fuente: draft?.fuente_reclutamiento || "" }); setDraft((prev) => ({ ...prev, candidatos: [...normalizarCandidatos(prev), nuevo] })); setActiveTab("candidatos"); setExpandedCandidate(nuevo.id_temporal); }
     function actualizarCandidato(index, key, value) { setDraft((prev) => { const candidatos = normalizarCandidatos(prev).map((candidato, i) => { if (i !== index) return candidato; const next = { ...candidato, [key]: value }; if (key === "tipo_validacion_socioeconomica") { if (value !== "Estudio socioeconómico") { next.fecha_solicitud_estudio_socioeconomico = ""; next.fecha_entrega_reporte_socioeconomico = ""; } if (value !== "Referencias laborales") { next.fecha_solicitud_referencias_laborales = ""; next.fecha_entrega_referencias_laborales = ""; } } if (key === "fecha_ingreso" && value) { next.estatus = "Contratado"; } return next; }); return { ...prev, candidatos }; }); }
     function eliminarCandidato(index) { const candidato = normalizarCandidatos(draft)[index]; const ok = confirm(`¿Eliminar a ${candidato?.nombre || `candidato ${index + 1}`}?`); if (!ok) return; setDraft((prev) => ({ ...prev, candidatos: normalizarCandidatos(prev).filter((_, i) => i !== index) })); if (expandedCandidate === candidato?.id_temporal) { setExpandedCandidate(null); } }
-    async function save() { if (!draft || saving) return; setTouchedSave(true); if (missing.length) { setActiveTab("vacante"); return; } if (candidateErrors.length) { setActiveTab("candidatos"); const primerError = normalizarCandidatos(draft)[candidateErrors[0].index]; setExpandedCandidate(primerError?.id_temporal || null); return; } setSaving(true); try { const payload = { ...draft, candidatos: normalizarCandidatos(draft) }; if (mode === "create") { await apiReclutamiento.crearVacante(payload); } else { await apiReclutamiento.actualizarVacante(draft.id_vacante, payload); } await cargarVacantes(); setOpenModal(false); setDraft(null); } catch (error) { console.error(error); alert("No se pudo guardar la vacante."); } finally { setSaving(false); } }
-    async function eliminarVacante(row) { if (!row?.id_vacante) return; const ok = confirm(`¿Eliminar la vacante ${row.id_vacante}?`); if (!ok) { setMenuContextual(null); return; } try { setMenuContextual(null); await apiReclutamiento.eliminarVacante(row.id_vacante); await cargarVacantes(); } catch (error) { console.error(error); alert("No se pudo eliminar la vacante."); } }
+async function save() {
+    if (!draft || saving) return;
+    setTouchedSave(true);
+
+    if (missing.length) {
+        setActiveTab("vacante");
+        alert(`No se pudo guardar. Faltan campos obligatorios de la vacante:\n\n${missing.map((key) => REQUIRED[key]).join("\n")}`);
+        return;
+    }
+
+    if (candidateErrors.length) {
+        setActiveTab("candidatos");
+        const primerError = normalizarCandidatos(draft)[candidateErrors[0].index];
+        setExpandedCandidate(primerError?.id_temporal || null);
+
+        const mensaje = candidateErrors
+            .map((item) => `${item.nombre}: ${item.faltantes.map((key) => REQUIRED_CANDIDATE[key]).join(", ")}`)
+            .join("\n");
+
+        alert(`No se pudo guardar. Hay candidatos con información incompleta:\n\n${mensaje}`);
+        return;
+    }
+
+    setSaving(true);
+    try {
+        const payload = { ...draft, candidatos: normalizarCandidatos(draft) };
+        if (mode === "create") {
+            await apiReclutamiento.crearVacante(payload);
+        } else {
+            await apiReclutamiento.actualizarVacante(draft.id_vacante, payload);
+        }
+        await cargarVacantes();
+        setOpenModal(false);
+        setDraft(null);
+    } catch (error) {
+        console.error(error);
+        const detalle = error?.message || "";
+        alert(`No se pudo guardar la vacante.${detalle ? `\n\nDetalle: ${detalle}` : ""}`);
+    } finally {
+        setSaving(false);
+    }
+}    async function eliminarVacante(row) { if (!row?.id_vacante) return; const ok = confirm(`¿Eliminar la vacante ${row.id_vacante}?`); if (!ok) { setMenuContextual(null); return; } try { setMenuContextual(null); await apiReclutamiento.eliminarVacante(row.id_vacante); await cargarVacantes(); } catch (error) { console.error(error); alert("No se pudo eliminar la vacante."); } }
     async function updateEstatusInline(row, nuevoEstatus) { const id = row.id_vacante; const fechaCierre = nuevoEstatus === "Cerrada" ? row.fecha_cierre || new Date().toISOString() : null; setActualizando((prev) => ({ ...prev, [id]: true })); const anterior = vacantes; setVacantes((prev) => prev.map((item) => item.id_vacante === id ? { ...item, estatus: nuevoEstatus, fecha_cierre: fechaCierre } : item)); try { const actualizado = await apiReclutamiento.actualizarVacante(id, { ...row, estatus: nuevoEstatus, fecha_cierre: fechaCierre }); setVacantes((prev) => prev.map((item) => item.id_vacante === id ? normalizarVacanteDesdeApi(actualizado) : item)); } catch (error) { console.error(error); setVacantes(anterior); alert("No se pudo actualizar el estatus."); } finally { setActualizando((prev) => { const next = { ...prev }; delete next[id]; return next; }); } }
     function SortIcon({ column }) { if (sort.key !== column) return <ArrowUpDown className="h-4 w-4" />; return sort.dir === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />; }
 
