@@ -99,6 +99,7 @@ import FlujoProcesos from "./pages/FlujoProcesos/FlujoProcesos";
 
 import InventarioLayout from "./pages/Inventario/InventarioLayout";
 import InventarioIndex from "./pages/Inventario/InventarioIndex";
+import BitacoraMantenimiento from "./pages/Inventario/BitacoraMantenimiento";
 import NoConformidad from "./pages/Calidad/NoConformidad";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
@@ -805,8 +806,19 @@ export const router = createBrowserRouter(
                                     <InventarioLayout />
                                 </RequirePermission>
                             ),
-                            children: [{ index: true, element: <InventarioIndex /> }],
+                            children: [
+                                { index: true, element: <InventarioIndex /> },
+                                {
+                                    path: "bitacora_mantenimiento",
+                                    element: (
+                                        <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]}>
+                                            <BitacoraMantenimiento />
+                                        </RequirePermission>
+                                    ),
+                                },
+                            ],
                         },
+
 
                         {
                             path: "administrativos",

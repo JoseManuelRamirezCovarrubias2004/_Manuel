@@ -3,31 +3,32 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { apiInventario } from "../../lib/apiInventario";
 import { useECharts } from "./useECharts";
 import "./inventario.css";
+import { useNavigate } from "react-router-dom";
 
 import vwDark from "../../assets/vw_dark.png";
 
-const NAVY   = "#001E50";
-const CYAN   = "#00B0F0";
+const NAVY = "#001E50";
+const CYAN = "#00B0F0";
 const SILVER = "#C8CACB";
 const BRAND_BLUE = "#131E5C";
 
-const PALETA_AGENCIAS  = ["#001E50", "#00437A", "#0077B3", "#00A0D6", "#00B0F0"];
-const PALETA_ESTATUS   = ["#00B0F0", "#0091CC", "#007099", "#005066", "#003344", "#001E50"];
+const PALETA_AGENCIAS = ["#001E50", "#00437A", "#0077B3", "#00A0D6", "#00B0F0"];
+const PALETA_ESTATUS = ["#00B0F0", "#0091CC", "#007099", "#005066", "#003344", "#001E50"];
 const PALETA_CONDICION = { Nuevo: "#001E50", Usado: "#00B0F0", default: "#C8CACB" };
 
 const ESTATUS_EXCLUIDOS = ["V", "O", "C", "D", "P", "T"];
 
 const KPI_ICONS = {
-  "Total activo":      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />,
-  "Agencia líder":     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />,
-  "% Nuevos":          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 14.25l6-6m4.5-3.493V21.75l-4.125-2.062-4.125 2.063-4.125-2.063L3 21.75V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />,
-  "Costo inventario":  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
+  "Total activo": <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />,
+  "Agencia líder": <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />,
+  "% Nuevos": <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 14.25l6-6m4.5-3.493V21.75l-4.125-2.062-4.125 2.063-4.125-2.063L3 21.75V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />,
+  "Costo inventario": <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
 };
 
 function KPICard({ label, value, sub, color = NAVY }) {
   return (
     <div className="kpi-card bg-white flex flex-col gap-1 px-5 py-4"
-        style={{ borderRadius: "4px", border: "1px solid #e2e8f0" }}>
+      style={{ borderRadius: "4px", border: "1px solid #e2e8f0" }}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{label}</span>
         <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -84,19 +85,19 @@ function Badge({ label, color }) {
 }
 
 function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFamilia }) {
-  const [query,    setQuery]    = useState("");
-  const [pagina,   setPagina]   = useState(1);
-  const [filtAgencia,   setFiltAgencia]   = useState("");
-  const [filtEstatus,   setFiltEstatus]   = useState("");
+  const [query, setQuery] = useState("");
+  const [pagina, setPagina] = useState(1);
+  const [filtAgencia, setFiltAgencia] = useState("");
+  const [filtEstatus, setFiltEstatus] = useState("");
   const [filtCondicion, setFiltCondicion] = useState("");
-  const [filtFamilia,   setFiltFamilia]   = useState("");
-  const [filtDiasMin,   setFiltDiasMin]   = useState("");
-  const [filtDiasMax,   setFiltDiasMax]   = useState("");
+  const [filtFamilia, setFiltFamilia] = useState("");
+  const [filtDiasMin, setFiltDiasMin] = useState("");
+  const [filtDiasMax, setFiltDiasMax] = useState("");
   const POR_PAGINA = 12;
   // Opciones dinámicas desde los datos
-  const agencias   = useMemo(() => [...new Set(vehiculos.map((v) => v.agenciaNombre).filter(Boolean))].sort(), [vehiculos]);
-  const estatuses  = useMemo(() => [...new Set(vehiculos.map((v) => v.estatusNombre).filter(Boolean))].sort(), [vehiculos]);
-  const familias   = useMemo(() => [...new Set(vehiculos.map((v) => v.NmFamilia).filter(Boolean))].sort(), [vehiculos]);
+  const agencias = useMemo(() => [...new Set(vehiculos.map((v) => v.agenciaNombre).filter(Boolean))].sort(), [vehiculos]);
+  const estatuses = useMemo(() => [...new Set(vehiculos.map((v) => v.estatusNombre).filter(Boolean))].sort(), [vehiculos]);
+  const familias = useMemo(() => [...new Set(vehiculos.map((v) => v.NmFamilia).filter(Boolean))].sort(), [vehiculos]);
 
   const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -139,11 +140,11 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
     filtDiasMin,
     filtDiasMax
   ]);
- 
+
   useEffect(() => { setPagina(1); }, [query, vehiculos, filtAgencia, filtEstatus, filtCondicion, filtFamilia, filtDiasMin, filtDiasMax]);
 
   const totalPaginas = Math.ceil(filtrados.length / POR_PAGINA);
-  const paginados    = filtrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);  const condLabel = (c) => ({ N: "Nuevo", U: "Usado" })[(c || "").trim()] ?? (c || "—");
+  const paginados = filtrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA); const condLabel = (c) => ({ N: "Nuevo", U: "Usado" })[(c || "").trim()] ?? (c || "—");
   const totalCosto = filtrados.reduce((acc, v) => acc + (v.VrNF_Compra || 0), 0);
 
   const hayFiltros = filtAgencia || filtEstatus || filtCondicion || filtFamilia || filtDiasMin || filtDiasMax;
@@ -191,10 +192,14 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
           {agencias.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
 
+
+
         <select value={filtEstatus} onChange={(e) => setFiltEstatus(e.target.value)} className={selectCls}>
           <option value="">Todos los estatus</option>
           {estatuses.map((e) => <option key={e} value={e}>{e}</option>)}
         </select>
+
+
 
         <select value={filtCondicion} onChange={(e) => setFiltCondicion(e.target.value)} className={selectCls}>
           <option value="">Nuevo y Usado</option>
@@ -249,7 +254,7 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
         </p>
       )}
 
-      {error   && <p className="text-sm text-red-500 text-center py-6">{error}</p>}
+      {error && <p className="text-sm text-red-500 text-center py-6">{error}</p>}
       {cargando && (
         <div className="flex items-center justify-center py-10 gap-2 text-slate-400 text-sm">
           <svg className="animate-spin" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -268,7 +273,7 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 text-left border-b border-slate-100">
-                  {["VIN","Familia","Modelo","Agencia","Condición","Estatus","F. Compra","Días","Valor Compra","Situación"].map((h) => (
+                  {["VIN", "Familia", "Modelo", "Agencia", "Condición", "Estatus", "F. Compra", "Días", "Valor Compra", "Situación"].map((h) => (
                     <th key={h} className="px-3 py-2.5 font-semibold text-slate-500 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -296,11 +301,10 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
                     <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{v.DtFaturamento || "—"}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       {v.diasEnStock != null ? (
-                        <span className={`font-medium px-2 py-0.5 rounded-full ${
-                          v.diasEnStock > 120 ? "bg-red-50 text-red-500"
+                        <span className={`font-medium px-2 py-0.5 rounded-full ${v.diasEnStock > 120 ? "bg-red-50 text-red-500"
                           : v.diasEnStock > 60 ? "bg-amber-50 text-amber-600"
-                          : "bg-emerald-50 text-emerald-600"
-                        }`}>
+                            : "bg-emerald-50 text-emerald-600"
+                          }`}>
                           {v.diasEnStock}d
                         </span>
                       ) : "—"}
@@ -353,25 +357,25 @@ function TablaVehiculos({ vehiculos, cargando, error, familiaFiltro, onClearFami
 // ── Página principal ───────────────────────────────────────────────────────────
 
 export default function InventarioIndex() {
-  const [filtrosDisponibles,  setFiltrosDisponibles]  = useState({ agencias: [], estatus: [] });
+  const [filtrosDisponibles, setFiltrosDisponibles] = useState({ agencias: [], estatus: [] });
   const [agenciaSeleccionada, setAgenciaSeleccionada] = useState("");
   const [estatusSeleccionado, setEstatusSeleccionado] = useState("");
   const [familiaFiltro, setFamiliaFiltro] = useState("");
   const tablaRef = useRef(null);
 
-  const [vehiculos,         setVehiculos]         = useState([]);
-  const [porAgencia,        setPorAgencia]        = useState([]);
-  const [porEstatus,        setPorEstatus]        = useState([]);
-  const [porMarca,          setPorMarca]          = useState([]);
-  const [nuevoUsado,        setNuevoUsado]        = useState([]);
+  const [vehiculos, setVehiculos] = useState([]);
+  const [porAgencia, setPorAgencia] = useState([]);
+  const [porEstatus, setPorEstatus] = useState([]);
+  const [porMarca, setPorMarca] = useState([]);
+  const [nuevoUsado, setNuevoUsado] = useState([]);
   const [nacionalImportado, setNacionalImportado] = useState([]);
-  const [costoTotal,        setCostoTotal]        = useState(0);
-  const [antiguedad,        setAntiguedad]        = useState([]);
+  const [costoTotal, setCostoTotal] = useState(0);
+  const [antiguedad, setAntiguedad] = useState([]);
 
-  const [cargando,      setCargando]      = useState(true);
+  const [cargando, setCargando] = useState(true);
   const [cargandoTabla, setCargandoTabla] = useState(true);
-  const [error,         setError]         = useState("");
-  const [errorTabla,    setErrorTabla]    = useState("");
+  const [error, setError] = useState("");
+  const [errorTabla, setErrorTabla] = useState("");
 
   useEffect(() => {
     apiInventario.getFiltros()
@@ -430,7 +434,7 @@ export default function InventarioIndex() {
   }, [porAgencia]);
 
   const pctNuevo = useMemo(() => {
-    const total  = nuevoUsado.reduce((a, d) => a + d.total, 0);
+    const total = nuevoUsado.reduce((a, d) => a + d.total, 0);
     const nuevos = nuevoUsado.filter((d) => d.condicion === "Nuevo").reduce((a, d) => a + d.total, 0);
     return total > 0 ? Math.round((nuevos / total) * 100) : 0;
   }, [nuevoUsado]);
@@ -481,7 +485,8 @@ export default function InventarioIndex() {
         data: sorted.map((d, i) => ({
           value: d.total,
           itemStyle: {
-            color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1,
+            color: {
+              type: "linear", x: 0, y: 0, x2: 0, y2: 1,
               colorStops: [
                 { offset: 0, color: i === 0 ? CYAN : PALETA_AGENCIAS[i] || "#3b82f6" },
                 { offset: 1, color: i === 0 ? "#0891B2" : NAVY },
@@ -491,18 +496,24 @@ export default function InventarioIndex() {
           },
         })),
         barWidth: "45%",
-        label: { show: true, position: "top", color: "#475569", fontSize: 11, fontWeight: 600,
-          formatter: (p) => p.value.toLocaleString("es-MX") },
+        label: {
+          show: true, position: "top", color: "#475569", fontSize: 11, fontWeight: 600,
+          formatter: (p) => p.value.toLocaleString("es-MX")
+        },
       }],
     };
   }, [porAgencia, totalGeneral]);
 
+  const navigate = useNavigate();
+
   const optionPorEstatus = useMemo(() => {
     if (!porEstatus.length) return null;
     return {
-      tooltip: { trigger: "item", backgroundColor: "#fff", borderColor: "#e2e8f0", borderWidth: 1,
+      tooltip: {
+        trigger: "item", backgroundColor: "#fff", borderColor: "#e2e8f0", borderWidth: 1,
         textStyle: { color: "#334155", fontSize: 12 },
-        formatter: (p) => `<b>${p.name}</b><br/>${p.value.toLocaleString("es-MX")} vehículos<br/><b>${p.percent}%</b>` },
+        formatter: (p) => `<b>${p.name}</b><br/>${p.value.toLocaleString("es-MX")} vehículos<br/><b>${p.percent}%</b>`
+      },
       legend: { bottom: 0, textStyle: { color: "#64748b", fontSize: 11 }, icon: "circle", itemWidth: 8, itemHeight: 8, itemGap: 12 },
       color: PALETA_ESTATUS,
       series: [{
@@ -518,18 +529,24 @@ export default function InventarioIndex() {
   const optionPorMarca = useMemo(() => {
     if (!porMarca.length) return null;
     const datos = [...porMarca].reverse();
-    const max   = datos[datos.length - 1]?.total || 1;
+    const max = datos[datos.length - 1]?.total || 1;
     return {
-      tooltip: { trigger: "axis", axisPointer: { type: "none" },
+      tooltip: {
+        trigger: "axis", axisPointer: { type: "none" },
         backgroundColor: "#fff", borderColor: "#e2e8f0", borderWidth: 1,
         textStyle: { color: "#334155", fontSize: 12 },
-        formatter: (params) => `<b>${params[0].name}</b><br/>Vehículos: <b>${params[0].value.toLocaleString("es-MX")}</b>` },
+        formatter: (params) => `<b>${params[0].name}</b><br/>Vehículos: <b>${params[0].value.toLocaleString("es-MX")}</b>`
+      },
       grid: { left: 8, right: 80, top: 12, bottom: 12, containLabel: true },
-      xAxis: { type: "value", splitLine: { lineStyle: { color: "#f1f5f9", type: "dashed" } },
-        axisLabel: { color: "#94a3b8", fontSize: 10 } },
-      yAxis: { type: "category", data: datos.map((d) => d.familia),
+      xAxis: {
+        type: "value", splitLine: { lineStyle: { color: "#f1f5f9", type: "dashed" } },
+        axisLabel: { color: "#94a3b8", fontSize: 10 }
+      },
+      yAxis: {
+        type: "category", data: datos.map((d) => d.familia),
         axisLine: { show: false }, axisTick: { show: false },
-        axisLabel: { color: "#475569", fontSize: 11, fontWeight: 500 } },
+        axisLabel: { color: "#475569", fontSize: 11, fontWeight: 500 }
+      },
       series: [{
         name: "Vehículos", type: "bar",
         data: datos.map((d) => {
@@ -540,20 +557,23 @@ export default function InventarioIndex() {
             itemStyle: {
               color: isInactive
                 ? "#cbd5e1"
-                : { type: "linear", x: 0, y: 0, x2: 1, y2: 0,
-                    colorStops: [
-                      { offset: 0, color: NAVY },
-                      { offset: 1, color: (d.total === max || isActive) ? CYAN : "#2563eb" },
-                    ],
-                  },
+                : {
+                  type: "linear", x: 0, y: 0, x2: 1, y2: 0,
+                  colorStops: [
+                    { offset: 0, color: NAVY },
+                    { offset: 1, color: (d.total === max || isActive) ? CYAN : "#2563eb" },
+                  ],
+                },
               borderRadius: [0, 6, 6, 0],
               opacity: isInactive ? 0.4 : 1,
             },
           };
         }),
         barWidth: "60%",
-        label: { show: true, position: "right", color: "#475569", fontSize: 11, fontWeight: 600,
-          formatter: (p) => p.value.toLocaleString("es-MX") },
+        label: {
+          show: true, position: "right", color: "#475569", fontSize: 11, fontWeight: 600,
+          formatter: (p) => p.value.toLocaleString("es-MX")
+        },
         emphasis: { itemStyle: { shadowBlur: 8, shadowColor: "rgba(6,182,212,0.3)" } },
         cursor: "pointer",
       }],
@@ -562,7 +582,7 @@ export default function InventarioIndex() {
 
   const optionNuevoUsado = useMemo(() => {
     if (!nuevoUsado.length) return null;
-    const agencias    = [...new Set(nuevoUsado.map((d) => d.agenciaNombre))];
+    const agencias = [...new Set(nuevoUsado.map((d) => d.agenciaNombre))];
     const condiciones = ["Nuevo", "Usado"];
     const series = condiciones.map((cond) => ({
       name: cond, type: "bar", stack: "total",
@@ -570,22 +590,32 @@ export default function InventarioIndex() {
         const fila = nuevoUsado.find((d) => d.agenciaNombre === ag && d.condicion === cond);
         return fila ? fila.total : 0;
       }),
-      itemStyle: { color: PALETA_CONDICION[cond] || PALETA_CONDICION.default,
-        borderRadius: cond === "Usado" ? [6, 6, 0, 0] : [0, 0, 0, 0] },
+      itemStyle: {
+        color: PALETA_CONDICION[cond] || PALETA_CONDICION.default,
+        borderRadius: cond === "Usado" ? [6, 6, 0, 0] : [0, 0, 0, 0]
+      },
       barWidth: "45%",
-      label: { show: true, color: "#fff", fontSize: 10, fontWeight: 600,
-        formatter: (p) => p.value > 0 ? p.value.toLocaleString("es-MX") : "" },
+      label: {
+        show: true, color: "#fff", fontSize: 10, fontWeight: 600,
+        formatter: (p) => p.value > 0 ? p.value.toLocaleString("es-MX") : ""
+      },
     }));
     return {
-      tooltip: { trigger: "axis", axisPointer: { type: "none" },
+      tooltip: {
+        trigger: "axis", axisPointer: { type: "none" },
         backgroundColor: "#fff", borderColor: "#e2e8f0", borderWidth: 1,
-        textStyle: { color: "#334155", fontSize: 12 } },
+        textStyle: { color: "#334155", fontSize: 12 }
+      },
       legend: { top: 0, textStyle: { color: "#64748b", fontSize: 11 }, icon: "circle", itemWidth: 8, itemHeight: 8 },
       grid: { left: 8, right: 16, top: 32, bottom: 8, containLabel: true },
-      xAxis: { type: "category", data: agencias, axisLine: { show: false }, axisTick: { show: false },
-        axisLabel: { color: "#64748b", fontSize: 11 } },
-      yAxis: { type: "value", splitLine: { lineStyle: { color: "#f1f5f9", type: "dashed" } },
-        axisLabel: { color: "#94a3b8", fontSize: 10, formatter: (v) => v.toLocaleString("es-MX") } },
+      xAxis: {
+        type: "category", data: agencias, axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: { color: "#64748b", fontSize: 11 }
+      },
+      yAxis: {
+        type: "value", splitLine: { lineStyle: { color: "#f1f5f9", type: "dashed" } },
+        axisLabel: { color: "#94a3b8", fontSize: 10, formatter: (v) => v.toLocaleString("es-MX") }
+      },
       series,
     };
   }, [nuevoUsado]);
@@ -593,9 +623,11 @@ export default function InventarioIndex() {
   const optionNacionalImportado = useMemo(() => {
     if (!nacionalImportado.length) return null;
     return {
-      tooltip: { trigger: "item", backgroundColor: "#fff", borderColor: "#e2e8f0", borderWidth: 1,
+      tooltip: {
+        trigger: "item", backgroundColor: "#fff", borderColor: "#e2e8f0", borderWidth: 1,
         textStyle: { color: "#334155", fontSize: 12 },
-        formatter: (p) => `<b>${p.name}</b><br/>${p.value.toLocaleString("es-MX")} vehículos<br/><b>${p.percent}%</b>` },
+        formatter: (p) => `<b>${p.name}</b><br/>${p.value.toLocaleString("es-MX")} vehículos<br/><b>${p.percent}%</b>`
+      },
       legend: { bottom: 0, textStyle: { color: "#64748b", fontSize: 11 }, icon: "circle", itemWidth: 8, itemHeight: 8 },
       color: [NAVY, CYAN],
       series: [{
@@ -612,7 +644,7 @@ export default function InventarioIndex() {
     if (!antiguedad.length) return null;
     const orden = ["+120", "91-120", "61-90", "31-60", "0-30"];
     const datos = orden.map((r) => antiguedad.find((d) => d.rango === r) ?? { rango: r, total: 0 });
-    const max   = Math.max(...datos.map((d) => d.total));
+    const max = Math.max(...datos.map((d) => d.total));
     return {
       tooltip: {
         trigger: "axis", axisPointer: { type: "none" },
@@ -622,18 +654,23 @@ export default function InventarioIndex() {
           `<b>${params[0].name} días</b><br/>Vehículos: <b>${params[0].value.toLocaleString("es-MX")}</b>`,
       },
       grid: { left: 8, right: 60, top: 8, bottom: 8, containLabel: true },
-      xAxis: { type: "value",
+      xAxis: {
+        type: "value",
         splitLine: { lineStyle: { color: "#f1f5f9", type: "dashed" } },
-        axisLabel: { color: "#94a3b8", fontSize: 10 } },
-      yAxis: { type: "category", data: datos.map((d) => d.rango),
+        axisLabel: { color: "#94a3b8", fontSize: 10 }
+      },
+      yAxis: {
+        type: "category", data: datos.map((d) => d.rango),
         axisLine: { show: false }, axisTick: { show: false },
-        axisLabel: { color: "#475569", fontSize: 12, fontWeight: 600 } },
+        axisLabel: { color: "#475569", fontSize: 12, fontWeight: 600 }
+      },
       series: [{
         name: "Vehículos", type: "bar",
         data: datos.map((d) => ({
           value: d.total,
           itemStyle: {
-            color: { type: "linear", x: 0, y: 0, x2: 1, y2: 0,
+            color: {
+              type: "linear", x: 0, y: 0, x2: 1, y2: 0,
               colorStops: [
                 { offset: 0, color: NAVY },
                 { offset: 1, color: d.total === max ? CYAN : "#2563eb" },
@@ -643,8 +680,10 @@ export default function InventarioIndex() {
           },
         })),
         barWidth: "55%",
-        label: { show: true, position: "right", color: "#475569", fontSize: 12, fontWeight: 600,
-          formatter: (p) => p.value > 0 ? p.value.toLocaleString("es-MX") : "" },
+        label: {
+          show: true, position: "right", color: "#475569", fontSize: 12, fontWeight: 600,
+          formatter: (p) => p.value > 0 ? p.value.toLocaleString("es-MX") : ""
+        },
       }],
     };
   }, [antiguedad]);
@@ -693,6 +732,14 @@ export default function InventarioIndex() {
                 <option key={a.codigo} value={a.codigo}>{a.nombre}</option>
               ))}
             </select>
+
+            <button
+              onClick={() => navigate("/inventario/bitacora_mantenimiento")}
+              className="text-sm rounded-lg px-4 py-2 font-semibold border transition hover:brightness-110"
+              style={{ background: BRAND_BLUE, borderColor: BRAND_BLUE, color: "#fff" }}
+            >
+              Bitácoras
+            </button>
 
             <select
               value={estatusSeleccionado}
