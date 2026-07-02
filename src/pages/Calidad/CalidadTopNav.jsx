@@ -44,12 +44,6 @@ export default function CalidadTopNav() {
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
             },
             {
-                label: "Retencion",
-                href: "/calidad/retencion",
-                icon: UndoDot,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD"]),
-            },
-            {
                 label: "Encuestas JD Power",
                 href: "/calidad/jdpower",
                 icon: ClipboardPenLine,

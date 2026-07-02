@@ -5,6 +5,7 @@ import {
     DoorOpen,
     Package,
     Wrench,
+    Repeat,
 } from "lucide-react";
 
 import vwDark from "../../assets/vw_dark.png";
@@ -59,6 +60,16 @@ export default function Topbar({
                 label: "Panel Taller",
                 href: "/postventa/taller",
                 icon: Wrench,
+                show: hasAnyPermission([
+                    "USUARIOS_ADMIN",
+                    "CRM_POSTVENTA",
+                    "CRM_CALIDAD",
+                ]),
+            },
+            {
+                label: "Retención",
+                href: "/postventa/retencion",
+                icon: Repeat,
                 show: hasAnyPermission([
                     "USUARIOS_ADMIN",
                     "CRM_POSTVENTA",

@@ -314,21 +314,7 @@ export const router = createBrowserRouter(
                                         </RequirePermission>
                                     ),
                                 },
-                                {
-                                    path: "retencion",
-                                    element: (
-                                        <RequirePermission
-                                            anyOf={[
-                                                "CRM_DIGITALES",
-                                                "USUARIOS_ADMIN",
-                                                "CRM_CALIDAD",
-                                                "CRM_POSTVENTA",
-                                            ]}
-                                        >
-                                            <Retencion />
-                                        </RequirePermission>
-                                    ),
-                                },
+                               
                                 {
                                     path: "jdpower",
                                     element: (
@@ -792,6 +778,20 @@ export const router = createBrowserRouter(
                                             ]}
                                         >
                                             <Taller />
+                                        </RequirePermission>
+                                    ),
+                                },
+                                 {
+                                    path: "retencion",
+                                    element: (
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                                "CRM_POSTVENTA",
+                                            ]}
+                                        >
+                                            <Retencion />
                                         </RequirePermission>
                                     ),
                                 },
