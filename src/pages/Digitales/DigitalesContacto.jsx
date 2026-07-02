@@ -16,6 +16,8 @@ import {
     ChevronDown,
     Paperclip,
     FileText,
+    Play,
+    Pause,
     Plus,
     Copy,
     Check,
@@ -408,12 +410,37 @@ function shortName(name = "") {
     return `${v.slice(0, 12)}…${v.slice(-8)}`;
 }
 
-function humanBytes(size) {
-    const bytes = Number(size || 0);
-    if (!bytes) return "0 B";
-    const units = ["B", "KB", "MB", "GB"]; let v = bytes, i = 0;
-    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-    return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+function formatAudioTime(seconds) {
+    const total = Math.max(0, Math.floor(Number(seconds || 0)));
+    const min = Math.floor(total / 60);
+    const sec = total % 60;
+    return `${min}:${String(sec).padStart(2, "0")}`;
+}
+
+function cleanMediaTextForBubble(text, attachments = []) {
+    let value = String(text || "").trim();
+
+    // Quita marcadores internos del backend: [FILE:nombre.jpg]
+    value = value.replace(/\[FILE:[^\]]+\]/gi, "").trim();
+
+    const upper = value.toUpperCase();
+
+    if (
+        attachments.length &&
+        [
+            "[IMAGE]",
+            "[VIDEO]",
+            "[AUDIO]",
+            "[STICKER]",
+            "[DOCUMENT]",
+            "ADJUNTO",
+            "ARCHIVO",
+        ].includes(upper)
+    ) {
+        return "";
+    }
+
+    return value;
 }
 
 function extractFilesFromDataTransfer(dt) {
@@ -452,15 +479,118 @@ function normalizeMessageAttachments(message = {}) {
     }).filter(a => a.url);
 }
 
+function getMessageReactions(message = {}) {
+    const raw = message.raw || {};
+
+    const source = Array.isArray(message.reactions)
+        ? message.reactions
+        : Array.isArray(raw.reactions)
+            ? raw.reactions
+            : [];
+
+    return source
+        .map((item, index) => ({
+            id: item.reaction_message_id || `${message.wa_message_id || message.id}-reaction-${index}`,
+            emoji: String(item.emoji || "").trim(),
+            telefono: item.telefono || "",
+            from: item.from || "cliente",
+        }))
+        .filter((item) => item.emoji);
+}
+
+function isReactionEvent(message = {}) {
+    const raw = message.raw || {};
+    return Boolean(
+        raw.is_reaction_event ||
+        raw.type === "reaction" ||
+        message.type === "reaction"
+    );
+}
+
+function applyReactionEvents(messages = []) {
+    const map = new Map();
+
+    for (const msg of messages || []) {
+        const key = getMessageKey(msg);
+        if (!key) continue;
+
+        map.set(key, {
+            ...msg,
+            reactions: getMessageReactions(msg),
+        });
+    }
+
+    for (const msg of messages || []) {
+        const raw = msg.raw || {};
+
+        if (!isReactionEvent(msg)) continue;
+
+        const targetId =
+            raw.reaction_target_id ||
+            raw?.reaction?.message_id ||
+            "";
+
+        if (!targetId || !map.has(String(targetId))) continue;
+
+        const target = map.get(String(targetId));
+        const emoji =
+            raw.reaction_emoji ||
+            raw?.reaction?.emoji ||
+            "";
+
+        const removed = Boolean(
+            raw.reaction_removed ||
+            !String(emoji || "").trim()
+        );
+
+        let reactions = Array.isArray(target.reactions)
+            ? [...target.reactions]
+            : [];
+
+        const telefono = msg.telefono || raw.from || raw.telefono || "";
+
+        reactions = reactions.filter((r) => String(r.telefono || "") !== String(telefono || ""));
+
+        if (!removed && emoji) {
+            reactions.push({
+                id: msg.wa_message_id || msg.id || crypto.randomUUID(),
+                emoji,
+                telefono,
+                from: "cliente",
+            });
+        }
+
+        map.set(String(targetId), {
+            ...target,
+            reactions,
+        });
+    }
+
+    return Array.from(map.values())
+        .filter((msg) => !isReactionEvent(msg))
+        .sort((a, b) => {
+            const da = getMessageTimeValue(a);
+            const db = getMessageTimeValue(b);
+
+            if (da !== db) return da - db;
+
+            return Number(a.id || 0) - Number(b.id || 0);
+        });
+}
+
 function normalizeMessage(message = {}) {
+    const raw = message.raw || {};
+    const reactionEvent = isReactionEvent(message);
+
     return {
         ...message,
         id: message.id || message.wa_message_id || crypto.randomUUID(),
-        text: message.text || message.body || message.caption || "",
-        attachments: normalizeMessageAttachments(message),
+        text: reactionEvent ? "" : (message.text || message.body || message.caption || ""),
+        attachments: reactionEvent ? [] : normalizeMessageAttachments(message),
         is_ai: Boolean(message.is_ai || message?.raw?.openai_model || message?.raw?.ia_model || message?.raw?.ia_provider),
-        // id del mensaje citado (para pintar el preview tipo WhatsApp)
         reply_to_id: message.reply_to_id || getReplyToId(message),
+        reactions: getMessageReactions(message),
+        is_reaction_event: reactionEvent,
     };
 }
 
@@ -536,13 +666,199 @@ function buildDynamicTemplateComponents(template, draft) {
     })).filter(c => c.parameters.length > 0);
 }
 
-function AttachmentShell({ mine, attachment, children }) {
-    const isImageLike = attachment.kind === "image" || attachment.kind === "sticker";
+function WhatsAppWaveform({ progress = 0, mine = false, onSeek }) {
+    const bars = [8, 14, 10, 18, 12, 22, 16, 26, 20, 16, 24, 14, 18, 10, 22, 12, 16, 8, 14, 20, 12, 18, 10, 15, 9, 13, 18, 11, 16, 10];
+
     return (
-        <div className={cls("relative overflow-hidden rounded-xl border shadow-sm", mine ? "border-white/15 bg-white/5" : "border-black/10 bg-white")}>
-            {children}
-            {!isImageLike ? <div className={cls("px-3 py-2 text-xs font-bold", mine ? "text-white/80" : "text-slate-600")}>{attachment.name ? shortName(attachment.name) : "archivo"}</div> : null}
+        <button
+            type="button"
+            onClick={onSeek}
+            className="flex h-9 flex-1 items-center gap-[2px] overflow-hidden rounded-lg px-1"
+            title="Avanzar audio"
+        >
+            {bars.map((h, index) => {
+                const active = index / bars.length <= progress;
+
+                return (
+                    <span
+                        key={index}
+                        className={cls(
+                            "w-[3px] rounded-full transition",
+                            active
+                                ? mine
+                                    ? "bg-[#075E54]"
+                                    : "bg-[#128C7E]"
+                                : mine
+                                    ? "bg-[#075E54]/25"
+                                    : "bg-slate-300"
+                        )}
+                        style={{ height: `${h}px` }}
+                    />
+                );
+            })}
+        </button>
+    );
+}
+
+function WhatsAppAudioPlayer({ src, mine }) {
+    const audioRef = useRef(null);
+    const [playing, setPlaying] = useState(false);
+    const [duration, setDuration] = useState(0);
+    const [current, setCurrent] = useState(0);
+
+    const progress = duration ? Math.min(1, current / duration) : 0;
+
+    async function togglePlay() {
+        const audio = audioRef.current;
+
+        if (!audio) return;
+
+        if (playing) {
+            audio.pause();
+            setPlaying(false);
+            return;
+        }
+
+        try {
+            await audio.play();
+            setPlaying(true);
+        } catch (error) {
+            console.error("No se pudo reproducir audio:", error);
+        }
+    }
+
+    function handleSeek(e) {
+        const audio = audioRef.current;
+
+        if (!audio || !duration) return;
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const pct = Math.max(0, Math.min(1, x / rect.width));
+
+        audio.currentTime = pct * duration;
+        setCurrent(audio.currentTime);
+    }
+
+    return (
+        <div
+            className={cls(
+                "flex min-w-[260px] max-w-[360px] items-center gap-3 rounded-2xl px-3 py-2",
+                mine ? "bg-[#D9FDD3] text-[#111B21]" : "bg-white text-[#111B21]"
+            )}
+        >
+            <audio
+                ref={audioRef}
+                src={src}
+                preload="metadata"
+                onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
+                onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime || 0)}
+                onEnded={() => {
+                    setPlaying(false);
+                    setCurrent(0);
+                }}
+                className="hidden"
+            />
+
+            <button
+                type="button"
+                onClick={togglePlay}
+                className={cls(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow-sm transition",
+                    mine
+                        ? "bg-[#075E54] text-white hover:bg-[#064C43]"
+                        : "bg-[#128C7E] text-white hover:bg-[#0F766E]"
+                )}
+                title={playing ? "Pausar" : "Reproducir"}
+            >
+                {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
+            </button>
+
+            <div className="min-w-0 flex-1">
+                <WhatsAppWaveform progress={progress} mine={mine} onSeek={handleSeek} />
+
+                <div className="mt-0.5 flex items-center justify-between text-[11px] font-semibold text-[#667781]">
+                    <span>{formatAudioTime(current || duration || 0)}</span>
+                    <span>audio</span>
+                </div>
+            </div>
         </div>
+    );
+}
+
+function WhatsAppAttachment({ mine, attachment }) {
+    const src = attachment.url || attachment.previewUrl;
+
+    if (!src) return null;
+
+    if (attachment.kind === "sticker") {
+        return (
+            <a href={src} target="_blank" rel="noreferrer" className="block">
+                <img
+                    src={src}
+                    alt={attachment.name || "sticker"}
+                    className="max-h-44 max-w-44 object-contain"
+                    loading="lazy"
+                />
+            </a>
+        );
+    }
+
+    if (attachment.kind === "image") {
+        return (
+            <a href={src} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl">
+                <img
+                    src={src}
+                    alt={attachment.name || "imagen"}
+                    className="block max-h-[360px] w-full max-w-[330px] object-cover"
+                    loading="lazy"
+                />
+            </a>
+        );
+    }
+
+    if (attachment.kind === "video") {
+        return (
+            <div className="overflow-hidden rounded-xl bg-black">
+                <video
+                    src={src}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="block max-h-[360px] w-full max-w-[330px] bg-black object-contain"
+                />
+            </div>
+        );
+    }
+
+    if (attachment.kind === "audio") {
+        return <WhatsAppAudioPlayer src={src} mine={mine} />;
+    }
+
+    return (
+        <a
+            href={src}
+            target="_blank"
+            rel="noreferrer"
+            className={cls(
+                "flex min-w-[240px] max-w-[330px] items-center gap-3 rounded-xl px-3 py-3 transition hover:opacity-90",
+                mine ? "bg-[#D9FDD3] text-[#111B21]" : "bg-white text-[#111B21]"
+            )}
+        >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#128C7E]/10 text-[#128C7E]">
+                <FileText className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-bold">
+                    {attachment.name ? shortName(attachment.name) : "Documento"}
+                </div>
+
+                <div className="text-[11px] font-semibold text-[#667781]">
+                    {attachment.size ? humanBytes(attachment.size) : "Abrir archivo"}
+                </div>
+            </div>
+        </a>
     );
 }
 
@@ -688,75 +1004,185 @@ function groupMessagesByDate(messages) {
     return groups;
 }
 
-function MessageBubble({ mine, text, time, status = "sent", attachments = [], isAi = false, renderText, onReply, replyPreview, localPending, domId, highlighted }) {
-    const shown = renderText ? renderText(text) : text;
+function MessageBubble({
+    mine,
+    text,
+    time,
+    status = "sent",
+    attachments = [],
+    reactions = [],
+    isAi = false,
+    renderText,
+    onReply,
+    replyPreview,
+    localPending,
+    domId,
+    highlighted,
+}) {
+    const rawText = renderText ? renderText(text) : text;
+    const shown = cleanMediaTextForBubble(rawText, attachments);
+
+    const hasText = Boolean(String(shown || "").trim());
+    const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+    const stickerOnly =
+        hasAttachments &&
+        attachments.length === 1 &&
+        attachments[0]?.kind === "sticker" &&
+        !hasText;
+
+    const audioOnly =
+        hasAttachments &&
+        attachments.length === 1 &&
+        attachments[0]?.kind === "audio" &&
+        !hasText;
+
+    const visualOnly =
+        hasAttachments &&
+        attachments.every((a) => ["image", "video", "sticker"].includes(a.kind)) &&
+        !hasText;
+
     return (
-        <div id={domId} className={cls("flex w-full rounded-2xl transition-colors duration-700", mine ? "justify-end" : "justify-start", highlighted ? "bg-amber-100/60" : "")}>
-            <div className="max-w-[88%] sm:max-w-[82%] lg:max-w-[76%] xl:max-w-[72%]">
-                <div className={cls("rounded-2xl px-4 py-2.5 shadow-sm", mine ? "rounded-br-md bg-[#131E5C] text-white" : "rounded-bl-md border border-black/10 bg-white text-[#131E5C]")}>
-                    {replyPreview ? (
-                        <button type="button" onClick={replyPreview.onClick}
+        <div
+            id={domId}
+            className={cls(
+                "flex w-full rounded-2xl transition-colors duration-700 my-4",
+                mine ? "justify-end" : "justify-start",
+                highlighted ? "bg-amber-100/60" : ""
+            )}
+        >
+            <div
+                className={cls(
+                    "max-w-[88%] sm:max-w-[82%] lg:max-w-[76%] xl:max-w-[72%]",
+                    hasAttachments ? "w-fit" : ""
+                )}
+            >
+                <div
+                    className={cls(
+                        "relative shadow-sm",
+                        stickerOnly
+                            ? "bg-transparent p-0 shadow-none"
+                            : cls(
+                                "rounded-2xl",
+                                mine
+                                    ? "rounded-br-md bg-[#D9FDD3] text-[#111B21]"
+                                    : "rounded-bl-md bg-white text-[#111B21] ring-1 ring-black/10",
+                                visualOnly ? "p-1.5" : audioOnly ? "p-1.5" : "px-3 py-2"
+                            )
+                    )}
+                >
+                    {replyPreview && !stickerOnly ? (
+                        <button
+                            type="button"
+                            onClick={replyPreview.onClick}
                             className={cls(
-                                "mb-2 flex w-full items-start gap-2 rounded-lg border-l-4 px-2.5 py-1.5 text-left transition",
-                                mine ? "border-white/50 bg-white/10 hover:bg-white/15" : "border-[#131E5C]/40 bg-[#131E5C]/5 hover:bg-[#131E5C]/10"
-                            )}>
+                                "mb-2 flex w-full min-w-[220px] items-start gap-2 rounded-lg border-l-4 px-2.5 py-1.5 text-left transition",
+                                mine
+                                    ? "border-[#128C7E] bg-[#128C7E]/10 hover:bg-[#128C7E]/15"
+                                    : "border-[#128C7E] bg-[#128C7E]/5 hover:bg-[#128C7E]/10"
+                            )}
+                        >
                             <div className="min-w-0 flex-1">
-                                <div className={cls("text-[11px] font-extrabold", mine ? "text-white/90" : "text-[#131E5C]/80")}>{replyPreview.author}</div>
-                                <div className={cls("truncate text-[12px] font-medium", mine ? "text-white/70" : "text-slate-600")}>{replyPreview.text}</div>
+                                <div className="text-[11px] font-extrabold text-[#128C7E]">
+                                    {replyPreview.author}
+                                </div>
+                                <div className="truncate text-[12px] font-medium text-[#667781]">
+                                    {replyPreview.text}
+                                </div>
                             </div>
                         </button>
                     ) : null}
-                    {attachments?.length ? (
-                        <div className="mb-2 grid gap-2">
-                            {attachments.map((a) => {
-                                const src = a.url || a.previewUrl;
-                                if (!src) return null;
-                                if (a.kind === "sticker" || a.kind === "image") return (
-                                    <AttachmentShell key={a.id} mine={mine} attachment={a}>
-                                        <a href={src} target="_blank" rel="noreferrer" className="block"><img src={src} alt={a.name || "imagen"} className="max-h-64 w-full object-cover" loading="lazy" /></a>
-                                    </AttachmentShell>
-                                );
-                                if (a.kind === "video") return (
-                                    <AttachmentShell key={a.id} mine={mine} attachment={a}>
-                                        <video src={src} controls className="max-h-72 w-full bg-black" preload="metadata" />
-                                    </AttachmentShell>
-                                );
-                                if (a.kind === "audio") return (
-                                    <AttachmentShell key={a.id} mine={mine} attachment={a}>
-                                        <div className="px-3 py-2"><audio src={src} controls className="w-full" preload="metadata" /></div>
-                                    </AttachmentShell>
-                                );
-                                return (
-                                    <AttachmentShell key={a.id} mine={mine} attachment={a}>
-                                        <a href={src} target="_blank" rel="noreferrer" className={cls("flex items-center gap-2 px-3 py-3 hover:opacity-90", mine ? "text-white" : "text-[#131E5C]")}>
-                                            <FileText className="h-4 w-4" />
-                                            <div className="min-w-0">
-                                                <div className="truncate text-xs font-extrabold">{a.name ? shortName(a.name) : "Archivo"}</div>
-                                                <div className={cls("text-[11px] font-bold", mine ? "text-white/70" : "text-slate-500")}>{a.size ? humanBytes(a.size) : ""}</div>
-                                            </div>
-                                        </a>
-                                    </AttachmentShell>
-                                );
-                            })}
+
+                    {hasAttachments ? (
+                        <div className={cls("grid gap-1.5", hasText ? "mb-1.5" : "")}>
+                            {attachments.map((a) => (
+                                <WhatsAppAttachment
+                                    key={a.id}
+                                    mine={mine}
+                                    attachment={a}
+                                />
+                            ))}
                         </div>
                     ) : null}
-                    <div className="whitespace-pre-wrap text-[15px] font-medium leading-relaxed md:text-base [&_strong]:font-black [&_em]:italic [&_del]:line-through"
-                        dangerouslySetInnerHTML={{ __html: parseWhatsAppFormat(shown) }} />
-                    <div className={cls("mt-1 flex items-center justify-end gap-1.5 text-[11px] font-bold", mine ? "text-white/75" : "text-slate-500")}>
-                        {isAi ? <span className={cls("inline-flex items-center gap-1 rounded-full px-3 py-1 text-[13px] font-extrabold leading-none tracking-wide", mine ? "bg-white/30 text-white ring-1 ring-white/40" : "bg-violet-100 text-violet-700 ring-1 ring-violet-300")} title="Mensaje generado por IA">✦ IA</span> : null}
-                        <span>{time}</span>
-                        {mine ? <MessageStatusTicks status={status} pending={localPending} /> : null}
-                    </div>
+
+                    {hasText ? (
+                        <div
+                            className="whitespace-pre-wrap px-0.5 text-[15px] font-medium leading-relaxed md:text-base [&_strong]:font-black [&_em]:italic [&_del]:line-through"
+                            dangerouslySetInnerHTML={{ __html: parseWhatsAppFormat(shown) }}
+                        />
+                    ) : null}
+
+                    {!stickerOnly ? (
+                        <div
+                            className={cls(
+                                "mt-1 flex items-center justify-end gap-1.5 px-0.5 text-[11px] font-semibold",
+                                "text-[#667781]"
+                            )}
+                        >
+                            {isAi ? (
+                                <span
+                                    className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-extrabold leading-none text-violet-700 ring-1 ring-violet-300"
+                                    title="Mensaje generado por IA"
+                                >
+                                    ✦ IA
+                                </span>
+                            ) : null}
+
+                            <span>{time}</span>
+
+                            {mine ? (
+                                <MessageStatusTicks
+                                    status={status}
+                                    pending={localPending}
+                                />
+                            ) : null}
+                        </div>
+                    ) : (
+                        <div className="mt-0.5 flex items-center justify-end gap-1.5 text-[11px] font-semibold text-[#667781]">
+                            <span>{time}</span>
+                            {mine ? (
+                                <MessageStatusTicks
+                                    status={status}
+                                    pending={localPending}
+                                />
+                            ) : null}
+                        </div>
+                    )}
+
                     {onReply ? (
-                        <div className={cls("mt-2 flex", mine ? "justify-end" : "justify-start")}>
-                            <button type="button" onClick={onReply}
-                                className={cls("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition", mine ? "bg-white/15 text-white hover:bg-white/25" : "bg-[#131E5C]/10 text-[#131E5C] hover:bg-[#131E5C]/15")}
-                                title="Responder a este mensaje">
-                                <Pencil className="h-3 w-3" />Responder
+                        <div className={cls("mt-1.5 flex", mine ? "justify-end" : "justify-start")}>
+                            <button
+                                type="button"
+                                onClick={onReply}
+                                className={cls(
+                                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition",
+                                    mine
+                                        ? "bg-[#075E54]/10 text-[#075E54] hover:bg-[#075E54]/15"
+                                        : "bg-[#128C7E]/10 text-[#128C7E] hover:bg-[#128C7E]/15"
+                                )}
+                                title="Responder a este mensaje"
+                            >
+                                <Pencil className="h-3 w-3" />
+                                Responder
                             </button>
                         </div>
                     ) : null}
                 </div>
+
+                {Array.isArray(reactions) && reactions.length ? (
+                    <div className={cls("relative z-10 -mt-2 flex px-3", mine ? "justify-end" : "justify-start")}>
+                        <div className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-2 py-0.5 text-sm shadow-sm">
+                            {reactions.slice(0, 4).map((reaction) => (
+                                <span key={reaction.id || reaction.emoji}>{reaction.emoji}</span>
+                            ))}
+
+                            {reactions.length > 4 ? (
+                                <span className="text-[10px] font-extrabold text-slate-400">
+                                    +{reactions.length - 4}
+                                </span>
+                            ) : null}
+                        </div>
+                    </div>
+                ) : null}
             </div>
         </div>
     );
@@ -1638,101 +2064,101 @@ export default function DigitalesContacto() {
                         isDirectChatMode ? "flex" : mobileView === "list" ? "hidden lg:flex" : "flex",
                     )}>
 
-                       {/* ── HEADER COMPACTO ─────────────────────────────────── */}
-<div className="shrink-0 border-b border-black/10 bg-white px-3 py-2 sm:px-4">
-    <div className="flex items-center gap-2">
-        {/* Botón volver mobile */}
-        {!isDirectChatMode?(
-            <button onClick={()=>setMobileView("list")}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-[#131E5C] hover:bg-neutral-50 lg:hidden"
-                type="button" title="Ver chats">
-                <ChevronLeft className="h-4 w-4" />
-            </button>
-        ):null}
+                        {/* ── HEADER COMPACTO ─────────────────────────────────── */}
+                        <div className="shrink-0 border-b border-black/10 bg-white px-3 py-2 sm:px-4">
+                            <div className="flex items-center gap-2">
+                                {/* Botón volver mobile */}
+                                {!isDirectChatMode ? (
+                                    <button onClick={() => setMobileView("list")}
+                                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-[#131E5C] hover:bg-neutral-50 lg:hidden"
+                                        type="button" title="Ver chats">
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </button>
+                                ) : null}
 
-        <Avatar name={activeChat?.nombre||"Prospecto"} />
+                                <Avatar name={activeChat?.nombre || "Prospecto"} />
 
-        {/* Centro: nombre + teléfono + estado + pauta en una sola fila, fechas debajo */}
-        <div className="min-w-0 flex-1">
-            {/* Fila 1: nombre + teléfono + estado + pauta (todo en línea, overflow hidden) */}
-            <div className="flex items-center gap-1.5 overflow-hidden">
-                <span className="shrink-0 text-sm font-extrabold text-[#131E5C] truncate max-w-[120px] sm:max-w-[180px]">
-                    {activeChat?.nombre||"Selecciona un chat"}
-                </span>
-                <button type="button" onClick={copyTel}
-                    className="shrink-0 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-semibold text-slate-400 hover:bg-neutral-100 transition"
-                    title="Copiar número">
-                    {copiedTel?<Check className="h-3 w-3 text-emerald-500" />:<Copy className="h-3 w-3" />}
-                    <span className={copiedTel?"text-emerald-500 font-bold":""}>{activeTel?formateaTelUi(activeTel):"—"}</span>
-                </button>
-                {/* Estado prospecto */}
-                {activeTel?(
-                    <select value={headerEstado} onChange={(e)=>saveHeaderEstado(e.target.value)}
-                        className="shrink-0 h-6 rounded-md border border-black/10 bg-white px-1.5 text-[11px] font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                        title="Estado del prospecto">
-                        {renderOptionsConValorActual(ESTADOS_HEADER,headerEstado,"Sin estado")}
-                    </select>
-                ):null}
-                {/* Pauta */}
-                {activeTel?(
-                    <select value={quickEditDraft.pauta||prospecto?.pauta||prospecto?.pauta_origen||""}
-                        onChange={(e)=>setQuickEditDraft(p=>({...p,pauta:e.target.value}))}
-                        className="shrink-0 h-6 rounded-md border border-black/10 bg-white px-1.5 text-[11px] font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                        title="Pauta / campaña">
-                        {renderOptionsConValorActual(pautasOptions,quickEditDraft.pauta||prospecto?.pauta||prospecto?.pauta_origen||"","Sin campaña")}
-                    </select>
-                ):null}
-            </div>
+                                {/* Centro: nombre + teléfono + estado + pauta en una sola fila, fechas debajo */}
+                                <div className="min-w-0 flex-1">
+                                    {/* Fila 1: nombre + teléfono + estado + pauta (todo en línea, overflow hidden) */}
+                                    <div className="flex items-center gap-1.5 overflow-hidden">
+                                        <span className="shrink-0 text-sm font-extrabold text-[#131E5C] truncate max-w-[120px] sm:max-w-[180px]">
+                                            {activeChat?.nombre || "Selecciona un chat"}
+                                        </span>
+                                        <button type="button" onClick={copyTel}
+                                            className="shrink-0 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-semibold text-slate-400 hover:bg-neutral-100 transition"
+                                            title="Copiar número">
+                                            {copiedTel ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                                            <span className={copiedTel ? "text-emerald-500 font-bold" : ""}>{activeTel ? formateaTelUi(activeTel) : "—"}</span>
+                                        </button>
+                                        {/* Estado prospecto */}
+                                        {activeTel ? (
+                                            <select value={headerEstado} onChange={(e) => saveHeaderEstado(e.target.value)}
+                                                className="shrink-0 h-6 rounded-md border border-black/10 bg-white px-1.5 text-[11px] font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                title="Estado del prospecto">
+                                                {renderOptionsConValorActual(ESTADOS_HEADER, headerEstado, "Sin estado")}
+                                            </select>
+                                        ) : null}
+                                        {/* Pauta */}
+                                        {activeTel ? (
+                                            <select value={quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || ""}
+                                                onChange={(e) => setQuickEditDraft(p => ({ ...p, pauta: e.target.value }))}
+                                                className="shrink-0 h-6 rounded-md border border-black/10 bg-white px-1.5 text-[11px] font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                title="Pauta / campaña">
+                                                {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || "", "Sin campaña")}
+                                            </select>
+                                        ) : null}
+                                    </div>
 
-            {/* Fila 2: fechas */}
-            {activeTel&&!isDirectChatMode?(
-                <div className="mt-0.5 text-[10px] font-semibold text-slate-400 truncate">
-                    Reg: {fmtDT(prospecto?.creado)} · 1er: {fmtDT(prospecto?.primer_contacto_at)} · Últ: {fmtDT(prospecto?.ultimo_contacto_at)}
-                </div>
-            ):null}
-        </div>
+                                    {/* Fila 2: fechas */}
+                                    {activeTel && !isDirectChatMode ? (
+                                        <div className="mt-0.5 text-[10px] font-semibold text-slate-400 truncate">
+                                            Reg: {fmtDT(prospecto?.creado)} · 1er: {fmtDT(prospecto?.primer_contacto_at)} · Últ: {fmtDT(prospecto?.ultimo_contacto_at)}
+                                        </div>
+                                    ) : null}
+                                </div>
 
-        {/* Derecha: botones de acción — siempre en la misma fila */}
-        <div className="flex shrink-0 items-center gap-1">
-            {/* Marcar no leído */}
-            {!isDirectChatMode?(
-                <button type="button" onClick={()=>marcarChatComoNoLeido(activeTel)}
-                    disabled={!activeTel||markingUnreadTel===activeTel}
-                    className="inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 bg-white px-2 text-[11px] font-semibold text-slate-500 hover:bg-neutral-50 disabled:opacity-50 transition"
-                    title="Marcar como no leído">
-                    <MailOpen className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">{markingUnreadTel===activeTel?"...":"No leído"}</span>
-                </button>
-            ):null}
+                                {/* Derecha: botones de acción — siempre en la misma fila */}
+                                <div className="flex shrink-0 items-center gap-1">
+                                    {/* Marcar no leído */}
+                                    {!isDirectChatMode ? (
+                                        <button type="button" onClick={() => marcarChatComoNoLeido(activeTel)}
+                                            disabled={!activeTel || markingUnreadTel === activeTel}
+                                            className="inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 bg-white px-2 text-[11px] font-semibold text-slate-500 hover:bg-neutral-50 disabled:opacity-50 transition"
+                                            title="Marcar como no leído">
+                                            <MailOpen className="h-3.5 w-3.5" />
+                                            <span className="hidden sm:inline">{markingUnreadTel === activeTel ? "..." : "No leído"}</span>
+                                        </button>
+                                    ) : null}
 
-            {/* Pausar / Reactivar IA */}
-            {activeTel?(
-                iaEstado?.puede_responder?(
-                    <button type="button" onClick={pausarIaActiva} disabled={loadingIaAction}
-                        className="inline-flex h-7 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 text-[11px] font-extrabold text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition"
-                        title="Pausar IA">
-                        <ZapOff className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Pausar IA</span>
-                    </button>
-                ):(
-                    <button type="button" onClick={reactivarIaActiva} disabled={loadingIaAction}
-                        className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-[11px] font-extrabold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition"
-                        title="Reactivar IA">
-                        <Zap className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Reactivar IA</span>
-                    </button>
-                )
-            ):null}
+                                    {/* Pausar / Reactivar IA */}
+                                    {activeTel ? (
+                                        iaEstado?.puede_responder ? (
+                                            <button type="button" onClick={pausarIaActiva} disabled={loadingIaAction}
+                                                className="inline-flex h-7 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 text-[11px] font-extrabold text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition"
+                                                title="Pausar IA">
+                                                <ZapOff className="h-3.5 w-3.5" />
+                                                <span className="hidden sm:inline">Pausar IA</span>
+                                            </button>
+                                        ) : (
+                                            <button type="button" onClick={reactivarIaActiva} disabled={loadingIaAction}
+                                                className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-[11px] font-extrabold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition"
+                                                title="Reactivar IA">
+                                                <Zap className="h-3.5 w-3.5" />
+                                                <span className="hidden sm:inline">Reactivar IA</span>
+                                            </button>
+                                        )
+                                    ) : null}
 
-            {/* Llamar por WhatsApp */}
-            <button onClick={llamarProspecto} disabled={!activeTel}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50 transition"
-                type="button" title="Llamar por WhatsApp">
-                <Phone className="h-3.5 w-3.5" />
-            </button>
-        </div>
-    </div>
-</div>
+                                    {/* Llamar por WhatsApp */}
+                                    <button onClick={llamarProspecto} disabled={!activeTel}
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50 transition"
+                                        type="button" title="Llamar por WhatsApp">
+                                        <Phone className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
                         {/* ── BANNER DATOS DEL PROSPECTO (desplegable) ─────────── */}
                         {activeTel ? (
@@ -1824,7 +2250,7 @@ export default function DigitalesContacto() {
                                     <div className="py-10 text-center font-semibold text-slate-500">Aún no hay mensajes con este número.</div>
                                 ) : (
                                     // Agrupar mensajes por fecha y mostrar separadores
-                                    groupMessagesByDate(mensajes).map((group, groupIndex) => (
+                                    groupMessagesByDate(applyReactionEvents(mensajes)).map((group, groupIndex) => (
                                         <div key={`group-${groupIndex}-${group.date}`} className="relative">
                                             <DateSeparator date={group.date} />
                                             {group.messages.map((message) => {
@@ -1844,6 +2270,7 @@ export default function DigitalesContacto() {
                                                         status={message.status || "sent"}
                                                         localPending={Boolean(message.local_pending)}
                                                         attachments={message.attachments || []}
+                                                        reactions={message.reactions || []}
                                                         isAi={Boolean(message.is_ai)}
                                                         renderText={renderTextForBubble}
                                                         replyPreview={quoted ? {
