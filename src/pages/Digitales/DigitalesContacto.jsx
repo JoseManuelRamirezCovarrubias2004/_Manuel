@@ -1149,7 +1149,7 @@ function MessageBubble({
                     )}
 
                     {onReply ? (
-                        <div className={cls("mt-1.5 flex", mine ? "justify-end" : "justify-start")}>
+                        <div className={cls("mt-1.5 ml-1.5 mb-1.5 flex", mine ? "justify-end" : "justify-start")}>
                             <button
                                 type="button"
                                 onClick={onReply}
@@ -2225,8 +2225,20 @@ export default function DigitalesContacto() {
                         ) : null}
 
                         {/* ── ÁREA DE MENSAJES ──────────────────────────────────── */}
-                        <div ref={messagesScrollRef} onScroll={onMessagesScroll}
-                            className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-50 via-white to-slate-50 px-4 py-5 sm:px-6 lg:px-8">
+                        <div
+                            ref={messagesScrollRef}
+                            onScroll={onMessagesScroll}
+                            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 lg:px-8"
+                            style={{
+                                backgroundImage: `
+                                linear-gradient(rgba(255,255,255,0.84), rgba(255,255,255,0.7)),
+                                url('/crm/chat/fondo_chat.png')
+                                `,
+                                backgroundRepeat: "repeat",
+                                backgroundPosition: "center top",
+                                backgroundSize: "520px auto",
+                            }}
+                        >
                             <div className="mx-auto w-full max-w-5xl space-y-3">
                                 {activeTel && !loadingChat ? (
                                     <div className="mb-3 flex justify-center">
