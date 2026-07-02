@@ -65,18 +65,43 @@ function limpiarCandidato(candidato = {}) {
 }
 
 function limpiarPayload(payload = {}) {
+  const formData = new FormData();
+
+  formData.append("estatus", payload.estatus || "Publicada");
+  formData.append("puesto", payload.puesto || "");
+  formData.append("dealer", payload.dealer || "");
+  formData.append(
+    "fuente_reclutamiento",
+    payload.fuente_reclutamiento || "Base de datos"
+  );
+  formData.append("solicitado_por", payload.solicitado_por || "");
+
   const candidatos = Array.isArray(payload.candidatos)
-    ? payload.candidatos.map(limpiarCandidato)
+    ? payload.candidatos
     : [];
 
-  return {
-    estatus: payload.estatus || "Publicada",
-    puesto: payload.puesto || "",
-    dealer: payload.dealer || "",
-    fuente_reclutamiento: payload.fuente_reclutamiento || "Base de datos",
-    solicitado_por: payload.solicitado_por || "",
-    candidatos,
-  };
+  formData.append(
+    "candidatos",
+    JSON.stringify(
+      candidatos.map((c) => {
+        const copia = { ...limpiarCandidato(c) };
+        delete copia.cv;
+        delete copia.cv_archivo;
+        return copia;
+      })
+    )
+  );
+
+  candidatos.forEach((candidato, index) => {
+    if (candidato.cv_archivo instanceof File) {
+      formData.append(
+        `cv_archivo_${index}`,
+        candidato.cv_archivo
+      );
+    }
+  });
+
+  return formData;
 }
 
 export const apiReclutamiento = {

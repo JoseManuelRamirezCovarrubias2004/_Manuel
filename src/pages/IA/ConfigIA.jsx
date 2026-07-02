@@ -111,12 +111,22 @@ const DIAS = [
 ];
 
 const emptyVehiculo = {
-    id: null, marca: "Volkswagen", modelo: "", ano: new Date().getFullYear(),
-    version: "", precio_lista: "", precio_contado: "", precio_financiado: "",
-    resumen: "", ficha_tecnica: {}, url_ficha_tecnica: "", imagenes: [],
-    ultima_actualizacion: "", activo: true,
+    id: null,
+    marca: "Volkswagen",
+    modelo: "",
+    ano: new Date().getFullYear(),
+    version: "",
+    precio_lista: "",
+    precio_contado: "",
+    precio_financiado: "",
+    resumen: "",
+    ficha_tecnica: {},
+    url_ficha_tecnica: "",
+    imagenes: [],
+    videos: [],
+    ultima_actualizacion: "",
+    activo: true,
 };
-
 // ─── Utils
 const horarioInicial = () =>
     Object.fromEntries(DIAS.map((d) => [d.id, { activo: d.id !== "dom", inicio: "09:00", fin: "18:00", franjas: [{ inicio: "09:00", fin: "18:00" }] }]));
@@ -144,6 +154,33 @@ function parseNumberInput(value) {
 function safeArray(v) { return Array.isArray(v) ? v : []; }
 function safeObject(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
 function tryJsonParse(value, fallback) { try { return JSON.parse(value); } catch { return fallback; } }
+
+const BACKEND_MEDIA_BASE = "https://crm.grupoautomotrizryr.com/media/";
+
+function toMediaUrl(value) {
+    const raw = String(value || "").trim();
+
+    if (!raw) return "";
+
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+        return raw.replaceAll(" ", "%20");
+    }
+
+    let clean = raw.replace(/^\/+/, "");
+
+    if (clean.startsWith("media/")) {
+        clean = clean.slice("media/".length);
+    }
+
+    return `${BACKEND_MEDIA_BASE}${clean}`.replaceAll(" ", "%20");
+}
+
+function splitLineasTexto(value) {
+    return String(value || "")
+        .split("\n")
+        .map((x) => x.trim())
+        .filter(Boolean);
+}
 
 function timeToMin(t) {
     const [h, m] = (t || "00:00").split(":").map(Number);
@@ -1011,6 +1048,7 @@ export default function ConfigIA() {
     const [vehiculoDraft, setVehiculoDraft] = useState(emptyVehiculo);
     const [fichaTexto, setFichaTexto] = useState("{}");
     const [imagenesTexto, setImagenesTexto] = useState("");
+    const [videosTexto, setVideosTexto] = useState("");
     const [guardandoVehiculo, setGuardVeh] = useState(false);
     const [errorVehiculo, setErrorVehiculo] = useState("");
     const [activeModalTab, setActiveModalTab] = useState("info");
@@ -1214,56 +1252,110 @@ export default function ConfigIA() {
 
     function abrirNuevoVehiculo() {
         setVehiculoDraft({ ...emptyVehiculo, ano: new Date().getFullYear() });
-        setFichaTexto("{}"); setImagenesTexto(""); setErrorVehiculo("");
-        setActiveModalTab("info"); setModalVehiculo(true);
+        setFichaTexto("{}");
+        setImagenesTexto("");
+        setVideosTexto("");
+        setErrorVehiculo("");
+        setActiveModalTab("info");
+        setModalVehiculo(true);
     }
 
     function abrirEditarVehiculo(item) {
-        const draft = { ...emptyVehiculo, ...item, ficha_tecnica: safeObject(item.ficha_tecnica), imagenes: safeArray(item.imagenes) };
+        const draft = {
+            ...emptyVehiculo,
+            ...item,
+            ficha_tecnica: safeObject(item.ficha_tecnica),
+            imagenes: safeArray(item.imagenes),
+            videos: safeArray(item.videos),
+        };
+
         setVehiculoDraft(draft);
         setFichaTexto(JSON.stringify(draft.ficha_tecnica || {}, null, 2));
         setImagenesTexto((draft.imagenes || []).join("\n"));
-        setErrorVehiculo(""); setActiveModalTab("info"); setModalVehiculo(true);
+        setVideosTexto((draft.videos || []).join("\n"));
+        setErrorVehiculo("");
+        setActiveModalTab("info");
+        setModalVehiculo(true);
     }
 
     function cerrarModalVehiculo() {
         if (guardandoVehiculo) return;
-        setModalVehiculo(false); setVehiculoDraft(emptyVehiculo);
-        setFichaTexto("{}"); setImagenesTexto(""); setErrorVehiculo("");
+
+        setModalVehiculo(false);
+        setVehiculoDraft(emptyVehiculo);
+        setFichaTexto("{}");
+        setImagenesTexto("");
+        setVideosTexto("");
+        setErrorVehiculo("");
     }
 
     function patchDraft(campo, valor) { setVehiculoDraft((p) => ({ ...p, [campo]: valor })); }
 
     async function guardarVehiculo() {
         setErrorVehiculo("");
+
         const modelo = String(vehiculoDraft.modelo || "").trim();
         const ano = Number(vehiculoDraft.ano || 0);
-        if (!modelo) { setErrorVehiculo("El modelo es obligatorio."); return; }
-        if (!ano) { setErrorVehiculo("El año es obligatorio."); return; }
-        const ficha = tryJsonParse(fichaTexto, null);
-        if (!ficha || typeof ficha !== "object" || Array.isArray(ficha)) {
-            setErrorVehiculo('La ficha técnica debe ser un JSON válido. Ej: {"Motor":"1.4L TSI"}'); return;
+
+        if (!modelo) {
+            setErrorVehiculo("El modelo es obligatorio.");
+            return;
         }
-        const imagenes = imagenesTexto.split("\n").map((x) => x.trim()).filter(Boolean);
+
+        if (!ano) {
+            setErrorVehiculo("El año es obligatorio.");
+            return;
+        }
+
+        const ficha = tryJsonParse(fichaTexto, null);
+
+        if (!ficha || typeof ficha !== "object" || Array.isArray(ficha)) {
+            setErrorVehiculo('La ficha técnica debe ser un JSON válido. Ej: {"Motor":"1.4L TSI"}');
+            return;
+        }
+
+        const imagenes = splitLineasTexto(imagenesTexto);
+        const videos = splitLineasTexto(videosTexto);
+
         const payload = {
-            marca: String(vehiculoDraft.marca || "Volkswagen").trim(), modelo, ano,
+            marca: String(vehiculoDraft.marca || "Volkswagen").trim(),
+            modelo,
+            ano,
             version: String(vehiculoDraft.version || "").trim(),
             precio_lista: vehiculoDraft.precio_lista || null,
             precio_contado: vehiculoDraft.precio_contado || null,
             precio_financiado: vehiculoDraft.precio_financiado || null,
             resumen: String(vehiculoDraft.resumen || "").trim(),
-            ficha_tecnica: ficha, url_ficha_tecnica: String(vehiculoDraft.url_ficha_tecnica || "").trim(),
-            imagenes, ultima_actualizacion: vehiculoDraft.ultima_actualizacion || null,
+            ficha_tecnica: ficha,
+            url_ficha_tecnica: String(vehiculoDraft.url_ficha_tecnica || "").trim(),
+            imagenes,
+            videos,
+            ultima_actualizacion: vehiculoDraft.ultima_actualizacion || null,
             activo: Boolean(vehiculoDraft.activo),
         };
+
         setGuardVeh(true);
+
         try {
-            if (vehiculoDraft.id) await api.patch(`/digitales/catalogo/vehiculos/${vehiculoDraft.id}/`, payload);
-            else await api.post("/digitales/catalogo/vehiculos/", payload);
-            cerrarModalVehiculo(); await cargarCatalogo();
-            showToast(vehiculoDraft.id ? "Vehículo actualizado." : "Vehículo agregado al catálogo.");
-        } catch (e) { setErrorVehiculo(e?.message || "No se pudo guardar el vehículo."); }
-        finally { setGuardVeh(false); }
+            if (vehiculoDraft.id) {
+                await api.patch(`/digitales/catalogo/vehiculos/${vehiculoDraft.id}/`, payload);
+            } else {
+                await api.post("/digitales/catalogo/vehiculos/", payload);
+            }
+
+            cerrarModalVehiculo();
+            await cargarCatalogo();
+
+            showToast(
+                vehiculoDraft.id
+                    ? "Vehículo actualizado."
+                    : "Vehículo agregado al catálogo."
+            );
+        } catch (e) {
+            setErrorVehiculo(e?.message || "No se pudo guardar el vehículo.");
+        } finally {
+            setGuardVeh(false);
+        }
     }
 
     async function desactivarVehiculo(item) {
@@ -1501,7 +1593,7 @@ export default function ConfigIA() {
                             <div>
                                 <h2 className="text-lg font-bold text-[#1A1F3C]">Catálogo de vehículos</h2>
                                 <p className="text-xs text-[#8891AD] mt-0.5">
-                                    Fuente de precios, fichas e imágenes para el asistente IA ·
+                                    Fuente de precios, fichas, imágenes y videos para el asistente IA
                                     <span className="font-semibold"> {totalVehiculosActivos} activos</span>
                                     {" · "}
                                     <span className="font-semibold">{vehiculos.length} total</span>
@@ -1531,7 +1623,7 @@ export default function ConfigIA() {
                                 <table className="min-w-full">
                                     <thead>
                                         <tr className="border-b border-[#E4E7F0] bg-[#F7F8FC]">
-                                            {["Vehículo", "Versión", "Precio lista", "Contado", "Financiado", "Ficha", "Estado", ""].map((h, i) => (
+                                            {["Vehículo", "Versión", "Precio lista", "Contado", "Financiado", "Media", "Estado", ""].map((h, i) => (
                                                 <th key={i} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-widest text-[#8891AD] ${i === 7 ? "text-right" : "text-left"}`}>{h}</th>
                                             ))}
                                         </tr>
@@ -1588,12 +1680,24 @@ export default function ConfigIA() {
                                                     <td className="px-4 py-3.5 text-sm text-[#515778]">{money(item.precio_contado)}</td>
                                                     <td className="px-4 py-3.5 text-sm text-[#515778]">{money(item.precio_financiado)}</td>
                                                     <td className="px-4 py-3.5">
-                                                        {item.url_ficha_tecnica ? (
-                                                            <a href={item.url_ficha_tecnica} target="_blank" rel="noreferrer"
-                                                                className="inline-flex items-center gap-1 text-xs font-semibold text-[#131E5C] hover:underline">
-                                                                Ver ficha <ExternalLink className="h-3 w-3" />
-                                                            </a>
-                                                        ) : <span className="text-xs text-[#C8CEDF]">Sin ficha</span>}
+                                                        <div className="flex flex-col gap-1">
+                                                            {item.url_ficha_tecnica ? (
+                                                                <a
+                                                                    href={toMediaUrl(item.url_ficha_tecnica)}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#131E5C] hover:underline"
+                                                                >
+                                                                    PDF <ExternalLink className="h-3 w-3" />
+                                                                </a>
+                                                            ) : (
+                                                                <span className="text-xs text-[#C8CEDF]">Sin PDF</span>
+                                                            )}
+
+                                                            <span className="text-[11px] text-[#8891AD]">
+                                                                {safeArray(item.imagenes).length} img · {safeArray(item.videos).length} video
+                                                            </span>
+                                                        </div>
                                                     </td>
                                                     <td className="px-4 py-3.5">
                                                         <Badge variant={item.activo ? "success" : "default"} dot>
@@ -1777,33 +1881,134 @@ export default function ConfigIA() {
                 )}
 
                 {activeModalTab === "media" && (
-                    <div className="space-y-4">
-                        <Field label="URL ficha técnica / PDF">
+                    <div className="space-y-5">
+                        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 flex items-start gap-2.5">
+                            <Info className="h-4 w-4 text-blue-700 flex-shrink-0 mt-0.5" />
+                            <div className="text-xs font-medium text-blue-800 space-y-1">
+                                <p>
+                                    Guarda rutas relativas desde <b>/media/</b>. No pongas <b>media/</b> al inicio.
+                                </p>
+                                <p className="font-mono">
+                                    Ej: catalogo/tiguan/imagenes/tiguan_2026_exterior.jpg
+                                </p>
+                            </div>
+                        </div>
+
+                        <Field label="Ficha técnica / PDF">
                             <div className="relative">
                                 <ExternalLink className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8891AD]" />
-                                <input value={vehiculoDraft.url_ficha_tecnica} onChange={(e) => patchDraft("url_ficha_tecnica", e.target.value)}
-                                    className={`${inputCls} pl-9`} placeholder="https://…" />
+                                <input
+                                    value={vehiculoDraft.url_ficha_tecnica}
+                                    onChange={(e) => patchDraft("url_ficha_tecnica", e.target.value)}
+                                    className={`${inputCls} pl-9`}
+                                    placeholder="catalogo/tiguan/ficha/tiguan_2026_ficha_tecnica.pdf"
+                                />
                             </div>
+
                             {vehiculoDraft.url_ficha_tecnica && (
-                                <a href={vehiculoDraft.url_ficha_tecnica} target="_blank" rel="noreferrer"
-                                    className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[#131E5C] hover:underline">
-                                    Verificar enlace <ExternalLink className="h-3 w-3" />
+                                <a
+                                    href={toMediaUrl(vehiculoDraft.url_ficha_tecnica)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[#131E5C] hover:underline"
+                                >
+                                    Verificar PDF <ExternalLink className="h-3 w-3" />
                                 </a>
                             )}
                         </Field>
-                        <Field label="Imágenes (una URL por línea)">
-                            <textarea value={imagenesTexto} onChange={(e) => setImagenesTexto(e.target.value)} rows={6} className={textareaCls}
-                                placeholder={"https://cdn.vw.com/taos-exterior.jpg\nhttps://cdn.vw.com/taos-interior.jpg"} />
+
+                        <Field label="Imágenes (una ruta o URL por línea)">
+                            <textarea
+                                value={imagenesTexto}
+                                onChange={(e) => setImagenesTexto(e.target.value)}
+                                rows={5}
+                                className={textareaCls}
+                                placeholder={
+                                    "catalogo/tiguan/imagenes/tiguan_2026_exterior.jpg\n" +
+                                    "catalogo/tiguan/imagenes/tiguan_2026_interior.jpg"
+                                }
+                            />
+
                             {imagenesTexto && (
-                                <p className="mt-1.5 text-xs text-[#8891AD]">{imagenesTexto.split("\n").filter((l) => l.trim()).length} imágenes registradas</p>
+                                <p className="mt-1.5 text-xs text-[#8891AD]">
+                                    {splitLineasTexto(imagenesTexto).length} imágenes registradas
+                                </p>
                             )}
                         </Field>
+
                         {imagenesTexto && (
-                            <div className="grid grid-cols-3 gap-2">
-                                {imagenesTexto.split("\n").filter((l) => l.trim()).slice(0, 6).map((url, i) => (
-                                    <div key={i} className="aspect-video overflow-hidden rounded-xl border border-[#E4E7F0] bg-[#F7F8FC]">
-                                        <img src={url.trim()} alt={`Preview ${i + 1}`} className="h-full w-full object-cover"
-                                            onError={(e) => { e.target.style.display = "none"; }} />
+                            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                                {splitLineasTexto(imagenesTexto).slice(0, 6).map((url, i) => (
+                                    <a
+                                        key={i}
+                                        href={toMediaUrl(url)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="group aspect-video overflow-hidden rounded-xl border border-[#E4E7F0] bg-[#F7F8FC] relative"
+                                    >
+                                        <img
+                                            src={toMediaUrl(url)}
+                                            alt={`Preview imagen ${i + 1}`}
+                                            className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = "none";
+                                            }}
+                                        />
+                                        <div className="absolute bottom-1 left-1 right-1 rounded bg-black/50 px-2 py-1 text-[10px] text-white truncate">
+                                            {url}
+                                        </div>
+                                    </a>
+                                ))}
+                            </div>
+                        )}
+
+                        <Field label="Videos MP4 (una ruta o URL por línea)">
+                            <textarea
+                                value={videosTexto}
+                                onChange={(e) => setVideosTexto(e.target.value)}
+                                rows={5}
+                                className={textareaCls}
+                                placeholder={
+                                    "catalogo/tiguan/videos/tiguan_2026_video.mp4\n" +
+                                    "catalogo/tiguan/videos/tiguan_2026_asmr.mp4"
+                                }
+                            />
+
+                            {videosTexto && (
+                                <p className="mt-1.5 text-xs text-[#8891AD]">
+                                    {splitLineasTexto(videosTexto).length} videos registrados
+                                </p>
+                            )}
+                        </Field>
+
+                        {videosTexto && (
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                {splitLineasTexto(videosTexto).slice(0, 4).map((url, i) => (
+                                    <div
+                                        key={i}
+                                        className="overflow-hidden rounded-xl border border-[#E4E7F0] bg-[#F7F8FC]"
+                                    >
+                                        <video
+                                            src={toMediaUrl(url)}
+                                            controls
+                                            preload="metadata"
+                                            className="aspect-video w-full bg-black object-contain"
+                                        />
+
+                                        <div className="flex items-center justify-between gap-2 px-3 py-2">
+                                            <p className="truncate text-[11px] font-medium text-[#515778]">
+                                                {url}
+                                            </p>
+
+                                            <a
+                                                href={toMediaUrl(url)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#131E5C] hover:underline"
+                                            >
+                                                Abrir <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
