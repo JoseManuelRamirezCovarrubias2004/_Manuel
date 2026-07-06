@@ -271,7 +271,7 @@ async function save() {
 
     setSaving(true);
     try {
-        const payload = { ...draft, candidatos: normalizarCandidatos(draft) };
+      const payload = {...draft, candidatos: normalizarCandidatos(draft).map(({ cv_archivo, ...resto }) => resto), };
         if (mode === "create") {
             await apiReclutamiento.crearVacante(payload);
         } else {
