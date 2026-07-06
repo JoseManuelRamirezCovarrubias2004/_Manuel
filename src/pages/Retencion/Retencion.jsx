@@ -435,7 +435,19 @@ function VistaGraficas({ datos }) {
             .slice(0, 8);
     }, [datos]);
 
-    const totalAgencias = porAgencia.reduce((acc, i) => acc + i.value, 0);
+    // NUEVO: distribución por modelo
+    const porModelo = useMemo(() => {
+        const map = new Map();
+        datos.forEach((item) => {
+            const clave = item.modelo_nombre || "Sin modelo";
+            map.set(clave, (map.get(clave) || 0) + 1);
+        });
+        return Array.from(map.entries())
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+    }, [datos]);
+
     const totalSegmentos = porSegmento.reduce((acc, i) => acc + i.value, 0);
     const totalEstados = porEstado.reduce((acc, i) => acc + i.value, 0);
 
@@ -563,6 +575,34 @@ function VistaGraficas({ datos }) {
                 </p>
                 <p className="mb-4 text-sm text-slate-400">Vehículos activos vs. inactivos</p>
 
+                <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                        <Pie
+                            data={porEstado}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={48}
+                            outerRadius={75}
+                            paddingAngle={2}
+                        >
+                            {porEstado.map((item) => (
+                                <Cell
+                                    key={item.name}
+                                    fill={ESTADO_COLORS[normalizarTexto(item.name)] || "#94a3b8"}
+                                />
+                            ))}
+                        </Pie>
+                        <Tooltip contentStyle={TooltipStyle} formatter={(v) => [numero(v), "Vehículos"]} />
+                        <Legend
+                            verticalAlign="bottom"
+                            height={24}
+                            formatter={(value) => <span className="text-xs text-slate-600">{value}</span>}
+                        />
+                    </PieChart>
+                </ResponsiveContainer>
+
                 <div className="flex h-4 w-full overflow-hidden rounded-full bg-slate-100">
                     {porEstado.map((item) => {
                         const pct = totalEstados > 0 ? (item.value / totalEstados) * 100 : 0;
@@ -603,28 +643,32 @@ function VistaGraficas({ datos }) {
                 </div>
             </div>
 
+            {/* NUEVO: Distribución por modelo */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-3">
+                <p className="text-lg font-extrabold" style={{ color: NAVY }}>
+                    Distribución por modelo
+                </p>
+                <p className="mb-4 text-sm text-slate-400">Top 10 modelos con más vehículos en retención</p>
+
+                <RankList
+                    items={porModelo}
+                    from="#6BD6C2"
+                    to="#1D9E75"
+                />
+            </div>
+
             {/* Marca */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-5">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2">
                 <p className="text-lg font-extrabold" style={{ color: NAVY }}>
                     Vehículos por marca
                 </p>
                 <p className="mb-4 text-sm text-slate-400">Top 8 marcas</p>
 
-                <div className="grid grid-cols-1 gap-x-10 gap-y-3.5 sm:grid-cols-2">
-                    <RankList
-                        items={porMarca.slice(0, Math.ceil(porMarca.length / 2))}
-                        from="#A79CF0"
-                        to="#7F77DD"
-                        max={porMarca[0]?.value}
-                    />
-                    <RankList
-                        items={porMarca.slice(Math.ceil(porMarca.length / 2))}
-                        from="#A79CF0"
-                        to="#7F77DD"
-                        startRank={Math.ceil(porMarca.length / 2)}
-                        max={porMarca[0]?.value}
-                    />
-                </div>
+                <RankList
+                    items={porMarca}
+                    from="#A79CF0"
+                    to="#7F77DD"
+                />
             </div>
         </div>
     );
@@ -887,7 +931,7 @@ export default function Retencion() {
             datos = datos.filter((item) => {
                 const acumulado = [
                     item.vin, item.numero_nota, item.ultima_orden_servicio, item.nombre_cliente,
-                    item.telefono_cliente, item.correo_cliente, item.marca, item.agencias, item.modelo_nombre, item.placa_vehiculo,
+                    item.telefono_cliente, item.correo_cliente, item.marca, item.agencia, item.modelo_nombre, item.placa_vehiculo,
                 ].map(normalizarTexto).join(" ");
                 return acumulado.includes(texto);
             });
