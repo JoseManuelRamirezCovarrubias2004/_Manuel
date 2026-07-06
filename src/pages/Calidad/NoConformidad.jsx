@@ -65,16 +65,16 @@ import { apiEncuestas } from "../../lib/apiEncuestas";
 import { api } from "../../lib/api";
 
 // ─── Colores ────────────────────────────────────────────────────────────────
-const NAVY      = "#0B1F5E";
-const RED       = "#D85A30";
+const NAVY = "#0B1F5E";
+const RED = "#D85A30";
 const RED_LIGHT = "#F4A68C";
-const ORANGE    = "#F0A500";
-const AMBER     = "#FCD34D";
-const GRAY      = "#6B7280";
+const ORANGE = "#F0A500";
+const AMBER = "#FCD34D";
+const GRAY = "#6B7280";
 const CHART_COLORS = ["#D85A30", "#F0A500", "#FCD34D", "#0E718A", "#86B8C8", "#7F77DD", "#D4537E", "#0B1F5E"];
 
-const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const MESES_CORTOS = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const MESES_CORTOS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const ANIO_ACTUAL = String(new Date().getFullYear());
 
 const TooltipStyle = {
@@ -138,52 +138,118 @@ function recortar(texto, max = 22) {
     return v.length <= max ? v : `${v.slice(0, max)}…`;
 }
 
-// Normaliza cualquier encuesta a estructura común
+// Busca el valor de satisfacción sin importar el nombre exacto del campo
+// ni si viene como string o número. Cubre todos los casos posibles.
+function extraerSatisfaccion(item) {
+    const candidatos = [
+        "q1_satisfaccion_general",
+        "satisfaccion_general",
+        "calificacion_general",
+        "calificacion",
+        "satisfaccion",
+        "rating",
+        "estrellas",
+        "score",
+    ];
+
+    for (const key of candidatos) {
+        const raw = item[key];
+        if (raw !== undefined && raw !== null && raw !== "") {
+            const n = Number(raw);
+            if (Number.isFinite(n) && n > 0) return n;
+        }
+    }
+
+    // Último recurso: cualquier campo cuyo nombre contenga "satisfac"
+    // con un valor numérico razonable (entre 1 y 10)
+    for (const key of Object.keys(item)) {
+        if (/satisfac/i.test(key)) {
+            const n = Number(item[key]);
+            if (Number.isFinite(n) && n > 0 && n <= 10) return n;
+        }
+    }
+
+    return 0;
+}
+
 function mapearEncuestaComun(item, fuente) {
-    const fechaBase = item.periodo || item.fecha_encuesta || item.fecha_entrega || item.fecha_servicio || "";
+   
+    const fechaBase =
+        item.periodo ||
+        item.fecha_encuesta ||
+        item.fecha_entrega ||
+        item.fecha_servicio ||
+        item.creado ||
+        "";
     const fecha = parseFechaLocal(fechaBase);
+    const periodoMostrar = fechaBase ? String(fechaBase).slice(0, 10) : "";
 
-    const satisfaccionRaw =
-        numeroSeguro(item.q1_satisfaccion_general) ||
-        numeroSeguro(item.satisfaccion_general) ||
-        numeroSeguro(item.calificacion_general) ||
-        0;
-
+   
+    const satisfaccionRaw = extraerSatisfaccion(item);
     const satisfaccion5 = normalizarEscalaCinco(satisfaccionRaw);
+
+   
+    const esInterna = fuente === "Enc. Servicio" || fuente === "Enc. Entrega";
+
+    const idVentas =
+        item.id_ventas ||
+        item.id_servicio ||
+        item.nombre_OS_cliente ||
+        String(item.id_encuesta || item.id || "");
+
+    const idEncuesta = String(item.id_encuesta || item.id_muestra || "");
+
+    const estatusFinal = item.estatus || (esInterna ? "Interna" : "Sin estatus");
+
+    const codigoConcesionaria = item.codigo_concesionaria || "";
+
+    const concesionariaFinal =
+        item.concesionaria ||
+        nombreConcesionaria(item.codigo_concesionaria) ||
+        item.agencia ||
+        "Sin concesionaria";
+
+    const asesorRaw = item.id_asesor || item.asesor_atendio || item.asesor || "";
+    const asesorFinal = String(asesorRaw).trim() || "Sin asesor";
+
+    const modeloFinal = item.modelo || "—";
+    const chasisFinal = item.chasis || "—";
 
     return {
         fuente,
-        id_ventas:            item.id_ventas || item.id_servicio || item.id || "",
-        periodo:              item.periodo || item.fecha_encuesta || item.fecha_entrega || item.fecha_servicio || "",
-        id_encuesta:          item.id_encuesta || item.id_muestra || "",
-        estatus:              item.estatus || "Sin estatus",
-        codigo_concesionaria: item.codigo_concesionaria || "",
-        concesionaria:        nombreConcesionaria(item.codigo_concesionaria) || item.concesionaria || "Sin concesionaria",
-        id_asesor:            item.id_asesor || item.asesor || "Sin asesor",
-        modelo:               item.modelo || "Sin modelo",
-        chasis:               item.chasis || "",
-        q1_satisfaccion_general:      satisfaccion5,
-        satisfaccion_raw:             satisfaccionRaw,
-        p3_recomendacion_distribuidor: numeroSeguro(item.p3_recomendacion_distribuidor),
-        p1_satisfaccion_producto:      numeroSeguro(item.p1_satisfaccion_producto),
+        id_ventas: idVentas,
+        periodo: periodoMostrar,
+        id_encuesta: idEncuesta,
+        estatus: estatusFinal,
+        codigo_concesionaria: codigoConcesionaria,
+        concesionaria: concesionariaFinal,
+        id_asesor: asesorFinal,
+        modelo: modeloFinal,
+        chasis: chasisFinal,
+        q1_satisfaccion_general: satisfaccion5,
+        satisfaccion_raw: satisfaccionRaw,
+        p3_recomendacion_distribuidor: numeroSeguro(item.p3_recomendacion_distribuidor || item.q3_recomendacion),
+        p1_satisfaccion_producto: numeroSeguro(item.p1_satisfaccion_producto),
         comentario:
+            item.comentario ||
+            item.q4_comentarios_servicio ||
             item.q3_comentarios_adicionales ||
             item.q1_1_razones_calificacion ||
             item.p1_1_comentarios_auto ||
             item.comentarios ||
             item.motivo ||
             "",
-        // Seguimiento local (no viene del backend, se llena al crear/editar un caso desde el modal)
         seguimiento: item.seguimiento || null,
         anio: fecha ? fecha.getFullYear() : 0,
-        mes:  fecha ? fecha.getMonth() + 1 : 0,
+        mes: fecha ? fecha.getMonth() + 1 : 0,
     };
 }
 
 function esNoConformidad(item) {
-    const s = item.q1_satisfaccion_general;
-    return s > 0 && s <= 3;
+    const s = Math.round(item.q1_satisfaccion_general);
+    return s >= 1 && s <= 3;
 }
+
 
 function agruparPor(datos, obtenerClave, limite = 10) {
     const map = new Map();
@@ -211,62 +277,62 @@ const DEALERS_CASO = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec",
 
 const opcionesRaizCaso = {
     "Gestion de Clientes": [
-        "Respuestas lentas a las quejas","Falta de seguimiento postventa","Encuestas de satisfacción poco frecuentes o inexistentes",
-        "Mala gestión de la experiencia del cliente en el showroom","Falta de personal dedicado a la atención al cliente",
-        "Tiempos de espera prolongados para servicios de mantenimiento","Falta de comunicación proactiva con los clientes",
-        "Carencia de programas de fidelización","Problemas en la gestión de citas y servicios programados",
-        "Deficiencias en la personalización del servicio","Falta de transparencia en la información proporcionada a los clientes",
-        "Deficiencias en la gestión de la imagen y reputación","Falta de atención a los comentarios y reseñas",
-        "Problemas en la gestión de garantías","Falta de ofertas y promociones atractivas","Dificultad para contactar con el servicio al cliente",
-        "Horarios de atención limitados","Mal uso de CRM","Problemas en la gestión de reclamaciones y devoluciones",
+        "Respuestas lentas a las quejas", "Falta de seguimiento postventa", "Encuestas de satisfacción poco frecuentes o inexistentes",
+        "Mala gestión de la experiencia del cliente en el showroom", "Falta de personal dedicado a la atención al cliente",
+        "Tiempos de espera prolongados para servicios de mantenimiento", "Falta de comunicación proactiva con los clientes",
+        "Carencia de programas de fidelización", "Problemas en la gestión de citas y servicios programados",
+        "Deficiencias en la personalización del servicio", "Falta de transparencia en la información proporcionada a los clientes",
+        "Deficiencias en la gestión de la imagen y reputación", "Falta de atención a los comentarios y reseñas",
+        "Problemas en la gestión de garantías", "Falta de ofertas y promociones atractivas", "Dificultad para contactar con el servicio al cliente",
+        "Horarios de atención limitados", "Mal uso de CRM", "Problemas en la gestión de reclamaciones y devoluciones",
     ],
     Metodo: [
-        "Procesos complejos","Procesos poco explícitos","Incumplimiento en la ejecución","Procesos limitados",
-        "Falta de documentación y registro","Falta de integración entre departamentos","Inconsistencias en la aplicación",
-        "Procesos no optimizados","Falta de estandarización en la atención al cliente","Ausencia de procedimientos claros para la gestión de garantías",
-        "Falta de protocolos para la entrega de vehículos nuevos","Falta de automatización en procesos administrativos",
-        "Retrasos en la tramitación de documentos","Ineficiencia en la programación de citas","Problemas en la gestión de la información del cliente",
-        "Falta de procedimientos de emergencia","Deficiencias en el control de calidad","Falta de auditorías internas periódicas",
-        "Problemas en la implementación de sistemas ERP","Deficiencias en la gestión de proyectos","Falta de revisiones periódicas",
-        "Procedimientos redundantes","Falta de actualización de manuales operativos","Uso ineficiente de recursos",
+        "Procesos complejos", "Procesos poco explícitos", "Incumplimiento en la ejecución", "Procesos limitados",
+        "Falta de documentación y registro", "Falta de integración entre departamentos", "Inconsistencias en la aplicación",
+        "Procesos no optimizados", "Falta de estandarización en la atención al cliente", "Ausencia de procedimientos claros para la gestión de garantías",
+        "Falta de protocolos para la entrega de vehículos nuevos", "Falta de automatización en procesos administrativos",
+        "Retrasos en la tramitación de documentos", "Ineficiencia en la programación de citas", "Problemas en la gestión de la información del cliente",
+        "Falta de procedimientos de emergencia", "Deficiencias en el control de calidad", "Falta de auditorías internas periódicas",
+        "Problemas en la implementación de sistemas ERP", "Deficiencias en la gestión de proyectos", "Falta de revisiones periódicas",
+        "Procedimientos redundantes", "Falta de actualización de manuales operativos", "Uso ineficiente de recursos",
         "Falta de un sistema de gestión de calidad total",
     ],
     Materiales: [
-        "Insuficiencia de materiales","Materiales en mal estado","Materiales descalibrados","Difícil disponibilidad","Costos elevados",
-        "Variabilidad en la calidad","Obsolescencia","Falta de stock de piezas de alta demanda","Problemas con proveedores no confiables",
-        "Almacenamiento inadecuado de piezas","Pérdidas por deterioro","Falta de control de inventarios","Gestión ineficaz de devoluciones",
-        "Uso de materiales no homologados","Falta de piezas específicas para ciertos modelos","Problemas en la logística de entrega",
-        "Retrasos en la recepción de materiales importados","Problemas en la aduana","Roturas durante el transporte","Embalajes inadecuados",
-        "Falta de previsión en pedidos","Fallos en la trazabilidad de piezas",
+        "Insuficiencia de materiales", "Materiales en mal estado", "Materiales descalibrados", "Difícil disponibilidad", "Costos elevados",
+        "Variabilidad en la calidad", "Obsolescencia", "Falta de stock de piezas de alta demanda", "Problemas con proveedores no confiables",
+        "Almacenamiento inadecuado de piezas", "Pérdidas por deterioro", "Falta de control de inventarios", "Gestión ineficaz de devoluciones",
+        "Uso de materiales no homologados", "Falta de piezas específicas para ciertos modelos", "Problemas en la logística de entrega",
+        "Retrasos en la recepción de materiales importados", "Problemas en la aduana", "Roturas durante el transporte", "Embalajes inadecuados",
+        "Falta de previsión en pedidos", "Fallos en la trazabilidad de piezas",
     ],
     Infraestructura: [],
     "Talento Humano": [
-        "Falta de capacitación","Falta de adiestramiento","Problemas de comunicación","Desmotivación","Conflictos laborales",
-        "Alta rotación de personal","Falta de reconocimiento","Cargas de trabajo excesivas","Ausentismo","Falta de liderazgo efectivo",
-        "Insuficiente personal de ventas durante picos de demanda","Falta de técnicos especializados en postventa",
-        "Ausencia de programas de desarrollo profesional y mentoría","Evaluación de desempeño inadecuada","Falta de incentivos y bonificaciones",
-        "Falta de claridad en las expectativas laborales","Escasa participación de los empleados en la toma de decisiones",
-        "Deficiencias en la gestión del talento","Falta de programas de bienestar laboral","Problemas con la gestión del tiempo",
-        "Personal de nuevo ingreso","Problemas de retención de talento clave","Baja moral del equipo","Falta de diversidad e inclusión",
-        "Problemas con la conciliación laboral y familiar","Ausencia de un plan de carrera claro","Falta de apoyo psicológico",
+        "Falta de capacitación", "Falta de adiestramiento", "Problemas de comunicación", "Desmotivación", "Conflictos laborales",
+        "Alta rotación de personal", "Falta de reconocimiento", "Cargas de trabajo excesivas", "Ausentismo", "Falta de liderazgo efectivo",
+        "Insuficiente personal de ventas durante picos de demanda", "Falta de técnicos especializados en postventa",
+        "Ausencia de programas de desarrollo profesional y mentoría", "Evaluación de desempeño inadecuada", "Falta de incentivos y bonificaciones",
+        "Falta de claridad en las expectativas laborales", "Escasa participación de los empleados en la toma de decisiones",
+        "Deficiencias en la gestión del talento", "Falta de programas de bienestar laboral", "Problemas con la gestión del tiempo",
+        "Personal de nuevo ingreso", "Problemas de retención de talento clave", "Baja moral del equipo", "Falta de diversidad e inclusión",
+        "Problemas con la conciliación laboral y familiar", "Ausencia de un plan de carrera claro", "Falta de apoyo psicológico",
         "Falta de programas de salud y seguridad laboral",
     ],
 };
 
 const lineaMetaCaso = {
-    Ventas:      { Icon: Tag, label: "Ventas" },
-    Servicio:    { Icon: Wrench, label: "Servicio" },
-    Usados:      { Icon: Car, label: "Usados" },
+    Ventas: { Icon: Tag, label: "Ventas" },
+    Servicio: { Icon: Wrench, label: "Servicio" },
+    Usados: { Icon: Car, label: "Usados" },
     Refacciones: { Icon: Package, label: "Refacciones" },
-    General:     { Icon: Building2, label: "General" },
+    General: { Icon: Building2, label: "General" },
 };
 
 const ImgIconCaso = (src, alt) => (props) => <img src={src} alt={alt} {...props} />;
 const origenMetaCaso = {
-    "JD Power":           { Icon: ImgIconCaso(JDPOWER, "JD Power"), label: "JD Power" },
-    Whatsapp:             { Icon: ImgIconCaso(WAP, "Whatsapp"), label: "WhatsApp" },
-    Facebook:             { Icon: ImgIconCaso(FB, "Facebook"), label: "Facebook" },
-    "Encuesta Interna":   { Icon: ImgIconCaso(ENCUESTA, "Encuesta"), label: "Encuesta" },
+    "JD Power": { Icon: ImgIconCaso(JDPOWER, "JD Power"), label: "JD Power" },
+    Whatsapp: { Icon: ImgIconCaso(WAP, "Whatsapp"), label: "WhatsApp" },
+    Facebook: { Icon: ImgIconCaso(FB, "Facebook"), label: "Facebook" },
+    "Encuesta Interna": { Icon: ImgIconCaso(ENCUESTA, "Encuesta"), label: "Encuesta" },
     "Reclamacion Verbal": { Icon: ImgIconCaso(SPEAK, "Verbal"), label: "Verbal" },
     "Llamada de Calidad": { Icon: ImgIconCaso(PHONE, "Llamada"), label: "Llamada" },
 };
@@ -430,15 +496,13 @@ function OrigenPickerCaso({ value, onChange }) {
                         type="button"
                         key={key}
                         onClick={() => onChange(key)}
-                        className={`group rounded-lg border p-1 text-left shadow-md transition ${
-                            Active ? "border-[#131E5C]/50 bg-white ring-2 ring-[#131E5C]/30" : "border-black/10 bg-neutral-100 hover:bg-white"
-                        }`}
+                        className={`group rounded-lg border p-1 text-left shadow-md transition ${Active ? "border-[#131E5C]/50 bg-white ring-2 ring-[#131E5C]/30" : "border-black/10 bg-neutral-100 hover:bg-white"
+                            }`}
                     >
                         <div className="flex items-center gap-3">
                             <div
-                                className={`flex h-8 w-8 items-center justify-center rounded-full border ${
-                                    Active ? "border-[#131E5C]/40 bg-[#131E5C]/10" : "border-black/10 bg-white"
-                                }`}
+                                className={`flex h-8 w-8 items-center justify-center rounded-full border ${Active ? "border-[#131E5C]/40 bg-[#131E5C]/10" : "border-black/10 bg-white"
+                                    }`}
                             >
                                 <Icon className="h-5 w-5" />
                             </div>
@@ -462,14 +526,12 @@ function LineaPickerCaso({ value, onChange }) {
                         type="button"
                         key={key}
                         onClick={() => onChange(key)}
-                        className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-1 shadow-lg transition ${
-                            Active ? "border-[#131E5C]/50 bg-white ring-2 ring-[#131E5C]/30" : "border-black/10 bg-neutral-100 hover:bg-white"
-                        }`}
+                        className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-1 shadow-lg transition ${Active ? "border-[#131E5C]/50 bg-white ring-2 ring-[#131E5C]/30" : "border-black/10 bg-neutral-100 hover:bg-white"
+                            }`}
                     >
                         <span
-                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                                Active ? "border-[#131E5C]/40 bg-[#131E5C]/10" : "border-black/10 bg-white"
-                            }`}
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${Active ? "border-[#131E5C]/40 bg-[#131E5C]/10" : "border-black/10 bg-white"
+                                }`}
                         >
                             <Icon className="h-4 w-4" style={{ color: CASO_BLUE }} />
                         </span>
@@ -1047,8 +1109,8 @@ function VistaTabla({ datos, onVerDetalle }) {
                 <table className="min-w-full text-sm">
                     <thead>
                         <tr style={{ backgroundColor: NAVY }} className="text-left text-white">
-                            {["Fuente","ID Venta","Periodo","Encuesta","Estatus","Concesionaria","Asesor","Modelo","Chasis","Satisfacción","Recomendación","Producto","Comentario","Seguimiento"].map((h) => (
-                                <th key={h} className={`px-4 py-3 font-medium ${["Satisfacción","Recomendación","Producto","Seguimiento"].includes(h) ? "text-right" : ""} ${h === "Seguimiento" ? "text-center" : ""}`}>
+                            {["Fuente", "ID Venta", "Periodo", "Encuesta", "Estatus", "Concesionaria", "Asesor", "Modelo", "Chasis", "Satisfacción", "Recomendación", "Producto", "Comentario", "Seguimiento"].map((h) => (
+                                <th key={h} className={`px-4 py-3 font-medium ${["Satisfacción", "Recomendación", "Producto", "Seguimiento"].includes(h) ? "text-right" : ""} ${h === "Seguimiento" ? "text-center" : ""}`}>
                                     {h}
                                 </th>
                             ))}
@@ -1089,11 +1151,10 @@ function VistaTabla({ datos, onVerDetalle }) {
                                 <td className="px-4 py-3 text-center">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onVerDetalle(item); }}
-                                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold transition ${
-                                            item.seguimiento?.id_exp
-                                                ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                                : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                                        }`}
+                                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold transition ${item.seguimiento?.id_exp
+                                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                            : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                                            }`}
                                     >
                                         <Flag size={13} />
                                         {item.seguimiento?.id_exp ? "Ver seguimiento" : "Dar seguimiento"}
@@ -1227,7 +1288,7 @@ function VistaGraficas({ datos }) {
                             <Tooltip contentStyle={TooltipStyle} />
                             <Bar dataKey="rating1" name="1 ★ Crítico" stackId="a" fill={RED} />
                             <Bar dataKey="rating2" name="2 ★ Grave" stackId="a" fill={ORANGE} />
-                            <Bar dataKey="rating3" name="3 ★ Leve" stackId="a" fill={AMBER} radius={[5,5,0,0]} />
+                            <Bar dataKey="rating3" name="3 ★ Leve" stackId="a" fill={AMBER} radius={[5, 5, 0, 0]} />
                             <Legend wrapperStyle={{ fontSize: 11 }} />
                         </BarChart>
                     </ResponsiveContainer>
@@ -1298,7 +1359,7 @@ function VistaGraficas({ datos }) {
                         <Legend wrapperStyle={{ fontSize: 12 }} />
                         <Bar dataKey="rating1" name="1 ★ Crítico" stackId="a" fill={RED} />
                         <Bar dataKey="rating2" name="2 ★ Grave" stackId="a" fill={ORANGE} />
-                        <Bar dataKey="rating3" name="3 ★ Leve" stackId="a" fill={AMBER} radius={[5,5,0,0]} />
+                        <Bar dataKey="rating3" name="3 ★ Leve" stackId="a" fill={AMBER} radius={[5, 5, 0, 0]} />
                         <Line type="monotone" dataKey="total" name="Total" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} />
                     </BarChart>
                 </ResponsiveContainer>
@@ -1318,7 +1379,7 @@ function VistaGraficas({ datos }) {
                             <Legend wrapperStyle={{ fontSize: 11 }} />
                             <Bar dataKey="rating1" name="1 ★ Crítico" stackId="a" fill={RED} />
                             <Bar dataKey="rating2" name="2 ★ Grave" stackId="a" fill={ORANGE} />
-                            <Bar dataKey="rating3" name="3 ★ Leve" stackId="a" fill={AMBER} radius={[5,5,0,0]} />
+                            <Bar dataKey="rating3" name="3 ★ Leve" stackId="a" fill={AMBER} radius={[5, 5, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </ChartCard>
@@ -1336,7 +1397,7 @@ function VistaGraficas({ datos }) {
                             <Legend wrapperStyle={{ fontSize: 11 }} />
                             <Bar dataKey="rating1" name="1 ★ Crítico" stackId="a" fill={RED} />
                             <Bar dataKey="rating2" name="2 ★ Grave" stackId="a" fill={ORANGE} />
-                            <Bar dataKey="rating3" name="3 ★ Leve" stackId="a" fill={AMBER} radius={[5,5,0,0]} />
+                            <Bar dataKey="rating3" name="3 ★ Leve" stackId="a" fill={AMBER} radius={[5, 5, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </ChartCard>
@@ -1355,7 +1416,7 @@ function VistaGraficas({ datos }) {
                         <Legend wrapperStyle={{ fontSize: 11 }} />
                         <Bar dataKey="rating1" name="1 ★ Crítico" stackId="a" fill={RED} />
                         <Bar dataKey="rating2" name="2 ★ Grave" stackId="a" fill={ORANGE} />
-                        <Bar dataKey="rating3" name="3 ★ Leve" stackId="a" fill={AMBER} radius={[5,5,0,0]} />
+                        <Bar dataKey="rating3" name="3 ★ Leve" stackId="a" fill={AMBER} radius={[5, 5, 0, 0]} />
                     </BarChart>
                 </ResponsiveContainer>
             </ChartCard>
@@ -1377,16 +1438,16 @@ const BTN_INACTIVO_MES_CLASS =
 // ─── Componente principal ────────────────────────────────────────────────────
 export default function NoConformidad() {
     const [vista, setVista] = useState("graficas");
-    const [anio, setAnio]   = useState(ANIO_ACTUAL);
-    const [mes, setMes]     = useState("Todos");
+    const [anio, setAnio] = useState(ANIO_ACTUAL);
+    const [mes, setMes] = useState("Todos");
     const [fuenteActiva, setFuenteActiva] = useState("Todas");
     const [concesionariaActiva, setConcesionariaActiva] = useState("Todas");
-    const [busqueda, setBusqueda]         = useState("");
-    const [itemDetalle, setItemDetalle]   = useState(null);
+    const [busqueda, setBusqueda] = useState("");
+    const [itemDetalle, setItemDetalle] = useState(null);
 
-    const [datos, setDatos]   = useState([]);
+    const [datos, setDatos] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError]     = useState(null);
+    const [error, setError] = useState(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
     const aniosDisponibles = useMemo(() => {
@@ -1420,6 +1481,11 @@ export default function NoConformidad() {
                     (async () => {
                         const data = await apiServicio.list();
                         const lista = Array.isArray(data) ? data : data.results ?? [];
+
+                        // 🔍 DEBUG: ver la forma real del primer registro crudo
+                        console.log("🔬 Primer item crudo de Enc. Servicio:", lista[0]);
+                        console.log("🔬 Keys disponibles:", lista[0] ? Object.keys(lista[0]) : "sin datos");
+
                         return lista.map((item) => mapearEncuestaComun(item, "Enc. Servicio"));
                     })(),
                     (async () => {
@@ -1429,17 +1495,48 @@ export default function NoConformidad() {
                     })(),
                 ]);
 
-                let todos = resultados
+                // Visibilidad: si alguna fuente falla, que se note en consola en vez de
+                // desaparecer en silencio.
+                const NOMBRES_FUENTE = ["JD Power Ventas", "Enc. Servicio", "Enc. Entrega"];
+                resultados.forEach((r, i) => {
+                    if (r.status === "rejected") {
+                        console.error(`❌ Falló "${NOMBRES_FUENTE[i]}":`, r.reason);
+                    } else {
+                        console.log(`✅ "${NOMBRES_FUENTE[i]}" trajo ${r.value.length} registros`);
+                    }
+                });
+
+                const todosSinFiltrarNC = resultados
                     .filter((r) => r.status === "fulfilled")
-                    .flatMap((r) => r.value)
-                    .filter(esNoConformidad);
+                    .flatMap((r) => r.value);
+
+                // 🔍 DEBUG: distribución real de estrellas por fuente, ANTES de cualquier filtro
+                const distribucion = {};
+                todosSinFiltrarNC.forEach((d) => {
+                    const key = d.fuente;
+                    if (!distribucion[key]) distribucion[key] = { total: 0, porEstrella: {} };
+                    distribucion[key].total += 1;
+                    const r = Math.round(d.q1_satisfaccion_general);
+                    distribucion[key].porEstrella[r] = (distribucion[key].porEstrella[r] || 0) + 1;
+                });
+                console.log("📊 Distribución de estrellas por fuente:", JSON.stringify(distribucion, null, 2));
+
+                let todos = todosSinFiltrarNC.filter(esNoConformidad);
+                console.log(`🔎 Después de filtro esNoConformidad (≤3★): ${todos.length} de ${todosSinFiltrarNC.length}`);
 
                 if (anio !== "Todos") {
+                    const antes = todos.length;
                     todos = todos.filter((d) => String(d.anio) === String(anio));
+                    console.log(`📅 Filtro por año (${anio}): ${todos.length} de ${antes}`);
                 }
                 if (mes !== "Todos") {
+                    const antes = todos.length;
                     todos = todos.filter((d) => String(d.mes) === String(mes));
+                    console.log(`📅 Filtro por mes (${mes}): ${todos.length} de ${antes}`);
                 }
+
+                console.log(`✅ TOTAL final que se muestra en pantalla: ${todos.length}`);
+                setDatos(todos);
 
                 setDatos(todos);
             } catch (err) {
@@ -1469,6 +1566,7 @@ export default function NoConformidad() {
         const texto = normalizarTexto(busqueda);
         if (texto) {
             d = d.filter((item) => {
+                // DESPUÉS
                 const acumulado = [
                     item.id_ventas,
                     item.id_encuesta,
@@ -1478,6 +1576,9 @@ export default function NoConformidad() {
                     item.codigo_concesionaria,
                     item.id_asesor,
                     item.comentario,
+                    item.nombre_OS_cliente,
+                    item.asesor_atendio,
+                    item.agencia,
                 ].map(normalizarTexto).join(" ");
                 return acumulado.includes(texto);
             });
@@ -1487,10 +1588,10 @@ export default function NoConformidad() {
     }, [datos, fuenteActiva, concesionariaActiva, busqueda]);
 
     const resumen = useMemo(() => {
-        const total   = datosFiltrados.length;
+        const total = datosFiltrados.length;
         const critico = datosFiltrados.filter((d) => Math.round(d.q1_satisfaccion_general) === 1).length;
-        const grave   = datosFiltrados.filter((d) => Math.round(d.q1_satisfaccion_general) === 2).length;
-        const leve    = datosFiltrados.filter((d) => Math.round(d.q1_satisfaccion_general) === 3).length;
+        const grave = datosFiltrados.filter((d) => Math.round(d.q1_satisfaccion_general) === 2).length;
+        const leve = datosFiltrados.filter((d) => Math.round(d.q1_satisfaccion_general) === 3).length;
         const conComentario = datosFiltrados.filter((d) => d.comentario).length;
         return { total, critico, grave, leve, conComentario };
     }, [datosFiltrados]);
@@ -1557,11 +1658,10 @@ export default function NoConformidad() {
                         <button
                             key={item}
                             onClick={() => setVista(item)}
-                            className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition ${
-                                vista === item
-                                    ? "border-transparent text-white"
-                                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                            }`}
+                            className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition ${vista === item
+                                ? "border-transparent text-white"
+                                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                                }`}
                             style={vista === item ? { backgroundColor: NAVY } : {}}
                         >
                             {item === "tabla" ? (
