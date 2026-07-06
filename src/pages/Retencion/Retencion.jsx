@@ -435,6 +435,7 @@ function VistaGraficas({ datos }) {
             .slice(0, 8);
     }, [datos]);
 
+    const totalAgencias = porAgencia.reduce((acc, i) => acc + i.value, 0);
     const totalSegmentos = porSegmento.reduce((acc, i) => acc + i.value, 0);
     const totalEstados = porEstado.reduce((acc, i) => acc + i.value, 0);
 
@@ -756,6 +757,7 @@ export default function Retencion() {
     const [mes, setMes] = useState("Todos");
     const [semana, setSemana] = useState("Todas");
     const [segmento, setSegmento] = useState("Todos");
+    const [agencia, setAgencia] = useState("Todos");
     const [estado, setEstado] = useState("Todos");
     const [marca, setMarca] = useState("Todas");
     const [busqueda, setBusqueda] = useState("");
@@ -838,7 +840,7 @@ export default function Retencion() {
                 setError(null);
 
                 const datos = await cargarOrdenes(
-                    { anio, mes, segmento, estado, marca, ordering: "-fecha_ultima_os", limit: 10000 },
+                    { anio, mes, segmento, agencia, estado, marca, ordering: "-fecha_ultima_os", limit: 50000 },
                     controller.signal
                 );
 
@@ -852,7 +854,7 @@ export default function Retencion() {
 
         cargarDatos();
         return () => controller.abort();
-    }, [anio, mes, segmento, estado, marca, cargarOrdenes, refreshKey]);
+    }, [anio, mes, segmento, agencia, estado, marca, cargarOrdenes, refreshKey]);
 
     const aniosDisponibles = useMemo(() => {
         if (opciones.anios.length > 0) return opciones.anios;
@@ -885,7 +887,7 @@ export default function Retencion() {
             datos = datos.filter((item) => {
                 const acumulado = [
                     item.vin, item.numero_nota, item.ultima_orden_servicio, item.nombre_cliente,
-                    item.telefono_cliente, item.correo_cliente, item.marca, item.modelo_nombre, item.placa_vehiculo,
+                    item.telefono_cliente, item.correo_cliente, item.marca, item.agencias, item.modelo_nombre, item.placa_vehiculo,
                 ].map(normalizarTexto).join(" ");
                 return acumulado.includes(texto);
             });
@@ -918,6 +920,7 @@ export default function Retencion() {
         setMes("Todos");
         setSemana("Todas");
         setSegmento("Todos");
+        setAgencia("Todos");
         setEstado("Todos");
         setMarca("Todas");
         setBusqueda("");
@@ -1035,6 +1038,13 @@ export default function Retencion() {
                     <option value="Todos">Todos los meses</option>
                     {mesesDisponibles.map((m) => (
                         <option key={m} value={String(m)}>{MESES[m - 1]}</option>
+                    ))}
+                </PillSelect>
+
+                <PillSelect value={agencia} onChange={setAgencia}>
+                    <option value="Todos">Todos los Dealers</option>
+                    {opciones.agencias.map((item) => (
+                        <option key={item} value={item}>{item}</option>
                     ))}
                 </PillSelect>
 

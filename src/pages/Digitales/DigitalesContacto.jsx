@@ -1,4 +1,4 @@
-
+//Volkswagen
 // src/pages/Digitaltes/DigitalesContacto.jsx
 import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
@@ -415,6 +415,24 @@ function formatAudioTime(seconds) {
     const min = Math.floor(total / 60);
     const sec = total % 60;
     return `${min}:${String(sec).padStart(2, "0")}`;
+}
+
+function humanBytes(bytes) {
+    const value = Number(bytes || 0);
+
+    if (!Number.isFinite(value) || value <= 0) {
+        return "0 B";
+    }
+
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const index = Math.min(
+        Math.floor(Math.log(value) / Math.log(1024)),
+        units.length - 1
+    );
+
+    const size = value / Math.pow(1024, index);
+
+    return `${size >= 10 || index === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[index]}`;
 }
 
 function cleanMediaTextForBubble(text, attachments = []) {
@@ -1518,19 +1536,40 @@ export default function DigitalesContacto() {
 
     function addFilesAsAttachments(files) {
         const arr = Array.from(files || []);
+
         if (!arr.length) return;
+
         setAttachments(prev => {
             const next = [...prev];
+
             const sig = (f) => `${f?.name || ""}|${f?.size || 0}|${f?.lastModified || 0}`;
             const existing = new Set(next.map(a => sig(a.file)));
+
             for (const file of arr) {
                 if (!file) continue;
+
                 const key = sig(file);
+
                 if (existing.has(key)) continue;
-                const id = crypto.randomUUID(), kind = fileKind(file);
-                next.push({ id, file, kind, previewUrl: kind === "image" ? URL.createObjectURL(file) : "", name: file.name, size: file.size });
+
+                const id = crypto.randomUUID();
+                const kind = fileKind(file);
+                const localUrl = URL.createObjectURL(file);
+
+                next.push({
+                    id,
+                    file,
+                    kind,
+                    previewUrl: localUrl,
+                    url: localUrl,
+                    name: file.name,
+                    size: file.size,
+                    mime: file.type || "",
+                });
+
                 existing.add(key);
             }
+
             return next.slice(0, 10);
         });
     }
@@ -1658,27 +1697,118 @@ export default function DigitalesContacto() {
 
     async function enviarMensaje() {
         if (!activeTel) return;
+
         const text = draftMsg.replace(/\r\n/g, "\n").trim();
-        const hasText = Boolean(text), hasAttachments = attachments.length > 0;
+        const hasText = Boolean(text);
+        const hasAttachments = attachments.length > 0;
+
         if (!hasText && !hasAttachments) return;
-        const editId = editingMsgId, currentAttachments = attachments, replyMessageId = replyToMsg?.wa_message_id || "";
+
+        const editId = editingMsgId;
+        const currentAttachments = attachments;
+        const replyMessageId = replyToMsg?.wa_message_id || replyToMsg?.id || "";
+
+        // ── Edición de mensaje ─────────────────────────────────────────────
         if (editId) {
-            if (!hasText) { alert("Para editar, escribe texto."); return; }
-            setMensajes(prev => prev.map(m => (m.wa_message_id || m.id) === editId ? { ...m, text, status: "sent", edited: true } : m));
-            setDraftMsg(""); setEditingMsgId(null); setOpenEmoji(false);
-            try { await api.digitalesEditarMensaje({ to: activeTel, message_id: editId, text }); await refreshActiveChat(activeTel, { forceBottom: true }); }
-            catch (error) { alert(`Falló edición: ${error.message}`); await refreshActiveChat(activeTel).catch(() => { }); }
+            if (!hasText) {
+                alert("Para editar, escribe texto.");
+                return;
+            }
+
+            setMensajes(prev =>
+                prev.map(m =>
+                    (m.wa_message_id || m.id) === editId
+                        ? {
+                            ...m,
+                            text,
+                            status: "sent",
+                            edited: true,
+                        }
+                        : m
+                )
+            );
+
+            resetComposer();
+
+            try {
+                await api.digitalesEditarMensaje({
+                    to: activeTel,
+                    message_id: editId,
+                    text,
+                });
+
+                await refreshActiveChat(activeTel, { forceBottom: true });
+            } catch (error) {
+                alert(`Falló edición: ${error.message}`);
+                await refreshActiveChat(activeTel).catch(() => { });
+            }
+
             return;
         }
+
+        // ── Mensaje nuevo ──────────────────────────────────────────────────
         const optimisticId = crypto.randomUUID();
+
+        const optimisticAttachments = currentAttachments.map((a) => {
+            const localUrl = a.file
+                ? URL.createObjectURL(a.file)
+                : (a.url || a.previewUrl || "");
+
+            return {
+                id: a.id,
+                kind: a.kind,
+                previewUrl: localUrl,
+                url: localUrl,
+                name: a.name,
+                size: a.size,
+                mime: a.mime || a.file?.type || "",
+            };
+        });
+
         shouldStickToBottomRef.current = true;
-        setMensajes(prev => [...prev, { id: optimisticId, local_pending: true, local_created_at: new Date().toISOString(), mine: true, text: hasText ? text : "Adjunto", time: "Ahora", status: "sent", reply_to_id: replyMessageId || "", attachments: currentAttachments.map(a => ({ id: a.id, kind: a.kind, previewUrl: a.previewUrl, name: a.name, size: a.size })) }]);
+
+        setMensajes(prev => [
+            ...prev,
+            {
+                id: optimisticId,
+                local_pending: true,
+                local_created_at: new Date().toISOString(),
+                mine: true,
+                text: hasText ? text : "Adjunto",
+                time: "Ahora",
+                status: "sent",
+                reply_to_id: replyMessageId || "",
+                attachments: optimisticAttachments,
+            },
+        ]);
+
         resetComposer();
+
         try {
-            if (hasAttachments) await api.digitalesEnviarMedia({ to: activeTel, text: hasText ? text : "", files: currentAttachments.map(a => a.file), reply_to_message_id: replyMessageId });
-            else await api.digitalesEnviarMensaje({ to: activeTel, text, reply_to_message_id: replyMessageId });
+            if (hasAttachments) {
+                await api.digitalesEnviarMedia({
+                    to: activeTel,
+                    text: hasText ? text : "",
+                    files: currentAttachments
+                        .map(a => a.file)
+                        .filter(Boolean),
+                    reply_to_message_id: replyMessageId,
+                });
+            } else {
+                await api.digitalesEnviarMensaje({
+                    to: activeTel,
+                    text,
+                    reply_to_message_id: replyMessageId,
+                });
+            }
+
             await refreshActiveChat(activeTel, { forceBottom: true });
-        } catch (error) { alert(`Falló: ${error.message}`); await refreshActiveChat(activeTel).catch(() => { }); }
+        } catch (error) {
+            alert(`Falló: ${error.message}`);
+            await refreshActiveChat(activeTel).catch(() => { });
+        } finally {
+            cleanupPreviews(optimisticAttachments);
+        }
     }
 
     async function enviarPlantilla() {

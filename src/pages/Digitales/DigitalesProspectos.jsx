@@ -44,7 +44,7 @@ const origenMeta = {
 const ASESORES_DIGITALES = [
     "Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas",
     "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares",
-    "Bianca Isabel Chávez Alarcón", "Edgar Omar Nogera Solis",
+    "Bianca Isabel Chávez Alarcón", "Edgar Omar Nogera Solis", "Candy Denisse Marquez Cortes"
 ];
 
 const ESTADOS_PROSPECTO = [
