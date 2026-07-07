@@ -23,6 +23,7 @@ import {
     Gauge,
     Mail,
     MapPin,
+    MessageCircle,
     Phone,
     PhoneCall,
     RefreshCw,
@@ -54,6 +55,13 @@ const MESES = [
 
 const SEMANAS = Array.from({ length: 52 }, (_, i) => i + 1);
 const ANIO_ACTUAL = String(new Date().getFullYear());
+
+// NUEVO: opciones de estado de contacto (solo visual por ahora)
+const CONTACTO_OPCIONES = [
+    "Sin contactar",
+    "Contactado No Responde",
+    "Contactado Con Respuesta",
+];
 
 const TooltipStyle = {
     fontSize: 12,
@@ -143,6 +151,8 @@ function mapearOrden(item) {
         condicion_vehiculo: item.condicion_vehiculo || "",
         nombre_cliente: item.nombre_cliente || "Sin cliente",
         telefono_cliente: item.telefono_cliente || "",
+        telefono_cliente2: item.telefono_cliente2 || "",
+        telefono_cliente3: item.telefono_cliente3 || "",
         correo_cliente: item.correo_cliente || "",
         ultima_orden_servicio: item.ultima_orden_servicio || "",
         tipo_orden: item.tipo_orden || "",
@@ -232,14 +242,15 @@ function TablaClientes({ datos, onAbrirDetalle }) {
             <div className="overflow-x-auto">
                 <table className="min-w-full table-fixed text-sm">
                     <colgroup>
-                        <col className="w-[9%]" />
-                        <col className="w-[23%]" />
-                        <col className="w-[15%]" />
-                        <col className="w-[11%]" />
-                        <col className="w-[9%]" />
-                        <col className="w-[6%]" />
+                        <col className="w-[8%]" />
+                        <col className="w-[21%]" />
+                        <col className="w-[14%]" />
                         <col className="w-[10%]" />
-                        <col className="w-[17%]" />
+                        <col className="w-[8%]" />
+                        <col className="w-[6%]" />
+                        <col className="w-[9%]" />
+                        <col className="w-[15%]" />
+                        <col className="w-[9%]" />
                     </colgroup>
                     <thead>
                         <tr className="border-b border-slate-100 text-left text-[11px] font-bold uppercase tracking-wide text-slate-400">
@@ -251,6 +262,7 @@ function TablaClientes({ datos, onAbrirDetalle }) {
                             <th className="px-4 py-3 text-right">Meses</th>
                             <th className="px-4 py-3">Última OS</th>
                             <th className="px-4 py-3 text-right">Total servicio</th>
+                            <th className="px-4 py-3 text-center">Acciones</th>
                         </tr>
                     </thead>
 
@@ -278,6 +290,19 @@ function TablaClientes({ datos, onAbrirDetalle }) {
                                             </div>
                                             <div className="truncate text-xs text-slate-400">
                                                 {item.telefono_cliente || "Sin teléfono"}
+                                            </div>
+                                            {item.telefono_cliente2 ? (
+                                                <div className="truncate text-xs text-slate-400">
+                                                    {item.telefono_cliente2}
+                                                </div>
+                                            ) : null}
+                                            {item.telefono_cliente3 ? (
+                                                <div className="truncate text-xs text-slate-400">
+                                                    {item.telefono_cliente3}
+                                                </div>
+                                            ) : null}
+                                            <div className="truncate text-xs text-slate-400">
+                                                {item.correo_cliente || "Sin correo"}
                                             </div>
                                         </div>
                                     </div>
@@ -308,12 +333,24 @@ function TablaClientes({ datos, onAbrirDetalle }) {
                                 <td className="px-4 py-2.5 text-right font-black text-slate-800">
                                     {moneda(item.total_ultimo_servicio)}
                                 </td>
+                                <td className="px-4 py-2.5">
+                                    <div className="flex items-center justify-center">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => e.stopPropagation()}
+                                            title="Enviar mensaje"
+                                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                                        >
+                                            <MessageCircle className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                         ))}
 
                         {datosTabla.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="px-4 py-14 text-center text-slate-400">
+                                <td colSpan={9} className="px-4 py-14 text-center text-slate-400">
                                     Sin resultados para los filtros seleccionados.
                                 </td>
                             </tr>
@@ -804,6 +841,7 @@ export default function Retencion() {
     const [agencia, setAgencia] = useState("Todos");
     const [estado, setEstado] = useState("Todos");
     const [marca, setMarca] = useState("Todas");
+    const [contacto, setContacto] = useState("Todos"); // NUEVO: filtro visual de contacto
     const [busqueda, setBusqueda] = useState("");
 
     const [datosRaw, setDatosRaw] = useState([]);
@@ -926,6 +964,9 @@ export default function Retencion() {
             datos = datos.filter((item) => item.semana === semanaNumero);
         }
 
+        // NOTA: el filtro de "Contacto" es solo visual por ahora; el backend
+        // todavía no expone un campo de estado de contacto para filtrar por él.
+
         const texto = normalizarTexto(busqueda);
         if (texto) {
             datos = datos.filter((item) => {
@@ -967,6 +1008,7 @@ export default function Retencion() {
         setAgencia("Todos");
         setEstado("Todos");
         setMarca("Todas");
+        setContacto("Todos");
         setBusqueda("");
     }
 
@@ -1116,6 +1158,14 @@ export default function Retencion() {
                 <PillSelect value={marca} onChange={setMarca}>
                     <option value="Todas">Todas las marcas</option>
                     {opciones.marcas.map((item) => (
+                        <option key={item} value={item}>{item}</option>
+                    ))}
+                </PillSelect>
+
+                {/* NUEVO: filtro de Contacto (visual) */}
+                <PillSelect value={contacto} onChange={setContacto} icon={PhoneCall}>
+                    <option value="Todos">Todos los contactos</option>
+                    {CONTACTO_OPCIONES.map((item) => (
                         <option key={item} value={item}>{item}</option>
                     ))}
                 </PillSelect>
