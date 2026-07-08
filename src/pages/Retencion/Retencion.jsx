@@ -126,6 +126,12 @@ function formatDate(fecha) {
     return date.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+function formatTelefono(telefono) {
+    const limpio = String(telefono || "").trim();
+    if (!limpio) return "";
+    return `+52 ${limpio}`;
+}
+
 function iniciales(nombre) {
     const partes = String(nombre || "").trim().split(/\s+/).filter(Boolean);
     if (partes.length === 0) return "?";
@@ -289,16 +295,16 @@ function TablaClientes({ datos, onAbrirDetalle }) {
                                                 {item.nombre_cliente}
                                             </div>
                                             <div className="truncate text-xs text-slate-400">
-                                                {item.telefono_cliente || "Sin teléfono"}
+                                                {item.telefono_cliente ? formatTelefono(item.telefono_cliente) : "Sin teléfono"}
                                             </div>
                                             {item.telefono_cliente2 ? (
                                                 <div className="truncate text-xs text-slate-400">
-                                                    {item.telefono_cliente2}
+                                                    {formatTelefono(item.telefono_cliente2)}
                                                 </div>
                                             ) : null}
                                             {item.telefono_cliente3 ? (
                                                 <div className="truncate text-xs text-slate-400">
-                                                    {item.telefono_cliente3}
+                                                    {formatTelefono(item.telefono_cliente3)}
                                                 </div>
                                             ) : null}
                                             <div className="truncate text-xs text-slate-400">
