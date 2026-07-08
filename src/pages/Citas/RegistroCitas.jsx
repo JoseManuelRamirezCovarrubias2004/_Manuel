@@ -551,6 +551,10 @@ function KpiCard({ label, value, color, bg, detail }) {
     );
 }
 
+function esCitaTradicional(tipo) {
+    return normalizeStr(tipo).toLowerCase() === "tradicional";
+}
+
 function GraficosView({ rows }) {
     const [hoveredDia, setHoveredDia] = useState(null);
 
@@ -569,6 +573,15 @@ function GraficosView({ rows }) {
         const porAsesor = {};
         for (const r of rows) { const a = r.asesor_digital || "Sin asesor"; porAsesor[a] = (porAsesor[a] || 0) + 1; }
 
+        const citasTradicionales = rows.filter((r) => esCitaTradicional(r.tipo_cita));
+
+        const porAsesorVentasTradicional = {};
+
+        for (const r of citasTradicionales) {
+            const asesor = normalizeStr(r.asesor_piso) || "Sin asesor";
+            porAsesorVentasTradicional[asesor] = (porAsesorVentasTradicional[asesor] || 0) + 1;
+        }
+
         const porFuente = {};
         for (const r of rows) { const f = r.fuente_prospeccion || "Sin fuente"; porFuente[f] = (porFuente[f] || 0) + 1; }
 
@@ -581,21 +594,23 @@ function GraficosView({ rows }) {
             if (Number.isNaN(d.getTime())) continue;
             porDia[daysKeys[daysMap[d.getDay()]]] = (porDia[daysKeys[daysMap[d.getDay()]]] || 0) + 1;
         }
-
-        return { total, asistieron, noAsistieron, pctAsist, porTipo, porAgencia, porAsesor, porFuente, porDia };
+        return { total, asistieron, noAsistieron, pctAsist, porTipo, porAgencia, porAsesor, porFuente, porDia, citasTradicionales, porAsesorVentasTradicional, };
     }, [rows]);
 
     const topAgencias = Object.entries(stats.porAgencia).sort((a, b) => b[1] - a[1]);
     const topAsesores = Object.entries(stats.porAsesor).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const topAsesoresVentasTradicional = Object.entries(stats.porAsesorVentasTradicional).sort((a, b) => b[1] - a[1]).slice(0, 10);
     const topFuentes = Object.entries(stats.porFuente).sort((a, b) => b[1] - a[1]);
     const maxAgencia = topAgencias[0]?.[1] || 1;
     const maxAsesor = topAsesores[0]?.[1] || 1;
+    const maxAsesorVentasTradicional = topAsesoresVentasTradicional[0]?.[1] || 1;
     const maxFuente = topFuentes[0]?.[1] || 1;
     const maxDia = Math.max(...Object.values(stats.porDia), 1);
 
     const AGENCIA_COLORS = ["bg-[#131E5C]", "bg-blue-600", "bg-blue-400", "bg-blue-300", "bg-sky-300", "bg-cyan-300", "bg-teal-300"];
     const FUENTE_COLORS = ["bg-violet-600", "bg-violet-500", "bg-violet-400", "bg-violet-300", "bg-purple-300", "bg-purple-200", "bg-indigo-300", "bg-indigo-200", "bg-blue-300", "bg-sky-300"];
     const ASESOR_COLORS = ["bg-emerald-600", "bg-emerald-500", "bg-emerald-400", "bg-emerald-300", "bg-teal-400", "bg-teal-300", "bg-cyan-400", "bg-cyan-300"];
+    const ASESOR_VENTAS_COLORS = ["bg-[#131E5C]", "bg-blue-700", "bg-blue-600", "bg-blue-500", "bg-sky-500", "bg-sky-400", "bg-cyan-500", "bg-cyan-400", "bg-indigo-500", "bg-indigo-400",];
 
     return (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -674,6 +689,48 @@ function GraficosView({ rows }) {
                         </div>
                     ))}
                     {topFuentes.length === 0 && <div className="text-xs text-slate-400 px-2">Sin datos</div>}
+                </div>
+            </div>
+            <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm md:col-span-3 xl:col-span-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="text-sm font-extrabold text-[#131E5C] flex items-center gap-2">
+                        <UserStar className="h-4 w-4" />
+                        Citas tradicionales por asesor de ventas
+                    </div>
+
+                    <span className="rounded-full bg-[#131E5C]/10 px-3 py-1 text-xs font-black text-[#131E5C]">
+                        {stats.citasTradicionales.length} tradicionales
+                    </span>
+                </div>
+
+                <div className="space-y-1">
+                    {topAsesoresVentasTradicional.map(([asesor, cnt], i) => (
+                        <div key={asesor}>
+                            <div className="mb-0.5 flex items-center justify-between px-2">
+                                <span className="max-w-[75%] truncate text-xs font-semibold text-slate-600">
+                                    {asesor}
+                                </span>
+
+                                <span className="text-xs font-black text-[#131E5C]">
+                                    {cnt}
+                                </span>
+                            </div>
+
+                            <Bar
+                                label={asesor}
+                                value={cnt}
+                                max={maxAsesorVentasTradicional}
+                                color={ASESOR_VENTAS_COLORS[i % ASESOR_VENTAS_COLORS.length]}
+                                total={stats.citasTradicionales.length}
+                            />
+                        </div>
+                    ))}
+
+                    {topAsesoresVentasTradicional.length === 0 ? (
+                        <div className="rounded-lg bg-slate-50 px-3 py-4 text-center text-xs font-semibold text-slate-400">
+                            No hay citas tradicionales con asesor de ventas en los filtros actuales.
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -793,7 +850,14 @@ export default function RegistroCitas() {
 
     const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
     const [sort, setSort] = useState({ key: "fecha_hora_cita", dir: "desc" });
-    const [filters, setFilters] = useState({ q: "", agencia: "Todos", asesorDigital: "Todos", rangoDesde: "", rangoHasta: "" });
+    const [filters, setFilters] = useState({
+        q: "",
+        agencia: "Todos",
+        asesorDigital: "Todos",
+        asesorPiso: "Todos",
+        rangoDesde: "",
+        rangoHasta: "",
+    });
     const [openModal, setOpenModal] = useState(false);
     const [mode, setMode] = useState("create");
     const [draft, setDraft] = useState(null);
@@ -897,7 +961,6 @@ export default function RegistroCitas() {
                 if (desdeInt !== null && ymdInt < desdeInt) matchRango = false;
                 if (hastaInt !== null && ymdInt > hastaInt) matchRango = false;
             }
-            return matchQ && matchAgencia && matchAsesorDigital && matchRango;
             return matchQ && matchAgencia && matchAsesorDigital && matchAsesorPiso && matchRango;
         });
     }, [citas, filters, isAdmin, userAgencias, userTieneAgencia]);
