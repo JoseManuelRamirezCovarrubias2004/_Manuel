@@ -62,18 +62,34 @@ const TIPOS_VENTA = [
     { value: "comercial", label: "Comercial" },
 ];
 
-function formatTipoVenta(value) {
+function normalizarTipoVentaKey(value) {
     const tipo = String(value || "").trim().toLowerCase();
 
     const map = {
-        nuevo: "Nuevo",
-        usados: "Usado",
-        usado: "Usado",
-        comerciales: "Comercial",
-        comercial: "Comercial",
+        nuevo: "nuevo",
+        nuevos: "nuevo",
+        usado: "usado",
+        usados: "usado",
+        seminuevo: "usado",
+        seminuevos: "usado",
+        comercial: "comercial",
+        comerciales: "comercial",
     };
 
-    return map[tipo] || "Sin capturar";
+    return map[tipo] || "sin_capturar";
+}
+
+function formatTipoVenta(value) {
+    const key = normalizarTipoVentaKey(value);
+
+    const map = {
+        nuevo: "Nuevo",
+        usado: "Usado",
+        comercial: "Comercial",
+        sin_capturar: "Sin capturar",
+    };
+
+    return map[key] || "Sin capturar";
 }
 
 function normalizeStr(v) {
@@ -897,6 +913,7 @@ export default function RegistroEntregas() {
     const [filters, setFilters] = useState({
         q: "",
         agencia: "Todos",
+        tipoVenta: "Todos",
         rangoDesde: "",
         rangoHasta: "",
     });
@@ -1048,6 +1065,7 @@ export default function RegistroEntregas() {
                 normalizeStr(item.modelo_version).toLowerCase().includes(q) ||
                 normalizeStr(item.version).toLowerCase().includes(q) ||
                 normalizeStr(item.color).toLowerCase().includes(q) ||
+                formatTipoVenta(item.tipo_venta).toLowerCase().includes(q) ||
                 normalizeStr(item.asesor_ventas).toLowerCase().includes(q) ||
                 normalizeStr(item.preparada_por).toLowerCase().includes(q) ||
                 normalizeStr(item.id_cliente_sf_nadin).toLowerCase().includes(q) ||
@@ -1055,6 +1073,9 @@ export default function RegistroEntregas() {
                 normalizeStr(item.comentarios).toLowerCase().includes(q);
 
             const matchAgencia = filters.agencia === "Todos" || normalizeStr(item.agencia) === normalizeStr(filters.agencia);
+            const matchTipoVenta =
+                filters.tipoVenta === "Todos" ||
+                normalizarTipoVentaKey(item.tipo_venta) === filters.tipoVenta;
 
             let matchRango = true;
 
@@ -1067,11 +1088,9 @@ export default function RegistroEntregas() {
                 if (minInt !== null && ymdInt < minInt) matchRango = false;
                 if (maxInt !== null && ymdInt > maxInt) matchRango = false;
             }
-
-            return matchQ && matchAgencia && matchRango;
+            return matchQ && matchAgencia && matchTipoVenta && matchRango;
         });
-    }, [entregas, filters, isAdmin, userAgencia]);
-
+    }, [entregas, filters, isAdmin, userAgencias, userTieneAgencia]);
     const sorted = useMemo(() => {
         const data = [...filtered];
         const { key, dir } = sort || {};
@@ -1332,6 +1351,7 @@ export default function RegistroEntregas() {
         setFilters({
             q: "",
             agencia: "Todos",
+            tipoVenta: "Todos",
             rangoDesde: "",
             rangoHasta: "",
         });
@@ -1417,53 +1437,77 @@ export default function RegistroEntregas() {
         }, {})
     ).sort((a, b) => b.total - a.total);
 
-    const entregasPorTipoVenta = Object.values(
-        unidadesEntregadas.reduce((acc, item) => {
-            const tipoKey = item.tipo_venta || "sin_capturar";
-            const tipo = formatTipoVenta(tipoKey);
+    const entregasPorTipoVenta = useMemo(() => {
+        const base = {
+            nuevo: {
+                key: "nuevo",
+                tipo: "Nuevo",
+                total: 0,
+            },
+            usado: {
+                key: "usado",
+                tipo: "Usado",
+                total: 0,
+            },
+            comercial: {
+                key: "comercial",
+                tipo: "Comercial",
+                total: 0,
+            },
+        };
 
-            if (!acc[tipo]) acc[tipo] = { tipo, total: 0 };
+        for (const item of unidadesEntregadas) {
+            const key = normalizarTipoVentaKey(item.tipo_venta);
 
-            acc[tipo].total += 1;
-
-            return acc;
-        }, {})
-    ).sort((a, b) => b.total - a.total);
-
-    const entregasPorDia = Object.values(
-        sorted.reduce((acc, item) => {
-            let fechaKey;
-            let fechaDisplay;
-
-            if (item.fecha_hora_entrega) {
-                const date = new Date(item.fecha_hora_entrega);
-
-                fechaKey = date.toISOString().split("T")[0];
-                fechaDisplay = date.toLocaleDateString("es-MX");
-            } else {
-                fechaKey = "9999-99-99";
-                fechaDisplay = "Sin fecha";
-            }
-
-            if (!acc[fechaKey]) {
-                acc[fechaKey] = {
-                    fecha: fechaDisplay,
+            if (!base[key]) {
+                base[key] = {
+                    key,
+                    tipo: formatTipoVenta(key),
                     total: 0,
-                    ordenKey: fechaKey,
                 };
             }
 
-            acc[fechaKey].total += 1;
+            base[key].total += 1;
+        }
 
-            return acc;
-        }, {})
-    )
-        .sort((a, b) => {
+        return Object.values(base);
+    }, [unidadesEntregadas]);
+
+    const entregasPorDia = useMemo(() => {
+        return Object.values(
+            unidadesEntregadas.reduce((acc, item) => {
+                let fechaKey;
+                let fechaDisplay;
+
+                if (item.fecha_hora_entrega) {
+                    const date = new Date(item.fecha_hora_entrega);
+
+                    fechaKey = toYMDLocal(date);
+                    fechaDisplay = date.toLocaleDateString("es-MX");
+                } else {
+                    fechaKey = "sin_fecha";
+                    fechaDisplay = "Sin fecha";
+                }
+
+                if (!acc[fechaKey]) {
+                    acc[fechaKey] = {
+                        key: fechaKey,
+                        fecha: fechaDisplay,
+                        total: 0,
+                        ordenKey: fechaKey === "sin_fecha" ? "9999-99-99" : fechaKey,
+                    };
+                }
+
+                acc[fechaKey].total += 1;
+
+                return acc;
+            }, {})
+        ).sort((a, b) => {
             if (a.ordenKey < b.ordenKey) return -1;
             if (a.ordenKey > b.ordenKey) return 1;
             return 0;
-        })
-        .map(({ fecha, total }) => ({ fecha, total }));
+        });
+    }, [unidadesEntregadas]);
 
     // ========== NUEVOS CÁLCULOS PARA GRÁFICAS ==========
     const porcentajeCumplimiento = sorted.length ? Math.round((entregadas / sorted.length) * 100) : 0;
@@ -1704,7 +1748,30 @@ export default function RegistroEntregas() {
                         </FilterBlock>
                     </div>
 
-                    <div className="md:col-span-6">
+                    <div className="md:col-span-4">
+                        <FilterBlock label="Tipo de venta">
+                            <select
+                                value={filters.tipoVenta}
+                                onChange={(e) =>
+                                    setFilters((prev) => ({
+                                        ...prev,
+                                        tipoVenta: e.target.value,
+                                    }))
+                                }
+                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+                            >
+                                <option value="Todos">Todos</option>
+
+                                {TIPOS_VENTA.map((tipo) => (
+                                    <option key={tipo.value} value={tipo.value}>
+                                        {tipo.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </FilterBlock>
+                    </div>
+
+                    <div className="md:col-span-4">
                         <FilterBlock label="Desde">
                             <input
                                 type="date"
@@ -1715,7 +1782,7 @@ export default function RegistroEntregas() {
                         </FilterBlock>
                     </div>
 
-                    <div className="md:col-span-6">
+                    <div className="md:col-span-4">
                         <FilterBlock label="Hasta">
                             <input
                                 type="date"
@@ -2041,14 +2108,17 @@ export default function RegistroEntregas() {
                                         const heightPercentage = (item.total / maxVal) * 100;
 
                                         return (
-                                            <div key={item.tipo} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                                            <div
+                                                key={item.key}
+                                                className="flex-1 flex flex-col items-center gap-2 h-full justify-end group"
+                                            >
                                                 <span className="text-xs font-bold text-slate-700">
                                                     {item.total}
                                                 </span>
 
                                                 <div
                                                     className="w-full bg-[#1F2E74] rounded-t-md transition-all duration-300 group-hover:bg-[#2a3d96] group-hover:scale-y-105"
-                                                    style={{ height: `${Math.max(heightPercentage, 6)}%` }}
+                                                    style={{ height: `${Math.max(heightPercentage, item.total > 0 ? 6 : 2)}%` }}
                                                 />
 
                                                 <span className="text-[10px] font-bold text-slate-500 text-center truncate w-full">
@@ -2169,7 +2239,7 @@ export default function RegistroEntregas() {
                                     return entregasPorDia.slice(0, 12).map((item, index) => {
                                         const heightPercentage = (item.total / maxVal) * 100;
                                         return (
-                                            <div key={item.fecha} className="flex flex-col items-center gap-1 h-full justify-end group">
+                                            <div key={item.key} className="flex flex-col items-center gap-1 h-full justify-end group">
                                                 <span className="text-xs font-bold text-slate-700 transition-all duration-200 group-hover:scale-110">{item.total}</span>
                                                 <div className={`w-full rounded-t ${timeColors[index % timeColors.length]} transition-all duration-300 group-hover:scale-y-105 group-hover:brightness-110`} style={{ height: `${Math.max(heightPercentage, 6)}%` }}></div>
                                                 <span className="text-[10px] font-bold text-slate-400 mt-1 whitespace-nowrap">{item.fecha}</span>
