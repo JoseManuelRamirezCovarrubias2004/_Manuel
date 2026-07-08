@@ -29,6 +29,7 @@ import {
     TableProperties,
     BarChart3,
     Palette,
+    RulerDimensionLine,
 } from "lucide-react";
 
 import { apiEntregas } from "../../lib/apiEntregas";
@@ -55,6 +56,26 @@ import {
 const BRAND_BLUE = "#131E5C";
 const HOURS = Array.from({ length: 13 }, (_, index) => `${String(index + 8).padStart(2, "0")}:00`);
 
+const TIPOS_VENTA = [
+    { value: "nuevo", label: "Nuevo" },
+    { value: "usado", label: "Usado" },
+    { value: "comercial", label: "Comercial" },
+];
+
+function formatTipoVenta(value) {
+    const tipo = String(value || "").trim().toLowerCase();
+
+    const map = {
+        nuevo: "Nuevo",
+        usados: "Usado",
+        usado: "Usado",
+        comerciales: "Comercial",
+        comercial: "Comercial",
+    };
+
+    return map[tipo] || "Sin capturar";
+}
+
 function normalizeStr(v) {
     return String(v ?? "").trim();
 }
@@ -65,6 +86,10 @@ function entregaFisicaActiva(value) {
     const v = String(value ?? "").trim().toLowerCase();
     return ["si", "sí", "true", "1", "yes", "entregada", "reportada"].includes(v);
 }
+
+const unidadesEntregadas = useMemo(() => {
+    return sorted.filter((row) => entregaFisicaActiva(row.entrega_reportada));
+}, [sorted]);
 
 function normalizePhoneForSave(value) {
     const digits = String(value || "").replace(/\D/g, "");
@@ -1097,10 +1122,12 @@ export default function RegistroEntregas() {
             cliente_nombre: "",
             cliente_telefono: "",
 
+            tipo_venta: "",
             vin: "",
             modelo_version: "",
             version: "",
             color: "",
+            kilometraje: "",
 
             fecha_hora_entrega: fechaHoraDefault,
             entrega_reportada: false,
@@ -1139,10 +1166,12 @@ export default function RegistroEntregas() {
                 cliente_nombre: item?.cliente?.nombre || "",
                 cliente_telefono: item?.cliente?.telefono || "",
 
+                tipo_venta: item.tipo_venta || "",
                 vin: item.vin || "",
                 modelo_version: item.modelo_version || "",
                 version: item.version || "",
                 color: item.color || "",
+                kilometraje: item.kilometraje === null || item.kilometraje === undefined ? "" : String(item.kilometraje),
 
                 fecha_hora_entrega: toDTLocal(item.fecha_hora_entrega),
                 entrega_reportada: entregaFisicaActiva(item.entrega_reportada),
@@ -1202,6 +1231,8 @@ export default function RegistroEntregas() {
 
         try {
             const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : userAgencia;
+            const kilometrajeLimpio = String(draft.kilometraje ?? "")
+                .replace(/\D/g, "");
 
             const payload = {
                 agencia: agenciaFinal,
@@ -1210,6 +1241,9 @@ export default function RegistroEntregas() {
 
                 nombre: draft.cliente_nombre || "",
                 telefono: normalizePhoneForSave(draft.cliente_telefono),
+
+                tipo_venta: draft.tipo_venta || "",
+                kilometraje: kilometrajeLimpio ? Number(kilometrajeLimpio) : 0,
 
                 vin: draft.vin || "",
                 modelo_version: draft.modelo_version || "",
@@ -1314,7 +1348,7 @@ export default function RegistroEntregas() {
         }, {})
     ).sort((a, b) => b.total - a.total);
 
-    const entregadas = sorted.filter((row) => entregaFisicaActiva(row.entrega_reportada)).length;
+    const entregadas = unidadesEntregadas.length;
     const noEntregadas = sorted.length - entregadas;
 
     const entregasEstado = [
@@ -1323,10 +1357,15 @@ export default function RegistroEntregas() {
     ];
 
     const entregasPorAsesor = Object.values(
-        sorted.reduce((acc, item) => {
+        unidadesEntregadas.reduce((acc, item) => {
             const asesor = item.asesor_ventas || "Sin asesor";
 
-            if (!acc[asesor]) acc[asesor] = { asesor, total: 0 };
+            if (!acc[asesor]) {
+                acc[asesor] = {
+                    asesor,
+                    total: 0,
+                };
+            }
 
             acc[asesor].total += 1;
 
@@ -1335,7 +1374,7 @@ export default function RegistroEntregas() {
     ).sort((a, b) => b.total - a.total);
 
     const entregasPorVersion = Object.values(
-        sorted.reduce((acc, item) => {
+        unidadesEntregadas.reduce((acc, item) => {
             const version = item.version || "Sin versión";
 
             if (!acc[version]) acc[version] = { version, total: 0 };
@@ -1347,7 +1386,7 @@ export default function RegistroEntregas() {
     ).sort((a, b) => b.total - a.total);
 
     const entregasPorColor = Object.values(
-        sorted.reduce((acc, item) => {
+        unidadesEntregadas.reduce((acc, item) => {
             const color = item.color || "Sin color";
 
             if (!acc[color]) acc[color] = { color, total: 0 };
@@ -1357,6 +1396,20 @@ export default function RegistroEntregas() {
             return acc;
         }, {})
     ).sort((a, b) => b.total - a.total);
+
+    const entregasPorTipoVenta = Object.values(
+        unidadesEntregadas.reduce((acc, item) => {
+            const tipoKey = item.tipo_venta || "sin_capturar";
+            const tipo = formatTipoVenta(tipoKey);
+
+            if (!acc[tipo]) acc[tipo] = { tipo, total: 0 };
+
+            acc[tipo].total += 1;
+
+            return acc;
+        }, {})
+    ).sort((a, b) => b.total - a.total);
+
     const entregasPorDia = Object.values(
         sorted.reduce((acc, item) => {
             let fechaKey;
@@ -1403,10 +1456,13 @@ export default function RegistroEntregas() {
     }).length;
 
     const entregasPorModelo = Object.values(
-        sorted.reduce((acc, item) => {
+        unidadesEntregadas.reduce((acc, item) => {
             const modelo = item.modelo_version || "Sin modelo";
+
             if (!acc[modelo]) acc[modelo] = { modelo, total: 0 };
+
             acc[modelo].total += 1;
+
             return acc;
         }, {})
     ).sort((a, b) => b.total - a.total);
@@ -1428,7 +1484,7 @@ export default function RegistroEntregas() {
 
         const encabezados = [[
             "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono",
-            "VIN / Chasis", "Modelo", "Versión", "Color",
+            "VIN / Chasis", "Modelo", "Versión", "Color", "Kilometraje", "Tipo de venta",
             "Asesor de Ventas", "Entrega Física", "Preparada por",
             "ID SF-NADIN", "ID SF-DMS", "Comentarios",
         ]];
@@ -1443,6 +1499,8 @@ export default function RegistroEntregas() {
             row.modelo_version || "—",
             row.version || "—",
             row.color || "—",
+            row.kilometraje ?? "—",
+            formatTipoVenta(row.tipo_venta),
             row.asesor_ventas || "—",
             entregaFisicaActiva(row.entrega_reportada) ? "Entregada" : "Pendiente",
             row.preparada_por || "—",
@@ -1950,20 +2008,36 @@ export default function RegistroEntregas() {
                             </div>
                         </div>
 
-                        {/* Tipo de venta */}
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-                            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#131E5C]">🏪 Por tipo de venta</h3>
+                            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#131E5C]">
+                                🏪 Por tipo de venta
+                            </h3>
+
                             <div className="flex gap-4 items-end h-40 pt-4 px-2">
-                                <div className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                                    <span className="text-xs font-bold text-slate-700">57</span>
-                                    <div className="w-full bg-[#1F2E74] rounded-t-md h-[95%] transition-all duration-300 group-hover:bg-[#2a3d96] group-hover:scale-y-105"></div>
-                                    <span className="text-[10px] font-bold text-slate-500 text-center truncate w-full">Sin capturar</span>
-                                </div>
-                                <div className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                                    <span className="text-xs font-bold text-slate-700">2</span>
-                                    <div className="w-full bg-[#407BFF] rounded-t-md h-[5%] transition-all duration-300 group-hover:bg-[#5a91ff] group-hover:scale-y-105"></div>
-                                    <span className="text-[10px] font-bold text-slate-500 text-center truncate w-full">Nuevos</span>
-                                </div>
+                                {(() => {
+                                    const maxVal = Math.max(...entregasPorTipoVenta.map((item) => item.total), 1);
+
+                                    return entregasPorTipoVenta.map((item) => {
+                                        const heightPercentage = (item.total / maxVal) * 100;
+
+                                        return (
+                                            <div key={item.tipo} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                                                <span className="text-xs font-bold text-slate-700">
+                                                    {item.total}
+                                                </span>
+
+                                                <div
+                                                    className="w-full bg-[#1F2E74] rounded-t-md transition-all duration-300 group-hover:bg-[#2a3d96] group-hover:scale-y-105"
+                                                    style={{ height: `${Math.max(heightPercentage, 6)}%` }}
+                                                />
+
+                                                <span className="text-[10px] font-bold text-slate-500 text-center truncate w-full">
+                                                    {item.tipo}
+                                                </span>
+                                            </div>
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -2319,6 +2393,51 @@ export default function RegistroEntregas() {
                                 onChange={(e) => setDraft((prev) => ({ ...prev, id_cliente_sf_dms: e.target.value }))}
                                 className={[inputBase, inputOk].join(" ")}
                                 placeholder="ID SF-DMS"
+                            />
+                        </Field>
+
+                        <Field label="Tipo de Venta" icon={CarFront}>
+                            <div className="grid h-[42px] w-full min-w-[220px] grid-cols-3 rounded-xl border bg-slate-50 p-1">
+                                {TIPOS_VENTA.map((tipo) => (
+                                    <button
+                                        key={tipo.value}
+                                        type="button"
+                                        onClick={() =>
+                                            setDraft((prev) => ({
+                                                ...prev,
+                                                tipo_venta: tipo.value,
+                                            }))
+                                        }
+                                        className={[
+                                            "min-w-0 truncate whitespace-nowrap rounded-lg px-2 text-[11px] font-black transition disabled:opacity-60",
+                                            draft.tipo_venta === tipo.value
+                                                ? "bg-[#131E5C] text-white shadow-sm"
+                                                : "text-[#131E5C] hover:bg-[#131E5C]/10",
+                                        ].join(" ")}
+                                        title={tipo.label}
+                                    >
+                                        {tipo.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </Field>
+
+
+                        <Field label="Kilometraje" icon={RulerDimensionLine}>
+                            <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                inputMode="numeric"
+                                value={draft.kilometraje || ""}
+                                onChange={(e) =>
+                                    setDraft((prev) => ({
+                                        ...prev,
+                                        kilometraje: e.target.value.replace(/\D/g, ""),
+                                    }))
+                                }
+                                className={[inputBase, inputOk].join(" ")}
+                                placeholder="Ej. 15"
                             />
                         </Field>
 

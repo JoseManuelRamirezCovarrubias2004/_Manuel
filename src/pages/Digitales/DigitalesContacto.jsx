@@ -435,6 +435,19 @@ function humanBytes(bytes) {
     return `${size >= 10 || index === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[index]}`;
 }
 
+const MESSAGE_PLACEHOLDER_LABELS = {
+    "[IMAGE]": "Imagen",
+    "[VIDEO]": "Video",
+    "[AUDIO]": "Audio",
+    "[STICKER]": "Sticker",
+    "[DOCUMENT]": "Documento",
+    "[LOCATION]": "📍 Ubicación enviada",
+    "[CONTACTS]": "👤 Contacto enviado",
+    "[ORDER]": "🛒 Pedido recibido",
+    "[SYSTEM]": "Mensaje del sistema",
+    "[UNSUPPORTED_MESSAGE]": "Mensaje recibido en un formato no compatible",
+};
+
 function cleanMediaTextForBubble(text, attachments = []) {
     let value = String(text || "").trim();
 
@@ -456,6 +469,15 @@ function cleanMediaTextForBubble(text, attachments = []) {
         ].includes(upper)
     ) {
         return "";
+    }
+
+    if (MESSAGE_PLACEHOLDER_LABELS[upper]) {
+        return MESSAGE_PLACEHOLDER_LABELS[upper];
+    }
+
+    // Limpia legacy: evita que se pinte literalmente "unsupported_message".
+    if (upper.includes("UNSUPPORTED_MESSAGE")) {
+        return "Mensaje recibido en un formato no compatible";
     }
 
     return value;
@@ -1684,9 +1706,17 @@ export default function DigitalesContacto() {
 
     function getReplyPreview(message) {
         if (!message) return "";
-        const text = String(message.text || message.body || "").trim();
+
+        const text = cleanMediaTextForBubble(
+            String(message.text || message.body || "").trim(),
+            message.attachments || [],
+        );
+
         if (text) return text.length > 90 ? `${text.slice(0, 90)}…` : text;
-        return (Array.isArray(message.attachments) && message.attachments.length > 0) ? "Archivo adjunto" : "Mensaje seleccionado";
+
+        return (Array.isArray(message.attachments) && message.attachments.length > 0)
+            ? "Archivo adjunto"
+            : "Mensaje seleccionado";
     }
 
     function getReplyAuthor(message) {
