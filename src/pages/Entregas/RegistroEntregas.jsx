@@ -87,9 +87,7 @@ function entregaFisicaActiva(value) {
     return ["si", "sí", "true", "1", "yes", "entregada", "reportada"].includes(v);
 }
 
-const unidadesEntregadas = useMemo(() => {
-    return sorted.filter((row) => entregaFisicaActiva(row.entrega_reportada));
-}, [sorted]);
+
 
 function normalizePhoneForSave(value) {
     const digits = String(value || "").replace(/\D/g, "");
@@ -381,13 +379,26 @@ function EntregaAgendaCard({ row, onEdit, onContext, onToggleEntrega, updatingIn
 
     const unidad = [row.modelo_version, row.version, row.color].filter(Boolean).join(" • ");
 
+    const abrirEdicion = () => {
+        onEdit(row);
+    };
+
+    const manejarTeclado = (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            abrirEdicion();
+        }
+    };
+
     return (
-        <button
-            type="button"
-            onClick={() => onEdit(row)}
+        <article
+            role="button"
+            tabIndex={0}
+            onClick={abrirEdicion}
+            onKeyDown={manejarTeclado}
             onContextMenu={(e) => onContext(e, row)}
             className={[
-                "relative w-full overflow-hidden rounded-md border text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md",
+                "relative w-full cursor-pointer overflow-hidden rounded-md border text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md",
                 compact ? "p-3" : "p-2.5",
                 entregada ? "border-emerald-300 bg-emerald-50/95" : "border-sky-200 bg-sky-50/95",
             ].join(" ")}
@@ -414,7 +425,12 @@ function EntregaAgendaCard({ row, onEdit, onContext, onToggleEntrega, updatingIn
                         </div>
                     </div>
 
-                    <StatusButton row={row} loading={isUpdating} onToggle={onToggleEntrega} compact />
+                    <StatusButton
+                        row={row}
+                        loading={isUpdating}
+                        onToggle={onToggleEntrega}
+                        compact
+                    />
                 </div>
 
                 <div className="mt-2 grid gap-1 text-[10px] font-semibold text-slate-600">
@@ -443,7 +459,7 @@ function EntregaAgendaCard({ row, onEdit, onContext, onToggleEntrega, updatingIn
                     ) : null}
                 </div>
             </div>
-        </button>
+        </article>
     );
 }
 
@@ -1081,6 +1097,10 @@ export default function RegistroEntregas() {
             return 0;
         });
     }, [filtered, sort]);
+
+    const unidadesEntregadas = useMemo(() => {
+        return sorted.filter((row) => entregaFisicaActiva(row.entrega_reportada));
+    }, [sorted]);
 
     const agendaRows = useMemo(() => {
         const weekStart = startOfWeekMonday(currentWeekDate);
