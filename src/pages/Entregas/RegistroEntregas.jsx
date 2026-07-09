@@ -1867,7 +1867,7 @@ export default function RegistroEntregas() {
                                             </span>
                                         </button>
                                     </th>
-
+                                    <th className="px-4 py-3">Tipo de Entrega</th>
                                     <th className="px-4 py-3">Cliente</th>
                                     <th className="px-4 py-3">Teléfono</th>
                                     <th className="px-4 py-3">Chasis</th>
@@ -1970,6 +1970,7 @@ export default function RegistroEntregas() {
                                                     </td>
 
                                                     <td className="px-4 py-3 font-semibold text-[#131E5C]">{row.agencia || "—"}</td>
+                                                    <td className="px-4 py-3 text-[#131E5C]">{row.tipo_venta}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{nombreCliente}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row?.cliente?.telefono || "—"}</td>
                                                     <td className="px-4 py-3 text-[#131E5C]">{row.vin || "—"}</td>
