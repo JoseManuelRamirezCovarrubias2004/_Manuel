@@ -311,12 +311,12 @@ export default function Sidebar() {
 
                     isActive
                         ? cls(
-                            "bg-[#0A64FF] text-white shadow-[0_12px_32px_rgba(10,100,255,0.32)]",
+                            "bg-[#0A64FF] text-white pl-6 shadow-[0_12px_32px_rgba(10,100,255,0.32)]",
                             showText || isMobile ? "pl-6" : "px-0",
                             "before:absolute before:left-0 before:top-1/2 before:h-7 before:w-1",
                             "before:-translate-y-1/2 before:rounded-r-full before:bg-white"
                         )
-                        : "text-white/66 hover:bg-white/10 hover:text-white"
+                        : "text-white/66 hover:bg-white/10 hover:text-white hover:pl-5"
                 )
             }
         >

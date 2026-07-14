@@ -286,12 +286,12 @@ function getCrmUsername() {
 
   return String(
     user.usuario ||
-    user.username ||
-    user.user ||
-    user.nombre_usuario ||
-    user.correo ||
-    user.email ||
-    "",
+      user.username ||
+      user.user ||
+      user.nombre_usuario ||
+      user.correo ||
+      user.email ||
+      "",
   ).trim();
 }
 
@@ -302,10 +302,10 @@ function getWhatsAppNumberFromSources() {
 
   const numero = normalizaTelefonoMx(
     user.telefono ||
-    user.numero_asesor ||
-    user.whatsapp_number ||
-    user.phone ||
-    "",
+      user.numero_asesor ||
+      user.whatsapp_number ||
+      user.phone ||
+      "",
   );
 
   return numero || "";
@@ -513,19 +513,25 @@ export const api = {
       method: "DELETE",
     }),
 
-  digitalesGenerarResumen: (id) =>
-    http(`/digitales/api/prospectos/${id}/generar-resumen/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    }),
+  digitalesGenerarResumen: (id) => {
+    if (!id) {
+      return Promise.reject(
+        new Error("Falta el ID del prospecto para generar el resumen."),
+      );
+    }
 
-  digitalesGenerarResumen: (id) =>
-    http(`/digitales/api/prospectos/${id}/generar-resumen/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    }),
+    return http(
+      `/digitales/api/prospectos/${encodeURIComponent(id)}/generar-resumen/`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      },
+    );
+  },
 
-  
   digitalesListEvidencias: (idProspecto) =>
     http(`/digitales/api/prospectos/${idProspecto}/evidencias/`),
 
@@ -536,9 +542,12 @@ export const api = {
     }),
 
   digitalesDeleteEvidencia: (idProspecto, idEvidencia) =>
-    http(`/digitales/api/prospectos/${idProspecto}/evidencias/${idEvidencia}/`, {
-      method: "DELETE",
-    }),
+    http(
+      `/digitales/api/prospectos/${idProspecto}/evidencias/${idEvidencia}/`,
+      {
+        method: "DELETE",
+      },
+    ),
 
   digitalesCampanasMeta: (days = 30) =>
     http(`/digitales/api/campanas-meta/?days=${encodeURIComponent(days)}`),
@@ -565,6 +574,20 @@ export const api = {
 
   digitalesMarkUnread: ({ tel }) =>
     http("/digitales/chats/mark-unread/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withRequestContext({ tel })),
+    }),
+
+  digitalesBloquearContacto: ({ tel, motivo = "" }) =>
+    http("/digitales/chats/bloquear/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withRequestContext({ tel, motivo })),
+    }),
+
+  digitalesDesbloquearContacto: ({ tel }) =>
+    http("/digitales/chats/desbloquear/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(withRequestContext({ tel })),

@@ -29,6 +29,7 @@ import {
     Activity,
     Zap,
     ZapOff,
+    Ban,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
@@ -1256,6 +1257,7 @@ export default function DigitalesContacto() {
     const location = useLocation();
     const [params] = useSearchParams();
     const [replyToMsg, setReplyToMsg] = useState(null);
+    const [blockingTel, setBlockingTel] = useState("");
 
     const telParam = params.get("tel") || "";
     const directParam = params.get("direct") || "";
@@ -1347,6 +1349,10 @@ export default function DigitalesContacto() {
         return { id: activeTel, telefono: activeTel, nombre: prospecto?.nombre || "Prospecto", agencia: prospecto?.agencia || "", linea: prospecto?.business || "", estado: prospecto?.estado || "", unread: 0, last: { text: "", time: "" } };
     }, [activeTel, chats, prospecto]);
 
+    const clienteBloqueado = useMemo(() => {
+        return Boolean(prospecto?.whatsapp_bloqueado || activeChat?.whatsapp_bloqueado);
+    }, [prospecto, activeChat]);
+
     const filteredChats = useMemo(() => {
         const query = normalizeText(deferredQ);
         const queryPhone = normalizaTelefonoMx(deferredQ);
@@ -1365,8 +1371,11 @@ export default function DigitalesContacto() {
         });
     }, [chats, prospectosIndex, deferredQ, chatFilter]);
 
-    const composerHint = useMemo(() => activeTel ? "Escribe tu mensaje…" : "Selecciona un chat para escribir…", [activeTel]);
-
+    const composerHint = useMemo(() => {
+        if (!activeTel) return "Selecciona un chat para escribir…";
+        if (clienteBloqueado) return "Contacto bloqueado. Desbloquéalo para responder…";
+        return "Escribe tu mensaje…";
+    }, [activeTel, clienteBloqueado]);
     const templatePreview = useMemo(() => tplSelected ? buildTemplatePreviewText(tplSelected, tplDraft) : "", [tplSelected, tplDraft]);
 
     // Índice rápido id de mensaje -> mensaje (para resolver citas tipo WhatsApp)
@@ -1453,6 +1462,8 @@ export default function DigitalesContacto() {
             ia_bloqueos: Array.isArray(chat.ia_bloqueos) ? chat.ia_bloqueos : [],
             unread: Number(chat.unread || 0),
             last: { text: chat.last_text || "", time: chat.last_time || "" },
+            whatsapp_bloqueado: Boolean(chat.whatsapp_bloqueado),
+            whatsapp_bloqueado_motivo: chat.whatsapp_bloqueado_motivo || "",
         }));
         setChats(normalized);
     }
@@ -1727,6 +1738,10 @@ export default function DigitalesContacto() {
 
     async function enviarMensaje() {
         if (!activeTel) return;
+        if (clienteBloqueado) {
+            alert("Este contacto está bloqueado. Desbloquéalo antes de enviar mensajes.");
+            return;
+        }
 
         const text = draftMsg.replace(/\r\n/g, "\n").trim();
         const hasText = Boolean(text);
@@ -1879,6 +1894,103 @@ export default function DigitalesContacto() {
             if (!isDirectChatMode) await refreshChats().catch(() => { });
         } catch (error) { alert(`No se pudo marcar como no leído: ${error.message}`); }
         finally { setMarkingUnreadTel(""); }
+    }
+
+    async function bloquearContactoActivo() {
+        if (!activeTel || blockingTel) return;
+
+        const ok = window.confirm(
+            `¿Seguro que quieres bloquear a ${formateaTelUi(activeTel)}?\n\n` +
+            "Ya no podrá escribir a esta línea de WhatsApp y tampoco podrás enviarle mensajes hasta desbloquearlo."
+        );
+
+        if (!ok) return;
+
+        setBlockingTel(activeTel);
+
+        try {
+            await api.digitalesBloquearContacto({
+                tel: activeTel,
+                motivo: "Cliente bloqueado manualmente desde el chat",
+            });
+
+            setProspecto(prev => prev ? {
+                ...prev,
+                whatsapp_bloqueado: true,
+                whatsapp_bloqueado_motivo: "Cliente bloqueado manualmente desde el chat",
+                estado: "Descalificado",
+                ia_pausada: true,
+                ia_pausada_motivo: "cliente_bloqueado",
+            } : prev);
+
+            setChats(prev => prev.map(c =>
+                c.telefono === activeTel
+                    ? {
+                        ...c,
+                        whatsapp_bloqueado: true,
+                        whatsapp_bloqueado_motivo: "Cliente bloqueado manualmente desde el chat",
+                        estado: "Descalificado",
+                    }
+                    : c
+            ));
+
+            mensajesCacheRef.current.delete(activeTel);
+
+            await refreshActiveChat(activeTel).catch(() => { });
+            await refreshChats().catch(() => { });
+
+            alert("Contacto bloqueado correctamente.");
+        } catch (error) {
+            alert(`No se pudo bloquear: ${error.message}`);
+        } finally {
+            setBlockingTel("");
+        }
+    }
+
+
+    async function desbloquearContactoActivo() {
+        if (!activeTel || blockingTel) return;
+
+        const ok = window.confirm(
+            `¿Deseas desbloquear a ${formateaTelUi(activeTel)}?`
+        );
+
+        if (!ok) return;
+
+        setBlockingTel(activeTel);
+
+        try {
+            await api.digitalesDesbloquearContacto({
+                tel: activeTel,
+            });
+
+            setProspecto(prev => prev ? {
+                ...prev,
+                whatsapp_bloqueado: false,
+                whatsapp_bloqueado_motivo: "",
+            } : prev);
+
+            setChats(prev => prev.map(c =>
+                c.telefono === activeTel
+                    ? {
+                        ...c,
+                        whatsapp_bloqueado: false,
+                        whatsapp_bloqueado_motivo: "",
+                    }
+                    : c
+            ));
+
+            mensajesCacheRef.current.delete(activeTel);
+
+            await refreshActiveChat(activeTel).catch(() => { });
+            await refreshChats().catch(() => { });
+
+            alert("Contacto desbloqueado correctamente.");
+        } catch (error) {
+            alert(`No se pudo desbloquear: ${error.message}`);
+        } finally {
+            setBlockingTel("");
+        }
     }
 
     function abrirMenuChat(e, chat) {
@@ -2310,6 +2422,30 @@ export default function DigitalesContacto() {
                                         )
                                     ) : null}
 
+                                    {activeTel ? (
+                                        <button
+                                            type="button"
+                                            onClick={clienteBloqueado ? desbloquearContactoActivo : bloquearContactoActivo}
+                                            disabled={blockingTel === activeTel}
+                                            className={cls(
+                                                "inline-flex h-7 items-center gap-1 rounded-lg border px-2 text-[11px] font-extrabold transition disabled:opacity-50",
+                                                clienteBloqueado
+                                                    ? "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                                                    : "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                                            )}
+                                            title={clienteBloqueado ? "Desbloquear contacto" : "Bloquear contacto"}
+                                        >
+                                            <Ban className="h-3.5 w-3.5" />
+                                            <span className="hidden sm:inline">
+                                                {blockingTel === activeTel
+                                                    ? "..."
+                                                    : clienteBloqueado
+                                                        ? "Desbloquear"
+                                                        : "Bloquear"}
+                                            </span>
+                                        </button>
+                                    ) : null}
+
                                     {/* Llamar por WhatsApp */}
                                     <button onClick={llamarProspecto} disabled={!activeTel}
                                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50 transition"
@@ -2521,7 +2657,7 @@ export default function DigitalesContacto() {
                                 <div className="rounded-2xl border border-black/10 bg-white shadow-sm">
                                     <div className="px-2 pt-2">
                                         <WhatsAppComposerInput value={draftMsg} onChange={setDraftMsg} onSend={enviarMensaje}
-                                            disabled={!activeTel} placeholder={composerHint} inputRef={inputRef} onPaste={onPasteInComposer} />
+                                            disabled={!activeTel || clienteBloqueado} placeholder={composerHint} inputRef={inputRef} onPaste={onPasteInComposer} />
                                     </div>
 
                                     {/* Barra de botones */}

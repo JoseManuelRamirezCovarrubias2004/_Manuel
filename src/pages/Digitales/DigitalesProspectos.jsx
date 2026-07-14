@@ -2727,19 +2727,92 @@ export default function DigitalesProspectos() {
     };
 
     const generarResumenInline = async (row) => {
-        const id = row?.id_exp; if (!id) return;
-        setGeneratingSummary(prev => ({ ...prev, [id]: true }));
+        const id = row?.id_exp;
+
+        if (!id) {
+            alert("El prospecto no tiene un ID válido.");
+            return;
+        }
+
+        setGeneratingSummary((prev) => ({
+            ...prev,
+            [id]: true,
+        }));
+
         try {
             const res = await api.digitalesGenerarResumen(id);
-            const resumenNuevo = res?.resumen || "";
-            const resumenActualizadoAt = toDTLocal(res?.resumen_actualizado_at);
+
+            if (!res?.ok) {
+                throw new Error(
+                    res?.error || "El backend no pudo generar el resumen."
+                );
+            }
+
+            const resumenNuevo = String(res?.resumen || "").trim();
+
+            if (!resumenNuevo) {
+                throw new Error(
+                    "El backend respondió, pero el resumen llegó vacío."
+                );
+            }
+
+            const resumenActualizadoAt = toDTLocal(
+                res?.resumen_actualizado_at
+            );
+
             const resumenFuente = res?.resumen_fuente || "manual";
-            setCases(prev => prev.map(c => c.id_exp === id ? { ...c, resumen: resumenNuevo, resumen_actualizado_at: resumenActualizadoAt, resumen_fuente: resumenFuente } : c));
-            if (draft?.id_exp === id) setDraft(prev => ({ ...prev, resumen: resumenNuevo, resumen_actualizado_at: resumenActualizadoAt, resumen_fuente: resumenFuente }));
-            setSummaryInfo({ id_exp: row.id_exp, nombre: `${row.cliente_nombre || ""} ${row.cliente_apellidos || ""}`.trim(), resumen: resumenNuevo, resumen_actualizado_at: resumenActualizadoAt, resumen_fuente: resumenFuente });
+
+            setCases((prev) =>
+                prev.map((caso) =>
+                    caso.id_exp === id
+                        ? {
+                            ...caso,
+                            resumen: resumenNuevo,
+                            resumen_actualizado_at: resumenActualizadoAt,
+                            resumen_fuente: resumenFuente,
+                        }
+                        : caso
+                )
+            );
+
+            if (draft?.id_exp === id) {
+                setDraft((prev) => ({
+                    ...prev,
+                    resumen: resumenNuevo,
+                    resumen_actualizado_at: resumenActualizadoAt,
+                    resumen_fuente: resumenFuente,
+                }));
+            }
+
+            setSummaryInfo({
+                id_exp: id,
+                nombre: `${row.cliente_nombre || ""} ${row.cliente_apellidos || ""
+                    }`.trim(),
+                resumen: resumenNuevo,
+                resumen_actualizado_at: resumenActualizadoAt,
+                resumen_fuente: resumenFuente,
+            });
+
             setOpenSummaryModal(true);
-        } catch (e) { console.error(e); alert("No se pudo generar el resumen."); }
-        finally { setGeneratingSummary(prev => { const n = { ...prev }; delete n[id]; return n; }); }
+        } catch (error) {
+            console.error("Error generando resumen manual:", {
+                prospectoId: id,
+                error,
+            });
+
+            const mensaje =
+                error instanceof Error
+                    ? error.message
+                    : String(error || "Error desconocido");
+
+            alert(`No se pudo generar el resumen:\n\n${mensaje}`);
+        } finally {
+            setGeneratingSummary((prev) => {
+                const nuevoEstado = { ...prev };
+                delete nuevoEstado[id];
+                return nuevoEstado;
+            });
+        }
     };
 
     const resetFilters = () => {

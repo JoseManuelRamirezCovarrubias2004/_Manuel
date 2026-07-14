@@ -842,6 +842,8 @@ export default function RegistroCitas() {
         "Paul Serrano Vera",
         "Luis Manuel Alvarez Martinez",
         "Estefano Marlom De Azcue Aparicio",
+        "Blanca Patricia Hernández Hernández",
+        "Luis Manuel Hernández Espejo",
     ];
 
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];

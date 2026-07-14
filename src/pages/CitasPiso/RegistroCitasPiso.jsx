@@ -299,7 +299,9 @@ export default function RegistroCitasPiso() {
         "JOSE ALBERTO SEDAS FLORES",
         "Luis Alberto Ramirez Santamaria",
         "Paul Serrano Vera",
-        "Luis Manuel Alvarez Martinez"
+        "Luis Manuel Alvarez Martinez",
+        "Blanca Patricia Hernández Hernández",
+        "Luis Manuel Hernández Espejo",
     ];
 
     const FUENTE = [

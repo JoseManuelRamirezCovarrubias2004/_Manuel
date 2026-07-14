@@ -171,7 +171,9 @@ const ASESORES = [
     "Yoseth Ruiz Castellanos",
     "Luis Alberto Ramirez Santamaria",
     "Paul Serrano Vera",
-    "Luis Manuel Alvarez Martinez"
+    "Luis Manuel Alvarez Martinez",
+    "Blanca Patricia Hernández Hernández",
+    "Luis Manuel Hernández Espejo",
 ];
 
 const PASATIEMPOS = [

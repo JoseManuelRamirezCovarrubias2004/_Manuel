@@ -1,32 +1,33 @@
 // src/lib/apiHojaIngresos.js
 import { buildQuery, http } from "./apiClient";
 
-export const apiHojaIngresos = {
-  list: (params = {}) =>
-    http(`/hojaingresos/api/hoja-ingresos/${buildQuery(params)}`),
+const BASE_URL = "/hojaingresos/api/hoja-ingresos";
 
-  get: (id) => http(`/hojaingresos/api/hoja-ingresos/${id}/`),
+export const apiHojaIngresos = {
+  list: (params = {}) => http(`${BASE_URL}/${buildQuery(params)}`),
+
+  get: (id) => http(`${BASE_URL}/${id}/`),
 
   create: (payload) =>
-    http("/hojaingresos/api/hoja-ingresos/", {
+    http(`${BASE_URL}/`, {
       method: "POST",
       body: payload,
     }),
 
   update: (id, payload) =>
-    http(`/hojaingresos/api/hoja-ingresos/${id}/`, {
+    http(`${BASE_URL}/${id}/`, {
       method: "PUT",
       body: payload,
     }),
 
   patch: (id, payload) =>
-    http(`/hojaingresos/api/hoja-ingresos/${id}/`, {
+    http(`${BASE_URL}/${id}/`, {
       method: "PATCH",
       body: payload,
     }),
 
   remove: (id) =>
-    http(`/hojaingresos/api/hoja-ingresos/${id}/`, {
+    http(`${BASE_URL}/${id}/`, {
       method: "DELETE",
     }),
 };

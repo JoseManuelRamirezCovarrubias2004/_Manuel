@@ -4,7 +4,20 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
   ComposedChart, Area,
 } from "recharts";
-import { BarChart2, TableProperties, TrendingUp, SlidersHorizontal, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  BarChart2,
+  TableProperties,
+  TrendingUp,
+  ChevronDown,
+  ChevronRight,
+  FileSpreadsheet,
+  FileText,
+  LoaderCircle,
+} from "lucide-react";
+import ExcelJS from "exceljs";
+import html2canvas from "html2canvas-pro";
+import { jsPDF } from "jspdf";
+import { autoTable } from "jspdf-autotable";
 
 // CONSTANTES 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -17,11 +30,11 @@ const NAVY = "#131E5C";
 // Los valores del array deben coincidir EXACTAMENTE con el campo "sucursal"
 // que llega del backend. Si hay diferencia de mayúsculas o acentos, ajústalos.
 const GRUPOS_DEALER = {
-  "Córdoba":   ["Cordoba", "Comerciales Cordoba", "Seminuevos Cordoba"],
-  "Orizaba":   ["Orizaba", "Comerciales Orizaba", "Seminuevos Orizaba"],
+  "Córdoba": ["Cordoba", "Comerciales Cordoba", "Seminuevos Cordoba"],
+  "Orizaba": ["Orizaba", "Comerciales Orizaba", "Seminuevos Orizaba"],
   "Poza Rica": ["Poza Rica"],
-  "Tuxtepec":  ["Tuxtepec", "Seminuevos Tuxtepec"],
-  "Tuxpan":    ["Tuxpan"],
+  "Tuxtepec": ["Tuxtepec", "Seminuevos Tuxtepec"],
+  "Tuxpan": ["Tuxpan"],
 };
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -133,6 +146,333 @@ function agg(arr) {
 }
 
 function pct(a, b) { if (!b) return null; return ((a - b) / b * 100).toFixed(1); }
+
+
+function limpiarNombreArchivo(valor) {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toLowerCase();
+}
+
+function obtenerSelloFecha() {
+  const ahora = new Date();
+  const dos = (valor) => String(valor).padStart(2, "0");
+  return `${ahora.getFullYear()}${dos(ahora.getMonth() + 1)}${dos(ahora.getDate())}_${dos(ahora.getHours())}${dos(ahora.getMinutes())}`;
+}
+
+function crearNombreReporte({ periodo, dealer, extension }) {
+  const periodoLimpio = limpiarNombreArchivo(periodo) || "todos_los_periodos";
+  const dealerLimpio = limpiarNombreArchivo(dealer) || "todos_los_dealers";
+  return `reporte_meta_ads_${periodoLimpio}_${dealerLimpio}_${obtenerSelloFecha()}.${extension}`;
+}
+
+function descargarBlob(blob, nombreArchivo) {
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = nombreArchivo;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function esperarRenderCompleto() {
+  if (document.fonts?.ready) await document.fonts.ready;
+
+  await new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+
+  // Permite que ResponsiveContainer/Recharts termine de medir y pintar sus SVG.
+  await new Promise((resolve) => setTimeout(resolve, 250));
+}
+
+function aplicarEstiloTituloExcel(celda) {
+  celda.font = { name: "Arial", size: 20, bold: true, color: { argb: "FFFFFFFF" } };
+  celda.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF131E5C" } };
+  celda.alignment = { vertical: "middle", horizontal: "left" };
+}
+
+function agregarHojaResumenExcel(workbook, {
+  filtrosReporte,
+  totales,
+  cantidadRegistros,
+  modoComp,
+  labelA,
+  labelB,
+  totalesComparacion,
+  cantidadComparacion,
+}) {
+  const hoja = workbook.addWorksheet("Resumen", {
+    views: [{ showGridLines: false }],
+    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 1 },
+  });
+
+  hoja.columns = [
+    { width: 24 }, { width: 24 }, { width: 4 }, { width: 24 },
+    { width: 24 }, { width: 4 }, { width: 24 }, { width: 24 },
+  ];
+
+  hoja.mergeCells("A1:H2");
+  hoja.getCell("A1").value = "Reporte de Marketing | META ADS";
+  aplicarEstiloTituloExcel(hoja.getCell("A1"));
+  hoja.getRow(1).height = 28;
+  hoja.getRow(2).height = 16;
+
+  hoja.mergeCells("A3:H3");
+  hoja.getCell("A3").value = `Generado: ${new Date().toLocaleString("es-MX")}`;
+  hoja.getCell("A3").font = { italic: true, color: { argb: "FF6B7280" } };
+
+  hoja.getCell("A5").value = "Filtros aplicados";
+  hoja.getCell("A5").font = { bold: true, size: 13, color: { argb: "FF131E5C" } };
+
+  filtrosReporte.forEach((filtro, indice) => {
+    const fila = 6 + indice;
+    hoja.getCell(`A${fila}`).value = filtro.etiqueta;
+    hoja.getCell(`A${fila}`).font = { bold: true, color: { argb: "FF374151" } };
+    hoja.getCell(`B${fila}`).value = filtro.valor;
+    hoja.mergeCells(`B${fila}:D${fila}`);
+    hoja.getCell(`B${fila}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F4F6" } };
+    hoja.getCell(`B${fila}`).alignment = { vertical: "middle" };
+  });
+
+  const filaKpi = 6;
+  const kpis = [
+    ["Campañas", cantidadRegistros, "FF378ADD"],
+    ["Alcance total", totales.alcance, "FF1D9E75"],
+    ["Impresiones", totales.impresiones, "FF7F77DD"],
+    ["Gasto total", totales.importe_gastado, "FFD85A30"],
+    ["Resultados", totales.total_resultados, "FF131E5C"],
+  ];
+
+  hoja.getCell(`F5`).value = modoComp ? `Resumen ${labelA}` : "Resumen del período";
+  hoja.getCell(`F5`).font = { bold: true, size: 13, color: { argb: "FF131E5C" } };
+
+  kpis.forEach(([etiqueta, valor, color], indice) => {
+    const fila = filaKpi + indice;
+    hoja.getCell(`F${fila}`).value = etiqueta;
+    hoja.getCell(`F${fila}`).font = { bold: true, color: { argb: "FF374151" } };
+    hoja.getCell(`G${fila}`).value = valor;
+    hoja.mergeCells(`G${fila}:H${fila}`);
+    hoja.getCell(`G${fila}`).font = { bold: true, color: { argb: color } };
+    hoja.getCell(`G${fila}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } };
+    hoja.getCell(`G${fila}`).alignment = { horizontal: "right" };
+  });
+
+  hoja.getCell("G7").numFmt = "#,##0";
+  hoja.getCell("G8").numFmt = "#,##0";
+  hoja.getCell("G9").numFmt = '$#,##0.00';
+  hoja.getCell("G10").numFmt = "#,##0";
+
+  if (modoComp) {
+    const inicio = 13;
+    hoja.mergeCells(`A${inicio}:H${inicio}`);
+    hoja.getCell(`A${inicio}`).value = `Comparación: ${labelA} vs ${labelB}`;
+    hoja.getCell(`A${inicio}`).font = { bold: true, size: 13, color: { argb: "FF131E5C" } };
+
+    const comparacion = [
+      ["Campañas", cantidadRegistros, cantidadComparacion],
+      ["Alcance", totales.alcance, totalesComparacion.alcance],
+      ["Impresiones", totales.impresiones, totalesComparacion.impresiones],
+      ["Gasto", totales.importe_gastado, totalesComparacion.importe_gastado],
+      ["Resultados", totales.total_resultados, totalesComparacion.total_resultados],
+    ];
+
+    hoja.getRow(inicio + 1).values = ["Métrica", labelA, labelB, "Variación %"];
+    ["A", "B", "C", "D"].forEach((columna) => {
+      const celda = hoja.getCell(`${columna}${inicio + 1}`);
+      celda.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      celda.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF131E5C" } };
+      celda.alignment = { horizontal: "center" };
+    });
+
+    comparacion.forEach(([metrica, valorA, valorB], indice) => {
+      const fila = inicio + 2 + indice;
+      hoja.getCell(`A${fila}`).value = metrica;
+      hoja.getCell(`B${fila}`).value = valorA;
+      hoja.getCell(`C${fila}`).value = valorB;
+      hoja.getCell(`D${fila}`).value = valorB ? (valorA - valorB) / valorB : null;
+      hoja.getCell(`D${fila}`).numFmt = "0.0%";
+      ["B", "C"].forEach((columna) => {
+        hoja.getCell(`${columna}${fila}`).numFmt = metrica === "Gasto" ? '$#,##0.00' : "#,##0";
+      });
+    });
+  }
+
+  return hoja;
+}
+
+function agregarHojaDatosExcel(workbook, nombreHoja, nombreTabla, datos, etiquetaPeriodo) {
+  const hoja = workbook.addWorksheet(nombreHoja, {
+    views: [{ state: "frozen", ySplit: 1 }],
+    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+  });
+
+  const columnas = [
+    { name: "Campaña", width: 42, value: (c) => c.nombre_campana },
+    { name: "Dealer", width: 24, value: (c) => c.sucursal },
+    { name: "Canal", width: 16, value: (c) => c.canal },
+    { name: "Estado", width: 16, value: (c) => c.estado_campana },
+    { name: "Año", width: 10, value: (c) => c.año },
+    { name: "Mes", width: 14, value: (c) => MESES[c.mes - 1] ?? c.mes },
+    { name: "Semana", width: 11, value: (c) => c.semana },
+    { name: "Alcance", width: 16, value: (c) => c.alcance },
+    { name: "Impresiones", width: 16, value: (c) => c.impresiones },
+    { name: "Gasto ($)", width: 16, value: (c) => c.importe_gastado },
+    { name: "Resultados", width: 14, value: (c) => c.total_resultados },
+    { name: "Objetivo", width: 24, value: (c) => c.objetivo_campana ?? "" },
+    { name: "Inicio campaña", width: 17, value: (c) => c.inicio_campana ?? "" },
+    { name: "Fin campaña", width: 17, value: (c) => c.fin_campana ?? "" },
+    { name: "Inicio informe", width: 17, value: (c) => c.inicio_informe ?? "" },
+    { name: "Fin informe", width: 17, value: (c) => c.fin_informe ?? "" },
+  ];
+
+  hoja.columns = columnas.map((columna, indice) => ({ key: `col_${indice}`, width: columna.width }));
+  hoja.addTable({
+    name: nombreTabla,
+    ref: "A1",
+    headerRow: true,
+    totalsRow: false,
+    style: { theme: "TableStyleMedium2", showRowStripes: true },
+    columns: columnas.map((columna) => ({ name: columna.name, filterButton: true })),
+    rows: datos.map((campana) => columnas.map((columna) => columna.value(campana))),
+  });
+
+  hoja.getColumn(8).numFmt = "#,##0";
+  hoja.getColumn(9).numFmt = "#,##0";
+  hoja.getColumn(10).numFmt = '$#,##0.00';
+  hoja.getColumn(11).numFmt = "#,##0";
+  hoja.properties.defaultRowHeight = 19;
+  hoja.headerFooter.oddHeader = `&L&16&B${etiquetaPeriodo}&R&D`;
+  hoja.headerFooter.oddFooter = "&LReporte META ADS&RPágina &P de &N";
+
+  return hoja;
+}
+
+function agregarHojaGraficasExcel(workbook, canvas, filtrosReporte) {
+  const hoja = workbook.addWorksheet("Gráficas", {
+    views: [{ showGridLines: false, zoomScale: 70 }],
+    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+  });
+
+  hoja.getCell("A1").value = "Reporte visual de gráficas";
+  hoja.getCell("A1").font = { bold: true, size: 16, color: { argb: "FF131E5C" } };
+  hoja.getCell("A2").value = filtrosReporte.map((f) => `${f.etiqueta}: ${f.valor}`).join(" | ");
+  hoja.getCell("A2").font = { color: { argb: "FF6B7280" }, italic: true };
+
+  const base64 = canvas.toDataURL("image/png");
+  const imageId = workbook.addImage({ base64, extension: "png" });
+  const ancho = 1200;
+  const alto = Math.round((canvas.height / canvas.width) * ancho);
+
+  hoja.addImage(imageId, {
+    tl: { col: 0, row: 3 },
+    ext: { width: ancho, height: alto },
+  });
+
+  for (let i = 1; i <= 18; i += 1) hoja.getColumn(i).width = 11;
+  return hoja;
+}
+
+function agregarCanvasPaginadoPdf(doc, canvas) {
+  const margen = 8;
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const altoPagina = doc.internal.pageSize.getHeight();
+  const anchoUtil = anchoPagina - margen * 2;
+  const altoUtil = altoPagina - margen * 2;
+  const pixelesPorMm = canvas.width / anchoUtil;
+  const altoCortePx = Math.max(1, Math.floor(altoUtil * pixelesPorMm));
+
+  let posicionY = 0;
+  let primeraPagina = true;
+
+  while (posicionY < canvas.height) {
+    if (!primeraPagina) doc.addPage("a4", "landscape");
+    primeraPagina = false;
+
+    const altoActualPx = Math.min(altoCortePx, canvas.height - posicionY);
+    const corte = document.createElement("canvas");
+    corte.width = canvas.width;
+    corte.height = altoActualPx;
+    const contexto = corte.getContext("2d");
+    if (!contexto) throw new Error("No fue posible preparar una página del PDF.");
+    contexto.fillStyle = "#ffffff";
+    contexto.fillRect(0, 0, corte.width, corte.height);
+    contexto.drawImage(canvas, 0, posicionY, canvas.width, altoActualPx, 0, 0, canvas.width, altoActualPx);
+
+    const altoImagenMm = altoActualPx / pixelesPorMm;
+    doc.addImage(corte.toDataURL("image/png"), "PNG", margen, margen, anchoUtil, altoImagenMm, undefined, "FAST");
+    posicionY += altoActualPx;
+  }
+}
+
+function agregarTablaPdf(doc, datos, titulo) {
+  doc.addPage("a4", "landscape");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(19, 30, 92);
+  doc.text(titulo, 10, 12);
+
+  autoTable(doc, {
+    startY: 17,
+    head: [["Campaña", "Dealer", "Canal", "Estado", "Año", "Mes", "Alcance", "Impresiones", "Gasto ($)", "Resultados"]],
+    body: datos.map((c) => [
+      c.nombre_campana,
+      c.sucursal,
+      c.canal,
+      c.estado_campana,
+      c.año,
+      MESES[c.mes - 1] ?? c.mes,
+      c.alcance.toLocaleString("es-MX"),
+      c.impresiones.toLocaleString("es-MX"),
+      c.importe_gastado.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      c.total_resultados.toLocaleString("es-MX"),
+    ]),
+    theme: "grid",
+    styles: {
+      font: "helvetica",
+      fontSize: 6.5,
+      cellPadding: 1.4,
+      overflow: "linebreak",
+      valign: "middle",
+      textColor: [55, 65, 81],
+      lineColor: [229, 231, 235],
+      lineWidth: 0.15,
+    },
+    headStyles: {
+      fillColor: [19, 30, 92],
+      textColor: [255, 255, 255],
+      fontStyle: "bold",
+      halign: "center",
+    },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    columnStyles: {
+      0: { cellWidth: 52 },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 13, halign: "center" },
+      5: { cellWidth: 19 },
+      6: { cellWidth: 23, halign: "right" },
+      7: { cellWidth: 23, halign: "right" },
+      8: { cellWidth: 23, halign: "right" },
+      9: { cellWidth: 20, halign: "right" },
+    },
+    margin: { left: 8, right: 8, bottom: 10 },
+    didDrawPage: () => {
+      const ancho = doc.internal.pageSize.getWidth();
+      const alto = doc.internal.pageSize.getHeight();
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(107, 114, 128);
+      doc.text(`Página ${doc.getNumberOfPages()}`, ancho - 22, alto - 4);
+    },
+  });
+}
 
 function Delta({ val }) {
   if (val === null) return null;
@@ -247,7 +587,7 @@ function VistaGraficas({ datos, datosComp, modoComp, labelA, labelB }) {
       [`gasto_${labelA}`]: serieA.find(s => s.mes === k)?.gasto ?? 0,
       [`gasto_${labelB}`]: serieB.find(s => s.mes === k)?.gasto ?? 0,
     }));
-  }, [serieA, serieB, modoComp]);
+  }, [serieA, serieB, modoComp, labelA, labelB]);
 
   const porSucursal = useMemo(() => {
     const map = {};
@@ -588,6 +928,9 @@ export default function CampanasMeta() {
   const [error, setError] = useState(null);
 
   const cacheRef = useRef(new Map());
+  const reporteVisualRef = useRef(null);
+  const [exportando, setExportando] = useState(null);
+  const [errorExportacion, setErrorExportacion] = useState(null);
 
   const cargarCampanas = useCallback(async (filtros, signal) => {
     const query = construirQueryCampanas(filtros);
@@ -650,9 +993,10 @@ export default function CampanasMeta() {
   }, [año, mes, sucursal, cargarCampanas]);
 
   const filtrosDesdeComparacion = useCallback((key) => {
-    if (tipoComp === "años") return { anio: key, mes: "Todos", sucursal };
+    const sucursalQuery = sucursal.startsWith("__grupo__") ? "Todas" : sucursal;
+    if (tipoComp === "años") return { anio: key, mes: "Todos", sucursal: sucursalQuery };
     const [anio, mesComp] = String(key).split("-");
-    return { anio, mes: mesComp, sucursal };
+    return { anio, mes: mesComp, sucursal: sucursalQuery };
   }, [tipoComp, sucursal]);
 
   useEffect(() => {
@@ -750,6 +1094,174 @@ export default function CampanasMeta() {
 
   const loading = loadingOpciones || (modoComp ? loadingComp : loadingBase);
 
+
+  const descripcionPeriodo = modoComp
+    ? `${labelA} vs ${labelB}`
+    : `${mes === "Todos" ? "Todos los meses" : MESES[Number(mes) - 1]} · ${año === "Todos" ? "Todos los años" : año}`;
+
+  const descripcionDealer = ciudadSeleccionada === "Todas"
+    ? "Todos los dealers"
+    : ciudadSeleccionada;
+
+  const filtrosReporte = useMemo(() => ([
+    { etiqueta: "Período", valor: descripcionPeriodo },
+    { etiqueta: "Dealer", valor: descripcionDealer },
+    { etiqueta: "Semana", valor: semana === "Todas" ? "Todas las semanas" : `Semana ${semana}` },
+    { etiqueta: "Comparación", valor: modoComp ? `${labelA} vs ${labelB}` : "No aplicada" },
+  ]), [descripcionPeriodo, descripcionDealer, semana, modoComp, labelA, labelB]);
+
+  const capturarReporteVisual = useCallback(async () => {
+    if (!reporteVisualRef.current) throw new Error("No se encontró el contenido visual del reporte.");
+
+    await esperarRenderCompleto();
+    const canvas = await html2canvas(reporteVisualRef.current, {
+      scale: 1.35,
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: "#ffffff",
+      logging: false,
+      windowWidth: 1440,
+      scrollX: 0,
+      scrollY: 0,
+      onclone: (documentoClonado) => {
+        const reporteClonado = documentoClonado.getElementById("reporte-meta-exportacion");
+        if (reporteClonado) {
+          reporteClonado.style.position = "absolute";
+          reporteClonado.style.left = "0";
+          reporteClonado.style.top = "0";
+          reporteClonado.style.zIndex = "0";
+        }
+      },
+    });
+
+    if (!canvas.width || !canvas.height) throw new Error("No fue posible capturar las gráficas.");
+    return canvas;
+  }, []);
+
+  const generarExcel = useCallback(async () => {
+    if (datosActivos.length === 0 || exportando) return;
+
+    try {
+      setExportando("excel");
+      setErrorExportacion(null);
+
+      const canvas = await capturarReporteVisual();
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "CRM Grupo Automotriz R&R";
+      workbook.lastModifiedBy = "CRM Grupo Automotriz R&R";
+      workbook.created = new Date();
+      workbook.modified = new Date();
+      workbook.subject = "Reporte de campañas META ADS";
+      workbook.title = `Reporte META ADS - ${descripcionPeriodo}`;
+
+      agregarHojaResumenExcel(workbook, {
+        filtrosReporte,
+        totales: totA,
+        cantidadRegistros: datosActivos.length,
+        modoComp,
+        labelA,
+        labelB,
+        totalesComparacion: totB,
+        cantidadComparacion: datosComp.length,
+      });
+
+      agregarHojaDatosExcel(
+        workbook,
+        modoComp ? "Datos período A" : "Datos filtrados",
+        "TablaDatosFiltrados",
+        datosActivos,
+        modoComp ? labelA : descripcionPeriodo,
+      );
+
+      if (modoComp && datosComp.length > 0) {
+        agregarHojaDatosExcel(
+          workbook,
+          "Datos período B",
+          "TablaDatosComparacion",
+          datosComp,
+          labelB,
+        );
+      }
+
+      agregarHojaGraficasExcel(workbook, canvas, filtrosReporte);
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const archivo = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      descargarBlob(archivo, crearNombreReporte({
+        periodo: descripcionPeriodo,
+        dealer: descripcionDealer,
+        extension: "xlsx",
+      }));
+    } catch (err) {
+      console.error("Error generando Excel:", err);
+      setErrorExportacion(err?.message || "No fue posible generar el reporte Excel.");
+    } finally {
+      setExportando(null);
+    }
+  }, [
+    datosActivos,
+    datosComp,
+    exportando,
+    capturarReporteVisual,
+    filtrosReporte,
+    totA,
+    totB,
+    modoComp,
+    labelA,
+    labelB,
+    descripcionPeriodo,
+    descripcionDealer,
+  ]);
+
+  const generarPdf = useCallback(async () => {
+    if (datosActivos.length === 0 || exportando) return;
+
+    try {
+      setExportando("pdf");
+      setErrorExportacion(null);
+
+      const canvas = await capturarReporteVisual();
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4", compress: true });
+      doc.setProperties({
+        title: `Reporte META ADS - ${descripcionPeriodo}`,
+        subject: "Reporte de tabla y gráficas de campañas META ADS",
+        author: "CRM Grupo Automotriz R&R",
+        creator: "CRM Grupo Automotriz R&R",
+      });
+
+      agregarCanvasPaginadoPdf(doc, canvas);
+      agregarTablaPdf(doc, datosActivos, modoComp ? `Tabla de campañas - ${labelA}` : "Tabla de campañas filtradas");
+
+      if (modoComp && datosComp.length > 0) {
+        agregarTablaPdf(doc, datosComp, `Tabla de comparación - ${labelB}`);
+      }
+
+      doc.save(crearNombreReporte({
+        periodo: descripcionPeriodo,
+        dealer: descripcionDealer,
+        extension: "pdf",
+      }));
+    } catch (err) {
+      console.error("Error generando PDF:", err);
+      setErrorExportacion(err?.message || "No fue posible generar el reporte PDF.");
+    } finally {
+      setExportando(null);
+    }
+  }, [
+    datosActivos,
+    datosComp,
+    exportando,
+    capturarReporteVisual,
+    modoComp,
+    labelA,
+    labelB,
+    descripcionPeriodo,
+    descripcionDealer,
+  ]);
+
   if (loading) return (
     <div className="flex items-center justify-center py-20 text-gray-400 text-sm">
       <div className="flex flex-col items-center gap-3">
@@ -776,7 +1288,29 @@ export default function CampanasMeta() {
           <h2 className="text-lg font-bold text-gray-800">Marketing | META ADS</h2>
           <p className="text-xs text-gray-500">Métricas y rendimiento de campañas publicitarias</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={generarExcel}
+            disabled={datosActivos.length === 0 || Boolean(exportando)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Generar Excel con resumen, datos filtrados y gráficas"
+          >
+            {exportando === "excel" ? <LoaderCircle size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+            {exportando === "excel" ? "Generando..." : "Exportar Excel"}
+          </button>
+
+          <button
+            onClick={generarPdf}
+            disabled={datosActivos.length === 0 || Boolean(exportando)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Generar PDF con resumen, gráficas y tabla paginada"
+          >
+            {exportando === "pdf" ? <LoaderCircle size={16} className="animate-spin" /> : <FileText size={16} />}
+            {exportando === "pdf" ? "Generando..." : "Exportar PDF"}
+          </button>
+
+          <div className="w-px h-8 bg-gray-200 mx-1 hidden sm:block" />
+
           {["tabla", "graficas"].map(v => (
             <button key={v} onClick={() => setVista(v)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition ${vista === v ? "text-white border-transparent" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}
@@ -787,6 +1321,12 @@ export default function CampanasMeta() {
           ))}
         </div>
       </div>
+
+      {errorExportacion && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorExportacion}
+        </div>
+      )}
 
       <div className="rounded-xl border border-gray-200 overflow-hidden mb-5">
 
@@ -992,6 +1532,56 @@ export default function CampanasMeta() {
         ? <VistaTabla datos={datosActivos} />
         : <VistaGraficas datos={datosActivos} datosComp={datosComp} modoComp={modoComp} labelA={labelA} labelB={labelB} />
       }
+
+      {/*
+        Este bloque permanece fuera de la pantalla, pero sí está renderizado.
+        Así se pueden exportar todas las gráficas aunque el usuario esté viendo la tabla.
+      */}
+      <div
+        id="reporte-meta-exportacion"
+        ref={reporteVisualRef}
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left: "-20000px",
+          top: 0,
+          width: "1200px",
+          padding: "32px",
+          backgroundColor: "#ffffff",
+          zIndex: -1,
+          pointerEvents: "none",
+        }}
+      >
+        <div className="mb-6 border-b border-gray-200 pb-5">
+          <h1 className="text-3xl font-black" style={{ color: NAVY }}>Reporte de Marketing | META ADS</h1>
+          <p className="mt-1 text-sm text-gray-500">Tabla y gráficas generadas con los filtros aplicados en el CRM</p>
+          <p className="mt-1 text-xs text-gray-400">Generado: {new Date().toLocaleString("es-MX")}</p>
+        </div>
+
+        <div className="grid grid-cols-4 gap-3 mb-5">
+          {filtrosReporte.map((filtro) => (
+            <div key={filtro.etiqueta} className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+              <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">{filtro.etiqueta}</p>
+              <p className="mt-1 text-sm font-bold text-gray-700">{filtro.valor}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-4 gap-4 mb-5">
+          <StatCard label="Campañas" value={datosActivos.length} sub={modoComp ? `${datosComp.length} en ${labelB}` : undefined} color="#378ADD" delta={modoComp ? pct(datosActivos.length, datosComp.length) : null} />
+          <StatCard label="Alcance total" value={totA.alcance.toLocaleString()} sub={modoComp ? `${totB.alcance.toLocaleString()} en ${labelB}` : "personas únicas"} color="#1D9E75" delta={modoComp ? pct(totA.alcance, totB.alcance) : null} />
+          <StatCard label="Impresiones" value={totA.impresiones.toLocaleString()} sub={modoComp ? `${totB.impresiones.toLocaleString()} en ${labelB}` : "total"} color="#7F77DD" delta={modoComp ? pct(totA.impresiones, totB.impresiones) : null} />
+          <StatCard label="Gasto total" value={`$${totA.importe_gastado.toFixed(2)}`} sub={modoComp ? `$${totB.importe_gastado.toFixed(2)} en ${labelB}` : "importe gastado"} color="#D85A30" delta={modoComp ? pct(totA.importe_gastado, totB.importe_gastado) : null} />
+        </div>
+
+        <VistaGraficas
+          datos={datosActivos}
+          datosComp={datosComp}
+          modoComp={modoComp}
+          labelA={labelA}
+          labelB={labelB}
+        />
+      </div>
     </div>
   );
 }
