@@ -904,7 +904,7 @@ function BottomContainerPanel({
     );
 }
 
-function WorkshopBoardLayout({ agendaOrders, containerOrders, technicians, selectedDate, onEdit, onMoveOrder, onScheduleOrder, panelState, onTogglePanel, onToggleContainer, }) {
+function WorkshopBoardLayout({ agendaOrders, containerOrders, technicians, selectedDate, onEdit, onMoveOrder, onScheduleOrder, onUnassignOrder, panelState, onTogglePanel, onToggleContainer, }) {
     return (
         <div>
 
@@ -928,6 +928,7 @@ function WorkshopBoardLayout({ agendaOrders, containerOrders, technicians, selec
                         selectedDate={selectedDate}
                         onEdit={onEdit}
                         onScheduleOrder={onScheduleOrder}
+                        onUnassignOrder={onUnassignOrder}
                     />
                 </div>
 
@@ -1113,7 +1114,11 @@ function TimeHeader() {
     );
 }
 
-function ActivityBar({ order, onEdit }) {
+function ActivityBar({
+    order,
+    onEdit,
+    onUnassignOrder,
+}) {
     const position = getActivityPosition(order);
     const styles = getActivityStyles(order);
     const label = getActivityLabel(order);
@@ -1132,24 +1137,43 @@ function ActivityBar({ order, onEdit }) {
         );
     }
 
+    function handleRemove(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        onUnassignOrder(order.id);
+    }
+
     return (
-        <button
-            type="button"
+        <div
+            role="button"
+            tabIndex={0}
             draggable
             onDragStart={handleDragStart}
             onDoubleClick={() => onEdit(order)}
             onClick={() => onEdit(order)}
+            onKeyDown={(event) => {
+                if (
+                    event.key === "Enter" ||
+                    event.key === " "
+                ) {
+                    event.preventDefault();
+                    onEdit(order);
+                }
+            }}
             className="
                 absolute
                 z-10
                 flex
-                h-[30px]
+                h-[50px]
                 cursor-grab
                 items-center
                 overflow-hidden
                 rounded
                 border
-                px-2
+                py-1
+                pl-2
+                pr-7
                 text-left
                 text-[10px]
                 font-extrabold
@@ -1165,22 +1189,47 @@ function ActivityBar({ order, onEdit }) {
             style={{
                 ...position,
                 ...styles,
-                top: `${order.lane * ALTURA_CARRIL + 4}px`,
+                top: `${order.lane * ALTURA_CARRIL + 8}px`,
             }}
-            title={`${label}\n${order.hora_inicio} - ${order.hora_fin}\nArrastra para cambiar técnico u horario`}
+            title={`${label}\n${order.hora_inicio} - ${order.hora_fin}`}
         >
-            <span className="truncate">{label}</span>
-        </button>
+            <span className="w-full">
+                {label}
+            </span>
+
+            <button
+                type="button"
+                onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }}
+                onClick={handleRemove}
+                className="
+                    absolute
+                    right-1
+                    top-1/2
+                    flex
+                    h-5
+                    w-5
+                    -translate-y-1/2
+                    items-center
+                    justify-center
+                    rounded
+                    bg-black/15
+                    text-current
+                    transition
+                    hover:bg-red-600
+                    hover:text-white
+                "
+                title="Quitar de la agenda"
+            >
+                <X className="h-3.5 w-3.5" />
+            </button>
+        </div>
     );
 }
 
-function TimelineRow({
-    orders,
-    technician,
-    selectedDate,
-    onEdit,
-    onScheduleOrder,
-}) {
+function TimelineRow({ orders, technician, selectedDate, onEdit, onScheduleOrder, onUnassignOrder, }) {
     const [dragOver, setDragOver] = useState(false);
     const [dropMinutes, setDropMinutes] = useState(null);
 
@@ -1336,13 +1385,14 @@ function TimelineRow({
                     key={order.id}
                     order={order}
                     onEdit={onEdit}
+                    onUnassignOrder={onUnassignOrder}
                 />
             ))}
         </div>
     );
 }
 
-function AgendaBoard({ orders, technicians, selectedDate, onEdit, onScheduleOrder, }) {
+function AgendaBoard({ orders, technicians, selectedDate, onEdit, onScheduleOrder, onUnassignOrder, }) {
     const rowsByTechnician = useMemo(() => {
         const grouped = new Map();
 
@@ -1443,6 +1493,7 @@ function AgendaBoard({ orders, technicians, selectedDate, onEdit, onScheduleOrde
                                     selectedDate={selectedDate}
                                     onEdit={onEdit}
                                     onScheduleOrder={onScheduleOrder}
+                                    onUnassignOrder={onUnassignOrder}
                                 />
                             </div>
                         );
@@ -1725,7 +1776,15 @@ export default function Taller() {
     }, [ordenes, filters]);
 
     const agendaOrders = useMemo(
-        () => filtered.filter((order) => order.tieneAgenda),
+        () =>
+            filtered.filter((order) =>
+                Boolean(
+                    order.tecnico &&
+                    order.fecha_programada &&
+                    order.hora_inicio &&
+                    order.hora_fin
+                ),
+            ),
         [filtered],
     );
 
@@ -1797,6 +1856,80 @@ export default function Taller() {
             hours,
         };
     }, [filtered]);
+
+    async function unassignOrder(orderId) {
+        const order = ordenes.find(
+            (item) => String(item.id) === String(orderId),
+        );
+
+        if (!order) {
+            alert("No se encontró la actividad.");
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `¿Deseas quitar "${getActivityLabel(order)}" de la agenda?`,
+        );
+
+        if (!confirmed) return;
+
+        const previousRows = remoteRows;
+        const targetStage = getDefaultEtapa(order);
+
+        const payload = {
+            tecnico: "",
+            fecha_programada: null,
+            hora_inicio: null,
+            hora_fin: null,
+            estatus_agenda: "Programado",
+            etapa: targetStage,
+        };
+
+        setRemoteRows((previous) =>
+            previous.map((row) =>
+                String(row.id) === String(orderId)
+                    ? {
+                        ...row,
+                        ...payload,
+                    }
+                    : row,
+            ),
+        );
+
+        try {
+            const updated = await apiHojaIngresos.patch(
+                orderId,
+                payload,
+            );
+
+            setRemoteRows((previous) =>
+                previous.map((row) =>
+                    String(row.id) === String(orderId)
+                        ? {
+                            ...row,
+                            ...(updated || {}),
+                            ...payload,
+
+                            tecnico: "",
+                            fecha_programada: null,
+                            hora_inicio: null,
+                            hora_fin: null,
+                            estatus_agenda: "Programado",
+                            etapa: targetStage,
+                        }
+                        : row,
+                ),
+            );
+        } catch (error) {
+            console.error(error);
+            setRemoteRows(previousRows);
+
+            alert(
+                error?.message ||
+                "No se pudo quitar la actividad de la agenda.",
+            );
+        }
+    }
 
     async function scheduleOrder(
         orderId,
@@ -1886,35 +2019,30 @@ export default function Taller() {
                 orderId,
                 payload,
             );
-
-            /*
-             * IMPORTANTE:
-             * No reemplazar completamente el registro.
-             * Se mezclan los datos anteriores, el payload
-             * y la respuesta del backend.
-             */
             setRemoteRows((previous) =>
                 previous.map((row) => {
-                    if (String(row.id) !== String(orderId)) {
+                    if (
+                        String(row.id) !==
+                        String(orderId)
+                    ) {
                         return row;
                     }
 
                     return {
                         ...row,
-                        ...payload,
                         ...(updated || {}),
-                        tecnico:
-                            updated?.tecnico ||
-                            payload.tecnico,
+                        ...payload,
+
+                        tecnico: payload.tecnico,
                         fecha_programada:
-                            toYMD(updated?.fecha_programada) ||
                             payload.fecha_programada,
                         hora_inicio:
-                            toHHMM(updated?.hora_inicio) ||
                             payload.hora_inicio,
                         hora_fin:
-                            toHHMM(updated?.hora_fin) ||
                             payload.hora_fin,
+                        estatus_agenda:
+                            payload.estatus_agenda,
+                        etapa: payload.etapa,
                     };
                 }),
             );
@@ -1930,30 +2058,39 @@ export default function Taller() {
         }
     }
 
-    async function moveOrderToStage(orderId, targetStage) {
+    async function moveOrderToStage(
+        orderId,
+        targetStage,
+    ) {
         const previousRows = remoteRows;
 
-        // Movimiento visual inmediato.
         setRemoteRows((previous) =>
             previous.map((row) =>
                 String(row.id) === String(orderId)
-                    ? { ...row, etapa: targetStage }
+                    ? {
+                        ...row,
+                        etapa: targetStage,
+                    }
                     : row,
             ),
         );
 
         try {
-            const updated = await apiHojaIngresos.patch(orderId, {
-                etapa: targetStage,
-            });
+            const updated =
+                await apiHojaIngresos.patch(
+                    orderId,
+                    {
+                        etapa: targetStage,
+                    },
+                );
 
             setRemoteRows((previous) =>
                 previous.map((row) =>
                     String(row.id) === String(orderId)
                         ? {
                             ...row,
-                            etapa: targetStage,
                             ...(updated || {}),
+                            etapa: targetStage,
                         }
                         : row,
                 ),
@@ -2157,30 +2294,79 @@ export default function Taller() {
 
         try {
             const saved = editingOrden?.id
-                ? await apiHojaIngresos.patch(editingOrden.id, payload)
+                ? await apiHojaIngresos.patch(
+                    editingOrden.id,
+                    payload,
+                )
                 : await apiHojaIngresos.create(payload);
+
+            const savedId =
+                saved?.id ||
+                editingOrden?.id;
 
             setRemoteRows((previous) => {
                 const exists = previous.some(
-                    (row) => String(row.id) === String(saved.id),
+                    (row) =>
+                        String(row.id) === String(savedId),
                 );
 
-                if (!exists) return [saved, ...previous];
-
-                return previous.map((row) =>
-                    String(row.id) === String(saved.id)
-                        ? {
-                            ...row,
+                if (!exists) {
+                    return [
+                        {
+                            ...(saved || {}),
                             ...payload,
-                            ...saved,
-                        }
-                        : row,
-                );
+                            id: String(savedId),
+                        },
+                        ...previous,
+                    ];
+                }
+
+                return previous.map((row) => {
+                    if (
+                        String(row.id) !==
+                        String(savedId)
+                    ) {
+                        return row;
+                    }
+
+                    return {
+                        ...row,
+                        ...(saved || {}),
+                        ...payload,
+
+                        id: String(savedId),
+                        tecnico: payload.tecnico,
+                        etapa: payload.etapa,
+                        estatus_agenda:
+                            payload.estatus_agenda,
+                        fecha_programada:
+                            payload.fecha_programada,
+                        hora_inicio:
+                            payload.hora_inicio,
+                        hora_fin:
+                            payload.hora_fin,
+                        tipo_bloque:
+                            payload.tipo_bloque,
+                        tipo_servicio:
+                            payload.tipo_servicio,
+                        comentarios_taller:
+                            payload.comentarios_taller,
+
+                        subtrabajos:
+                            payload.subtrabajos ||
+                            saved?.subtrabajos ||
+                            row.subtrabajos ||
+                            [],
+                    };
+                });
             });
 
             setFilters((previous) => ({
                 ...previous,
-                fecha: saved.fecha_programada || draft.fecha_programada,
+                fecha:
+                    draft.fecha_programada ||
+                    saved?.fecha_programada ||
+                    previous.fecha,
             }));
 
             setOpenModal(false);
@@ -2188,7 +2374,11 @@ export default function Taller() {
             setDraft(null);
         } catch (error) {
             console.error(error);
-            alert(error?.message || "No se pudo guardar la actividad de taller.");
+
+            alert(
+                error?.message ||
+                "No se pudo guardar la actividad de taller.",
+            );
         } finally {
             setSaving(false);
         }
@@ -2508,10 +2698,11 @@ export default function Taller() {
                     selectedDate={filters.fecha}
                     onEdit={openEdit}
                     onMoveOrder={moveOrderToStage}
+                    onScheduleOrder={scheduleOrder}
+                    onUnassignOrder={unassignOrder}
                     panelState={panelState}
                     onTogglePanel={togglePanel}
                     onToggleContainer={toggleContainer}
-                    onScheduleOrder={scheduleOrder}
                 />
             ) : (
                 <div className="overflow-hidden rounded-xl bg-white shadow-lg">
