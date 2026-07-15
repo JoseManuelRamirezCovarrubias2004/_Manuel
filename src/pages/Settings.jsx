@@ -524,6 +524,74 @@ function AgencyBlock({ agency, users, onEdit }) {
         </div>
     );
 }
+function FilterSelect({ label, value, onChange, options }) {
+    return (
+        <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                {label}
+            </span>
+            <select
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                style={{ ...inputBase(), cursor: "pointer", minWidth: 160, background: "#fff" }}
+            >
+                {options.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+        </label>
+    );
+}
+
+// ─── TABLA ÚNICA (reemplaza las 5 tablas por agencia) ─────────────────────────
+function UsersTableUnificada({ users, onEdit }) {
+    return (
+        <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
+            <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                        <tr style={{ background: "#fafafa" }}>
+                            {["", "Nombre", "Usuario", "Agencia", "Rol", "Estado", "Correo"].map((h, i) => (
+                                <th key={i} style={{ padding: "8px 14px", textAlign: "left", fontSize: 11, color: "#94a3b8", fontWeight: 600, borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>
+                                    {h}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {users.length === 0 ? (
+                            <tr>
+                                <td colSpan={7} style={{ textAlign: "center", padding: "24px 0", fontSize: 13, color: "#94a3b8" }}>
+                                    Sin usuarios que coincidan con los filtros
+                                </td>
+                            </tr>
+                        ) : users.map((u, idx) => (
+                            <tr
+                                key={u.id}
+                                onDoubleClick={() => onEdit(u)}
+                                style={{ borderBottom: idx < users.length - 1 ? "1px solid #f8fafc" : "none", cursor: "pointer" }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "")}
+                            >
+                                <td style={{ padding: "10px 14px" }}><Avatar user={u} size={32} /></td>
+                                <td style={{ padding: "10px 14px" }}>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{u.nombre} {u.apellidos}</span>
+                                </td>
+                                <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>@{u.usuario}</td>
+                                <td style={{ padding: "10px 14px", fontSize: 12, color: "#374151" }}>
+                                    {(u.agencies || []).join(", ")}
+                                </td>
+                                <td style={{ padding: "10px 14px" }}><RoleBadge rol={u.rol || u.nombre_rol} /></td>
+                                <td style={{ padding: "10px 14px" }}><StatusPill estado={u.estado || "Activo"} /></td>
+                                <td style={{ padding: "10px 14px", fontSize: 12, color: "#94a3b8", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {u.correo}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
 
 // ─── PERFIL USUARIO NORMAL ────────────────────────────────────────────────────
 function PerfilUsuario({ token, user }) {
@@ -1207,6 +1275,25 @@ export default function Settings() {
     const [modalUser, setModalUser] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [modalRolOpen, setModalRolOpen] = useState(false);
+    const [filtroAgencia, setFiltroAgencia] = useState("Todas");
+    const [filtroRol, setFiltroRol] = useState("Todos");
+    const [filtroEstado, setFiltroEstado] = useState("Todos");
+
+     const rolesUnicos = useMemo(() => {
+        const set = new Set(usuarios.map(u => u.rol || u.nombre_rol).filter(Boolean));
+        return ["Todos", ...set];
+    }, [usuarios]);
+
+    const usuariosFiltrados = useMemo(() => {
+        return usuarios.filter(u => {
+            const agencias = Array.isArray(u.agencies) ? u.agencies : [];
+            const matchAgencia = filtroAgencia === "Todas" || agencias.includes(filtroAgencia);
+            const rolUsuario = u.rol || u.nombre_rol || "";
+            const matchRol = filtroRol === "Todos" || rolUsuario === filtroRol;
+            const matchEstado = filtroEstado === "Todos" || (u.estado || "Activo") === filtroEstado;
+            return matchAgencia && matchRol && matchEstado;
+        });
+    }, [usuarios, filtroAgencia, filtroRol, filtroEstado]);
 
         const onRolCreado = (nuevoRol) => {
         setRoles(prev => [...prev, nuevoRol]);
@@ -1467,13 +1554,30 @@ export default function Settings() {
 
                 <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
-                {loadingTable ? (
-                    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "36px 0", textAlign: "center", fontSize: 13, color: "#94a3b8" }}>
-                        Cargando usuarios...
-                    </div>
-                ) : (
-                    DEALERS.map(ag => <AgencyBlock key={ag} agency={ag} users={usuarios} onEdit={openEdit} />)
-                )}
+                {/* Filtros */}
+<div style={{ display: "flex", gap: 14, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 14, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "14px 16px" }}>
+    <FilterSelect label="Agencia" value={filtroAgencia} onChange={setFiltroAgencia} options={["Todas", ...DEALERS]} />
+    <FilterSelect label="Rol" value={filtroRol} onChange={setFiltroRol} options={rolesUnicos} />
+    <FilterSelect label="Estado" value={filtroEstado} onChange={setFiltroEstado} options={["Todos", "Activo", "Inactivo"]} />
+    {(filtroAgencia !== "Todas" || filtroRol !== "Todos" || filtroEstado !== "Todos") && (
+        <button
+            onClick={() => { setFiltroAgencia("Todas"); setFiltroRol("Todos"); setFiltroEstado("Todos"); }}
+            style={{ padding: "9px 14px", borderRadius: 9, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#374151", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+        >
+            Limpiar filtros
+        </button>
+    )}
+    <span style={{ marginLeft: "auto", fontSize: 12, color: "#94a3b8", alignSelf: "center" }}>
+        {usuariosFiltrados.length} de {usuarios.length} usuarios
+    </span>
+</div>
+{loadingTable ? (
+    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "36px 0", textAlign: "center", fontSize: 13, color: "#94a3b8" }}>
+        Cargando usuarios...
+    </div>
+) : (
+    <UsersTableUnificada users={usuariosFiltrados} onEdit={openEdit} />
+)}
             </div>
 
             {/* ── Resumen (debajo de la tabla) ── */}
