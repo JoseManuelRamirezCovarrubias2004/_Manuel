@@ -717,6 +717,87 @@ export const api = {
     );
   },
 
+  // Administración de plantillas directamente en Meta.
+  digitalesPlantillasAdmin: (numeroAsesor = "") => {
+    const numero = normalizaTelefonoMx(
+      numeroAsesor || getWhatsAppNumberFromSources(),
+    );
+    const usuario = getCrmUsername();
+
+    return http(
+      `/digitales/mensajes/plantillas/admin/${buildQuery({
+        numero_asesor: numero,
+        usuario,
+      })}`,
+    );
+  },
+
+  digitalesPlantillaCrear: (numeroAsesor, payload) => {
+    const numero = normalizaTelefonoMx(
+      numeroAsesor || getWhatsAppNumberFromSources(),
+    );
+    const usuario = getCrmUsername();
+
+    return http(
+      `/digitales/mensajes/plantillas/admin/${buildQuery({ numero_asesor: numero, usuario })}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(withRequestContext(payload || {})),
+      },
+    );
+  },
+
+  digitalesPlantillaAnalizar: (numeroAsesor, payload) => {
+    const numero = normalizaTelefonoMx(
+      numeroAsesor || getWhatsAppNumberFromSources(),
+    );
+    const usuario = getCrmUsername();
+
+    return http(
+      `/digitales/mensajes/plantillas/admin/analizar/${buildQuery({ numero_asesor: numero, usuario })}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(withRequestContext(payload || {})),
+      },
+    );
+  },
+
+  digitalesPlantillaEditar: (numeroAsesor, templateId, payload) => {
+    const numero = normalizaTelefonoMx(
+      numeroAsesor || getWhatsAppNumberFromSources(),
+    );
+    const usuario = getCrmUsername();
+
+    return http(
+      `/digitales/mensajes/plantillas/admin/${encodeURIComponent(templateId)}/${buildQuery({ numero_asesor: numero, usuario })}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(withRequestContext(payload || {})),
+      },
+    );
+  },
+
+  digitalesPlantillaEliminar: (numeroAsesor, templateId, name) => {
+    const numero = normalizaTelefonoMx(
+      numeroAsesor || getWhatsAppNumberFromSources(),
+    );
+    const usuario = getCrmUsername();
+
+    return http(
+      `/digitales/mensajes/plantillas/admin/${encodeURIComponent(templateId)}/${buildQuery(
+        {
+          numero_asesor: numero,
+          usuario,
+          name,
+        },
+      )}`,
+      { method: "DELETE" },
+    );
+  },
+
   digitalesLlamarWhatsapp: ({ telefono, sdp_offer = "" }) =>
     http("/digitales/llamar-whatsapp/", {
       method: "POST",

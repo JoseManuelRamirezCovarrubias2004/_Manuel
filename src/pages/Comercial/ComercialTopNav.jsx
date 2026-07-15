@@ -10,6 +10,7 @@ import {
     PackageCheck,
     BarChart2,
     UsersRound,
+    LayoutPanelTop,
 } from "lucide-react";
 
 import vwDark from "../../assets/vw_dark.png";
@@ -57,6 +58,12 @@ export default function ComercialTopNav() {
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
                 ]),
+            },
+            {
+                label: "Plantillas",
+                href: "/comercial/prospectos/plantillas",
+                icon: LayoutPanelTop,
+                show: canSeeContacto && inProspectos,
             },
             {
                 label: "Contacto",

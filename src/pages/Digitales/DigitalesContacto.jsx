@@ -30,10 +30,10 @@ import {
     Zap,
     ZapOff,
     Ban,
+    Phone,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
-import { Phone } from "lucide-react";
 
 const BRAND_BLUE = "#131E5C";
 const QUICK_BUBBLES_KEY = "digitales_quick_bubbles_global";
@@ -686,6 +686,60 @@ function getFieldOptions(field) {
     return [];
 }
 
+function getTemplateFieldNumber(field) {
+    const index = Number(field?.index || 0);
+
+    if (index > 0) return index;
+
+    const match = String(field?.key || "").match(/(\d+)$/);
+
+    return match ? Number(match[1]) : 1;
+}
+
+function getFriendlyTemplateFieldLabel(field) {
+    const component = String(field?.component || "body").toLowerCase();
+    const index = getTemplateFieldNumber(field);
+
+    if (component === "header") {
+        return `Dato del encabezado ${index}`;
+    }
+
+    if (component === "button") {
+        return `Dato del botón ${index}`;
+    }
+
+    return `Dato variable ${index}`;
+}
+
+function normalizeTemplateFromApi(template) {
+    return {
+        ...template,
+        key: template?.key || template?.name || "",
+        name: template?.name || template?.key || "",
+        title:
+            template?.title ||
+            String(template?.name || template?.key || "")
+                .replaceAll("_", " ")
+                .replace(/\b\w/g, (letter) => letter.toUpperCase()),
+        idioma:
+            template?.idioma ||
+            template?.language ||
+            "es_MX",
+        language:
+            template?.language ||
+            template?.idioma ||
+            "es_MX",
+        status: String(template?.status || "APPROVED").toUpperCase(),
+        fields: Array.isArray(template?.fields)
+            ? template.fields.map((field) => ({
+                ...field,
+                required: true,
+                friendlyLabel: getFriendlyTemplateFieldLabel(field),
+            }))
+            : [],
+    };
+}
+
 function getDefaultValueForTemplateField(field, context) {
     const label = safeLower(field?.label), key = safeLower(field?.key);
     if (label.includes("asesor") || key.includes("asesor") || label.includes("quién eres")) return context.asesor || "";
@@ -1301,6 +1355,7 @@ export default function DigitalesContacto() {
     const [templatesDisponibles, setTemplatesDisponibles] = useState([]);
     const [loadingTemplates, setLoadingTemplates] = useState(false);
     const [templatesError, setTemplatesError] = useState("");
+    const [sendingTemplate, setSendingTemplate] = useState(false);
 
     const [openEmoji, setOpenEmoji] = useState(false);
     const [attachments, setAttachments] = useState([]);
@@ -1377,7 +1432,15 @@ export default function DigitalesContacto() {
         if (clienteBloqueado) return "Contacto bloqueado. Desbloquéalo para responder…";
         return "Escribe tu mensaje…";
     }, [activeTel, clienteBloqueado]);
-    const templatePreview = useMemo(() => tplSelected ? buildTemplatePreviewText(tplSelected, tplDraft) : "", [tplSelected, tplDraft]);
+    const templatePreview = useMemo(
+        () => tplSelected ? buildTemplatePreviewText(tplSelected, tplDraft) : "",
+        [tplSelected, tplDraft]
+    );
+
+    const incompleteTemplateFields = useMemo(() => {
+        const fields = Array.isArray(tplSelected?.fields) ? tplSelected.fields : [];
+        return fields.filter((field) => !String(tplDraft?.[field.key] || "").trim());
+    }, [tplSelected, tplDraft]);
 
     // Índice rápido id de mensaje -> mensaje (para resolver citas tipo WhatsApp)
     const messagesById = useMemo(() => {
@@ -1558,14 +1621,49 @@ export default function DigitalesContacto() {
     }
 
     async function cargarPlantillas() {
+        if (loadingTemplates) return;
+
+        setLoadingTemplates(true);
+        setTemplatesError("");
+
         try {
-            setLoadingTemplates(true); setTemplatesError("");
             const response = await api.digitalesPlantillas();
-            setTemplatesDisponibles(Array.isArray(response?.items) ? response.items : []);
+
+            const items = Array.isArray(response?.items)
+                ? response.items
+                : Array.isArray(response)
+                    ? response
+                    : [];
+
+            const aprobadas = items
+                .map(normalizeTemplateFromApi)
+                .filter((template) => {
+                    const status = String(
+                        template?.status || "APPROVED"
+                    ).toUpperCase();
+
+                    return status === "APPROVED";
+                })
+                .filter((template) => template.key);
+
+            setTemplatesDisponibles(aprobadas);
+
+            if (!aprobadas.length) {
+                setTemplatesError(
+                    "No hay plantillas aprobadas disponibles para esta línea."
+                );
+            }
         } catch (error) {
-            console.error(error); setTemplatesDisponibles([]);
-            setTemplatesError(error?.message || "No se pudieron cargar las plantillas.");
-        } finally { setLoadingTemplates(false); }
+            console.error("Error cargando plantillas:", error);
+
+            setTemplatesDisponibles([]);
+            setTemplatesError(
+                error?.message ||
+                "No se pudieron consultar las plantillas aprobadas en Meta."
+            );
+        } finally {
+            setLoadingTemplates(false);
+        }
     }
 
     function addFilesAsAttachments(files) {
@@ -1671,24 +1769,98 @@ export default function DigitalesContacto() {
         inputRef.current?.focus?.();
     }
 
-    function abrirPlantillasDropdown() {
-        if (!activeTel) return;
-        setTplSelected(null); setTplDraft({});
-        setShowTemplatesDropdown(prev => !prev);
+    async function abrirPlantillasDropdown() {
+        if (!activeTel || clienteBloqueado) return;
+
+        if (showTemplatesDropdown) {
+            setShowTemplatesDropdown(false);
+            setTplSelected(null);
+            setTplDraft({});
+            setTemplatesError("");
+            return;
+        }
+
+        setTplSelected(null);
+        setTplDraft({});
+        setTemplatesError("");
         setShowQuickBubblesDropdown(false);
-        if (!showTemplatesDropdown) cargarPlantillas();
+        setShowTemplatesDropdown(true);
+
+        await cargarPlantillas();
     }
 
     function pickTemplate(template) {
-        setTplSelected(template);
-        const currentAgencia = (prospecto?.agencia || activeChat?.agencia || "").trim();
-        const bestDealer = DEALERS.find(d => d.toLowerCase() === currentAgencia.toLowerCase()) || DEALERS.find(d => currentAgencia.toLowerCase().includes(d.toLowerCase())) || "";
-        const bestCanal = CANALES.find(c => c.toLowerCase() === (prospecto?.canal_contacto || "").trim().toLowerCase()) || "";
-        const asesorAuto = (prospecto?.asesor_digital || "").trim() || (prospecto?.asesor_ventas || "").trim() || (prospecto?.responsable || "").trim() || "";
-        const context = { nombre: (prospecto?.nombre || activeChat?.nombre || "").trim(), agencia: bestDealer, modelo: (prospecto?.auto_interes || "").trim(), canal: bestCanal, asesor: asesorAuto, tema: prospecto?.auto_interes ? "auto de interés" : "cita", dato: "horario" };
-        const draft = {};
-        for (const field of template.fields || []) { draft[field.key] = getDefaultValueForTemplateField(field, context); }
-        setTplDraft(draft);
+        const normalizedTemplate = normalizeTemplateFromApi(template);
+
+        setTplSelected(normalizedTemplate);
+        setTemplatesError("");
+
+        const currentAgencia = String(
+            prospecto?.agencia ||
+            activeChat?.agencia ||
+            ""
+        ).trim();
+
+        const bestDealer =
+            DEALERS.find(
+                (dealer) =>
+                    dealer.toLowerCase() ===
+                    currentAgencia.toLowerCase()
+            ) ||
+            DEALERS.find((dealer) =>
+                currentAgencia
+                    .toLowerCase()
+                    .includes(dealer.toLowerCase())
+            ) ||
+            "";
+
+        const canalActual = String(
+            prospecto?.canal_contacto || ""
+        ).trim();
+
+        const bestCanal =
+            CANALES.find(
+                (canal) =>
+                    canal.toLowerCase() ===
+                    canalActual.toLowerCase()
+            ) || "";
+
+        const asesorAuto = String(
+            prospecto?.asesor_digital ||
+            prospecto?.asesor_ventas ||
+            prospecto?.responsable ||
+            ""
+        ).trim();
+
+        const context = {
+            nombre: String(
+                prospecto?.nombre ||
+                activeChat?.nombre ||
+                ""
+            ).trim(),
+            agencia: bestDealer,
+            modelo: String(
+                prospecto?.auto_interes || ""
+            ).trim(),
+            canal: bestCanal,
+            asesor: asesorAuto,
+            tema: prospecto?.auto_interes
+                ? "auto de interés"
+                : "cita",
+            dato: "",
+        };
+
+        const values = {};
+
+        for (const field of normalizedTemplate.fields) {
+            values[field.key] =
+                getDefaultValueForTemplateField(
+                    field,
+                    context
+                );
+        }
+
+        setTplDraft(values);
     }
 
     function addQuickBubble() {
@@ -1876,19 +2048,139 @@ export default function DigitalesContacto() {
     }
 
     async function enviarPlantilla() {
-        if (!activeTel || !tplSelected) return;
-        const fields = Array.isArray(tplSelected.fields) ? tplSelected.fields : [];
-        if (fields.some(f => !String(tplDraft[f.key] || "").trim())) { alert("Completa todos los campos de la plantilla."); return; }
-        const idioma = tplSelected.idioma || tplSelected.language || "es_MX";
-        const textoPreview = buildTemplatePreviewText(tplSelected, tplDraft);
-        const components = buildDynamicTemplateComponents(tplSelected, tplDraft);
+        if (
+            !activeTel ||
+            !tplSelected ||
+            sendingTemplate
+        ) {
+            return;
+        }
+
+        if (clienteBloqueado) {
+            setTemplatesError(
+                "El contacto está bloqueado. Desbloquéalo antes de enviar una plantilla."
+            );
+
+            return;
+        }
+
+        const fields = Array.isArray(tplSelected.fields)
+            ? tplSelected.fields
+            : [];
+
+        const incompleteField = fields.find(
+            (field) =>
+                !String(
+                    tplDraft?.[field.key] || ""
+                ).trim()
+        );
+
+        if (incompleteField) {
+            setTemplatesError(
+                `Completa el campo obligatorio: ${incompleteField.friendlyLabel ||
+                getFriendlyTemplateFieldLabel(incompleteField)
+                }.`
+            );
+
+            return;
+        }
+
+        const idioma =
+            tplSelected.idioma ||
+            tplSelected.language ||
+            "es_MX";
+
+        const templateName =
+            tplSelected.key ||
+            tplSelected.name;
+
+        if (!templateName) {
+            setTemplatesError(
+                "La plantilla seleccionada no tiene un nombre válido."
+            );
+
+            return;
+        }
+
+        const textoPreview = buildTemplatePreviewText(
+            tplSelected,
+            tplDraft
+        );
+
+        const components = buildDynamicTemplateComponents(
+            tplSelected,
+            tplDraft
+        );
+
+        const optimisticId = crypto.randomUUID();
+
+        setTemplatesError("");
+        setSendingTemplate(true);
         shouldStickToBottomRef.current = true;
-        setMensajes(prev => [...prev, { id: crypto.randomUUID(), local_pending: true, local_created_at: new Date().toISOString(), mine: true, text: textoPreview || `Plantilla: ${tplSelected.key}`, time: "Ahora", status: "sent" }]);
+
+        setMensajes((previous) => [
+            ...previous,
+            {
+                id: optimisticId,
+                local_pending: true,
+                local_created_at: new Date().toISOString(),
+                mine: true,
+                text:
+                    textoPreview ||
+                    `Plantilla: ${templateName}`,
+                time: "Ahora",
+                status: "sent",
+                attachments: [],
+            },
+        ]);
+
         try {
-            await api.digitalesEnviarPlantilla({ to: activeTel, template_name: tplSelected.key, idioma, components: components.length ? components : undefined, params: components.length ? undefined : [] });
-            setShowTemplatesDropdown(false); setTplSelected(null);
-            await refreshActiveChat(activeTel, { forceBottom: true });
-        } catch (error) { alert(`Falló plantilla: ${error.message}`); await refreshActiveChat(activeTel).catch(() => { }); }
+            await api.digitalesEnviarPlantilla({
+                to: activeTel,
+                template_name: templateName,
+                idioma,
+                components:
+                    components.length > 0
+                        ? components
+                        : undefined,
+                params:
+                    components.length > 0
+                        ? undefined
+                        : [],
+            });
+
+            setShowTemplatesDropdown(false);
+            setTplSelected(null);
+            setTplDraft({});
+            setTemplatesError("");
+
+            await refreshActiveChat(
+                activeTel,
+                { forceBottom: true }
+            );
+        } catch (error) {
+            console.error(
+                "Error enviando plantilla:",
+                error
+            );
+
+            setTemplatesError(
+                error?.message ||
+                "No se pudo enviar la plantilla."
+            );
+
+            setMensajes((previous) =>
+                previous.filter(
+                    (message) =>
+                        message.id !== optimisticId
+                )
+            );
+
+            await refreshActiveChat(activeTel)
+                .catch(() => { });
+        } finally {
+            setSendingTemplate(false);
+        }
     }
 
     function copyTel() {
@@ -2703,10 +2995,10 @@ export default function DigitalesContacto() {
 
                                         {/* Plantillas — dropdown igual que mensajes rápidos */}
                                         <div className="relative" ref={templatesDropdownRef}>
-                                            <button onClick={abrirPlantillasDropdown} disabled={!activeTel}
+                                            <button onClick={abrirPlantillasDropdown} disabled={!activeTel || clienteBloqueado || sendingTemplate}
                                                 className={cls(
                                                     "inline-flex h-8 items-center gap-1 rounded-xl px-2 text-xs font-extrabold text-slate-400 hover:bg-neutral-100 hover:text-[#131E5C] transition",
-                                                    !activeTel ? "cursor-not-allowed opacity-50" : "",
+                                                    (!activeTel || clienteBloqueado || sendingTemplate) ? "cursor-not-allowed opacity-50" : "",
                                                     showTemplatesDropdown ? "bg-neutral-100 text-[#131E5C]" : ""
                                                 )}
                                                 type="button" title="Plantillas">
@@ -2719,7 +3011,7 @@ export default function DigitalesContacto() {
                                                     <div className="flex items-center justify-between border-b border-black/5 px-4 py-2.5">
                                                         <div className="flex items-center gap-2">
                                                             {tplSelected ? (
-                                                                <button type="button" onClick={() => setTplSelected(null)} className="inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-neutral-100 transition">
+                                                                <button type="button" onClick={() => { setTplSelected(null); setTplDraft({}); setTemplatesError(""); }} className="inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-neutral-100 transition">
                                                                     <ChevronLeft className="h-3.5 w-3.5" />
                                                                 </button>
                                                             ) : null}
@@ -2727,7 +3019,7 @@ export default function DigitalesContacto() {
                                                                 {tplSelected ? `Plantilla: ${tplSelected.title || tplSelected.key}` : "Plantillas"}
                                                             </span>
                                                         </div>
-                                                        <button type="button" onClick={() => { setShowTemplatesDropdown(false); setTplSelected(null); }}
+                                                        <button type="button" onClick={() => { setShowTemplatesDropdown(false); setTplSelected(null); setTplDraft({}); setTemplatesError(""); }}
                                                             className="inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-neutral-100 transition">
                                                             <X className="h-3.5 w-3.5" />
                                                         </button>
@@ -2739,7 +3031,7 @@ export default function DigitalesContacto() {
                                                             loadingTemplates ? (
                                                                 <div className="px-4 py-6 text-center text-xs font-semibold text-slate-400">Cargando plantillas...</div>
                                                             ) : templatesError ? (
-                                                                <div className="px-4 py-4 text-xs font-bold text-red-600">{templatesError}</div>
+                                                                <div className="m-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{templatesError}</span></div>
                                                             ) : templatesDisponibles.length === 0 ? (
                                                                 <div className="px-4 py-6 text-center text-xs font-semibold text-slate-400">No hay plantillas disponibles.</div>
                                                             ) : (
@@ -2755,6 +3047,13 @@ export default function DigitalesContacto() {
                                                         ) : (
                                                             // Detalle de plantilla seleccionada
                                                             <div className="p-4 space-y-3">
+                                                                {templatesError ? (
+                                                                    <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700">
+                                                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+
+                                                                        <span>{templatesError}</span>
+                                                                    </div>
+                                                                ) : null}
                                                                 <div className="whitespace-pre-wrap rounded-xl border border-black/10 bg-neutral-50 p-3 text-xs font-semibold text-[#131E5C]">
                                                                     {templatePreview || tplSelected.help || "Sin texto visible."}
                                                                 </div>
@@ -2762,16 +3061,66 @@ export default function DigitalesContacto() {
                                                                     const options = getFieldOptions(field);
                                                                     return (
                                                                         <div key={field.key}>
-                                                                            <div className="mb-1 text-[11px] font-extrabold text-[#131E5C]">{field.label || field.key}</div>
+                                                                            <div className="mb-1 flex items-center justify-between gap-2">
+                                                                                <div className="text-[11px] font-extrabold text-[#131E5C]">
+                                                                                    {field.friendlyLabel ||
+                                                                                        getFriendlyTemplateFieldLabel(field)}
+                                                                                    <span className="ml-1 text-red-600">*</span>
+                                                                                </div>
+
+                                                                                <span className="text-[10px] font-semibold text-slate-400">
+                                                                                    Obligatorio
+                                                                                </span>
+                                                                            </div>
                                                                             {options.length ? (
-                                                                                <select value={tplDraft[field.key] || ""} onChange={(e) => setTplDraft(p => ({ ...p, [field.key]: e.target.value }))}
-                                                                                    className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none">
-                                                                                    <option value="" disabled>Selecciona…</option>
-                                                                                    {options.map(o => <option key={o} value={o}>{o}</option>)}
+                                                                                <select
+                                                                                    value={tplDraft[field.key] || ""}
+                                                                                    onChange={(event) => {
+                                                                                        setTplDraft((current) => ({
+                                                                                            ...current,
+                                                                                            [field.key]: event.target.value,
+                                                                                        }));
+
+                                                                                        setTemplatesError("");
+                                                                                    }}
+                                                                                    aria-required="true"
+                                                                                    className={cls(
+                                                                                        "w-full rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none transition",
+                                                                                        !String(tplDraft[field.key] || "").trim()
+                                                                                            ? "border-red-200 focus:border-red-400"
+                                                                                            : "border-black/10 focus:border-[#131E5C]/40"
+                                                                                    )}
+                                                                                >
+                                                                                    <option value="" disabled>
+                                                                                        Selecciona un valor…
+                                                                                    </option>
+
+                                                                                    {options.map((option) => (
+                                                                                        <option key={option} value={option}>
+                                                                                            {option}
+                                                                                        </option>
+                                                                                    ))}
                                                                                 </select>
                                                                             ) : (
-                                                                                <input value={tplDraft[field.key] || ""} onChange={(e) => setTplDraft(p => ({ ...p, [field.key]: e.target.value }))}
-                                                                                    className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none" />
+                                                                                <input
+                                                                                    value={tplDraft[field.key] || ""}
+                                                                                    onChange={(event) => {
+                                                                                        setTplDraft((current) => ({
+                                                                                            ...current,
+                                                                                            [field.key]: event.target.value,
+                                                                                        }));
+
+                                                                                        setTemplatesError("");
+                                                                                    }}
+                                                                                    placeholder="Escribe el dato que se enviará"
+                                                                                    aria-required="true"
+                                                                                    className={cls(
+                                                                                        "w-full rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-[#131E5C] outline-none transition",
+                                                                                        !String(tplDraft[field.key] || "").trim()
+                                                                                            ? "border-red-200 focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                                                                                            : "border-black/10 focus:border-[#131E5C]/40 focus:ring-2 focus:ring-[#131E5C]/10"
+                                                                                    )}
+                                                                                />
                                                                             )}
                                                                         </div>
                                                                     );
@@ -2779,10 +3128,24 @@ export default function DigitalesContacto() {
                                                                 {!(tplSelected.fields || []).length ? (
                                                                     <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">Esta plantilla no requiere parámetros.</div>
                                                                 ) : null}
-                                                                <button type="button" onClick={enviarPlantilla}
-                                                                    className="w-full rounded-xl py-2.5 text-xs font-extrabold text-white transition hover:opacity-90"
-                                                                    style={{ backgroundColor: BRAND_BLUE }}>
-                                                                    Enviar plantilla
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={enviarPlantilla}
+                                                                    disabled={
+                                                                        sendingTemplate ||
+                                                                        incompleteTemplateFields.length > 0
+                                                                    }
+                                                                    className="w-full rounded-xl py-2.5 text-xs font-extrabold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    style={{ backgroundColor: BRAND_BLUE }}
+                                                                >
+                                                                    {sendingTemplate
+                                                                        ? "Enviando plantilla..."
+                                                                        : incompleteTemplateFields.length > 0
+                                                                            ? `Completa ${incompleteTemplateFields.length} dato${incompleteTemplateFields.length === 1
+                                                                                ? ""
+                                                                                : "s"
+                                                                            }`
+                                                                            : "Enviar plantilla"}
                                                                 </button>
                                                             </div>
                                                         )}

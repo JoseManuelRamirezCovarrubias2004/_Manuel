@@ -29,6 +29,7 @@ import DigitalesLayout from "./pages/Digitales/DigitalesLayout";
 import DigitalesOverView from "./pages/Digitales/DigitalesOverView";
 import DigitalesProspectos from "./pages/Digitales/DigitalesProspectos";
 import DigitalesContacto from "./pages/Digitales/DigitalesContacto";
+import DigitalesPlantillas from "./pages/Plantillas/Plantillas";
 
 import CitasLayout from "./pages/Citas/CitasLayout";
 import CitasOverView from "./pages/Citas/CitasOverView";
@@ -315,7 +316,7 @@ export const router = createBrowserRouter(
                                         </RequirePermission>
                                     ),
                                 },
-                               
+
                                 {
                                     path: "jdpower",
                                     element: (
@@ -427,6 +428,10 @@ export const router = createBrowserRouter(
                                         {
                                             path: "resumen",
                                             element: <DigitalesOverView />,
+                                        },
+                                        {
+                                            path: "plantillas",
+                                            element: <DigitalesPlantillas />,
                                         },
                                         {
                                             path: "contacto",
@@ -782,7 +787,7 @@ export const router = createBrowserRouter(
                                         </RequirePermission>
                                     ),
                                 },
-                                 {
+                                {
                                     path: "retencion",
                                     element: (
                                         <RequirePermission
