@@ -1313,6 +1313,7 @@ export default function DigitalesContacto() {
     const [showAddBubble, setShowAddBubble] = useState(false);
     const [newBubbleText, setNewBubbleText] = useState("");
     const [newBubbleTitle, setNewBubbleTitle] = useState("");
+    const [editingBubbleId, setEditingBubbleId] = useState(null);
 
     const [quickEditDraft, setQuickEditDraft] = useState({});
     const [savingQuickEdit, setSavingQuickEdit] = useState(false);
@@ -1695,6 +1696,24 @@ export default function DigitalesContacto() {
         if (!text) return;
         setQuickBubbles(prev => [...prev, { id: crypto.randomUUID(), title: newBubbleTitle.trim() || text.slice(0, 25), text, createdAt: new Date().toISOString() }]);
         setNewBubbleText(""); setNewBubbleTitle(""); setShowAddBubble(false);
+    }
+
+    function startEditQuickBubble(bubble) {
+        setEditingBubbleId(bubble.id);
+        setNewBubbleTitle(bubble.title);
+        setNewBubbleText(bubble.text);
+        setShowAddBubble(true);
+    }
+
+    function updateQuickBubble() {
+        const text = newBubbleText.trim();
+        if (!text || !editingBubbleId) return;
+        setQuickBubbles(prev => prev.map(b =>
+            b.id === editingBubbleId
+                ? { ...b, title: newBubbleTitle.trim() || text.slice(0, 25), text }
+                : b
+        ));
+        setNewBubbleText(""); setNewBubbleTitle(""); setShowAddBubble(false); setEditingBubbleId(null);
     }
 
     function deleteQuickBubble(id) { setQuickBubbles(prev => prev.filter(b => b.id !== id)); }
@@ -2791,7 +2810,7 @@ export default function DigitalesContacto() {
                                                     <div className="flex items-center justify-between border-b border-black/5 px-4 py-2.5">
                                                         <span className="text-xs font-extrabold text-[#131E5C]">Mensajes rápidos</span>
                                                         <div className="flex items-center gap-1">
-                                                            <button type="button" onClick={() => setShowAddBubble(p => !p)}
+                                                            <button type="button" onClick={() => { setEditingBubbleId(null); setNewBubbleTitle(""); setNewBubbleText(""); setShowAddBubble(p => !p); }}
                                                                 className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#131E5C]/10 text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition"
                                                                 title="Nuevo mensaje rápido">
                                                                 <Plus className="h-3.5 w-3.5" />
@@ -2810,11 +2829,11 @@ export default function DigitalesContacto() {
                                                             <textarea value={newBubbleText} onChange={(e) => setNewBubbleText(e.target.value)} placeholder="Escribe el mensaje…" rows={2}
                                                                 className="mb-2 w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-[#131E5C] outline-none placeholder:text-slate-400" />
                                                             <div className="flex justify-end gap-2">
-                                                                <button type="button" onClick={() => { setShowAddBubble(false); setNewBubbleText(""); setNewBubbleTitle(""); }}
+                                                                <button type="button" onClick={() => { setShowAddBubble(false); setNewBubbleText(""); setNewBubbleTitle(""); setEditingBubbleId(null); }}
                                                                     className="rounded-lg border border-black/10 bg-white px-3 py-1 text-xs font-bold text-slate-600 hover:bg-neutral-100">Cancelar</button>
-                                                                <button type="button" onClick={addQuickBubble} disabled={!newBubbleText.trim()}
+                                                                <button type="button" onClick={editingBubbleId ? updateQuickBubble : addQuickBubble} disabled={!newBubbleText.trim()}
                                                                     className="rounded-lg px-3 py-1 text-xs font-bold text-white disabled:opacity-50"
-                                                                    style={{ backgroundColor: BRAND_BLUE }}>Guardar</button>
+                                                                    style={{ backgroundColor: BRAND_BLUE }}>{editingBubbleId ? "Actualizar" : "Guardar"}</button>
                                                             </div>
                                                         </div>
                                                     ) : null}
@@ -2829,8 +2848,13 @@ export default function DigitalesContacto() {
                                                                         <div className="truncate text-xs font-extrabold text-[#131E5C]">{bubble.title}</div>
                                                                         <div className="mt-0.5 truncate text-[11px] font-medium text-slate-500">{bubble.text}</div>
                                                                     </button>
+                                                                    <button type="button" onClick={() => startEditQuickBubble(bubble)}
+                                                                        className="hidden h-6 w-6 shrink-0 items-center justify-center rounded-full text-[#131E5C] hover:bg-[#131E5C]/10 group-hover:inline-flex"
+                                                                        title="Editar">
+                                                                        <Pencil className="h-3.5 w-3.5" />
+                                                                    </button>
                                                                     <button type="button" onClick={() => deleteQuickBubble(bubble.id)}
-                                                                        className="invisible h-6 w-6 shrink-0 items-center justify-center rounded-full text-red-400 hover:bg-red-50 hover:text-red-600 group-hover:inline-flex"
+                                                                        className="hidden h-6 w-6 shrink-0 items-center justify-center rounded-full text-red-400 hover:bg-red-50 hover:text-red-600 group-hover:inline-flex"
                                                                         title="Eliminar">
                                                                         <X className="h-3.5 w-3.5" />
                                                                     </button>
