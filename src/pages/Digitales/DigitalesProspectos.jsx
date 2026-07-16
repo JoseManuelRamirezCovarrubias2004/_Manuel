@@ -93,10 +93,9 @@ const ASESOR_DIGITAL_POR_NUMERO = {
     522713133332: { asesor_digital: "Erendira Santos Coyotzi", agencia: "VW Cordoba" },
     522871232641: { asesor_digital: "Marelly Tenorio Salinas", agencia: "VW Tuxtepec" },
     527835412658: { asesor_digital: "Edgar Omar Noguera Solis", agencia: "VW Tuxpan" },
-    527828732416: { asesor_digital: "Dulce Abigail Garcia Olivares", agencia: "VW Poza Rica" },
+    527821820706: { asesor_digital: "Dulce Abigail Garcia Olivares", agencia: "VW Poza Rica" },
     522712837999: { asesor_digital: "Bianca Chávez Alarcón", agencia: "VW Córdoba Usados" },
     522721986539: { asesor_digital: "Candy Denisse Marquez", agencia: "VW Orizaba Usados" },
-    527831263814: { asesor_digital: "Edgar Omar Nogera Solis", agencia: "VW Tuxpan" },
 };
 
 const ASESORES = [
@@ -1905,7 +1904,7 @@ export default function DigitalesProspectos() {
         },
         [userAgencias],
     );
-    
+
     const [relacionesFunnel, setRelacionesFunnel] = useState(() => ({
         telefonosConCita: new Set(),
         clienteIdsConCita: new Set(),
@@ -2156,10 +2155,10 @@ export default function DigitalesProspectos() {
         });
     }, [cases, deferredQ, filters, isAdmin, filtroNumeroActivo, userAgencias, userTieneAgencia]);
     const filtered = useMemo(() => {
-    return baseFiltered.filter(row =>
-        matchFunnelFilter(row, funnelFilter, relacionesFunnel)
-    );
-}, [baseFiltered, funnelFilter, relacionesFunnel]);
+        return baseFiltered.filter(row =>
+            matchFunnelFilter(row, funnelFilter, relacionesFunnel)
+        );
+    }, [baseFiltered, funnelFilter, relacionesFunnel]);
     const sorted = useMemo(() => {
         const data = [...filtered];
         if (!sort.key) return data;
