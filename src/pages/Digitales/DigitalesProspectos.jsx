@@ -1905,7 +1905,7 @@ export default function DigitalesProspectos() {
         },
         [userAgencias],
     );
-    const [telefonosEntregados, setTelefonosEntregados] = useState(() => new Set());
+    
     const [relacionesFunnel, setRelacionesFunnel] = useState(() => ({
         telefonosConCita: new Set(),
         clienteIdsConCita: new Set(),
@@ -2156,8 +2156,10 @@ export default function DigitalesProspectos() {
         });
     }, [cases, deferredQ, filters, isAdmin, filtroNumeroActivo, userAgencias, userTieneAgencia]);
     const filtered = useMemo(() => {
-        return baseFiltered.filter((row) => matchFunnelFilter(row, funnelFilter, telefonosEntregados));
-    }, [baseFiltered, funnelFilter, telefonosEntregados]);
+    return baseFiltered.filter(row =>
+        matchFunnelFilter(row, funnelFilter, relacionesFunnel)
+    );
+}, [baseFiltered, funnelFilter, relacionesFunnel]);
     const sorted = useMemo(() => {
         const data = [...filtered];
         if (!sort.key) return data;

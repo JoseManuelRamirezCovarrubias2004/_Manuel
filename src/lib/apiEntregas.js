@@ -1,8 +1,26 @@
 // src/lib/apiEntregas.js
 import { http } from "./apiClient";
 
+async function listAll(url = "/citas/api/entregas/") {
+  let results = [];
+  let next = url;
+
+  while (next) {
+    const data = await http(next);
+
+    if (Array.isArray(data)) return data; 
+
+    results = results.concat(data.results || []);
+    next = data.next
+      ? data.next.replace(/^https?:\/\/[^/]+/, "") 
+      : null;
+  }
+
+  return results;
+}
+
 export const apiEntregas = {
-  list: () => http("/citas/api/entregas/"),
+  list: () => listAll(),
   get: (id) => http(`/citas/api/entregas/${id}/`),
 
   create: (payload) =>
