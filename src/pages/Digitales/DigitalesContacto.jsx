@@ -31,9 +31,11 @@ import {
     ZapOff,
     Ban,
     Phone,
+    CalendarPlus,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
+import { apiCitas } from "../../lib/apiCitas";
 
 const BRAND_BLUE = "#131E5C";
 const QUICK_BUBBLES_KEY = "digitales_quick_bubbles_global";
@@ -1028,6 +1030,17 @@ function formatMessageTime(isoString) {
     });
 }
 
+// ─── Formateador de fecha con día de la semana: "Jueves 16/07" ────────────
+function formatearFechaConDia(isoOrDate) {
+    const fecha = isoOrDate ? new Date(isoOrDate) : new Date();
+    if (Number.isNaN(fecha.getTime())) return "—";
+    const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    const diaSemana = dias[fecha.getDay()];
+    const dd = String(fecha.getDate()).padStart(2, "0");
+    const mm = String(fecha.getMonth() + 1).padStart(2, "0");
+    return `${diaSemana} ${dd}/${mm}`;
+}
+
 // ─── Separador de fecha entre mensajes ─────────────────────────────────────
 // DESPUÉS
 function DateSeparator({ date }) {
@@ -1304,6 +1317,102 @@ function ComposerDropdown({ open, onClose, dropdownRef, children, title, headerR
     );
 }
 
+// ─── Modal para agendar cita desde el chat ──────────────────────────────────
+
+function AgendarCitaModal({ open, onClose, nombreCliente, telefono, onGuardar, saving }) {
+    const [fecha, setFecha] = useState("");
+    const [hora, setHora] = useState("10:00");
+    const [nota, setNota] = useState("");
+
+    useEffect(() => {
+        if (open) {
+            const hoy = new Date();
+            const yyyy = hoy.getFullYear();
+            const mm = String(hoy.getMonth() + 1).padStart(2, "0");
+            const dd = String(hoy.getDate()).padStart(2, "0");
+            setFecha(`${yyyy}-${mm}-${dd}`);
+            setHora("10:00");
+            setNota("");
+        }
+    }, [open]);
+
+    if (!open) return null;
+
+    const fechaLegible = fecha ? formatearFechaConDia(`${fecha}T00:00:00`) : "—";
+
+    function handleSubmit(e) {
+        e.preventDefault();
+        if (!fecha || !hora) return;
+        onGuardar({ fecha, hora, nota });
+    }
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4" onMouseDown={onClose}>
+            <div
+                className="w-full max-w-md overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
+                onMouseDown={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between border-b border-black/5 px-5 py-3.5">
+                    <div className="flex items-center gap-2">
+                        <CalendarPlus className="h-4 w-4 text-[#131E5C]" />
+                        <span className="text-sm font-extrabold text-[#131E5C]">Agendar cita</span>
+                    </div>
+                    <button type="button" onClick={onClose}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-neutral-100 transition">
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
+                    <div>
+                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Cliente</div>
+                        <div className="rounded-lg border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-bold text-[#131E5C]">
+                            {nombreCliente || "Prospecto"}{telefono ? ` · ${formateaTelUi(telefono)}` : ""}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Fecha</div>
+                            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required
+                                className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" />
+                        </div>
+                        <div>
+                            <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Hora</div>
+                            <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} required
+                                className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" />
+                        </div>
+                    </div>
+
+                    <div className="rounded-lg border border-[#131E5C]/10 bg-[#131E5C]/[0.04] px-3 py-2 text-xs font-bold text-[#131E5C]">
+                        {fechaLegible} {hora ? `· ${hora}` : ""}
+                    </div>
+
+                    <div>
+                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Nota (opcional)</div>
+                        <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2}
+                            placeholder="Ej. Viene a probar la Tiguan R-Line"
+                            className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button type="button" onClick={onClose}
+                            className="rounded-lg border border-black/10 bg-white px-4 py-2 text-xs font-extrabold text-slate-600 hover:bg-neutral-50">
+                            Cancelar
+                        </button>
+                        <button type="submit" disabled={saving || !fecha || !hora}
+                            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-extrabold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                            style={{ backgroundColor: BRAND_BLUE }}>
+                            <CalendarPlus className="h-3.5 w-3.5" />
+                            {saving ? "Guardando..." : "Agendar cita"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
 export default function DigitalesContacto() {
@@ -1335,6 +1444,16 @@ export default function DigitalesContacto() {
     const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(false);
     const [pautasOptions, setPautasOptions] = useState(PAUTAS_ORIGEN);
     const [headerEstado, setHeaderEstado] = useState("");
+
+    // Edición del nombre del cliente desde el header del chat
+    const [editingNombre, setEditingNombre] = useState(false);
+    const [nombreDraft, setNombreDraft] = useState("");
+    const [savingNombre, setSavingNombre] = useState(false);
+    const nombreInputRef = useRef(null);
+
+    // Modal de agendar cita
+    const [showCitaModal, setShowCitaModal] = useState(false);
+    const [savingCita, setSavingCita] = useState(false);
 
     // Resaltado temporal al saltar a un mensaje citado
     const [highlightedMsgId, setHighlightedMsgId] = useState("");
@@ -1512,9 +1631,10 @@ export default function DigitalesContacto() {
         } catch { prefetchedChatsRef.current.delete(target); }
     }
 
-    async function refreshChats() {
-        const data = await api.digitalesChats();
-        const normalized = (Array.isArray(data) ? data : []).map(chat => ({
+   async function refreshChats() {
+    const data = await api.digitalesChats();
+    console.log("CHATS RAW:", data[0]); 
+    const normalized = (Array.isArray(data) ? data : []).map(chat => ({
             id: chat.id || chat.telefono || crypto.randomUUID(),
             telefono: normalizaTelefonoMx(chat.telefono || ""),
             nombre: chat.nombre || "Prospecto",
@@ -1525,7 +1645,7 @@ export default function DigitalesContacto() {
             ia_pausada: Boolean(chat.ia_pausada),
             ia_bloqueos: Array.isArray(chat.ia_bloqueos) ? chat.ia_bloqueos : [],
             unread: Number(chat.unread || 0),
-            last: { text: chat.last_text || "", time: chat.last_time || "" },
+           last: { text: chat.last_text || "", time: chat.last_time || "", timestamp: chat.last_message_at || "" },
             whatsapp_bloqueado: Boolean(chat.whatsapp_bloqueado),
             whatsapp_bloqueado_motivo: chat.whatsapp_bloqueado_motivo || "",
         }));
@@ -2207,6 +2327,81 @@ export default function DigitalesContacto() {
         finally { setMarkingUnreadTel(""); }
     }
 
+    // ── Edición del nombre del cliente ───────────────────────────────────────
+    function iniciarEdicionNombre() {
+        if (!activeTel) return;
+        setNombreDraft(activeChat?.nombre || prospecto?.nombre || "");
+        setEditingNombre(true);
+        requestAnimationFrame(() => { nombreInputRef.current?.focus?.(); nombreInputRef.current?.select?.(); });
+    }
+
+    function cancelarEdicionNombre() {
+        setEditingNombre(false);
+        setNombreDraft("");
+    }
+
+    async function guardarNombre() {
+        const nuevoNombre = nombreDraft.trim();
+        if (!nuevoNombre || !activeTel) { cancelarEdicionNombre(); return; }
+        if (nuevoNombre === (activeChat?.nombre || prospecto?.nombre || "")) { cancelarEdicionNombre(); return; }
+
+        setSavingNombre(true);
+        try {
+            if (prospecto?.id) {
+                await api.digitalesPatchProspecto(prospecto.id, { nombre: nuevoNombre });
+            }
+            setProspecto(prev => prev ? { ...prev, nombre: nuevoNombre } : prev);
+            setChats(prev => prev.map(c => c.telefono === activeTel ? { ...c, nombre: nuevoNombre } : c));
+            mensajesCacheRef.current.delete(activeTel);
+            setEditingNombre(false);
+        } catch (error) {
+            alert(`No se pudo actualizar el nombre: ${error.message}`);
+        } finally {
+            setSavingNombre(false);
+        }
+    }
+
+    function onNombreKeyDown(e) {
+        if (e.key === "Enter") { e.preventDefault(); guardarNombre(); }
+        if (e.key === "Escape") { e.preventDefault(); cancelarEdicionNombre(); }
+    }
+
+    // ── Agendar cita desde el chat ────────────────────────────────────────────
+  async function llamarCrearCita(payload) {
+    if (typeof apiCitas?.create === "function") return apiCitas.create(payload);
+    if (typeof api.digitalesCrearCita === "function") return api.digitalesCrearCita(payload);
+    if (typeof api.crearCita === "function") return api.crearCita(payload);
+    if (typeof api.post === "function") return api.post("/citas/crear/", payload);
+    throw new Error("Falta agregar api.digitalesCrearCita en src/lib/apiPruebas.js");
+}
+
+   async function guardarCita({ fecha, hora, nota }) {
+    if (!activeTel || savingCita) return;
+    setSavingCita(true);
+    try {
+        const fechaHoraIso = `${fecha}T${hora}:00`;
+        await llamarCrearCita({
+            agencia: prospecto?.agencia || activeChat?.agencia || "",
+            nombre: activeChat?.nombre || prospecto?.nombre || "Prospecto",
+            telefono: activeTel,
+            auto_interes: prospecto?.auto_interes || "",
+            fecha_hora_cita: fechaHoraIso,
+            asistencia: false,
+            tipo_cita: "Digital",
+            fuente_prospeccion: prospecto?.pauta || prospecto?.pauta_origen || "",
+            asesor_digital: prospecto?.asesor_digital || "",
+            asesor_piso: "",
+            comentarios: nota || "",
+        });
+        setShowCitaModal(false);
+        alert(`Cita agendada para ${formatearFechaConDia(`${fecha}T00:00:00`)} a las ${hora}.`);
+    } catch (error) {
+        alert(`No se pudo agendar la cita: ${error.message}`);
+    } finally {
+        setSavingCita(false);
+    }
+}
+
     async function bloquearContactoActivo() {
         if (!activeTel || blockingTel) return;
 
@@ -2589,8 +2784,9 @@ export default function DigitalesContacto() {
                                                             {/* Fila 1: nombre + hora */}
                                                             <div className="flex items-start justify-between gap-2">
                                                                 <div className="truncate text-sm font-extrabold text-[#131E5C] leading-tight">{chat.nombre}</div>
-                                                                <div className="shrink-0 text-[11px] font-semibold text-slate-400 leading-tight">{chat.last?.time || ""}</div>
-                                                            </div>
+<div className="shrink-0 text-[11px] font-semibold text-slate-400 leading-tight">
+    {chat.last?.timestamp ? formatearFechaConDia(chat.last.timestamp) : chat.last?.time || ""}
+</div>                                                            </div>
 
                                                             {/* Fila 2: último mensaje + badge unread */}
                                                             <div className="mt-0.5 flex items-center justify-between gap-2">
@@ -2665,9 +2861,32 @@ export default function DigitalesContacto() {
                                 <div className="min-w-0 flex-1">
                                     {/* Fila 1: nombre + teléfono + estado + pauta (todo en línea, overflow hidden) */}
                                     <div className="flex items-center gap-1.5 overflow-hidden">
-                                        <span className="shrink-0 text-sm font-extrabold text-[#131E5C] truncate max-w-[120px] sm:max-w-[180px]">
-                                            {activeChat?.nombre || "Selecciona un chat"}
-                                        </span>
+                                        {editingNombre ? (
+                                            <input
+                                                ref={nombreInputRef}
+                                                value={nombreDraft}
+                                                onChange={(e) => setNombreDraft(e.target.value)}
+                                                onKeyDown={onNombreKeyDown}
+                                                onBlur={guardarNombre}
+                                                disabled={savingNombre}
+                                                className="h-7 w-[140px] shrink-0 rounded-md border border-[#131E5C]/30 bg-white px-2 text-sm font-extrabold text-[#131E5C] outline-none focus:border-[#131E5C]/60 sm:w-[180px]"
+                                            />
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={iniciarEdicionNombre}
+                                                disabled={!activeTel}
+                                                title="Editar nombre del cliente"
+                                                className="group shrink-0 inline-flex items-center gap-1 rounded px-0.5 py-0.5 text-left hover:bg-neutral-100 disabled:cursor-default disabled:hover:bg-transparent"
+                                            >
+                                                <span className="text-sm font-extrabold text-[#131E5C] truncate max-w-[120px] sm:max-w-[180px]">
+                                                    {activeChat?.nombre || "Selecciona un chat"}
+                                                </span>
+                                                {activeTel ? (
+                                                    <Pencil className="h-3 w-3 shrink-0 text-slate-300 group-hover:text-[#131E5C]/60 transition" />
+                                                ) : null}
+                                            </button>
+                                        )}
                                         <button type="button" onClick={copyTel}
                                             className="shrink-0 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-semibold text-slate-400 hover:bg-neutral-100 transition"
                                             title="Copiar número">
@@ -2713,6 +2932,15 @@ export default function DigitalesContacto() {
                                             <span className="hidden sm:inline">{markingUnreadTel === activeTel ? "..." : "No leído"}</span>
                                         </button>
                                     ) : null}
+
+                                    {/* Agendar cita */}
+                                    <button type="button" onClick={() => setShowCitaModal(true)}
+                                        disabled={!activeTel}
+                                        className="inline-flex h-7 items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 text-[11px] font-extrabold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 transition"
+                                        title="Agendar cita">
+                                        <CalendarPlus className="h-3.5 w-3.5" />
+                                        <span className="hidden sm:inline">Agendar cita</span>
+                                    </button>
 
                                     {/* Pausar / Reactivar IA */}
                                     {activeTel ? (
@@ -3271,6 +3499,16 @@ export default function DigitalesContacto() {
                     </button>
                 </div>
             ) : null}
+
+            {/* ── MODAL AGENDAR CITA ────────────────────────────────────────── */}
+            <AgendarCitaModal
+                open={showCitaModal}
+                onClose={() => setShowCitaModal(false)}
+                nombreCliente={activeChat?.nombre || prospecto?.nombre}
+                telefono={activeTel}
+                onGuardar={guardarCita}
+                saving={savingCita}
+            />
         </div>
     );
 }
