@@ -49,6 +49,14 @@ export function obtenerEncuestasJDPower(filtros = {}, options = {}) {
   );
 }
 
+export function obtenerResumenIAJDPower(filtros = {}, options = {}) {
+  const query = construirQuery(filtros);
+  return http(
+    `/jdpower/api/encuestas/resumen-ia/${query ? `?${query}` : ""}`,
+    { method: "POST", ...options },
+  );
+}
+
 export const apiJDPower = {
   list: (filtros = {}, options = {}) => {
     const query = construirQuery(filtros);

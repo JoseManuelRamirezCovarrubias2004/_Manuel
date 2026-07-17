@@ -26,6 +26,7 @@ import {
     Search,
     SlidersHorizontal,
     Star,
+    Sparkles,
     TableProperties,
     TrendingUp,
     Wrench,
@@ -34,7 +35,9 @@ import {
 import {
     obtenerEncuestasJDPowerServicio,
     obtenerOpcionesJDPowerServicio,
+    obtenerResumenIAJDPowerServicio,
 } from "../../lib/apiJDPowerServicio";
+import ResumenIAModal from "../JDPower/ResumenIAModal";
 
 // ── Paleta 
 const NAVY   = "#0B1F5E";
@@ -915,7 +918,38 @@ export default function JDPowerServicio() {
     const [error, setError]                         = useState(null);
     const [refreshKey, setRefreshKey]               = useState(0);
     const cacheRef                                  = useRef(new Map());
+const [mostrarResumenIA, setMostrarResumenIA] = useState(false);
+    const [cargandoResumenIA, setCargandoResumenIA] = useState(false);
+    const [errorResumenIA, setErrorResumenIA] = useState(null);
+    const [resumenIA, setResumenIA] = useState(null);
 
+    async function abrirResumenIA() {
+        setMostrarResumenIA(true);
+        setCargandoResumenIA(true);
+        setErrorResumenIA(null);
+
+        try {
+            const data = await obtenerResumenIAJDPowerServicio({
+                anio,
+                mes,
+                estatus,
+                tipo_servicio: tipoServicio,
+                codigo_concesionaria: codigoConcesionaria,
+                asesor,
+                modelo,
+            });
+
+            if (!data.ok) {
+                setErrorResumenIA(data.error || "No se pudo generar el resumen.");
+            }
+
+            setResumenIA(data);
+        } catch (err) {
+            setErrorResumenIA(err.message);
+        } finally {
+            setCargandoResumenIA(false);
+        }
+    }
     // Cargar opciones una sola vez
     useEffect(() => {
         const controller = new AbortController();
@@ -1097,6 +1131,14 @@ export default function JDPowerServicio() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <button
+                        onClick={abrirResumenIA}
+                        className="flex items-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                        style={{ backgroundColor: NAVY }}
+                    >
+                        <Sparkles size={15} />
+                        Resumen IA
+                    </button>
+                    <button
                         onClick={refrescarDatos}
                         className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
                     >
@@ -1267,6 +1309,15 @@ export default function JDPowerServicio() {
             ) : (
                 <VistaGraficas datos={datosFiltrados} labelPeriodo={labelPeriodo} />
             )}
+
+            <ResumenIAModal
+                open={mostrarResumenIA}
+                onClose={() => setMostrarResumenIA(false)}
+                loading={cargandoResumenIA}
+                error={errorResumenIA}
+                data={resumenIA}
+                titulo="Servicio"
+            />
         </div>
     );
 }

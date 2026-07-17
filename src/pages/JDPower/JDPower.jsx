@@ -19,24 +19,14 @@ import {
     YAxis,
 } from "recharts";
 import {
-    AlertTriangle,
-    BarChart2,
-    ChevronDown,
-    ClipboardList,
-    MessageSquareWarning,
-    RefreshCw,
-    Search,
-    SlidersHorizontal,
-    Star,
-    TableProperties,
-    TrendingUp,
-    Users,
+    AlertTriangle, BarChart2, ChevronDown, ClipboardList,
+    MessageSquareWarning, RefreshCw, Search, SlidersHorizontal,
+    Sparkles, Star, TableProperties, TrendingUp, Users,
 } from "lucide-react";
 
-import {
-    obtenerEncuestasJDPower,
-    obtenerOpcionesJDPower,
-} from "../../lib/apiJDPower";
+import { obtenerEncuestasJDPower, obtenerOpcionesJDPower, obtenerResumenIAJDPower } from "../../lib/apiJDPower";
+import ResumenIAModal from "./ResumenIAModal";
+
 
 const NAVY = "#0B1F5E";
 const NAVY_2 = "#123C69";
@@ -1155,6 +1145,11 @@ export default function JDPower() {
 
     const [datosRaw, setDatosRaw] = useState([]);
 
+    const [mostrarResumenIA, setMostrarResumenIA] = useState(false);
+    const [cargandoResumenIA, setCargandoResumenIA] = useState(false);
+    const [errorResumenIA, setErrorResumenIA] = useState(null);
+    const [resumenIA, setResumenIA] = useState(null);
+
     const [opciones, setOpciones] = useState({
         anios: [],
         anio_mes: [],
@@ -1398,7 +1393,7 @@ export default function JDPower() {
         setAnio(ANIO_ACTUAL);
         setMes("Todos");
         setEstatus("Todos");
-        setConcesionaria("Todas");
+        setCodigoConcesionaria("Todas");   // ← corregido
         setAsesor("Todos");
         setModelo("Todos");
         setBusqueda("");
@@ -1407,6 +1402,33 @@ export default function JDPower() {
     function refrescarDatos() {
         cacheRef.current.clear();
         setRefreshKey((prev) => prev + 1);
+    }
+
+    async function abrirResumenIA() {
+        setMostrarResumenIA(true);
+        setCargandoResumenIA(true);
+        setErrorResumenIA(null);
+
+        try {
+            const data = await obtenerResumenIAJDPower({
+                anio,
+                mes,
+                estatus,
+                codigo_concesionaria: codigoConcesionaria,
+                asesor,
+                modelo,
+            });
+
+            if (!data.ok) {
+                setErrorResumenIA(data.error || "No se pudo generar el resumen.");
+            }
+
+            setResumenIA(data);
+        } catch (err) {
+            setErrorResumenIA(err.message);
+        } finally {
+            setCargandoResumenIA(false);
+        }
     }
 
     if (loadingGeneral) {
@@ -1444,6 +1466,14 @@ export default function JDPower() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                     <button
+                        onClick={abrirResumenIA}
+                        className="flex items-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                        style={{ backgroundColor: NAVY }}
+                    >
+                        <Sparkles size={15} />
+                        Resumen IA
+                    </button>
                     <button
                         onClick={refrescarDatos}
                         className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
@@ -1660,6 +1690,14 @@ export default function JDPower() {
             ) : (
                 <VistaGraficas datos={datosFiltrados} labelPeriodo={labelPeriodo} />
             )}
+            <ResumenIAModal
+                open={mostrarResumenIA}
+                onClose={() => setMostrarResumenIA(false)}
+                loading={cargandoResumenIA}
+                error={errorResumenIA}
+                data={resumenIA}
+                titulo="Ventas"
+            />
         </div>
     );
 }
