@@ -1,7 +1,7 @@
 //volkswagen
 //src/pages/Digitales/DigitalesProspectos.jsx
 import { useMemo, useState, useRef, useEffect, useDeferredValue, useCallback } from "react";
-import { Plus, Search, X, Save, User, Van, CarFront, CalendarDays, ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, MessageSquareShare, Building2, FileText, FileDown, Car, Trash2, Loader2, CalendarPlus, CalendarCheck, Phone, LayoutList, UserStar, ClipboardCheck, BrainCircuit, CalendarRange, Table2, BarChart3, Clock3, Flame, AlertCircle, TrendingUp, TrendingDown, Eye, MessageCircle, Zap, Activity, Target, Radio, Paperclip, UploadCloud, Users, Bot, Clock, UserCheck, HandCoins, Gauge, LayoutTemplate } from "lucide-react";
+import { Plus, Search, X, Save, User, Van, CarFront, CalendarDays, ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, MessageSquareShare, Building2, FileText, FileDown, Car, Trash2, Loader2, CalendarPlus, CalendarCheck, Phone, LayoutList, UserStar, ClipboardCheck, BrainCircuit, CalendarRange, Table2, BarChart3, Clock3, AlertCircle, TrendingUp, Activity, Target, Paperclip, UploadCloud, Users, Bot, UserCheck, HandCoins, Gauge, LayoutTemplate } from "lucide-react";
 import CONCESIONARIO from "/concesionario.png";
 import WAP from "/whatsapp.svg";
 import FB from "/facebook.svg";
@@ -12,8 +12,6 @@ import { createPortal } from "react-dom";
 import { apiCitas } from "../../lib/apiCitas";
 import { useAuth } from "../../auth/AuthContext";
 import * as XLSX from "xlsx";
-import { FunnelChart as RechartsFunnel, Funnel, LabelList, Tooltip as RechartsTooltip } from "recharts";
-import { apiEntregas } from "../../lib/apiEntregas";
 
 const BRAND_BLUE = "#131E5C";
 const PAGE_SIZE = 200;
@@ -33,11 +31,9 @@ const origenMeta = {
     "Llamada Entrante": { Icon: ImgIcon(PHONE, "Llamada Entrante"), label: "Llamada Entrante" },
 };
 
-const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Edgar Omar Nogera Solis", "Candy Denisse Marquez Cortes"];
+const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Candy Denisse Marquez Cortes"];
 
 const ESTADOS_PROSPECTO = ["Contactado", "Calificado", "Pendiente de Cotización", "Requiere Asesor", "Financiamiento", "Sin Respuesta", "Descalificado"];
-
-const MOTIVO_DESCALIFICACION = ["Falta de presupuesto", "Sin intención de compra", "No califica para financiamiento", "Ya compró otro vehículo", "No se pudo contactar", "Datos de contacto incorrectos", "No es el tomador de decisión", "Interés fuera del mercado objetivo", "Compra pospuesta", "Cambio de necesidades", "Pérdida de interés", "Mala experiencia con la atención", "Encontró una mejor oferta", "Registro duplicado", "Solicitó no ser contactado", "Prospecto falso o información inválida"];
 
 const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter"];
 
@@ -83,8 +79,6 @@ const INITIAL_FILTERS = {
     tipoCliente: "Todos",
     fechaRegistroDesde: "",
     fechaRegistroHasta: "",
-    fechaContactoDesde: "",
-    fechaContactoHasta: "",
 };
 
 const ASESOR_DIGITAL_POR_NUMERO = {
@@ -92,7 +86,7 @@ const ASESOR_DIGITAL_POR_NUMERO = {
     522721111244: { asesor_digital: "Lizbeth Cano Clara", agencia: "VW Orizaba" },
     522713133332: { asesor_digital: "Erendira Santos Coyotzi", agencia: "VW Cordoba" },
     522871232641: { asesor_digital: "Marelly Tenorio Salinas", agencia: "VW Tuxtepec" },
-    527835412658: { asesor_digital: "Edgar Omar Noguera Solis", agencia: "VW Tuxpan" },
+    527831263814: { asesor_digital: "Edgar Omar Noguera Solis", agencia: "VW Tuxpan" },
     527821820706: { asesor_digital: "Dulce Abigail Garcia Olivares", agencia: "VW Poza Rica" },
     522712837999: { asesor_digital: "Bianca Chávez Alarcón", agencia: "VW Córdoba Usados" },
     522721986539: { asesor_digital: "Candy Denisse Marquez", agencia: "VW Orizaba Usados" },
@@ -169,37 +163,6 @@ const DEALERS = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW 
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function getBadgeEstadoSimple(estado) {
-    const map = {
-        "sin respuesta": { label: "Sin respuesta", bg: "#FEE2E2", color: "#991B1B" },
-        calificado: { label: "Caliente", bg: "#D1FAE5", color: "#065F46" },
-        contactado: { label: "Tibio", bg: "#FEF3C7", color: "#92400E" },
-        "pendiente de cotización": { label: "Tibio", bg: "#FEF3C7", color: "#92400E" },
-        "requiere asesor": { label: "Alta", bg: "#FFE4E6", color: "#9F1239" },
-        financiamiento: { label: "Crédito", bg: "#EDE9FE", color: "#5B21B6" },
-        descalificado: { label: "Frío", bg: "#F1F5F9", color: "#475569" },
-    };
-    const key = String(estado || "")
-        .trim()
-        .toLowerCase();
-    return map[key] || { label: estado || "Sin estado", bg: "#F1F5F9", color: "#475569" };
-}
-
-function entregaFisicaActiva(value) {
-    if (value === true || value === 1) return true;
-    const v = String(value ?? "")
-        .trim()
-        .toLowerCase();
-    return ["si", "sí", "true", "1", "yes", "entregada", "reportada"].includes(v);
-}
-
-function getScorePill(score) {
-    if (score >= 80) return { bg: "#D1FAE5", color: "#065F46" };
-    if (score >= 60) return { bg: "#FEF3C7", color: "#92400E" };
-    if (score >= 35) return { bg: "#DBEAFE", color: "#1E40AF" };
-    return { bg: "#F1F5F9", color: "#475569" };
-}
-
 function normalizaTelefonoMx(tel) {
     const digits = String(tel || "").replace(/\D/g, "");
     if (!digits) return "";
@@ -272,10 +235,6 @@ function getAsesorDigitalPorNumero(numero) {
     return ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(numero)]?.asesor_digital || "";
 }
 
-function getDealerPorNumero(numero) {
-    return ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(numero)]?.agencia || "";
-}
-
 function getContextoDigitalPorNumero(numero) {
     return ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(numero)] || null;
 }
@@ -296,10 +255,84 @@ function toDTLocalInput(isoOrNull) {
     return "";
 }
 
-function onlyDate(isoOrNull) {
-    if (!isoOrNull) return "";
-    const s = String(isoOrNull);
-    return s.includes("T") ? s.split("T")[0] : s.slice(0, 10);
+function onlyDate(value) {
+    if (value === null || value === undefined || value === "") {
+        return "";
+    }
+
+    const raw = String(value).trim();
+
+    if (!raw) {
+        return "";
+    }
+
+    const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+    if (isoMatch) {
+        return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+    }
+
+    const mxMatch = raw.match(
+        /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/
+    );
+
+    if (mxMatch) {
+        const day = mxMatch[1].padStart(2, "0");
+        const month = mxMatch[2].padStart(2, "0");
+        const year = mxMatch[3];
+
+        return `${year}-${month}-${day}`;
+    }
+
+    if (/^\d+$/.test(raw)) {
+        const numericValue = Number(raw);
+
+        const timestamp =
+            raw.length <= 10
+                ? numericValue * 1000
+                : numericValue;
+
+        const date = new Date(timestamp);
+
+        if (!Number.isNaN(date.getTime())) {
+            return formatDateYMDLocal(date);
+        }
+    }
+
+    const date = new Date(raw);
+
+    if (Number.isNaN(date.getTime())) {
+        console.warn("Fecha no reconocida:", value);
+        return "";
+    }
+
+    return formatDateYMDLocal(date);
+}
+
+function getFirstValidDate(...values) {
+    for (const value of values) {
+        if (
+            value === null ||
+            value === undefined ||
+            String(value).trim() === ""
+        ) {
+            continue;
+        }
+
+        const normalized = onlyDate(value);
+
+        if (normalized) {
+            return {
+                raw: value,
+                ymd: normalized,
+            };
+        }
+    }
+
+    return {
+        raw: "",
+        ymd: "",
+    };
 }
 
 function splitNombre(full) {
@@ -348,36 +381,107 @@ function getSortValue(row, key) {
 }
 
 function normalizeProspecto(p) {
-    const { nombre, apellidos } = splitNombre(p.nombre);
+    const nombreCompleto =
+        p.nombre ||
+        p.nombre_out ||
+        p.cliente?.nombre ||
+        "";
+
+    const { nombre, apellidos } = splitNombre(nombreCompleto);
+
+    const fechaRegistro = getFirstValidDate(
+        p.creado,
+        p.created_at,
+        p.fecha_creacion,
+        p.creado_en,
+        p.fecha_reclamacion,
+        p.primer_mensaje_cliente,
+        p.primer_contacto_at,
+        p.ultimo_contacto_asesor,
+        p.ultimo_contacto_at,
+        p.resumen_actualizado_at
+    );
+
+    const fechaCreacionRaw = fechaRegistro.raw;
+    const fechaCreacion = fechaRegistro.ymd;
+
     return {
         id_exp: p.id,
         cliente_id: p.cliente_id,
+
         agencia: p.agencia || "",
+
         cliente_nombre: nombre,
         cliente_apellidos: apellidos,
-        telefono: String(p.telefono || ""),
-        correo: p.correo || "",
+
+        telefono: String(
+            p.telefono ||
+            p.telefono_out ||
+            p.cliente?.telefono ||
+            ""
+        ),
+
+        correo:
+            p.correo ||
+            p.correo_out ||
+            p.cliente?.correo ||
+            "",
+
         linea: p.business || "",
         origen: p.canal_contacto || "",
         pauta: p.pauta || "",
         estado: p.estado || "",
         comentarios: p.comentarios || "",
         resumen: p.resumen || "",
-        resumen_actualizado_at: toDTLocalInput(p.resumen_actualizado_at),
+
+        resumen_actualizado_at: toDTLocalInput(
+            p.resumen_actualizado_at
+        ),
+
         resumen_fuente: p.resumen_fuente || "",
         cliente_interes: p.auto_interes || "",
         asesor_digital: p.asesor_digital || "",
         asesor_solicita: p.asesor_ventas || "",
-        primer_contacto_at: p.primer_mensaje_cliente || null,
-        ultimo_contacto_at: p.ultimo_contacto_asesor || null,
-        creado: toDTLocalInput(p.creado),
-        fecha_atencion: onlyDate(p.primer_contacto_at) || onlyDate(p.creado),
-        fecha_contacto: onlyDate(p.ultimo_contacto_at),
-        fecha_reclamacion: onlyDate(p.creado),
+
+        primer_contacto_at:
+            p.primer_mensaje_cliente ||
+            p.primer_contacto_at ||
+            null,
+
+        ultimo_contacto_at:
+            p.ultimo_contacto_asesor ||
+            p.ultimo_contacto_at ||
+            null,
+
+        // Conserva la fecha original.
+        creado: fechaCreacionRaw,
+
+        // Fecha normalizada para los filtros.
+        fecha_reclamacion: fechaCreacion,
+
+        fecha_atencion:
+            onlyDate(
+                p.primer_mensaje_cliente ||
+                p.primer_contacto_at
+            ) || fechaCreacion,
+
+        fecha_contacto: onlyDate(
+            p.ultimo_contacto_asesor ||
+            p.ultimo_contacto_at
+        ),
+
         requiere_asesor: Boolean(p.requiere_asesor),
-        motivo_requiere_asesor: p.motivo_requiere_asesor || "",
-        cotizacion_pendiente: Boolean(p.cotizacion_pendiente),
-        cotizacion_solicitada_at: toDTLocalInput(p.cotizacion_solicitada_at),
+        motivo_requiere_asesor:
+            p.motivo_requiere_asesor || "",
+
+        cotizacion_pendiente: Boolean(
+            p.cotizacion_pendiente
+        ),
+
+        cotizacion_solicitada_at: toDTLocalInput(
+            p.cotizacion_solicitada_at
+        ),
+
         enganche_monto: p.enganche_monto || "",
         presupuesto_mensual: p.presupuesto_mensual || "",
         buro_estado: p.buro_estado || "",
@@ -385,16 +489,28 @@ function normalizeProspecto(p) {
         tipo_cliente: p.tipo_cliente || "",
         uso_vehiculo: p.uso_vehiculo || "",
         plazo_compra: p.plazo_compra || "",
-        comprobacion_ingresos: p.comprobacion_ingresos || "",
+        comprobacion_ingresos:
+            p.comprobacion_ingresos || "",
+
         ia_pausada: Boolean(p.ia_pausada),
         ia_pausada_motivo: p.ia_pausada_motivo || "",
-        ultima_cita_agendada: toDTLocalInput(p.ultima_cita_agendada),
+
+        ultima_cita_agendada: toDTLocalInput(
+            p.ultima_cita_agendada
+        ),
+
         asistencia: Boolean(p.asistencia),
+
         id_cotizacion: p.id_cotizacion || "",
-        folio_solicitud_credito: p.folio_solicitud_credito || "",
-        solicitud_credito_estado: p.solicitud_credito_estado || "",
+        folio_solicitud_credito:
+            p.folio_solicitud_credito || "",
+
+        solicitud_credito_estado:
+            p.solicitud_credito_estado || "",
+
         vin_facturado: p.vin_facturado || "",
-        vin_estatus_entrega: p.vin_estatus_entrega || "",
+        vin_estatus_entrega:
+            p.vin_estatus_entrega || "",
     };
 }
 
@@ -691,99 +807,10 @@ function getPrioridad(row) {
     return { label: "Normal", cls: "bg-slate-100 text-slate-600 border-slate-300" };
 }
 
-function getAccionRequerida(row) {
-    if (row.cotizacion_pendiente) return { label: "Cotización pendiente", cls: "bg-amber-100 text-amber-900 border-amber-300" };
-    if (row.requiere_asesor) return { label: "Requiere asesor", cls: "bg-orange-100 text-orange-900 border-orange-300" };
-    if (
-        String(row.forma_pago || "")
-            .toLowerCase()
-            .includes("credito")
-    )
-        return { label: "Financiamiento", cls: "bg-sky-100 text-sky-900 border-sky-300" };
-    if (row.ia_pausada) return { label: "IA pausada", cls: "bg-slate-100 text-slate-700 border-slate-300" };
-    return null;
-}
-function hasValidValue(value) {
-    const val = String(value || "")
-        .trim()
-        .toLowerCase();
-    return val !== "" && val !== "null" && val !== "undefined" && val !== "0";
-}
-function asArray(data) {
+function getListItems(data) {
     if (Array.isArray(data)) return data;
     if (Array.isArray(data?.results)) return data.results;
     return [];
-}
-
-function getTelefonoRelacionado(item) {
-    return normalizaTelefonoMx(item?.telefono || item?.telefono_cliente || item?.cliente_telefono || item?.cliente?.telefono || item?.prospecto?.telefono || item?.contacto?.telefono || "");
-}
-
-function getClienteIdRelacionado(item) {
-    return String(item?.cliente_id || item?.id_cliente || item?.cliente?.id || item?.cliente?.id_cliente || item?.prospecto?.cliente_id || "").trim();
-}
-
-function citaActiva(item) {
-    const estado = normalizeText(item?.estado || item?.estatus || item?.status || item?.estado_cita || "");
-    return !["cancelada", "cancelado", "eliminada", "eliminado"].includes(estado);
-}
-
-function entregaActiva(item) {
-    return entregaFisicaActiva(item?.entrega_reportada ?? item?.entregada ?? item?.entrega_fisica ?? item?.reportada ?? item?.estatus_entrega ?? item?.estado_entrega ?? item?.status);
-}
-
-function rowExisteEnRelacion(row, telefonosSet, clienteIdsSet) {
-    const telefono = normalizaTelefonoMx(row?.telefono);
-    const clienteId = String(row?.cliente_id || "").trim();
-    return Boolean((telefono && telefonosSet?.has(telefono)) || (clienteId && clienteIdsSet?.has(clienteId)));
-}
-
-function matchFunnelFilter(row, filter, relacionesFunnel = {}) {
-    if (!filter || filter === "prospectos") return true;
-    if (filter === "contactados") {
-        return (
-            String(row.estado || "")
-                .trim()
-                .toLowerCase() === "contactado"
-        );
-    }
-    if (filter === "citas") {
-        return rowExisteEnRelacion(row, relacionesFunnel.telefonosConCita, relacionesFunnel.clienteIdsConCita);
-    }
-    if (filter === "descalificados") {
-        return (
-            String(row.estado || "")
-                .trim()
-                .toLowerCase() === "descalificado"
-        );
-    }
-    if (filter === "cotizacion") {
-        return hasValidValue(row.id_cotizacion);
-    }
-    if (filter === "credito") {
-        return hasValidValue(row.folio_solicitud_credito);
-    }
-    if (filter === "facturadas") {
-        return hasValidValue(row.vin_facturado);
-    }
-    if (filter === "entregadas" || filter === "entregas") {
-        return rowExisteEnRelacion(row, relacionesFunnel.telefonosEntregados, relacionesFunnel.clienteIdsEntregados);
-    }
-    return true;
-}
-
-function getFunnelFilterLabel(filter) {
-    const labels = {
-        prospectos: "Prospectos",
-        contactados: "Contactados",
-        citas: "Citas",
-        descalificados: "Descalificados",
-        cotizacion: "Cotización",
-        credito: "Solicitud de crédito",
-        facturadas: "Facturadas",
-        entregadas: "Entregas",
-    };
-    return labels[filter] || "Prospectos";
 }
 
 function getTemplateComponentType(component = {}) {
@@ -972,346 +999,6 @@ function LeadScoreRing({ score }) {
     );
 }
 
-// ─── Funnel Chart ─────────────────────────────────────────────────────────────
-
-function FunnelChart({ rows = [], relacionesFunnel = {}, selectedFilter = "prospectos", onSelectFilter }) {
-    const safeRows = Array.isArray(rows) ? rows : [];
-    const total = safeRows.length || 1;
-    const etapas = useMemo(() => {
-        const contactados = safeRows.filter((r) => String(r.estado || "").toLowerCase() === "contactado").length;
-        const conCita = safeRows.filter((r) => rowExisteEnRelacion(r, relacionesFunnel.telefonosConCita, relacionesFunnel.clienteIdsConCita)).length;
-        const descalificados = safeRows.filter(
-            (r) =>
-                String(r.estado || "")
-                    .trim()
-                    .toLowerCase() === "descalificado",
-        ).length;
-        const conCotizacion = safeRows.filter((r) => hasValidValue(r.id_cotizacion)).length;
-        const conCredito = safeRows.filter((r) => hasValidValue(r.folio_solicitud_credito)).length;
-        const facturadas = safeRows.filter((r) => hasValidValue(r.vin_facturado)).length;
-        const entregadas = safeRows.filter((r) => rowExisteEnRelacion(r, relacionesFunnel.telefonosEntregados, relacionesFunnel.clienteIdsEntregados)).length;
-        return [
-            {
-                name: "Prospectos",
-                value: safeRows.length,
-                color: "#131E5C",
-                filter: "prospectos",
-            },
-            {
-                name: "Contactados",
-                value: contactados,
-                color: "#1e3a8a",
-                filter: "contactados",
-            },
-            {
-                name: "Citas",
-                value: conCita,
-                color: "#2563eb",
-                filter: "citas",
-            },
-            {
-                name: "Descalificados",
-                value: descalificados,
-                color: "#1d6fa4",
-                filter: "descalificados",
-            },
-            {
-                name: "Cotización",
-                value: conCotizacion,
-                color: "#0ea5e9",
-                filter: "cotizacion",
-            },
-            {
-                name: "Sol. de crédito",
-                value: conCredito,
-                color: "#38bdf8",
-                filter: "credito",
-            },
-            {
-                name: "Facturadas",
-                value: facturadas,
-                color: "#7dd3fc",
-                filter: "facturadas",
-            },
-            {
-                name: "Entregas",
-                value: entregadas,
-                color: "#bae6fd",
-                filter: "entregadas",
-            },
-        ];
-    }, [safeRows, relacionesFunnel]);
-    const W = 280;
-    const H = 400;
-    const n = etapas.length;
-    const sliceH = H / n;
-    const maxW = W;
-    const minW = W * 0.16;
-    const GAP = 2;
-    const shapes = etapas.map((etapa, i) => {
-        const topW = maxW - (maxW - minW) * (i / n);
-        const botW = maxW - (maxW - minW) * ((i + 1) / n);
-        const topY = i * sliceH + (i === 0 ? 0 : GAP / 2);
-        const botY = (i + 1) * sliceH - (i === n - 1 ? 0 : GAP / 2);
-        const topX1 = (W - topW) / 2;
-        const topX2 = (W + topW) / 2;
-        const botX1 = (W - botW) / 2;
-        const botX2 = (W + botW) / 2;
-        return {
-            ...etapa,
-            topX1,
-            topX2,
-            botX1,
-            botX2,
-            topY,
-            botY,
-            midY: (topY + botY) / 2,
-        };
-    });
-    const [tooltip, setTooltip] = useState(null);
-    if (safeRows.length === 0) {
-        return (
-            <div style={{ width: W, height: H }} className="flex items-center justify-center text-xs font-medium text-gray-400">
-                Sin datos para el embudo
-            </div>
-        );
-    }
-    return (
-        <div className="relative select-none">
-            <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-                {shapes.map((s, i) => {
-                    const points = `${s.topX1},${s.topY} ${s.topX2},${s.topY} ${s.botX2},${s.botY} ${s.botX1},${s.botY}`;
-                    const pct = Math.round((s.value / total) * 100);
-                    const isLight = i >= 5;
-                    const textColor = isLight ? "#0c4a6e" : "#ffffff";
-                    const subTextColor = isLight ? "#1c3d5a" : "rgba(255,255,255,0.75)";
-                    return (
-                        <g
-                            key={s.name}
-                            onClick={() => onSelectFilter?.(s.filter)}
-                            onMouseEnter={() =>
-                                setTooltip({
-                                    ...s,
-                                    pct,
-                                    prev: i > 0 ? etapas[i - 1].value : null,
-                                })
-                            }
-                            onMouseLeave={() => setTooltip(null)}
-                            className="cursor-pointer">
-                            <polygon points={points} fill={s.color} stroke={selectedFilter === s.filter ? "#FACC15" : "#FFFFFF"} strokeWidth={selectedFilter === s.filter ? "4" : "2"} opacity={selectedFilter === s.filter || selectedFilter === "prospectos" ? 1 : 0.72} />
-                            <text x={W / 2} y={s.midY - 5} textAnchor="middle" dominantBaseline="middle" fill={textColor} fontSize="13" fontWeight="800">
-                                {s.value.toLocaleString("es-MX")}
-                            </text>
-                            <text x={W / 2} y={s.midY + 11} textAnchor="middle" dominantBaseline="middle" fill={subTextColor} fontSize="11" fontWeight="600">
-                                {s.name}
-                                {i > 0 ? ` · ${pct}%` : ""}
-                            </text>
-                        </g>
-                    );
-                })}
-            </svg>
-            {tooltip && (
-                <div className="pointer-events-none absolute left-1/2 -top-12 -translate-x-1/2 whitespace-nowrap rounded-xl bg-[#131E5C] px-3 py-2 text-[11px] font-bold text-white shadow-xl">
-                    <div>
-                        {tooltip.name}: {tooltip.value.toLocaleString("es-MX")} · {tooltip.pct}% del total
-                    </div>
-                    {tooltip.prev !== null && <div className="mt-0.5 font-normal opacity-75">{Math.round((tooltip.value / (tooltip.prev || 1)) * 100)}% conv. respecto a etapa anterior</div>}
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ─── Panel de estadísticas lateral ───────────────────────────────────────────
-function SidePanel({ rows, highlighted, onSelectHighlight }) {
-    const statsPorEstado = useMemo(() => {
-        const map = {};
-        for (const r of rows) {
-            const k = r.estado || "Sin estado";
-            map[k] = (map[k] || 0) + 1;
-        }
-        return Object.entries(map)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 5);
-    }, [rows]);
-    const statsPorCanal = useMemo(() => {
-        const map = {};
-        for (const r of rows) {
-            const k = r.origen || "Sin canal";
-            map[k] = (map[k] || 0) + 1;
-        }
-        return Object.entries(map).sort(([, a], [, b]) => b - a);
-    }, [rows]);
-    const sinRespuesta24h = useMemo(
-        () =>
-            rows.filter((r) => {
-                const e = String(r.estado || "").toLowerCase();
-                if (e !== "sin respuesta") return false;
-                const h = r.ultimo_contacto_at ? (Date.now() - new Date(r.ultimo_contacto_at).getTime()) / 36e5 : 999;
-                return h > 24;
-            }).length,
-        [rows],
-    );
-    const leadsCalientes = useMemo(() => rows.filter((r) => calcLeadScore(r) >= 80).length, [rows]);
-    const pendientesIA = useMemo(() => rows.filter((r) => r.cotizacion_pendiente || r.requiere_asesor).length, [rows]);
-    const topHighlight = useMemo(() => {
-        if (highlighted) return highlighted;
-        return [...rows].sort((a, b) => calcLeadScore(b) - calcLeadScore(a))[0] || null;
-    }, [rows, highlighted]);
-    const topScore = topHighlight ? calcLeadScore(topHighlight) : 0;
-    const { label: topLabel } = getScoreLabel(topScore);
-    const canalColors = ["#131E5C", "#0ea5e9", "#10b981", "#f59e0b", "#8b5cf6"];
-    const total = rows.length || 1;
-    return (
-        <aside className="grid w-full min-w-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {" "}
-            {/* Prospecto destacado */}
-            <div className="bg-white overflow-hidden">
-                <div className="px-4 py-3 flex items-center gap-2">
-                    <Target className="h-4 w-4 text-[#131E5C]" />
-                    <span className="text-sm font-bold text-[#131E5C]">Prospecto destacado</span>
-                    {topHighlight && <span className="ml-auto text-[10px] bg-emerald-400/30 text-[#131E5C]-200 px-2 py-0.5 rounded-full font-semibold">{topLabel === "Muy alto" ? "Requiere seguimiento hoy" : "Pendiente"}</span>}
-                </div>
-                {topHighlight ? (
-                    <div className="p-4">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="min-w-0">
-                                <div className="text-sm font-bold text-[#131E5C] truncate">{`${topHighlight.cliente_nombre} ${topHighlight.cliente_apellidos}`.trim() || "Sin nombre"}</div>
-                                <div className="text-xs text-slate-500">{formatTelefonoMx(topHighlight.telefono)}</div>
-                            </div>
-                        </div>
-                        <LeadScoreRing score={topScore} />
-                        <div className="mt-3 space-y-1.5 text-xs text-slate-600">
-                            <div className="flex justify-between">
-                                <span className="text-slate-400">Interés principal</span>
-                                <span className="font-semibold text-[#131E5C] truncate max-w-[120px]">{topHighlight.cliente_interes || "—"}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-slate-400">Fuente</span>
-                                <span className="font-semibold text-[#131E5C]">{topHighlight.origen || "—"}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-slate-400">Último contacto</span>
-                                <span className="font-semibold text-[#131E5C]">{topHighlight.ultimo_contacto_at ? new Date(topHighlight.ultimo_contacto_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
-                            </div>
-                        </div>
-                        <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Enganche</div>
-                                    <div className="font-black text-[#131E5C]">{formatMoneyMXN(topHighlight.enganche_monto)}</div>
-                                </div>
-                                <div>
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Mensualidad</div>
-                                    <div className="font-black text-[#131E5C]">{formatMoneyMXN(topHighlight.presupuesto_mensual)}</div>
-                                </div>
-                                <div>
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Buró</div>
-                                    <div className="font-black text-[#131E5C]">{valueOrDash(topHighlight.buro_estado)}</div>
-                                </div>
-                                <div>
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Forma pago</div>
-                                    <div className="font-black text-[#131E5C]">{valueOrDash(topHighlight.forma_pago)}</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-3">
-                            <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                                <span>Prob. conversión</span>
-                                <span className="font-bold text-[#131E5C]">{topScore}%</span>
-                            </div>
-                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-gradient-to-r from-[#131E5C] to-emerald-500 transition-all" style={{ width: `${topScore}%` }} />
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="p-4 text-sm text-slate-400 text-center">Sin prospectos</div>
-                )}
-            </div>
-            {/* Alertas y oportunidades */}
-            <div className="rounded-2xl bg-white overflow-hidden">
-                <div className="px-4 py-3 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-[#131E5C]" />
-                    <span className="text-sm font-bold text-[#131E5C]">Alertas y oportunidades</span>
-                </div>
-                <div className="p-3 space-y-2">
-                    {leadsCalientes > 0 && (
-                        <div className="flex items-start gap-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                            <Flame className="h-4 w-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                            <div className="text-xs">
-                                <div className="font-bold text-emerald-800">{leadsCalientes} leads calientes</div>
-                                <div className="text-emerald-600">Requieren seguimiento inmediato</div>
-                            </div>
-                        </div>
-                    )}
-                    {sinRespuesta24h > 0 && (
-                        <div className="flex items-start gap-2 p-2.5 rounded-xl bg-red-50 border border-red-200">
-                            <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
-                            <div className="text-xs">
-                                <div className="font-bold text-red-800">{sinRespuesta24h} sin respuesta +24h</div>
-                                <div className="text-red-600">Riesgo de perder el prospecto</div>
-                            </div>
-                        </div>
-                    )}
-                    {pendientesIA > 0 && (
-                        <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200">
-                            <Zap className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                            <div className="text-xs">
-                                <div className="font-bold text-amber-800">{pendientesIA} pendientes de atención</div>
-                                <div className="text-amber-600">Cotizaciones o asesor requerido</div>
-                            </div>
-                        </div>
-                    )}
-                    {leadsCalientes === 0 && sinRespuesta24h === 0 && pendientesIA === 0 && <div className="text-xs text-center text-slate-400 py-2">Sin alertas activas</div>}
-                </div>
-            </div>
-            {/* Distribución por estado */}
-            <div className="rounded-2xl bg-white overflow-hidden">
-                <div className="px-4 py-3 flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-[#131E5C]" />
-                    <span className="text-sm font-bold text-[#131E5C]">Distribución por estado</span>
-                </div>
-                <div className="p-4 space-y-2.5">
-                    {statsPorEstado.map(([label, count], i) => (
-                        <div key={label}>
-                            <div className="flex justify-between text-xs font-semibold text-[#131E5C] mb-1">
-                                <span className="truncate">{label}</span>
-                                <span className="ml-2 text-slate-500">
-                                    {count} · {Math.round((count / total) * 100)}%
-                                </span>
-                            </div>
-                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full transition-all" style={{ width: `${(count / total) * 100}%`, background: canalColors[i % canalColors.length] }} />
-                            </div>
-                        </div>
-                    ))}
-                    {statsPorEstado.length === 0 && <div className="text-xs text-slate-400 text-center">Sin datos</div>}
-                </div>
-            </div>
-            {/* Canales principales */}
-            <div className="rounded-2xlbg-white overflow-hidden">
-                <div className="px-4 py-3 flex items-center gap-2">
-                    <Radio className="h-4 w-4 text-[#131E5C]" />
-                    <span className="text-sm font-bold text-[#131E5C]">Canales principales</span>
-                </div>
-                <div className="p-4 space-y-2.5">
-                    {statsPorCanal.map(([label, count], i) => (
-                        <div key={label} className="flex items-center gap-2">
-                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: canalColors[i % canalColors.length] }} />
-                            <span className="text-xs flex-1 truncate text-[#131E5C] font-semibold">{label}</span>
-                            <span className="text-xs text-slate-400">{Math.round((count / total) * 100)}%</span>
-                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width: `${(count / total) * 100}%`, background: canalColors[i % canalColors.length] }} />
-                            </div>
-                        </div>
-                    ))}
-                    {statsPorCanal.length === 0 && <div className="text-xs text-slate-400 text-center">Sin datos</div>}
-                </div>
-            </div>
-        </aside>
-    );
-}
 
 // ─── Vista Gráficos ────────────────────────────────────────────────────────────
 function VistaGraficos({ rows }) {
@@ -1493,8 +1180,8 @@ function VistaGraficos({ rows }) {
                 <div className="overflow-x-auto p-5">
                     <table className="min-w-full text-left text-xs">
                         <thead>
-                            <tr className="text-slate-400">
-                                <th className="px-3 py-2 font-black">Forma pago</th>
+                            <tr className="border-b border-slate-200 text-slate-400">
+                                <th className="px-3 py-2 font-black">Forma de pago</th>
                                 {matrizBuroPago.buros.map((buro) => (
                                     <th key={buro} className="px-3 py-2 text-center font-black">
                                         {valueOrDash(buro)}
@@ -1504,169 +1191,21 @@ function VistaGraficos({ rows }) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {loadingCases
-                                ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
-                                : paginatedRows.map((row) => {
-                                    const score = calcLeadScore(row);
-                                    const badgeEstado = getBadgeEstadoSimple(row.estado);
-                                    const scorePill = getScorePill(score);
-                                    const prioridad = getPrioridad(row);
-                                    const perfilFin = getPerfilFinancieroDiagnostico(row);
-                                    const isUpdating = !!updatingEstado[row.id_exp];
-                                    return (
-                                        <tr key={row.id_exp} onDoubleClick={() => openEdit(row)} onContextMenu={(e) => onRowContextMenu(e, row)} onClick={() => setHighlightedRow(row)} className={cls("cursor-pointer transition-colors hover:bg-slate-50", highlightedRow?.id_exp === row.id_exp ? "bg-blue-50/50" : "")}>
-                                            {/* Checkbox */}
-                                            <td className="pl-4 pr-2 py-3" onClick={(e) => e.stopPropagation()}>
-                                                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#131E5C] cursor-pointer" />
-                                            </td>
-                                            {/* Dealer */}
-                                            <td className="px-3 py-3 text-xs font-semibold text-[#131E5C] whitespace-nowrap">{row.agencia || "—"}</td>
-                                            {/* Nombre + teléfono */}
-                                            <td className="px-3 py-3 min-w-[150px]">
-                                                <div className="text-sm font-semibold text-[#131E5C] leading-tight truncate max-w-[140px]">{`${row.cliente_nombre} ${row.cliente_apellidos}`.trim() || "Sin nombre"}</div>
-                                                <div className="text-xs text-slate-400 mt-0.5">{formatTelefonoMx(row.telefono)}</div>
-                                            </td>
-                                            {/* Fecha reg */}
-                                            <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">{row.fecha_reclamacion || "—"}</td>
-                                            {/* Último contacto */}
-                                            <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
-                                                {row.ultimo_contacto_at
-                                                    ? (() => {
-                                                        const d = new Date(row.ultimo_contacto_at);
-                                                        const diffH = (Date.now() - d) / 36e5;
-                                                        if (diffH < 24) return `Hoy, ${d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`;
-                                                        if (diffH < 48) return `Ayer, ${d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`;
-                                                        return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short" }) + ", " + d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-                                                    })()
-                                                    : "—"}
-                                            </td>
-                                            {/* Business */}
-                                            <td className="px-3 py-3 text-xs font-semibold text-[#131E5C]">{row.linea || "—"}</td>
-                                            {/* Interés */}
-                                            <td className="px-3 py-3 text-xs text-[#131E5C]">{row.cliente_interes || "—"}</td>
-                                            {/* Prioridad */}
-                                            <td className="px-3 py-3">
-                                                <span className={cls("inline-flex text-[11px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap", prioridad.cls)}>{prioridad.label}</span>
-                                            </td>
-                                            {/* Estado — badge simple en lugar de select */}
-                                            <td className="px-3 py-3">
-                                                <span style={{ background: badgeEstado.bg, color: badgeEstado.color }} className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap">
-                                                    {badgeEstado.label}
-                                                </span>
-                                            </td>
-                                            {/* Canal */}
-                                            <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">{row.origen || "—"}</td>
-                                            {/* Asesor Digital */}
-                                            <td className="px-3 py-3">
-                                                <div className="flex items-center gap-1.5">
-                                                    <div className={cls("h-1.5 w-1.5 rounded-full flex-shrink-0", row.asesor_digital?.toLowerCase().includes("ia") ? "bg-emerald-500" : "bg-slate-300")} />
-                                                    <span className="text-xs text-[#131E5C] truncate max-w-[110px]" title={row.asesor_digital || ""}>
-                                                        {row.asesor_digital || "—"}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            {/* Asesor Piso */}
-                                            <td className="px-3 py-3 min-w-[150px]">
-                                                {row.asesor_solicita ? (
-                                                    <div>
-                                                        <div className="text-xs font-semibold text-[#131E5C] truncate max-w-[140px]" title={row.asesor_solicita}>
-                                                            {row.asesor_solicita}
-                                                        </div>
-                                                        <div className="text-[11px] text-slate-400 mt-0.5">Asesor de piso/ventas</div>
-                                                    </div>
-                                                ) : (
-                                                    <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">Sin asignar</span>
-                                                )}
-                                            </td>
-                                            {/* Score pill */}
-                                            <td className="px-3 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <span style={{ background: scorePill.bg, color: scorePill.color }} className="inline-flex items-center justify-center rounded-full w-9 h-9 text-sm font-bold flex-shrink-0">
-                                                        {score}
-                                                    </span>
-                                                    <span style={{ color: scorePill.color }} className="text-xs font-semibold hidden xl:inline">
-                                                        {score >= 80 ? "Muy alto" : score >= 60 ? "Alto" : score >= 35 ? "Medio" : "Bajo"}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            {/* Perfil financiero */}
-                                            <td className="px-3 py-3 min-w-[200px]">
-                                                <div className="text-xs font-semibold text-[#131E5C]">Eng. {formatMoneyMXN(row.enganche_monto)}</div>
-                                                <div className={cls("text-[11px] font-semibold mt-0.5", perfilFin.engancheSuficiente ? "text-emerald-600" : "text-amber-700")}>Mín. 20%: {formatMoneyMXN(perfilFin.engancheMinimo)}</div>
-                                                {perfilFin.faltanteEnganche > 0 ? <div className="text-[11px] font-bold text-red-500 mt-0.5">Faltan {formatMoneyMXN(perfilFin.faltanteEnganche)}</div> : <div className="text-[11px] font-bold text-emerald-600 mt-0.5">Enganche suficiente</div>}
-                                                <div className="text-[11px] text-slate-500 mt-0.5">
-                                                    Mens. {formatMoneyMXN(row.presupuesto_mensual)} · Est. {formatMoneyMXN(perfilFin.mensualidadMinima)}
-                                                </div>
-                                                <div className="text-[11px] text-slate-400 mt-0.5">
-                                                    Buró {valueOrDash(row.buro_estado)} · {valueOrDash(row.forma_pago)}
-                                                </div>
-                                            </td>
-                                            {/* Perfil compra */}
-                                            <td className="px-3 py-3 min-w-[170px]">
-                                                <div className="text-xs font-semibold text-[#131E5C]">{valueOrDash(row.tipo_cliente)}</div>
-                                                <div className="text-[11px] text-slate-500 mt-0.5">Plazo: {valueOrDash(row.plazo_compra)}</div>
-                                                <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[160px]">
-                                                    Uso: {valueOrDash(row.uso_vehiculo)} · Ing: {valueOrDash(row.comprobacion_ingresos)}
-                                                </div>
-                                            </td>
-                                            {/* Resumen */}
-                                            <td className="px-3 py-3 max-w-[180px]">
-                                                <div className="flex items-start gap-1.5">
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            openSummaryViewer(row);
-                                                        }}
-                                                        className="text-left min-w-0 flex-1">
-                                                        <span className="line-clamp-2 text-xs text-slate-500">{row.resumen || "Sin resumen"}</span>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            generarResumenInline(row);
-                                                        }}
-                                                        disabled={!!generatingSummary[row.id_exp]}
-                                                        className="h-7 w-7 flex-shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
-                                                        title="Generar resumen">
-                                                        {generatingSummary[row.id_exp] ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#131E5C]" /> : <ClipboardCheck className="h-3.5 w-3.5 text-[#131E5C]" />}
-                                                    </button>
-                                                </div>
-                                            </td>
-                                            {/* Acciones */}
-                                            <td className="px-3 py-3">
-                                                <div className="flex items-center gap-1.5">
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            abrirAgendaCita(row);
-                                                        }}
-                                                        className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500"
-                                                        title="Agendar cita">
-                                                        <CalendarPlus className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            navigate(`/comercial/prospectos/contacto?tel=${encodeURIComponent(row.telefono || "")}&direct=1`);
-                                                        }}
-                                                        className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 disabled:opacity-40"
-                                                        disabled={!row.telefono}
-                                                        title="Abrir chat">
-                                                        <MessageSquareShare className="h-4 w-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            {!loadingCases && paginatedRows.length === 0 && (
+                            {matrizBuroPago.rowsMatriz.map(({ forma, cells, total }) => (
+                                <tr key={forma}>
+                                    <td className="px-3 py-3 font-bold text-[#131E5C]">{valueOrDash(forma)}</td>
+                                    {cells.map((count, index) => (
+                                        <td key={`${forma}-${matrizBuroPago.buros[index]}`} className="px-3 py-3 text-center font-semibold text-slate-600">
+                                            {count}
+                                        </td>
+                                    ))}
+                                    <td className="px-3 py-3 text-center font-black text-[#131E5C]">{total}</td>
+                                </tr>
+                            ))}
+                            {matrizBuroPago.rowsMatriz.length === 0 && (
                                 <tr>
-                                    <td colSpan={17} className="px-4 py-12 text-center text-slate-400">
-                                        No hay resultados con esos filtros.
+                                    <td colSpan={matrizBuroPago.buros.length + 2} className="px-3 py-8 text-center text-slate-400">
+                                        Sin datos para mostrar.
                                     </td>
                                 </tr>
                             )}
@@ -1864,7 +1403,6 @@ export default function DigitalesProspectos() {
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [viewMode, setViewMode] = useState("tabla");
     const [highlightedRow, setHighlightedRow] = useState(null);
-    const [funnelFilter, setFunnelFilter] = useState("prospectos");
     const fileInputRef = useRef(null);
     const templatesDropdownRef = useRef(null);
     const ultimoPayloadGuardadoRef = useRef("");
@@ -1905,32 +1443,6 @@ export default function DigitalesProspectos() {
         [userAgencias],
     );
 
-    const [relacionesFunnel, setRelacionesFunnel] = useState(() => ({
-        telefonosConCita: new Set(),
-        clienteIdsConCita: new Set(),
-        telefonosEntregados: new Set(),
-        clienteIdsEntregados: new Set(),
-    }));
-    const cargarRelacionesFunnel = useCallback(async () => {
-        const [citasResult, entregasResult] = await Promise.allSettled([apiCitas.list(), apiEntregas.list()]);
-        const citas = citasResult.status === "fulfilled" ? asArray(citasResult.value).filter(citaActiva) : [];
-        const entregas = entregasResult.status === "fulfilled" ? asArray(entregasResult.value).filter(entregaActiva) : [];
-        if (citasResult.status === "rejected") {
-            console.error("No se pudieron cargar las citas para el funnel:", citasResult.reason);
-        }
-        if (entregasResult.status === "rejected") {
-            console.error("No se pudieron cargar las entregas para el funnel:", entregasResult.reason);
-        }
-        setRelacionesFunnel({
-            telefonosConCita: new Set(citas.map(getTelefonoRelacionado).filter(Boolean)),
-            clienteIdsConCita: new Set(citas.map(getClienteIdRelacionado).filter(Boolean)),
-            telefonosEntregados: new Set(entregas.map(getTelefonoRelacionado).filter(Boolean)),
-            clienteIdsEntregados: new Set(entregas.map(getClienteIdRelacionado).filter(Boolean)),
-        });
-    }, []);
-    useEffect(() => {
-        cargarRelacionesFunnel();
-    }, [cargarRelacionesFunnel]);
     const numeroUsuarioSesion = useMemo(() => getNumeroUsuarioSesion(user), [user]);
     const contextoDigitalSesion = useMemo(() => getContextoDigitalPorNumero(numeroUsuarioSesion), [numeroUsuarioSesion]);
     const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
@@ -1957,7 +1469,6 @@ export default function DigitalesProspectos() {
     const [drafter, setDrafter] = useState({ agencia: "", fecha_cita: "", asesor_digital: "", asesor_solicita: "", tipo_cita: "" });
     const [savingo, setSavingo] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
-    const [uploadingFiles, setUploadingFiles] = useState(false);
     const totalEvidenciasDraft = (draft?.evidencias_existentes?.length || 0) + (draft?.evidencias_nuevas?.length || 0);
     useEffect(() => {
         const cerrar = () => setCtxMenu((prev) => (prev.open ? { open: false, x: 0, y: 0, row: null } : prev));
@@ -2038,7 +1549,7 @@ export default function DigitalesProspectos() {
             setLoadingCases(true);
             try {
                 const data = await api.digitalesListProspectos();
-                setCases((Array.isArray(data) ? data : []).map(normalizeProspecto));
+                setCases(getListItems(data).map(normalizeProspecto));
             } catch (e) {
                 console.error(e);
                 setCases([]);
@@ -2151,16 +1662,20 @@ export default function DigitalesProspectos() {
                         .toLowerCase()
                         .includes(q),
                 );
-            return matchQ && (filters.estado === "Todos" || c.estado === filters.estado) && dealerMatchesFilter(c.agencia, filters.agencia) && (filters.linea === "Todos" || c.linea === filters.linea) && (filters.buro === "Todos" || c.buro_estado === filters.buro) && (filters.formaPago === "Todos" || c.forma_pago === filters.formaPago) && (filters.tipoCliente === "Todos" || c.tipo_cliente === filters.tipoCliente) && isDateInRange(c.fecha_reclamacion, filters.fechaRegistroDesde, filters.fechaRegistroHasta) && isDateInRange(c.fecha_contacto || c.ultimo_contacto_at, filters.fechaContactoDesde, filters.fechaContactoHasta);
+            return (
+                matchQ &&
+                (filters.estado === "Todos" || c.estado === filters.estado) &&
+                dealerMatchesFilter(c.agencia, filters.agencia) &&
+                (filters.linea === "Todos" || c.linea === filters.linea) &&
+                (filters.buro === "Todos" || c.buro_estado === filters.buro) &&
+                (filters.formaPago === "Todos" || c.forma_pago === filters.formaPago) &&
+                (filters.tipoCliente === "Todos" || c.tipo_cliente === filters.tipoCliente) &&
+                isDateInRange(c.fecha_reclamacion, filters.fechaRegistroDesde, filters.fechaRegistroHasta)
+            );
         });
     }, [cases, deferredQ, filters, isAdmin, filtroNumeroActivo, userAgencias, userTieneAgencia]);
-    const filtered = useMemo(() => {
-        return baseFiltered.filter(row =>
-            matchFunnelFilter(row, funnelFilter, relacionesFunnel)
-        );
-    }, [baseFiltered, funnelFilter, relacionesFunnel]);
     const sorted = useMemo(() => {
-        const data = [...filtered];
+        const data = [...baseFiltered];
         if (!sort.key) return data;
         const dir = sort.dir === "asc" ? 1 : -1;
         return data.sort((a, b) => {
@@ -2170,7 +1685,7 @@ export default function DigitalesProspectos() {
             if (va > vb) return 1 * dir;
             return 0;
         });
-    }, [filtered, sort]);
+    }, [baseFiltered, sort]);
     const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
     useEffect(() => {
         setPage(1);
@@ -2184,8 +1699,6 @@ export default function DigitalesProspectos() {
     // KPIs
     const kpis = useMemo(() => {
         const total = sorted.length;
-        const calientes = sorted.filter((r) => calcLeadScore(r) >= 80).length;
-        const sinResp = sorted.filter((r) => String(r.estado || "").toLowerCase() === "sin respuesta").length;
         const pendIA = sorted.filter((r) => r.cotizacion_pendiente || r.requiere_asesor).length;
         const conPerfil = sorted.filter(hasPerfilComercial).length;
         const financiamiento = sorted.filter((r) => ["credito", "arrendamiento"].includes(normalizeText(r.forma_pago))).length;
@@ -2194,7 +1707,7 @@ export default function DigitalesProspectos() {
             .map((r) => (new Date(r.primer_contacto_at).getTime() - new Date(r.creado).getTime()) / 60000)
             .filter((v) => v > 0 && v < 1440);
         const avgResp = tiemposResp.length ? Math.round(tiemposResp.reduce((a, b) => a + b, 0) / tiemposResp.length) : null;
-        return { total, calientes, sinResp, pendIA, conPerfil, financiamiento, avgResp };
+        return { total, pendIA, conPerfil, financiamiento, avgResp };
     }, [sorted]);
     const pautasOptions = useMemo(() => {
         const items = Array.isArray(pautasMeta) ? pautasMeta : [];
@@ -2503,7 +2016,7 @@ export default function DigitalesProspectos() {
     };
     const refreshList = async () => {
         const data = await api.digitalesListProspectos();
-        setCases((Array.isArray(data) ? data : []).map(normalizeProspecto));
+        setCases(getListItems(data).map(normalizeProspecto));
     };
     function buildProspectoPayload() {
         const agenciaFinal = !isAdmin && contextoDigitalSesion?.agencia ? contextoDigitalSesion.agencia : draft.agencia || "";
@@ -2688,7 +2201,6 @@ export default function DigitalesProspectos() {
             setSavingo(true);
             setErrorMsg("");
             await apiCitas.create({ cliente_id: agendaInfo.cliente_id, nombre: agendaInfo.nombre, telefono: agendaInfo.telefono, correo: agendaInfo.correo || "", auto_interes: agendaInfo.auto_interes || "", agencia: agendaInfo.agencia || "", fecha_hora_cita: drafter.fecha_cita || null, fuente_prospeccion: agendaInfo.fuente_prospeccion || "", asesor_digital: drafter.asesor_digital || "", asesor_solicita: drafter.asesor_solicita || "", asesor_asignado: drafter.asesor_solicita || "", tipo_cita: drafter.tipo_cita || "" });
-            await cargarRelacionesFunnel();
             await refreshList();
             closeAgendaModal();
         } catch (err) {
@@ -2793,7 +2305,6 @@ export default function DigitalesProspectos() {
     const resetFilters = () => {
         setFilters(INITIAL_FILTERS);
         setSelectedNumeroAsesor(isAdmin ? "Todos" : numeroUsuarioSesion || "");
-        setFunnelFilter("prospectos");
         setPage(1);
     };
     const now = new Date();
@@ -2931,18 +2442,17 @@ export default function DigitalesProspectos() {
             </div>
             {/* KPIs arriba */}
             <div className="mb-5 overflow-hidden rounded-2xl bg-white">
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5">
                     <KPICard icon={Users} label="Total prospectos hoy" value={kpis.total.toLocaleString()} sub={`${sorted.length} con filtros`} subColor="text-slate-400" />
                     <KPICard icon={Bot} label="Pendientes de respuesta IA" value={kpis.pendIA} sub={kpis.pendIA > 0 ? "Requieren atención" : "Sin pendientes"} subColor={kpis.pendIA > 0 ? "text-amber-600" : "text-emerald-600"} iconColor="text-amber-700" />
-                    <KPICard icon={Clock} label="Sin respuesta" value={kpis.sinResp} sub={kpis.sinResp > 0 ? "> 24h sin contacto" : "Todo al día"} subColor={kpis.sinResp > 0 ? "text-red-600" : "text-emerald-600"} iconColor="text-red-500" />
                     <KPICard icon={UserCheck} label="Perfil comercial" value={`${percent(kpis.conPerfil, kpis.total || 1)}%`} sub={`${kpis.conPerfil} con datos de compra`} subColor="text-sky-600" iconColor="text-sky-700" />
                     <KPICard icon={HandCoins} label="Crédito / arrendamiento" value={kpis.financiamiento} sub="Oportunidad financiera" subColor="text-violet-600" iconColor="text-violet-700" />
                     <KPICard icon={Gauge} label="Ventana prom. respuesta" value={kpis.avgResp !== null ? `${kpis.avgResp < 60 ? kpis.avgResp + "m" : Math.floor(kpis.avgResp / 60) + "h " + (kpis.avgResp % 60) + "m"}` : "—"} sub="Objetivo < 4h" subColor="text-sky-600" iconColor="text-sky-700" />
                 </div>
             </div>
-            {/* Filtros Dealer/Business + Funnel + SidePanel */}
+            {/* Filtros Dealer / Business */}
             <div className="mb-5 space-y-4">
-                {/* Botones arriba del funnel */}
+                {/* Botones de Dealer y Business */}
                 <div className="bg-white p-4">
                     <div className="grid gap-4 xl:grid-cols-2">
                         <FilterButtonGroup
@@ -2965,27 +2475,7 @@ export default function DigitalesProspectos() {
                         />
                     </div>
                 </div>
-                {/* Funnel + tarjetas */}
-                <div className="flex flex-col items-center gap-4 xl:flex-row xl:items-start xl:justify-center">
-                    {/* Funnel */}
-                    <div className="w-full max-w-[360px] shrink-0 overflow-visible rounded-2xl bg-white">
-                        <div className="flex justify-center p-5">
-                            <FunnelChart
-                                rows={baseFiltered}
-                                relacionesFunnel={relacionesFunnel}
-                                selectedFilter={funnelFilter}
-                                onSelectFilter={(filter) => {
-                                    setFunnelFilter(filter);
-                                    setPage(1);
-                                }}
-                            />
-                        </div>
-                    </div>
-                    {/* Tarjetas horizontales */}
-                    <SidePanel rows={sorted} highlighted={highlightedRow} onSelectHighlight={setHighlightedRow} />
-                </div>
             </div>
-            {/* Filtros */}
             {/* Filtros compactos */}
             <div className="mb-4 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
                 <div className="p-3">
@@ -3200,7 +2690,6 @@ export default function DigitalesProspectos() {
                                             ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
                                             : paginatedRows.map((row) => {
                                                 const score = calcLeadScore(row);
-                                                const { label: scoreLabel, cls: scoreCls } = getScoreLabel(score);
                                                 const prioridad = getPrioridad(row);
                                                 const perfilFin = getPerfilFinancieroDiagnostico(row);
                                                 const isUpdating = !!updatingEstado[row.id_exp];

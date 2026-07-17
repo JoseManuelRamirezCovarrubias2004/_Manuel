@@ -1,8 +1,10 @@
 // src/pages/Settings.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { ArrowLeft, Users, Plus, RefreshCw, Upload, Eye, EyeOff,
-         Building2, ChevronDown, Pencil, Save, AtSign, Mail,
-         User, Lock, Briefcase } from "lucide-react";
+import {
+    ArrowLeft, Users, Plus, RefreshCw, Upload, Eye, EyeOff,
+    Building2, ChevronDown, Pencil, Save, AtSign, Mail,
+    User, Lock, Briefcase
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
@@ -134,8 +136,8 @@ function Avatar({ user, size = 32 }) {
 // ─── Badges ───────────────────────────────────────────────────────────────────
 const ROLE_MAP = {
     Administrador: { bg: "#ede9fe", color: "#5b21b6" },
-    Gerente:       { bg: "#fef3c7", color: "#92400e" },
-    Vendedor:      { bg: "#d1fae5", color: "#065f46" },
+    Gerente: { bg: "#fef3c7", color: "#92400e" },
+    Vendedor: { bg: "#d1fae5", color: "#065f46" },
 };
 
 function RoleBadge({ rol }) {
@@ -388,7 +390,7 @@ function UserModal({ user, roles, token, onClose, onSaved }) {
                     <p style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.06em", margin: "0 0 12px", textTransform: "uppercase" }}>Cambiar contraseña</p>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
                         {[[" Nueva contraseña", password, setPassword, showP, setShowP, "Dejar vacío", null],
-                          ["Confirmar", password2, setPassword2, showP2, setShowP2, "Repetir", errors.password2]
+                        ["Confirmar", password2, setPassword2, showP2, setShowP2, "Repetir", errors.password2]
                         ].map(([label, val, setVal, show, setShow, ph, err]) => (
                             <label key={label} style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                                 <FLabel>{label}</FLabel>
@@ -490,34 +492,34 @@ function AgencyBlock({ agency, users, onEdit }) {
                         <thead>
                             <tr style={{ background: "#fafafa" }}>
                                 {["", "Nombre", "Usuario", "Rol", "Estado", "Correo"].map((h, i) => (
-    <th key={i} style={{ padding: "8px 14px", textAlign: "left", fontSize: 11, color: "#94a3b8", fontWeight: 600, borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>
-        {h}
-    </th>
-))}
+                                    <th key={i} style={{ padding: "8px 14px", textAlign: "left", fontSize: 11, color: "#94a3b8", fontWeight: 600, borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>
+                                        {h}
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody>
-    {agUsers.length === 0 ? (
-        <tr><td colSpan={6} style={{ textAlign: "center", padding: "24px 0", fontSize: 13, color: "#94a3b8" }}>Sin usuarios en esta agencia</td></tr>
-    ) : agUsers.map((u, idx) => (
-        <tr
-            key={u.id}
-            onDoubleClick={() => onEdit(u)}
-            style={{ borderBottom: idx < agUsers.length - 1 ? "1px solid #f8fafc" : "none", transition: "background 0.1s", cursor: "pointer" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-            onMouseLeave={e => (e.currentTarget.style.background = "")}
-        >
-            <td style={{ padding: "10px 14px" }}><Avatar user={u} size={32} /></td>
-            <td style={{ padding: "10px 14px" }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{u.nombre} {u.apellidos}</span>
-            </td>
-            <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>@{u.usuario}</td>
-            <td style={{ padding: "10px 14px" }}><RoleBadge rol={u.rol || u.nombre_rol} /></td>
-            <td style={{ padding: "10px 14px" }}><StatusPill estado={u.estado || "Activo"} /></td>
-            <td style={{ padding: "10px 14px", fontSize: 12, color: "#94a3b8", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.correo}</td>
-        </tr>
-    ))}
-</tbody>
+                            {agUsers.length === 0 ? (
+                                <tr><td colSpan={6} style={{ textAlign: "center", padding: "24px 0", fontSize: 13, color: "#94a3b8" }}>Sin usuarios en esta agencia</td></tr>
+                            ) : agUsers.map((u, idx) => (
+                                <tr
+                                    key={u.id}
+                                    onDoubleClick={() => onEdit(u)}
+                                    style={{ borderBottom: idx < agUsers.length - 1 ? "1px solid #f8fafc" : "none", transition: "background 0.1s", cursor: "pointer" }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                                    onMouseLeave={e => (e.currentTarget.style.background = "")}
+                                >
+                                    <td style={{ padding: "10px 14px" }}><Avatar user={u} size={32} /></td>
+                                    <td style={{ padding: "10px 14px" }}>
+                                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{u.nombre} {u.apellidos}</span>
+                                    </td>
+                                    <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>@{u.usuario}</td>
+                                    <td style={{ padding: "10px 14px" }}><RoleBadge rol={u.rol || u.nombre_rol} /></td>
+                                    <td style={{ padding: "10px 14px" }}><StatusPill estado={u.estado || "Activo"} /></td>
+                                    <td style={{ padding: "10px 14px", fontSize: 12, color: "#94a3b8", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.correo}</td>
+                                </tr>
+                            ))}
+                        </tbody>
                     </table>
                 </div>
             )}
@@ -624,154 +626,154 @@ function PerfilUsuario({ token, user }) {
         ? new Date(user.date_joined).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })
         : "—";
 
-const guardarCambios = async () => { 
-    setLoading(true); setMsg("");
-    
-    const userId = user?.id_usuario;    
-    if (!userId) {
-        setMsg(`Error: ID no encontrado. Campos disponibles: ${Object.keys(user || {}).join(", ")}`);
-        setLoading(false);
-        return;
-    }
-    
-    const fd = new FormData();
-    fd.append("nombre", formData.nombre);
-    fd.append("apellidos", formData.apellidos);
-    fd.append("usuario", formData.usuario);
-    fd.append("correo", formData.correo);
-    if (formData.telefono) fd.append("telefono", formData.telefono);
-    if (foto) fd.append("foto", foto);
-    
-    try {
-        const res = await fetch(`${API}/conformidad/api/perfil/`, {
-            method: "PATCH",
-            headers: { Authorization: `Bearer ${token}` },
-            body: fd,
-        });
-        const responseText = await res.text();
-        if (res.ok) {
-            setMsg("✓ Datos actualizados correctamente");
-            setFoto(null);
+    const guardarCambios = async () => {
+        setLoading(true); setMsg("");
 
-            // Vuelve a pedir los datos actualizados del usuario (incluye la foto nueva)
-            try {
-                const meRes = await fetch(`${API}/conformidad/api/auth/me/`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (meRes.ok) {
-                    const updatedUser = await meRes.json();
-                    localStorage.setItem("crm.user", JSON.stringify(updatedUser));
-                    localStorage.setItem("user", JSON.stringify(updatedUser));
-                    const auth = JSON.parse(localStorage.getItem("auth") || "{}");
-                    localStorage.setItem("auth", JSON.stringify({ ...auth, user: updatedUser }));
+        const userId = user?.id_usuario;
+        if (!userId) {
+            setMsg(`Error: ID no encontrado. Campos disponibles: ${Object.keys(user || {}).join(", ")}`);
+            setLoading(false);
+            return;
+        }
+
+        const fd = new FormData();
+        fd.append("nombre", formData.nombre);
+        fd.append("apellidos", formData.apellidos);
+        fd.append("usuario", formData.usuario);
+        fd.append("correo", formData.correo);
+        if (formData.telefono) fd.append("telefono", formData.telefono);
+        if (foto) fd.append("foto", foto);
+
+        try {
+            const res = await fetch(`${API}/conformidad/api/perfil/`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${token}` },
+                body: fd,
+            });
+            const responseText = await res.text();
+            if (res.ok) {
+                setMsg("✓ Datos actualizados correctamente");
+                setFoto(null);
+
+                // Vuelve a pedir los datos actualizados del usuario (incluye la foto nueva)
+                try {
+                    const meRes = await fetch(`${API}/conformidad/api/auth/me/`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (meRes.ok) {
+                        const updatedUser = await meRes.json();
+                        localStorage.setItem("crm.user", JSON.stringify(updatedUser));
+                        localStorage.setItem("user", JSON.stringify(updatedUser));
+                        const auth = JSON.parse(localStorage.getItem("auth") || "{}");
+                        localStorage.setItem("auth", JSON.stringify({ ...auth, user: updatedUser }));
+                    }
+                } catch (e) {
+                    console.error("Error refrescando usuario:", e);
                 }
-            } catch (e) {
-                console.error("Error refrescando usuario:", e);
-            }
 
-            setTimeout(() => window.location.reload(), 800);
-        } else {
-            let err = {};
-            try { err = JSON.parse(responseText); } catch {}
-            setMsg(`Error: ${err.detail || responseText || "No se pudo actualizar"}`);
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                let err = {};
+                try { err = JSON.parse(responseText); } catch { }
+                setMsg(`Error: ${err.detail || responseText || "No se pudo actualizar"}`);
+            }
+        } catch (e) {
+            setMsg("Error de conexión");
+        } finally {
+            setLoading(false);
+            setTimeout(() => setMsg(""), 6000);
         }
-    } catch (e) {
-        setMsg("Error de conexión");
-    } finally {
-        setLoading(false);
-        setTimeout(() => setMsg(""), 6000);
-    }
-};
-  const cambiarContrasena = async () => {
-    if (passForm.nueva.length < 8) return setPassMsg("Mínimo 8 caracteres.");
-    if (!/[A-Z]/.test(passForm.nueva)) return setPassMsg("Agrega al menos una mayúscula.");
-    if (!/[0-9]/.test(passForm.nueva)) return setPassMsg("Agrega al menos un número.");
-    if (!/[^A-Za-z0-9]/.test(passForm.nueva)) return setPassMsg("Agrega al menos un símbolo.");
-    if (passForm.nueva !== passForm.confirmar) return setPassMsg("Las contraseñas no coinciden.");
-    
-    setPassLoading(true); setPassMsg("");
-    const fd = new FormData();
-    fd.append("contrasena", passForm.nueva);
-    try {
-const res = await fetch(`${API}/conformidad/api/admin/usuarios/${userId}/`, {
-    method: "PUT",  // ← cambia PATCH por PUT
-    headers: { Authorization: `Bearer ${token}` },
-    body: fd,
-}); 
-        if (res.ok) {
-            setPassMsg("✓ Contraseña actualizada correctamente");
-            setPassForm({ nueva: "", confirmar: "" });
-            setTimeout(() => { setShowPassModal(false); setPassMsg(""); }, 1200);
-        } else {
-            const err = await res.json().catch(() => ({}));
-            setPassMsg(`Error: ${err.detail || "No se pudo cambiar"}`);
-        }
-    } catch { setPassMsg("Error de conexión"); }
-    finally { setPassLoading(false); }
-};
+    };
+    const cambiarContrasena = async () => {
+        if (passForm.nueva.length < 8) return setPassMsg("Mínimo 8 caracteres.");
+        if (!/[A-Z]/.test(passForm.nueva)) return setPassMsg("Agrega al menos una mayúscula.");
+        if (!/[0-9]/.test(passForm.nueva)) return setPassMsg("Agrega al menos un número.");
+        if (!/[^A-Za-z0-9]/.test(passForm.nueva)) return setPassMsg("Agrega al menos un símbolo.");
+        if (passForm.nueva !== passForm.confirmar) return setPassMsg("Las contraseñas no coinciden.");
+
+        setPassLoading(true); setPassMsg("");
+        const fd = new FormData();
+        fd.append("contrasena", passForm.nueva);
+        try {
+            const res = await fetch(`${API}/conformidad/api/admin/usuarios/${userId}/`, {
+                method: "PUT",  // ← cambia PATCH por PUT
+                headers: { Authorization: `Bearer ${token}` },
+                body: fd,
+            });
+            if (res.ok) {
+                setPassMsg("✓ Contraseña actualizada correctamente");
+                setPassForm({ nueva: "", confirmar: "" });
+                setTimeout(() => { setShowPassModal(false); setPassMsg(""); }, 1200);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                setPassMsg(`Error: ${err.detail || "No se pudo cambiar"}`);
+            }
+        } catch { setPassMsg("Error de conexión"); }
+        finally { setPassLoading(false); }
+    };
 
     return (
-<div style={{ maxWidth: 1500, margin: "0 auto", padding: "32px 20px", fontFamily: "system-ui, sans-serif" }}>
+        <div style={{ maxWidth: 1500, margin: "0 auto", padding: "32px 20px", fontFamily: "system-ui, sans-serif" }}>
             {/* Header perfil */}
             {/* Header perfil */}
-<div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", marginBottom: 20 }}>
-    <div style={{ height: 80, background: "linear-gradient(135deg, #131E5C 0%, #1a2d8a 100%)", position: "relative" }}>
-        {/* Círculos decorativos */}
-        <div style={{ position: "absolute", right: 160, top: -20, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
-        <div style={{ position: "absolute", right: 60, top: 10, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
-    </div>
-    <div style={{ padding: "0 28px 24px" }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 16 }}>
-            {/* Avatar — muestra foto si existe */}
-            <div style={{ position: "relative", marginTop: -40 }}>
-                <label style={{ cursor: "pointer", display: "block" }}>
-{(fotoPreview && fotoPreview !== "") ? (                        <img
-                            src={fotoPreview || user.foto_url}
-                            style={{ width: 88, height: 88, borderRadius: "50%", border: "4px solid #fff", objectFit: "cover", display: "block", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
-                            alt="foto de perfil"
-                        />
-                    ) : (
-                        <div style={{ width: 88, height: 88, borderRadius: "50%", border: "4px solid #fff", background: avatarColor.bg, color: avatarColor.text, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 700, boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}>
-                            {initials}
+            <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", marginBottom: 20 }}>
+                <div style={{ height: 80, background: "linear-gradient(135deg, #131E5C 0%, #1a2d8a 100%)", position: "relative" }}>
+                    {/* Círculos decorativos */}
+                    <div style={{ position: "absolute", right: 160, top: -20, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
+                    <div style={{ position: "absolute", right: 60, top: 10, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+                </div>
+                <div style={{ padding: "0 28px 24px" }}>
+                    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 16 }}>
+                        {/* Avatar — muestra foto si existe */}
+                        <div style={{ position: "relative", marginTop: -40 }}>
+                            <label style={{ cursor: "pointer", display: "block" }}>
+                                {(fotoPreview && fotoPreview !== "") ? (<img
+                                    src={fotoPreview || user.foto_url}
+                                    style={{ width: 88, height: 88, borderRadius: "50%", border: "4px solid #fff", objectFit: "cover", display: "block", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                                    alt="foto de perfil"
+                                />
+                                ) : (
+                                    <div style={{ width: 88, height: 88, borderRadius: "50%", border: "4px solid #fff", background: avatarColor.bg, color: avatarColor.text, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 700, boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}>
+                                        {initials}
+                                    </div>
+                                )}
+                                {/* Botón cámara */}
+                                <div style={{ position: "absolute", bottom: 2, right: 2, width: 28, height: 28, borderRadius: "50%", background: "#131E5C", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <Upload size={12} color="#fff" />
+                                </div>
+                                <input type="file" accept="image/*" style={{ display: "none" }}
+                                    onChange={e => { const f = e.target.files[0]; if (f) { setFoto(f); setFotoPreview(URL.createObjectURL(f)); } }} />
+                            </label>
                         </div>
-                    )}
-                    {/* Botón cámara */}
-                    <div style={{ position: "absolute", bottom: 2, right: 2, width: 28, height: 28, borderRadius: "50%", background: "#131E5C", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Upload size={12} color="#fff" />
-                    </div>
-                    <input type="file" accept="image/*" style={{ display: "none" }}
-                        onChange={e => { const f = e.target.files[0]; if (f) { setFoto(f); setFotoPreview(URL.createObjectURL(f)); } }} />
-                </label>
-            </div>
 
-            {/* Info nombre */}
-            <div style={{ flex: 1, marginLeft: 18, paddingTop: 10 }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>
-                    {formData.nombre} {formData.apellidos}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 5, flexWrap: "wrap" }}>
-                    <span style={{ background: "#ede9fe", color: "#5b21b6", fontSize: 11, padding: "2px 10px", borderRadius: 20, fontWeight: 600 }}>
-                        {user?.rol || user?.nombre_rol || "Usuario"}
-                    </span>
-                    {user?.agencia && (
-                        <span style={{ fontSize: 12, color: "#64748b" }}>
-                            Agencia asignada: <strong>{user.agencia}</strong>
-                        </span>
-                    )}
-                    {miembroDesde !== "—" && (
-                        <span style={{ fontSize: 12, color: "#64748b" }}>
-                            Miembro desde: <strong>{miembroDesde}</strong>
-                        </span>
-                    )}
+                        {/* Info nombre */}
+                        <div style={{ flex: 1, marginLeft: 18, paddingTop: 10 }}>
+                            <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>
+                                {formData.nombre} {formData.apellidos}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 5, flexWrap: "wrap" }}>
+                                <span style={{ background: "#ede9fe", color: "#5b21b6", fontSize: 11, padding: "2px 10px", borderRadius: 20, fontWeight: 600 }}>
+                                    {user?.rol || user?.nombre_rol || "Usuario"}
+                                </span>
+                                {user?.agencia && (
+                                    <span style={{ fontSize: 12, color: "#64748b" }}>
+                                        Agencia asignada: <strong>{user.agencia}</strong>
+                                    </span>
+                                )}
+                                {miembroDesde !== "—" && (
+                                    <span style={{ fontSize: 12, color: "#64748b" }}>
+                                        Miembro desde: <strong>{miembroDesde}</strong>
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
 
             {/* Contenido principal — dos columnas */}
             {/* Contenido principal */}
-<div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24, alignItems: "start" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24, alignItems: "start" }}>
                 {/* Columna izquierda */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -864,151 +866,151 @@ const res = await fetch(`${API}/conformidad/api/admin/usuarios/${userId}/`, {
 
             {/* Modal cambiar contraseña */}
             {showPassModal && (
-    <div onClick={e => e.target === e.currentTarget && setShowPassModal(false)}
-        style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: "1rem" }}>
-        <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420, boxShadow: "0 25px 50px rgba(0,0,0,0.15)", overflow: "hidden" }}>
-            
-            {/* Header */}
-            <div style={{ padding: "16px 20px", background: "#131E5C", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Lock size={15} color="#fff" />
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Cambiar contraseña</span>
-                </div>
-                <button onClick={() => { setShowPassModal(false); setPassForm({ nueva: "", confirmar: "" }); setPassMsg(""); }}
-                    style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", cursor: "pointer", color: "#fff", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    ✕
-                </button>
-            </div>
+                <div onClick={e => e.target === e.currentTarget && setShowPassModal(false)}
+                    style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: "1rem" }}>
+                    <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420, boxShadow: "0 25px 50px rgba(0,0,0,0.15)", overflow: "hidden" }}>
 
-            <div style={{ padding: "24px 20px" }}>
-
-                {/* Campo nueva contraseña */}
-                <div style={{ marginBottom: 8 }}>
-                    <FLabel>Nueva contraseña</FLabel>
-                    <div style={{ position: "relative", marginTop: 6 }}>
-                        <input
-                            type={showPass.nueva ? "text" : "password"}
-                            value={passForm.nueva}
-                            onChange={e => setPassForm(p => ({ ...p, nueva: e.target.value }))}
-                            placeholder="Crea una contraseña segura"
-                            style={{ ...inputBase(false), paddingRight: 36 }}
-                            onFocus={e => { e.target.style.borderColor = "#131E5C"; e.target.style.boxShadow = "0 0 0 3px rgba(19,30,92,0.08)"; }}
-                            onBlur={e => { e.target.style.borderColor = "#e2e8f0"; e.target.style.boxShadow = "none"; }}
-                        />
-                        <button type="button" onClick={() => setShowPass(p => ({ ...p, nueva: !p.nueva }))}
-                            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}>
-                            {showPass.nueva ? <EyeOff size={14} /> : <Eye size={14} />}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Requisitos en tiempo real */}
-                {passForm.nueva.length > 0 && (() => {
-                    const requisitos = [
-                        { label: "Mínimo 8 caracteres", ok: passForm.nueva.length >= 8 },
-                        { label: "Al menos una letra mayúscula (A-Z)", ok: /[A-Z]/.test(passForm.nueva) },
-                        { label: "Al menos un número (0-9)", ok: /[0-9]/.test(passForm.nueva) },
-                        { label: "Al menos un símbolo (!@#$%...)", ok: /[^A-Za-z0-9]/.test(passForm.nueva) },
-                    ];
-                    const cumplidos = requisitos.filter(r => r.ok).length;
-                    const porcentaje = (cumplidos / requisitos.length) * 100;
-                    const fortaleza = cumplidos <= 1 ? { label: "Muy débil", color: "#ef4444" }
-                        : cumplidos === 2 ? { label: "Débil", color: "#f97316" }
-                        : cumplidos === 3 ? { label: "Buena", color: "#eab308" }
-                        : { label: "Fuerte", color: "#22c55e" };
-
-                    return (
-                        <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10, background: "#f8fafc", border: "1px solid #f1f5f9" }}>
-                            {/* Barra de fortaleza */}
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                                <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Fortaleza</span>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: fortaleza.color }}>{fortaleza.label}</span>
-                            </div>
-                            <div style={{ height: 4, borderRadius: 4, background: "#e2e8f0", marginBottom: 10, overflow: "hidden" }}>
-                                <div style={{ height: "100%", borderRadius: 4, background: fortaleza.color, width: `${porcentaje}%`, transition: "width 0.3s, background 0.3s" }} />
-                            </div>
-
-                            {/* Lista de requisitos */}
-                            {requisitos.map((req, i) => (
-                                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: i < requisitos.length - 1 ? 5 : 0 }}>
-                                    <div style={{
-                                        width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
-                                        background: req.ok ? "#22c55e" : "#e2e8f0",
-                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                        transition: "background 0.2s",
-                                    }}>
-                                        {req.ok && <span style={{ color: "#fff", fontSize: 9, fontWeight: 900 }}>✓</span>}
-                                    </div>
-                                    <span style={{ fontSize: 12, color: req.ok ? "#15803d" : "#94a3b8", fontWeight: req.ok ? 600 : 400, transition: "color 0.2s" }}>
-                                        {req.label}
-                                    </span>
+                        {/* Header */}
+                        <div style={{ padding: "16px 20px", background: "#131E5C", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <Lock size={15} color="#fff" />
                                 </div>
-                            ))}
+                                <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Cambiar contraseña</span>
+                            </div>
+                            <button onClick={() => { setShowPassModal(false); setPassForm({ nueva: "", confirmar: "" }); setPassMsg(""); }}
+                                style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", cursor: "pointer", color: "#fff", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                ✕
+                            </button>
                         </div>
-                    );
-                })()}
 
-                {/* Campo confirmar */}
-                <div style={{ marginBottom: 16 }}>
-                    <FLabel>Confirmar contraseña</FLabel>
-                    <div style={{ position: "relative", marginTop: 6 }}>
-                        <input
-                            type={showPass.confirmar ? "text" : "password"}
-                            value={passForm.confirmar}
-                            onChange={e => setPassForm(p => ({ ...p, confirmar: e.target.value }))}
-                            placeholder="Repite la nueva contraseña"
-                            style={{
-                                ...inputBase(false),
-                                paddingRight: 36,
-                                borderColor: passForm.confirmar
-                                    ? passForm.confirmar === passForm.nueva ? "#86efac" : "#fca5a5"
-                                    : "#e2e8f0",
-                            }}
-                            onFocus={e => { e.target.style.borderColor = "#131E5C"; e.target.style.boxShadow = "0 0 0 3px rgba(19,30,92,0.08)"; }}
-                            onBlur={e => {
-                                e.target.style.borderColor = passForm.confirmar
-                                    ? passForm.confirmar === passForm.nueva ? "#86efac" : "#fca5a5"
-                                    : "#e2e8f0";
-                                e.target.style.boxShadow = "none";
-                            }}
-                        />
-                        <button type="button" onClick={() => setShowPass(p => ({ ...p, confirmar: !p.confirmar }))}
-                            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}>
-                            {showPass.confirmar ? <EyeOff size={14} /> : <Eye size={14} />}
-                        </button>
-                    </div>
-                    {/* Mensaje coincidencia */}
-                    {passForm.confirmar.length > 0 && (
-                        <div style={{ marginTop: 5, fontSize: 11, fontWeight: 600, color: passForm.confirmar === passForm.nueva ? "#15803d" : "#ef4444", display: "flex", alignItems: "center", gap: 4 }}>
-                            <span>{passForm.confirmar === passForm.nueva ? "✓" : "✕"}</span>
-                            {passForm.confirmar === passForm.nueva ? "Las contraseñas coinciden" : "Las contraseñas no coinciden"}
+                        <div style={{ padding: "24px 20px" }}>
+
+                            {/* Campo nueva contraseña */}
+                            <div style={{ marginBottom: 8 }}>
+                                <FLabel>Nueva contraseña</FLabel>
+                                <div style={{ position: "relative", marginTop: 6 }}>
+                                    <input
+                                        type={showPass.nueva ? "text" : "password"}
+                                        value={passForm.nueva}
+                                        onChange={e => setPassForm(p => ({ ...p, nueva: e.target.value }))}
+                                        placeholder="Crea una contraseña segura"
+                                        style={{ ...inputBase(false), paddingRight: 36 }}
+                                        onFocus={e => { e.target.style.borderColor = "#131E5C"; e.target.style.boxShadow = "0 0 0 3px rgba(19,30,92,0.08)"; }}
+                                        onBlur={e => { e.target.style.borderColor = "#e2e8f0"; e.target.style.boxShadow = "none"; }}
+                                    />
+                                    <button type="button" onClick={() => setShowPass(p => ({ ...p, nueva: !p.nueva }))}
+                                        style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}>
+                                        {showPass.nueva ? <EyeOff size={14} /> : <Eye size={14} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Requisitos en tiempo real */}
+                            {passForm.nueva.length > 0 && (() => {
+                                const requisitos = [
+                                    { label: "Mínimo 8 caracteres", ok: passForm.nueva.length >= 8 },
+                                    { label: "Al menos una letra mayúscula (A-Z)", ok: /[A-Z]/.test(passForm.nueva) },
+                                    { label: "Al menos un número (0-9)", ok: /[0-9]/.test(passForm.nueva) },
+                                    { label: "Al menos un símbolo (!@#$%...)", ok: /[^A-Za-z0-9]/.test(passForm.nueva) },
+                                ];
+                                const cumplidos = requisitos.filter(r => r.ok).length;
+                                const porcentaje = (cumplidos / requisitos.length) * 100;
+                                const fortaleza = cumplidos <= 1 ? { label: "Muy débil", color: "#ef4444" }
+                                    : cumplidos === 2 ? { label: "Débil", color: "#f97316" }
+                                        : cumplidos === 3 ? { label: "Buena", color: "#eab308" }
+                                            : { label: "Fuerte", color: "#22c55e" };
+
+                                return (
+                                    <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10, background: "#f8fafc", border: "1px solid #f1f5f9" }}>
+                                        {/* Barra de fortaleza */}
+                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                            <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Fortaleza</span>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: fortaleza.color }}>{fortaleza.label}</span>
+                                        </div>
+                                        <div style={{ height: 4, borderRadius: 4, background: "#e2e8f0", marginBottom: 10, overflow: "hidden" }}>
+                                            <div style={{ height: "100%", borderRadius: 4, background: fortaleza.color, width: `${porcentaje}%`, transition: "width 0.3s, background 0.3s" }} />
+                                        </div>
+
+                                        {/* Lista de requisitos */}
+                                        {requisitos.map((req, i) => (
+                                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: i < requisitos.length - 1 ? 5 : 0 }}>
+                                                <div style={{
+                                                    width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
+                                                    background: req.ok ? "#22c55e" : "#e2e8f0",
+                                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                                    transition: "background 0.2s",
+                                                }}>
+                                                    {req.ok && <span style={{ color: "#fff", fontSize: 9, fontWeight: 900 }}>✓</span>}
+                                                </div>
+                                                <span style={{ fontSize: 12, color: req.ok ? "#15803d" : "#94a3b8", fontWeight: req.ok ? 600 : 400, transition: "color 0.2s" }}>
+                                                    {req.label}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Campo confirmar */}
+                            <div style={{ marginBottom: 16 }}>
+                                <FLabel>Confirmar contraseña</FLabel>
+                                <div style={{ position: "relative", marginTop: 6 }}>
+                                    <input
+                                        type={showPass.confirmar ? "text" : "password"}
+                                        value={passForm.confirmar}
+                                        onChange={e => setPassForm(p => ({ ...p, confirmar: e.target.value }))}
+                                        placeholder="Repite la nueva contraseña"
+                                        style={{
+                                            ...inputBase(false),
+                                            paddingRight: 36,
+                                            borderColor: passForm.confirmar
+                                                ? passForm.confirmar === passForm.nueva ? "#86efac" : "#fca5a5"
+                                                : "#e2e8f0",
+                                        }}
+                                        onFocus={e => { e.target.style.borderColor = "#131E5C"; e.target.style.boxShadow = "0 0 0 3px rgba(19,30,92,0.08)"; }}
+                                        onBlur={e => {
+                                            e.target.style.borderColor = passForm.confirmar
+                                                ? passForm.confirmar === passForm.nueva ? "#86efac" : "#fca5a5"
+                                                : "#e2e8f0";
+                                            e.target.style.boxShadow = "none";
+                                        }}
+                                    />
+                                    <button type="button" onClick={() => setShowPass(p => ({ ...p, confirmar: !p.confirmar }))}
+                                        style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}>
+                                        {showPass.confirmar ? <EyeOff size={14} /> : <Eye size={14} />}
+                                    </button>
+                                </div>
+                                {/* Mensaje coincidencia */}
+                                {passForm.confirmar.length > 0 && (
+                                    <div style={{ marginTop: 5, fontSize: 11, fontWeight: 600, color: passForm.confirmar === passForm.nueva ? "#15803d" : "#ef4444", display: "flex", alignItems: "center", gap: 4 }}>
+                                        <span>{passForm.confirmar === passForm.nueva ? "✓" : "✕"}</span>
+                                        {passForm.confirmar === passForm.nueva ? "Las contraseñas coinciden" : "Las contraseñas no coinciden"}
+                                    </div>
+                                )}
+                            </div>
+
+                            {passMsg && (
+                                <div style={{ padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500, background: passMsg.startsWith("✓") ? "#dcfce7" : "#fee2e2", color: passMsg.startsWith("✓") ? "#15803d" : "#b91c1c", marginBottom: 14 }}>
+                                    {passMsg}
+                                </div>
+                            )}
+
+                            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                                <button onClick={() => { setShowPassModal(false); setPassForm({ nueva: "", confirmar: "" }); setPassMsg(""); }}
+                                    style={{ padding: "9px 18px", borderRadius: 9, border: "1px solid #e2e8f0", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                                    Cancelar
+                                </button>
+                                <button onClick={cambiarContrasena} disabled={passLoading || passForm.nueva !== passForm.confirmar || passForm.nueva.length < 8}
+                                    style={{ padding: "9px 20px", borderRadius: 9, border: "none", background: (passLoading || passForm.nueva !== passForm.confirmar || passForm.nueva.length < 8) ? "#94a3b8" : "#131E5C", color: "#fff", fontSize: 13, fontWeight: 700, cursor: (passLoading || passForm.nueva !== passForm.confirmar || passForm.nueva.length < 8) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                                    <Save size={14} />
+                                    {passLoading ? "Guardando..." : "Actualizar"}
+                                </button>
+                            </div>
                         </div>
-                    )}
-                </div>
-
-                {passMsg && (
-                    <div style={{ padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500, background: passMsg.startsWith("✓") ? "#dcfce7" : "#fee2e2", color: passMsg.startsWith("✓") ? "#15803d" : "#b91c1c", marginBottom: 14 }}>
-                        {passMsg}
                     </div>
-                )}
-
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                    <button onClick={() => { setShowPassModal(false); setPassForm({ nueva: "", confirmar: "" }); setPassMsg(""); }}
-                        style={{ padding: "9px 18px", borderRadius: 9, border: "1px solid #e2e8f0", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                        Cancelar
-                    </button>
-                    <button onClick={cambiarContrasena} disabled={passLoading || passForm.nueva !== passForm.confirmar || passForm.nueva.length < 8}
-                        style={{ padding: "9px 20px", borderRadius: 9, border: "none", background: (passLoading || passForm.nueva !== passForm.confirmar || passForm.nueva.length < 8) ? "#94a3b8" : "#131E5C", color: "#fff", fontSize: 13, fontWeight: 700, cursor: (passLoading || passForm.nueva !== passForm.confirmar || passForm.nueva.length < 8) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                        <Save size={14} />
-                        {passLoading ? "Guardando..." : "Actualizar"}
-                    </button>
                 </div>
-            </div>
-        </div>
-    </div>
-)}
+            )}
 
             <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 16, fontSize: 12, color: "#131E5C", textDecoration: "none" }}>
                 <ArrowLeft size={12} /> Volver al inicio
@@ -1135,7 +1137,7 @@ function RolToggle({ value, onChange, roles, onNuevoRol }) {
 
 function EstadoToggle({ value, onChange }) {
     const opciones = [
-        { value: "Activo",   icon: "✓", color: "#16a34a", bg: "#dcfce7", border: "#86efac" },
+        { value: "Activo", icon: "✓", color: "#16a34a", bg: "#dcfce7", border: "#86efac" },
         { value: "Inactivo", icon: "○", color: "#94a3b8", bg: "#f8fafc", border: "#e2e8f0" },
     ];
     return (
@@ -1179,10 +1181,10 @@ function NuevoRolModal({ token, onClose, onCreado }) {
             const res = await fetch(`${API}/conformidad/api/admin/roles/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-               body: JSON.stringify({ 
-    nombre: nombreLimpio,
-    descripcion: " ",  // ← lo mandas pero invisible para el usuario
-}),
+                body: JSON.stringify({
+                    nombre: nombreLimpio,
+                    descripcion: " ",  // ← lo mandas pero invisible para el usuario
+                }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data?.detail || data?.nombre?.[0] || "No se pudo crear el rol.");
@@ -1252,7 +1254,7 @@ function NuevoRolModal({ token, onClose, onCreado }) {
 
 export default function Settings() {
 
-    
+
 
     const [estadoNuevo, setEstadoNuevo] = useState("Activo");
     const { token, user } = useAuth();
@@ -1279,7 +1281,7 @@ export default function Settings() {
     const [filtroRol, setFiltroRol] = useState("Todos");
     const [filtroEstado, setFiltroEstado] = useState("Todos");
 
-     const rolesUnicos = useMemo(() => {
+    const rolesUnicos = useMemo(() => {
         const set = new Set(usuarios.map(u => u.rol || u.nombre_rol).filter(Boolean));
         return ["Todos", ...set];
     }, [usuarios]);
@@ -1295,7 +1297,7 @@ export default function Settings() {
         });
     }, [usuarios, filtroAgencia, filtroRol, filtroEstado]);
 
-        const onRolCreado = (nuevoRol) => {
+    const onRolCreado = (nuevoRol) => {
         setRoles(prev => [...prev, nuevoRol]);
         // Seleccionar automáticamente el rol recién creado
         const id = String(nuevoRol.id_rol);
@@ -1347,44 +1349,99 @@ export default function Settings() {
         setAgenciasSeleccionadas(prev => prev.includes(agencia) ? prev.filter(i => i !== agencia) : [...prev, agencia]);
     };
 
-   const limpiarFormulario = () => {
-    setNuevoUsuario({ nombre: "", apellidos: "", usuario: "", correo: "", contrasena: "", agencia: "", id_rol: selectedRolId || "", foto: null });
-    setAgenciasSeleccionadas([]);
-    setEstadoNuevo("Activo"); // ← agrega esto
-};
+    const limpiarFormulario = () => {
+        setNuevoUsuario({ nombre: "", apellidos: "", usuario: "", correo: "", contrasena: "", agencia: "", id_rol: selectedRolId || "", foto: null });
+        setAgenciasSeleccionadas([]);
+        setEstadoNuevo("Activo"); // ← agrega esto
+    };
     const crearUsuario = async (e) => {
         e.preventDefault();
-        const usuarioLimpio = String(nuevoUsuario.usuario || "").trim();
-        const agenciaFinal = agenciasSeleccionadas.join("|");
-        if (!nuevoUsuario.id_rol) return showMsg("Selecciona un rol.");
-        if (agenciasSeleccionadas.length === 0) return showMsg("Selecciona al menos una agencia.");
-        if (!usuarioLimpio) return showMsg("Captura el usuario.");
-        if (usuarioLimpio.length > 10) return showMsg("El usuario no puede tener más de 10 caracteres.");
+
+        const nombre = String(nuevoUsuario.nombre || "").trim();
+        const apellidos = String(nuevoUsuario.apellidos || "").trim();
+        const usuario = String(nuevoUsuario.usuario || "").trim();
+        const correo = String(nuevoUsuario.correo || "").trim();
+        const contrasena = String(nuevoUsuario.contrasena || "");
+        const agencia = agenciasSeleccionadas.join("|");
+
+        if (!nombre) return showMsg("Captura el nombre.");
+        if (!usuario) return showMsg("Captura el usuario.");
+        if (usuario.length > 10) {
+            return showMsg("El usuario no puede tener más de 10 caracteres.");
+        }
+
+        if (!correo) return showMsg("Captura el correo electrónico.");
+        if (!contrasena) return showMsg("Captura una contraseña.");
+        if (contrasena.length < 8) {
+            return showMsg("La contraseña debe tener al menos 8 caracteres.");
+        }
+
+        if (!nuevoUsuario.id_rol) {
+            return showMsg("Selecciona un rol.");
+        }
+
+        if (agenciasSeleccionadas.length === 0) {
+            return showMsg("Selecciona al menos una agencia.");
+        }
+
         setLoading(true);
+
         const fd = new FormData();
-        fd.append("nombre", nuevoUsuario.nombre); fd.append("apellidos", nuevoUsuario.apellidos);
-        fd.append("usuario", usuarioLimpio); fd.append("correo", nuevoUsuario.correo);
-        fd.append("contrasena", nuevoUsuario.contrasena); fd.append("agencia", agenciaFinal);
+        fd.append("nombre", nombre);
+        fd.append("apellidos", apellidos);
+        fd.append("usuario", usuario);
+        fd.append("correo", correo);
+        fd.append("contrasena", contrasena);
+        fd.append("agencia", agencia);
         fd.append("id_rol", nuevoUsuario.id_rol);
-        if (nuevoUsuario.foto) fd.append("foto", nuevoUsuario.foto);
+
+        if (nuevoUsuario.foto) {
+            fd.append("foto", nuevoUsuario.foto);
+        }
+
         try {
-            const res = await fetch(`${API}/conformidad/api/admin/usuarios/`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+            const res = await fetch(
+                `${API}/conformidad/api/admin/usuarios/`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: fd,
+                }
+            );
+
             const data = await res.json().catch(() => ({}));
+
             if (!res.ok) {
                 const errores = data?.errors || data;
                 let mensaje = data?.detail || "No se pudo crear el usuario.";
+
                 if (errores && typeof errores === "object") {
-                    const partes = [];
-                    for (const [campo, valor] of Object.entries(errores)) partes.push(`${campo}: ${Array.isArray(valor) ? valor.join(", ") : valor}`);
-                    if (partes.length) mensaje = partes.join(" | ");
+                    const partes = Object.entries(errores).map(
+                        ([campo, valor]) =>
+                            `${campo}: ${Array.isArray(valor)
+                                ? valor.join(", ")
+                                : String(valor)
+                            }`
+                    );
+
+                    if (partes.length) {
+                        mensaje = partes.join(" | ");
+                    }
                 }
+
                 throw new Error(mensaje);
             }
+
             showMsg("✓ Usuario creado exitosamente");
             limpiarFormulario();
-            cargarUsuarios();
-        } catch (error) { showMsg(error.message || "Error creando usuario."); }
-        finally { setLoading(false); }
+            await cargarUsuarios();
+        } catch (error) {
+            showMsg(error.message || "Error creando usuario.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     function openEdit(u) { setModalUser(u); setModalOpen(true); }
@@ -1392,151 +1449,187 @@ export default function Settings() {
 
     if (!isAdminUI) return <PerfilUsuario token={token} user={user} />;
 
- return (
-<div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 20px", fontFamily: "system-ui, sans-serif" }}>
-            
+    return (
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 20px", fontFamily: "system-ui, sans-serif" }}>
+
 
             {/* ── Card formulario (ancho completo) ── */}
             <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", marginBottom: 24 }}>
 
                 {/* Header banner */}
-               
-<div style={{
-    padding: "28px 32px",
-    background: "linear-gradient(135deg, #131E5C 0%, #1a2d8a 100%)",
-    display: "flex", alignItems: "center", gap: 18,
-    position: "relative", overflow: "hidden",
-}}>
-    <div style={{ position: "absolute", right: 160, top: -20, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
-    <div style={{ position: "absolute", right: 100, top: 10, width: 50, height: 50, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
-    <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Users size={26} color="#fff" />
-    </div>
-    <div>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#fff", margin: 0 }}>Gestión de usuarios</h2>
-        {/* Botón Volver en lugar del subtítulo */}
-        <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, padding: "5px 12px", borderRadius: 8, background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(255,255,255,0.2)" }}>
-            <ArrowLeft size={12} /> Volver
-        </Link>
-    </div>
-    <div style={{ marginLeft: "auto", position: "relative", width: 100, height: 60 }}>
-        <div style={{ position: "absolute", right: 0, top: -10, width: 60, height: 60, borderRadius: "50%", background: "rgba(99,102,241,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Users size={24} color="rgba(255,255,255,0.8)" />
-        </div>
-        <div style={{ position: "absolute", right: 45, top: 5, width: 40, height: 40, borderRadius: "50%", background: "rgba(99,102,241,0.4)" }} />
-        <div style={{ position: "absolute", right: 20, top: -5, fontSize: 16, color: "rgba(255,255,255,0.5)" }}>✦</div>
-        <div style={{ position: "absolute", right: 75, top: 0, fontSize: 10, color: "rgba(255,255,255,0.3)" }}>✦</div>
-    </div>
-</div>
 
-               {/* Formulario */}
-<form onSubmit={crearUsuario} style={{ padding: "28px 32px" }}>
-
-    {/* Fila 1: Nombre, Apellidos, Usuario */}
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "18px 24px", marginBottom: 20 }}>
-        <InputWithSideIcon icon={User} label="Nombre(s)" value={nuevoUsuario.nombre}
-            onChange={e => setNuevoUsuario(p => ({ ...p, nombre: e.target.value }))} placeholder="Ej. Juan Carlos" />
-        <InputWithSideIcon icon={User} label="Apellidos" value={nuevoUsuario.apellidos}
-            onChange={e => setNuevoUsuario(p => ({ ...p, apellidos: e.target.value }))} placeholder="Ej. Pérez García" />
-        <InputWithSideIcon icon={AtSign} label="Usuario" value={nuevoUsuario.usuario}
-            onChange={e => setNuevoUsuario(p => ({ ...p, usuario: e.target.value }))} placeholder="Ej. juancarlos" />
-    </div>
-
-    {/* Fila 2: Correo + Contraseña */}
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 24px", marginBottom: 20 }}>
-        <InputWithSideIcon icon={Mail} label="Correo electrónico" type="email" value={nuevoUsuario.correo}
-            onChange={e => setNuevoUsuario(p => ({ ...p, correo: e.target.value }))} placeholder="Ej. juancarlos@correo.com" />
-        <PasswordSideField label="Contraseña" value={nuevoUsuario.contrasena}
-            onChange={e => setNuevoUsuario(p => ({ ...p, contrasena: e.target.value }))} placeholder="Mín. 8 caracteres" />
-    </div>
-
-    {/* Fila 3: Rol como botones toggle */}
-    <div style={{ marginBottom: 20 }}>
-        <RolToggle
-    value={nuevoUsuario.id_rol}
-    onChange={v => { setSelectedRolId(v); setNuevoUsuario(p => ({ ...p, id_rol: v })); }}
-    roles={roles}
-    onNuevoRol={() => setModalRolOpen(true)} />
-
-    </div>
-
-    {/* Fila 4: Estado + Foto lado a lado */}
-    <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 24, marginBottom: 20, alignItems: "start" }}>
-        <EstadoToggle value={estadoNuevo} onChange={setEstadoNuevo} />
-        <div>
-            <FLabel>Foto de perfil <span style={{ color: "#94a3b8", fontWeight: 400 }}>(opcional)</span></FLabel>
-            <label style={{
-                display: "flex", alignItems: "center", gap: 14,
-                marginTop: 6, padding: "12px 18px",
-                borderRadius: 12, border: "1px dashed #c7d2fe",
-                background: "#f8faff", cursor: "pointer",
-            }}>
-                <div style={{ width: 36, height: 36, borderRadius: 9, background: "#e0e7ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Upload size={16} color="#131E5C" />
-                </div>
-                <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", margin: 0 }}>
-                        {nuevoUsuario.foto ? nuevoUsuario.foto.name : "Arrastra una imagen o haz clic para seleccionar"}
-                    </p>
-                    <p style={{ fontSize: 11, color: "#94a3b8", margin: "2px 0 0" }}>JPG, PNG o WEBP. Máx. 2MB</p>
-                </div>
-                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <User size={20} color="#94a3b8" />
-                </div>
-                <input type="file" accept="image/*" style={{ display: "none" }}
-                    onChange={e => setNuevoUsuario(p => ({ ...p, foto: e.target.files[0] }))} />
-            </label>
-        </div>
-    </div>
-
-    {/* Agencias con Seleccionar todas */}
-    <div style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <Building2 size={14} color="#131E5C" />
-                <FLabel>Agencia(s)</FLabel>
-            </div>
-            <button type="button"
-                onClick={() => setAgenciasSeleccionadas(
-                    agenciasSeleccionadas.length === DEALERS.length ? [] : [...DEALERS]
-                )}
-                style={{
-                    display: "inline-flex", alignItems: "center", gap: 5,
-                    padding: "5px 12px", borderRadius: 8,
-                    border: "1px solid #e2e8f0", background: "#fff",
-                    fontSize: 12, fontWeight: 600, color: "#131E5C", cursor: "pointer",
+                <div style={{
+                    padding: "28px 32px",
+                    background: "linear-gradient(135deg, #131E5C 0%, #1a2d8a 100%)",
+                    display: "flex", alignItems: "center", gap: 18,
+                    position: "relative", overflow: "hidden",
                 }}>
-                {agenciasSeleccionadas.length === DEALERS.length ? "Deseleccionar todas" : "Seleccionar todas"}
-                <ChevronDown size={13} />
-            </button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
-            {DEALERS.map(dealer => (
-                <AgencyCheck key={dealer} label={dealer}
-                    checked={agenciasSeleccionadas.includes(dealer)}
-                    onChange={() => toggleAgencia(dealer)} />
-            ))}
-        </div>
-    </div>
+                    <div style={{ position: "absolute", right: 160, top: -20, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
+                    <div style={{ position: "absolute", right: 100, top: 10, width: 50, height: 50, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+                    <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Users size={26} color="#fff" />
+                    </div>
+                    <div>
+                        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#fff", margin: 0 }}>Gestión de usuarios</h2>
+                        {/* Botón Volver en lugar del subtítulo */}
+                        <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, padding: "5px 12px", borderRadius: 8, background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(255,255,255,0.2)" }}>
+                            <ArrowLeft size={12} /> Volver
+                        </Link>
+                    </div>
+                    <div style={{ marginLeft: "auto", position: "relative", width: 100, height: 60 }}>
+                        <div style={{ position: "absolute", right: 0, top: -10, width: 60, height: 60, borderRadius: "50%", background: "rgba(99,102,241,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <Users size={24} color="rgba(255,255,255,0.8)" />
+                        </div>
+                        <div style={{ position: "absolute", right: 45, top: 5, width: 40, height: 40, borderRadius: "50%", background: "rgba(99,102,241,0.4)" }} />
+                        <div style={{ position: "absolute", right: 20, top: -5, fontSize: 16, color: "rgba(255,255,255,0.5)" }}>✦</div>
+                        <div style={{ position: "absolute", right: 75, top: 0, fontSize: 10, color: "rgba(255,255,255,0.3)" }}>✦</div>
+                    </div>
+                </div>
 
-    {/* Botones */}
-    <div style={{ display: "flex", justifyContent: "center", gap: 12, paddingTop: 20, borderTop: "1px solid #f1f5f9" }}>
-        <button type="button" onClick={limpiarFormulario}
-            style={{ padding: "11px 32px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-            Cancelar
-        </button>
-        <button type="button" onClick={limpiarFormulario}
-            style={{ padding: "11px 32px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #4f46e5, #6366f1)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 14px rgba(99,102,241,0.35)" }}>
-            <Plus size={15} /> Crear usuario
-        </button>
-        <button type="submit" disabled={loading}
-            style={{ padding: "11px 32px", borderRadius: 10, border: "none", background: loading ? "#94a3b8" : "#131E5C", color: "#fff", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 14px rgba(19,30,92,0.3)" }}>
-            <Save size={15} />
-            {loading ? "Guardando..." : "Guardar cambios"}
-        </button>
-    </div>
-</form>
-</div>
+                {/* Formulario */}
+                <form onSubmit={crearUsuario} style={{ padding: "28px 32px" }}>
+
+                    {/* Fila 1: Nombre, Apellidos, Usuario */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "18px 24px", marginBottom: 20 }}>
+                        <InputWithSideIcon icon={User} label="Nombre(s)" value={nuevoUsuario.nombre}
+                            onChange={e => setNuevoUsuario(p => ({ ...p, nombre: e.target.value }))} placeholder="Ej. Juan Carlos" />
+                        <InputWithSideIcon icon={User} label="Apellidos" value={nuevoUsuario.apellidos}
+                            onChange={e => setNuevoUsuario(p => ({ ...p, apellidos: e.target.value }))} placeholder="Ej. Pérez García" />
+                        <InputWithSideIcon icon={AtSign} label="Usuario" value={nuevoUsuario.usuario}
+                            onChange={e => setNuevoUsuario(p => ({ ...p, usuario: e.target.value }))} placeholder="Ej. juancarlos" />
+                    </div>
+
+                    {/* Fila 2: Correo + Contraseña */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 24px", marginBottom: 20 }}>
+                        <InputWithSideIcon icon={Mail} label="Correo electrónico" type="email" value={nuevoUsuario.correo}
+                            onChange={e => setNuevoUsuario(p => ({ ...p, correo: e.target.value }))} placeholder="Ej. juancarlos@correo.com" />
+                        <PasswordSideField label="Contraseña" value={nuevoUsuario.contrasena}
+                            onChange={e => setNuevoUsuario(p => ({ ...p, contrasena: e.target.value }))} placeholder="Mín. 8 caracteres" />
+                    </div>
+
+                    {/* Fila 3: Rol como botones toggle */}
+                    <div style={{ marginBottom: 20 }}>
+                        <RolToggle
+                            value={nuevoUsuario.id_rol}
+                            onChange={v => { setSelectedRolId(v); setNuevoUsuario(p => ({ ...p, id_rol: v })); }}
+                            roles={roles}
+                            onNuevoRol={() => setModalRolOpen(true)} />
+
+                    </div>
+
+                    {/* Fila 4: Estado + Foto lado a lado */}
+                    <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 24, marginBottom: 20, alignItems: "start" }}>
+                        <EstadoToggle value={estadoNuevo} onChange={setEstadoNuevo} />
+                        <div>
+                            <FLabel>Foto de perfil <span style={{ color: "#94a3b8", fontWeight: 400 }}>(opcional)</span></FLabel>
+                            <label style={{
+                                display: "flex", alignItems: "center", gap: 14,
+                                marginTop: 6, padding: "12px 18px",
+                                borderRadius: 12, border: "1px dashed #c7d2fe",
+                                background: "#f8faff", cursor: "pointer",
+                            }}>
+                                <div style={{ width: 36, height: 36, borderRadius: 9, background: "#e0e7ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                    <Upload size={16} color="#131E5C" />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", margin: 0 }}>
+                                        {nuevoUsuario.foto ? nuevoUsuario.foto.name : "Arrastra una imagen o haz clic para seleccionar"}
+                                    </p>
+                                    <p style={{ fontSize: 11, color: "#94a3b8", margin: "2px 0 0" }}>JPG, PNG o WEBP. Máx. 2MB</p>
+                                </div>
+                                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                    <User size={20} color="#94a3b8" />
+                                </div>
+                                <input type="file" accept="image/*" style={{ display: "none" }}
+                                    onChange={e => setNuevoUsuario(p => ({ ...p, foto: e.target.files[0] }))} />
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Agencias con Seleccionar todas */}
+                    <div style={{ marginBottom: 28 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                <Building2 size={14} color="#131E5C" />
+                                <FLabel>Agencia(s)</FLabel>
+                            </div>
+                            <button type="button"
+                                onClick={() => setAgenciasSeleccionadas(
+                                    agenciasSeleccionadas.length === DEALERS.length ? [] : [...DEALERS]
+                                )}
+                                style={{
+                                    display: "inline-flex", alignItems: "center", gap: 5,
+                                    padding: "5px 12px", borderRadius: 8,
+                                    border: "1px solid #e2e8f0", background: "#fff",
+                                    fontSize: 12, fontWeight: 600, color: "#131E5C", cursor: "pointer",
+                                }}>
+                                {agenciasSeleccionadas.length === DEALERS.length ? "Deseleccionar todas" : "Seleccionar todas"}
+                                <ChevronDown size={13} />
+                            </button>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
+                            {DEALERS.map(dealer => (
+                                <AgencyCheck key={dealer} label={dealer}
+                                    checked={agenciasSeleccionadas.includes(dealer)}
+                                    onChange={() => toggleAgencia(dealer)} />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Botones */}
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "center",
+                            gap: 12,
+                            paddingTop: 20,
+                            borderTop: "1px solid #f1f5f9",
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={limpiarFormulario}
+                            disabled={loading}
+                            style={{
+                                padding: "11px 32px",
+                                borderRadius: 10,
+                                border: "1px solid #e2e8f0",
+                                background: "#fff",
+                                color: "#374151",
+                                fontSize: 14,
+                                fontWeight: 600,
+                                cursor: loading ? "not-allowed" : "pointer",
+                            }}
+                        >
+                            Limpiar
+                        </button>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            style={{
+                                padding: "11px 32px",
+                                borderRadius: 10,
+                                border: "none",
+                                background: loading
+                                    ? "#94a3b8"
+                                    : "linear-gradient(135deg, #4f46e5, #6366f1)",
+                                color: "#fff",
+                                fontSize: 14,
+                                fontWeight: 700,
+                                cursor: loading ? "not-allowed" : "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                boxShadow: "0 4px 14px rgba(99,102,241,0.35)",
+                            }}
+                        >
+                            <Plus size={15} />
+                            {loading ? "Creando..." : "Crear usuario"}
+                        </button>
+                    </div>
+                </form>
+            </div>
 
             {/* ── Tabla usuarios ── */}
             <div style={{ marginBottom: 24 }}>
@@ -1555,29 +1648,29 @@ export default function Settings() {
                 <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
                 {/* Filtros */}
-<div style={{ display: "flex", gap: 14, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 14, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "14px 16px" }}>
-    <FilterSelect label="Agencia" value={filtroAgencia} onChange={setFiltroAgencia} options={["Todas", ...DEALERS]} />
-    <FilterSelect label="Rol" value={filtroRol} onChange={setFiltroRol} options={rolesUnicos} />
-    <FilterSelect label="Estado" value={filtroEstado} onChange={setFiltroEstado} options={["Todos", "Activo", "Inactivo"]} />
-    {(filtroAgencia !== "Todas" || filtroRol !== "Todos" || filtroEstado !== "Todos") && (
-        <button
-            onClick={() => { setFiltroAgencia("Todas"); setFiltroRol("Todos"); setFiltroEstado("Todos"); }}
-            style={{ padding: "9px 14px", borderRadius: 9, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#374151", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-        >
-            Limpiar filtros
-        </button>
-    )}
-    <span style={{ marginLeft: "auto", fontSize: 12, color: "#94a3b8", alignSelf: "center" }}>
-        {usuariosFiltrados.length} de {usuarios.length} usuarios
-    </span>
-</div>
-{loadingTable ? (
-    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "36px 0", textAlign: "center", fontSize: 13, color: "#94a3b8" }}>
-        Cargando usuarios...
-    </div>
-) : (
-    <UsersTableUnificada users={usuariosFiltrados} onEdit={openEdit} />
-)}
+                <div style={{ display: "flex", gap: 14, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 14, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "14px 16px" }}>
+                    <FilterSelect label="Agencia" value={filtroAgencia} onChange={setFiltroAgencia} options={["Todas", ...DEALERS]} />
+                    <FilterSelect label="Rol" value={filtroRol} onChange={setFiltroRol} options={rolesUnicos} />
+                    <FilterSelect label="Estado" value={filtroEstado} onChange={setFiltroEstado} options={["Todos", "Activo", "Inactivo"]} />
+                    {(filtroAgencia !== "Todas" || filtroRol !== "Todos" || filtroEstado !== "Todos") && (
+                        <button
+                            onClick={() => { setFiltroAgencia("Todas"); setFiltroRol("Todos"); setFiltroEstado("Todos"); }}
+                            style={{ padding: "9px 14px", borderRadius: 9, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#374151", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                        >
+                            Limpiar filtros
+                        </button>
+                    )}
+                    <span style={{ marginLeft: "auto", fontSize: 12, color: "#94a3b8", alignSelf: "center" }}>
+                        {usuariosFiltrados.length} de {usuarios.length} usuarios
+                    </span>
+                </div>
+                {loadingTable ? (
+                    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "36px 0", textAlign: "center", fontSize: 13, color: "#94a3b8" }}>
+                        Cargando usuarios...
+                    </div>
+                ) : (
+                    <UsersTableUnificada users={usuariosFiltrados} onEdit={openEdit} />
+                )}
             </div>
 
             {/* ── Resumen (debajo de la tabla) ── */}
@@ -1603,13 +1696,13 @@ export default function Settings() {
                 <UserModal user={modalUser} roles={roles} token={token} onClose={closeModal} onSaved={cargarUsuarios} />
             )}
             {/* Modal Nuevo Rol */}
-{modalRolOpen && (
-    <NuevoRolModal
-        token={token}
-        onClose={() => setModalRolOpen(false)}
-        onCreado={onRolCreado}
-    />
-)}
+            {modalRolOpen && (
+                <NuevoRolModal
+                    token={token}
+                    onClose={() => setModalRolOpen(false)}
+                    onCreado={onRolCreado}
+                />
+            )}
         </div>
     );
 }

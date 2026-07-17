@@ -805,6 +805,34 @@ export const api = {
       body: JSON.stringify(withRequestContext({ telefono, sdp_offer })),
     }),
 
+  // Control de IA por conversación
+  iaPausarConversacion: ({ tel, motivo = "manual_desde_chat" }) =>
+    http("/digitales/ia/conversacion/pausar/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        withRequestContext({
+          tel: normalizaTelefonoMx(tel),
+          motivo,
+        }),
+      ),
+    }),
+
+  iaReactivarConversacion: ({ tel }) =>
+    http("/digitales/ia/conversacion/reactivar/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        withRequestContext({
+          tel: normalizaTelefonoMx(tel),
+        }),
+      ),
+    }),
+
   // Configuración IA
   iaLineas: () => http("/digitales/ia/lineas/"),
 
