@@ -1,8 +1,11 @@
 // src/pages/Administrativos/AdministrativosTopNav.jsx
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { CalendarCheck2, BriefcaseBusiness } from "lucide-react";
-import vwDark from "../../assets/vw_dark.png";
+import {
+    CalendarCheck2,
+    BriefcaseBusiness,
+    UserPlus,
+} from "lucide-react";import vwDark from "../../assets/vw_dark.png";
 
 const BRAND_BLUE = "#131E5C";
 
@@ -24,8 +27,21 @@ export default function AdministrativosTopNav() {
 
     const tabs = useMemo(
         () => [
-            { label: "Reclutamiento", href: "reclutamiento", icon: CalendarCheck2 },
-            { label: "Puestos", href: "puestos", icon: BriefcaseBusiness },
+            {
+                label: "Reclutamiento",
+                href: "reclutamiento",
+                icon: CalendarCheck2,
+            },
+            {
+                label: "Alta del Personal",
+                href: "alta-personal",
+                icon: UserPlus,
+            },
+            {
+                label: "Puestos",
+                href: "puestos",
+                icon: BriefcaseBusiness,
+            },
         ],
         []
     );

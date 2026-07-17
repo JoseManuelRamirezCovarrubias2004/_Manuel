@@ -85,6 +85,7 @@ import Safety from "./pages/SafetyCulture/Safety";
 
 import Reclutamiento from "./pages/Reclutamiento/Reclutamiento";
 import Puestos from "./pages/puestos/Puestos";
+import AltaPersonal from "./pages/AltaPersonal/AltaPersonal";
 
 import CampanasMeta from "./pages/CampanasMeta/CampanasMeta";
 import Retencion from "./pages/Retencion/Retencion";
@@ -824,7 +825,6 @@ export const router = createBrowserRouter(
                             ],
                         },
 
-
                         {
                             path: "administrativos",
                             element: (
@@ -843,7 +843,7 @@ export const router = createBrowserRouter(
                                     index: true,
                                     element: <AdministrativosIndex />,
                                 },
-                                {
+                               {
                                     path: "reclutamiento",
                                     element: (
                                         <RequirePermission
@@ -854,6 +854,20 @@ export const router = createBrowserRouter(
                                             ]}
                                         >
                                             <Reclutamiento />
+                                        </RequirePermission>
+                                    ),
+                                },
+                                {
+                                    path: "alta-personal",
+                                    element: (
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_RRHH",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
+                                            <AltaPersonal />
                                         </RequirePermission>
                                     ),
                                 },

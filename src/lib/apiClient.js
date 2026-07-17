@@ -444,23 +444,28 @@ export async function http(
   }
 
   if (!res.ok) {
-    const message = resolveErrorMessage(responseData, res.status);
-    const error = new Error(message);
+  const message = resolveErrorMessage(responseData, res.status);
+  const error = new Error(message);
 
-    error.status = res.status;
-    error.data = responseData;
-    error.code = res.status === 401 ? "SESSION_EXPIRED" : "API_ERROR";
+  error.status = res.status;
+  error.data = responseData;
+  error.code = res.status === 401 ? "SESSION_EXPIRED" : "API_ERROR";
 
-    if (res.status === 401) {
-      clearJwtTokens();
+  // 👇 AGREGA ESTO
+  console.log("========== ERROR DEL BACK ==========");
+  console.log(responseData);
+  console.log("===================================");
 
-      if (redirectOnUnauthorized) {
-        redirectToLogin();
-      }
+  if (res.status === 401) {
+    clearJwtTokens();
+
+    if (redirectOnUnauthorized) {
+      redirectToLogin();
     }
-
-    throw error;
   }
+
+  throw error;
+}
 
   return responseData;
 }
