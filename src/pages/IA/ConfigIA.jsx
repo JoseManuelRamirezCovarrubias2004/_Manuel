@@ -27,8 +27,6 @@ function normalizaNumeroConfigIA(value) {
 
     if (!raw) return "";
 
-    // Ya no se permite configuración global.
-    // Cualquier intento de GLOBAL, TODOS, ALL o * se trata como inválido.
     if (["GLOBAL", "TODOS", "ALL", "*"].includes(raw.toUpperCase())) {
         return "";
     }

@@ -843,7 +843,7 @@ export const router = createBrowserRouter(
                                     index: true,
                                     element: <AdministrativosIndex />,
                                 },
-                               {
+                                {
                                     path: "reclutamiento",
                                     element: (
                                         <RequirePermission
@@ -929,7 +929,7 @@ export const router = createBrowserRouter(
                         {
                             path: "configuracion_ia",
                             element: (
-                                <RequirePermission anyOf={["USUARIOS_ADMIN"]}>
+                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_DIGITALES"]}>
                                     <ConfigIA />
                                 </RequirePermission>
                             ),

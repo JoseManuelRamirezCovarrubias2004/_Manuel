@@ -168,6 +168,103 @@ function normalizeText(value) {
         .replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+
+function asObject(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function firstNonEmpty(...values) {
+    for (const value of values) {
+        const clean = String(value || "").trim();
+        if (clean) return clean;
+    }
+    return "";
+}
+
+function getPautaOrigenFromMessage(message = {}) {
+    const raw = asObject(message?.raw);
+    const ultimoWebhook = asObject(raw?.ultimo_webhook_payload);
+    const originPreview = asObject(message?.origin_preview || message?.originPreview);
+
+    const referral = [
+        asObject(message?.referral),
+        asObject(originPreview?.referral),
+        asObject(raw?.referral),
+        asObject(asObject(raw?.context)?.referral),
+        asObject(ultimoWebhook?.referral),
+        asObject(asObject(ultimoWebhook?.context)?.referral),
+    ].find((item) => Object.keys(item).length > 0) || {};
+
+    const atribucion = [
+        asObject(originPreview?.atribucion),
+        asObject(raw?.atribucion_meta),
+        asObject(ultimoWebhook?.atribucion_meta),
+    ].find((item) => Object.keys(item).length > 0) || {};
+
+    const nombreCampana = firstNonEmpty(
+        originPreview?.nombre_campana,
+        atribucion?.nombre_campana,
+        atribucion?.campaign_name,
+    );
+
+    const nombreAnuncio = firstNonEmpty(
+        originPreview?.nombre_anuncio,
+        atribucion?.nombre_anuncio,
+        referral?.headline,
+    );
+
+    const sucursal = firstNonEmpty(originPreview?.sucursal, atribucion?.sucursal);
+
+    const pauta = firstNonEmpty(
+        originPreview?.pauta,
+        atribucion?.pauta,
+        sucursal && nombreCampana ? `${sucursal} - ${nombreCampana}` : "",
+        nombreCampana,
+        nombreAnuncio,
+    );
+
+    const headline = firstNonEmpty(
+        originPreview?.headline,
+        referral?.headline,
+        nombreAnuncio,
+        nombreCampana,
+        pauta,
+    );
+
+    const body = firstNonEmpty(
+        originPreview?.body,
+        referral?.body,
+        atribucion?.nombre_conjunto,
+    );
+
+    const sourceUrl = firstNonEmpty(originPreview?.source_url, referral?.source_url);
+    const imageUrl = firstNonEmpty(
+        originPreview?.image_url,
+        referral?.image_url,
+        referral?.thumbnail_url,
+        referral?.video_thumbnail_url,
+    );
+
+    if (!pauta && !headline && !sourceUrl && !imageUrl) return null;
+
+    return {
+        pauta: pauta || headline,
+        nombre_campana: nombreCampana,
+        nombre_anuncio: nombreAnuncio,
+        sucursal,
+        headline: headline || pauta,
+        body,
+        source_url: sourceUrl,
+        image_url: imageUrl,
+        media_type: firstNonEmpty(originPreview?.media_type, referral?.media_type),
+        source_type: firstNonEmpty(originPreview?.source_type, referral?.source_type),
+        source_id: firstNonEmpty(originPreview?.source_id, referral?.source_id),
+        origen: firstNonEmpty(originPreview?.origen, atribucion?.motivo, "meta_ads"),
+        referral,
+        atribucion,
+    };
+}
+
 function normalizeProspectoToChat(p) {
     return {
         id: `prospecto-${p.id || p.telefono}`,
@@ -634,6 +731,7 @@ function normalizeMessage(message = {}) {
         reply_to_id: message.reply_to_id || getReplyToId(message),
         reactions: getMessageReactions(message),
         is_reaction_event: reactionEvent,
+        origin_preview: reactionEvent ? null : getPautaOrigenFromMessage(message),
     };
 }
 
@@ -1112,6 +1210,78 @@ function groupMessagesByDate(messages) {
     return groups;
 }
 
+
+function getHostLabel(url) {
+    try {
+        return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+        return "Meta Ads";
+    }
+}
+
+function PautaOrigenCard({ data }) {
+    const [imageFailed, setImageFailed] = useState(false);
+
+    if (!data?.pauta && !data?.headline && !data?.image_url) return null;
+
+    const showImage = Boolean(data?.image_url && !imageFailed);
+
+    const content = (
+        <div className="overflow-hidden rounded-xl border border-[#131E5C]/15 bg-[#F0F2F5] shadow-sm">
+            <div className="flex min-w-[270px] max-w-[430px] items-stretch">
+                {showImage ? (
+                    <div className="h-[96px] w-[96px] shrink-0 overflow-hidden bg-neutral-200">
+                        <img
+                            src={data.image_url}
+                            alt={data.headline || data.pauta || "Anuncio de origen"}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                            onError={() => setImageFailed(true)}
+                        />
+                    </div>
+                ) : (
+                    <div className="flex h-[96px] w-[76px] shrink-0 items-center justify-center bg-[#131E5C] text-white">
+                        <LayoutTemplate className="h-5 w-5" />
+                    </div>
+                )}
+
+                <div className="min-w-0 flex-1 px-3 py-2.5">
+                    <div className="text-[10px] font-black uppercase tracking-wide text-[#667781]">
+                        Anuncio de origen
+                    </div>
+                    <div className="mt-0.5 line-clamp-2 text-sm font-extrabold leading-snug text-[#111B21]">
+                        {data.headline || data.nombre_campana || data.pauta}
+                    </div>
+                    {data.body ? (
+                        <div className="mt-1 line-clamp-2 text-[11px] font-medium leading-snug text-[#667781]">
+                            {data.body}
+                        </div>
+                    ) : null}
+                    <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-[#667781]">
+                        <span className="truncate">{data.nombre_campana || data.pauta}</span>
+                        {data.source_url ? <span className="shrink-0">· {getHostLabel(data.source_url)}</span> : null}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    if (!data.source_url) return <div className="mb-2">{content}</div>;
+
+    return (
+        <a
+            href={data.source_url}
+            target="_blank"
+            rel="noreferrer"
+            className="mb-2 block transition hover:brightness-[0.98]"
+            title="Abrir anuncio de origen"
+        >
+            {content}
+        </a>
+    );
+}
+
 function MessageBubble({
     mine,
     text,
@@ -1126,6 +1296,7 @@ function MessageBubble({
     localPending,
     domId,
     highlighted,
+    originPreview,
 }) {
     const rawText = renderText ? renderText(text) : text;
     const shown = cleanMediaTextForBubble(rawText, attachments);
@@ -1178,6 +1349,10 @@ function MessageBubble({
                             )
                     )}
                 >
+                    {!mine && originPreview && !stickerOnly ? (
+                        <PautaOrigenCard data={originPreview} />
+                    ) : null}
+
                     {replyPreview && !stickerOnly ? (
                         <button
                             type="button"
@@ -1524,6 +1699,62 @@ export default function DigitalesContacto() {
         return { id: activeTel, telefono: activeTel, nombre: prospecto?.nombre || "Prospecto", agencia: prospecto?.agencia || "", linea: prospecto?.business || "", estado: prospecto?.estado || "", unread: 0, last: { text: "", time: "" } };
     }, [activeTel, chats, prospecto]);
 
+    const pautaOrigenMarker = useMemo(() => {
+        const mensajesOrdenados = applyReactionEvents(mensajes);
+        const primerEntranteVisible = mensajesOrdenados.find((message) => !message?.mine);
+
+        if (!primerEntranteVisible) return null;
+
+        for (const message of mensajesOrdenados) {
+            if (message?.mine) continue;
+
+            const pautaMensaje = getPautaOrigenFromMessage(message);
+
+            if (pautaMensaje) {
+                return {
+                    messageKey: getMessageKey(message),
+                    ...pautaMensaje,
+                };
+            }
+        }
+
+        const previewExpediente = asObject(
+            prospecto?.origen_preview || prospecto?.origin_preview
+        );
+
+        if (Object.keys(previewExpediente).length > 0) {
+            return {
+                messageKey: getMessageKey(primerEntranteVisible),
+                ...previewExpediente,
+                pauta: previewExpediente.pauta || prospecto?.pauta || "",
+                headline:
+                    previewExpediente.headline ||
+                    previewExpediente.nombre_campana ||
+                    prospecto?.pauta ||
+                    "Anuncio de origen",
+            };
+        }
+
+        const pauta = String(prospecto?.pauta || "").trim();
+
+        if (pauta) {
+            return {
+                messageKey: getMessageKey(primerEntranteVisible),
+                pauta,
+                nombre_campana: pauta,
+                sucursal: prospecto?.agencia || "",
+                headline: pauta,
+                body: "Prospecto originado desde una campaña de Meta.",
+                source_url: "",
+                image_url: "",
+                origen: "expediente",
+            };
+        }
+
+        return null;
+    }, [mensajes, prospecto]);
+
+
     const clienteBloqueado = useMemo(() => {
         return Boolean(prospecto?.whatsapp_bloqueado || activeChat?.whatsapp_bloqueado);
     }, [prospecto, activeChat]);
@@ -1631,10 +1862,10 @@ export default function DigitalesContacto() {
         } catch { prefetchedChatsRef.current.delete(target); }
     }
 
-   async function refreshChats() {
-    const data = await api.digitalesChats();
-    console.log("CHATS RAW:", data[0]); 
-    const normalized = (Array.isArray(data) ? data : []).map(chat => ({
+    async function refreshChats() {
+        const data = await api.digitalesChats();
+        console.log("CHATS RAW:", data[0]);
+        const normalized = (Array.isArray(data) ? data : []).map(chat => ({
             id: chat.id || chat.telefono || crypto.randomUUID(),
             telefono: normalizaTelefonoMx(chat.telefono || ""),
             nombre: chat.nombre || "Prospecto",
@@ -1645,7 +1876,7 @@ export default function DigitalesContacto() {
             ia_pausada: Boolean(chat.ia_pausada),
             ia_bloqueos: Array.isArray(chat.ia_bloqueos) ? chat.ia_bloqueos : [],
             unread: Number(chat.unread || 0),
-           last: { text: chat.last_text || "", time: chat.last_time || "", timestamp: chat.last_message_at || "" },
+            last: { text: chat.last_text || "", time: chat.last_time || "", timestamp: chat.last_message_at || "" },
             whatsapp_bloqueado: Boolean(chat.whatsapp_bloqueado),
             whatsapp_bloqueado_motivo: chat.whatsapp_bloqueado_motivo || "",
         }));
@@ -2367,40 +2598,40 @@ export default function DigitalesContacto() {
     }
 
     // ── Agendar cita desde el chat ────────────────────────────────────────────
-  async function llamarCrearCita(payload) {
-    if (typeof apiCitas?.create === "function") return apiCitas.create(payload);
-    if (typeof api.digitalesCrearCita === "function") return api.digitalesCrearCita(payload);
-    if (typeof api.crearCita === "function") return api.crearCita(payload);
-    if (typeof api.post === "function") return api.post("/citas/crear/", payload);
-    throw new Error("Falta agregar api.digitalesCrearCita en src/lib/apiPruebas.js");
-}
-
-   async function guardarCita({ fecha, hora, nota }) {
-    if (!activeTel || savingCita) return;
-    setSavingCita(true);
-    try {
-        const fechaHoraIso = `${fecha}T${hora}:00`;
-        await llamarCrearCita({
-            agencia: prospecto?.agencia || activeChat?.agencia || "",
-            nombre: activeChat?.nombre || prospecto?.nombre || "Prospecto",
-            telefono: activeTel,
-            auto_interes: prospecto?.auto_interes || "",
-            fecha_hora_cita: fechaHoraIso,
-            asistencia: false,
-            tipo_cita: "Digital",
-            fuente_prospeccion: prospecto?.pauta || prospecto?.pauta_origen || "",
-            asesor_digital: prospecto?.asesor_digital || "",
-            asesor_piso: "",
-            comentarios: nota || "",
-        });
-        setShowCitaModal(false);
-        alert(`Cita agendada para ${formatearFechaConDia(`${fecha}T00:00:00`)} a las ${hora}.`);
-    } catch (error) {
-        alert(`No se pudo agendar la cita: ${error.message}`);
-    } finally {
-        setSavingCita(false);
+    async function llamarCrearCita(payload) {
+        if (typeof apiCitas?.create === "function") return apiCitas.create(payload);
+        if (typeof api.digitalesCrearCita === "function") return api.digitalesCrearCita(payload);
+        if (typeof api.crearCita === "function") return api.crearCita(payload);
+        if (typeof api.post === "function") return api.post("/citas/crear/", payload);
+        throw new Error("Falta agregar api.digitalesCrearCita en src/lib/apiPruebas.js");
     }
-}
+
+    async function guardarCita({ fecha, hora, nota }) {
+        if (!activeTel || savingCita) return;
+        setSavingCita(true);
+        try {
+            const fechaHoraIso = `${fecha}T${hora}:00`;
+            await llamarCrearCita({
+                agencia: prospecto?.agencia || activeChat?.agencia || "",
+                nombre: activeChat?.nombre || prospecto?.nombre || "Prospecto",
+                telefono: activeTel,
+                auto_interes: prospecto?.auto_interes || "",
+                fecha_hora_cita: fechaHoraIso,
+                asistencia: false,
+                tipo_cita: "Digital",
+                fuente_prospeccion: prospecto?.pauta || prospecto?.pauta_origen || "",
+                asesor_digital: prospecto?.asesor_digital || "",
+                asesor_piso: "",
+                comentarios: nota || "",
+            });
+            setShowCitaModal(false);
+            alert(`Cita agendada para ${formatearFechaConDia(`${fecha}T00:00:00`)} a las ${hora}.`);
+        } catch (error) {
+            alert(`No se pudo agendar la cita: ${error.message}`);
+        } finally {
+            setSavingCita(false);
+        }
+    }
 
     async function bloquearContactoActivo() {
         if (!activeTel || blockingTel) return;
@@ -2693,7 +2924,7 @@ export default function DigitalesContacto() {
             <div className="relative overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
 
                 <div className={cls(
-                    "grid min-h-0 h-[calc(100dvh-64px)] overflow-hidden transition-[grid-template-columns] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    "grid min-h-0 h-[calc(90dvh-64px)] overflow-hidden transition-[grid-template-columns] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
                     isDirectChatMode ? "grid-cols-1" : chatSidebarCollapsed ? "grid-cols-1 lg:grid-cols-[58px_minmax(0,1fr)]" : "grid-cols-1 lg:grid-cols-[310px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]"
                 )}>
 
@@ -2784,9 +3015,9 @@ export default function DigitalesContacto() {
                                                             {/* Fila 1: nombre + hora */}
                                                             <div className="flex items-start justify-between gap-2">
                                                                 <div className="truncate text-sm font-extrabold text-[#131E5C] leading-tight">{chat.nombre}</div>
-<div className="shrink-0 text-[11px] font-semibold text-slate-400 leading-tight">
-    {chat.last?.timestamp ? formatearFechaConDia(chat.last.timestamp) : chat.last?.time || ""}
-</div>                                                            </div>
+                                                                <div className="shrink-0 text-[11px] font-semibold text-slate-400 leading-tight">
+                                                                    {chat.last?.timestamp ? formatearFechaConDia(chat.last.timestamp) : chat.last?.time || ""}
+                                                                </div>                                                            </div>
 
                                                             {/* Fila 2: último mensaje + badge unread */}
                                                             <div className="mt-0.5 flex items-center justify-between gap-2">
@@ -3102,8 +3333,13 @@ export default function DigitalesContacto() {
                                             <DateSeparator date={group.date} />
                                             {group.messages.map((message) => {
                                                 const messageId = message.wa_message_id || "";
-                                                const domId = `msg-${getMessageKey(message)}`;
+                                                const messageKey = getMessageKey(message);
+                                                const domId = `msg-${messageKey}`;
                                                 const quoted = message.reply_to_id ? messagesById.get(String(message.reply_to_id)) : null;
+                                                const mostrarPautaOrigen = Boolean(
+                                                    pautaOrigenMarker?.messageKey &&
+                                                    pautaOrigenMarker.messageKey === messageKey
+                                                );
                                                 // Usar formato de hora corta para la burbuja
                                                 const timeDisplay = formatMessageTime(message.created_at || message.local_created_at);
                                                 return (
@@ -3119,6 +3355,7 @@ export default function DigitalesContacto() {
                                                         attachments={message.attachments || []}
                                                         reactions={message.reactions || []}
                                                         isAi={Boolean(message.is_ai)}
+                                                        originPreview={mostrarPautaOrigen ? pautaOrigenMarker : null}
                                                         renderText={renderTextForBubble}
                                                         replyPreview={quoted ? {
                                                             author: getReplyAuthor(quoted),
