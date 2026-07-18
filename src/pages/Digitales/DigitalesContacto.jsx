@@ -50,8 +50,6 @@ const DEALERS = [
     "VW Poza Rica",
     "VW Tuxtepec",
     "VW Tuxpan",
-    "Chirey",
-    "JAECOO R&R",
 ];
 
 const VEHICULOS = [
@@ -63,6 +61,7 @@ const VEHICULOS = [
 const CANALES = ["VW-Concesionario", "WhatsApp", "Facebook", "Llamada Entrante"];
 
 const ESTADOS_PROSPECTO = ["Descalificado", "Contactado", "Sin Respuesta"];
+const MOTIVOS_DESCALIFICACION = ["Busca trabajo", "No contesto", "Poco presupuesto", "Descalificado por consultor", "Compro en otra marca"];
 
 const BURO_OPTIONS = [
     { value: "", label: "— Selecciona —" },
@@ -2738,30 +2737,148 @@ export default function DigitalesContacto() {
 
     async function saveQuickEdit() {
         if (!prospecto?.id || !activeTel) return;
+
+        const estado = String(quickEditDraft.estado || "").trim();
+        const motivoDescalificacion = String(
+            quickEditDraft.motivo_descalificacion || ""
+        ).trim();
+
+        if (
+            estado.toLowerCase() === "descalificado" &&
+            !motivoDescalificacion
+        ) {
+            return;
+        }
+
         setSavingQuickEdit(true);
+
         try {
             const payload = {
-                nombre: quickEditDraft.nombre || "", auto_interes: quickEditDraft.auto_interes || "", estado: quickEditDraft.estado || "",
-                canal_contacto: quickEditDraft.canal_contacto || "", comentarios: quickEditDraft.comentarios || "",
-                enganche_monto: quickEditDraft.enganche_monto ? Number(String(quickEditDraft.enganche_monto).replace(/\D/g, "")) || null : null,
-                presupuesto_mensual: quickEditDraft.presupuesto_mensual ? Number(String(quickEditDraft.presupuesto_mensual).replace(/\D/g, "")) || null : null,
-                buro_estado: quickEditDraft.buro_estado || "", forma_pago: quickEditDraft.forma_pago || "", tipo_cliente: quickEditDraft.tipo_cliente || "",
-                uso_vehiculo: quickEditDraft.uso_vehiculo || "", plazo_compra: quickEditDraft.plazo_compra || "", comprobacion_ingresos: quickEditDraft.comprobacion_ingresos || "",
+                nombre: quickEditDraft.nombre || "",
+                auto_interes: quickEditDraft.auto_interes || "",
+                estado,
+
+                motivo_descalificacion:
+                    estado.toLowerCase() === "descalificado"
+                        ? motivoDescalificacion
+                        : "",
+
+                canal_contacto: quickEditDraft.canal_contacto || "",
+                comentarios: quickEditDraft.comentarios || "",
+
+                enganche_monto: quickEditDraft.enganche_monto
+                    ? Number(
+                        String(quickEditDraft.enganche_monto)
+                            .replace(/\D/g, "")
+                    ) || null
+                    : null,
+
+                presupuesto_mensual: quickEditDraft.presupuesto_mensual
+                    ? Number(
+                        String(quickEditDraft.presupuesto_mensual)
+                            .replace(/\D/g, "")
+                    ) || null
+                    : null,
+
+                buro_estado: quickEditDraft.buro_estado || "",
+                forma_pago: quickEditDraft.forma_pago || "",
+                tipo_cliente: quickEditDraft.tipo_cliente || "",
+                uso_vehiculo: quickEditDraft.uso_vehiculo || "",
+                plazo_compra: quickEditDraft.plazo_compra || "",
+                comprobacion_ingresos:
+                    quickEditDraft.comprobacion_ingresos || "",
             };
-            const pautaLimpia = String(quickEditDraft.pauta || "").trim();
-            if (pautaLimpia) payload.pauta = pautaLimpia;
-            await api.digitalesPatchProspecto(prospecto.id, payload);
+
+            const pautaLimpia = String(
+                quickEditDraft.pauta || ""
+            ).trim();
+
+            if (pautaLimpia) {
+                payload.pauta = pautaLimpia;
+            }
+
+            await api.digitalesPatchProspecto(
+                prospecto.id,
+                payload
+            );
+
             await refreshActiveChat(activeTel);
-        } catch (error) { alert(`No se pudo guardar: ${error.message}`); }
-        finally { setSavingQuickEdit(false); }
+        } catch (error) {
+            alert(`No se pudo guardar: ${error.message}`);
+        } finally {
+            setSavingQuickEdit(false);
+        }
     }
 
     async function saveHeaderEstado(nuevoEstado) {
         if (!prospecto?.id || !activeTel) return;
-        setHeaderEstado(nuevoEstado);
-        setQuickEditDraft(p => ({ ...p, estado: nuevoEstado }));
-        try { await api.digitalesPatchProspecto(prospecto.id, { estado: nuevoEstado }); await refreshActiveChat(activeTel).catch(() => { }); }
-        catch (error) { console.error("Error guardando estado:", error); }
+
+        const estado = String(nuevoEstado || "").trim();
+        const esDescalificado =
+            estado.toLowerCase() === "descalificado";
+
+        setHeaderEstado(estado);
+
+        setQuickEditDraft((current) => ({
+            ...current,
+            estado,
+            motivo_descalificacion: esDescalificado
+                ? current.motivo_descalificacion || ""
+                : "",
+        }));
+
+        // Todavía no guardamos porque falta seleccionar el motivo.
+        if (esDescalificado) return;
+
+        try {
+            await api.digitalesPatchProspecto(
+                prospecto.id,
+                {
+                    estado,
+                    motivo_descalificacion: "",
+                }
+            );
+
+            await refreshActiveChat(activeTel).catch(() => { });
+        } catch (error) {
+            console.error(
+                "Error guardando estado:",
+                error
+            );
+        }
+    }
+
+    async function saveHeaderMotivo(nuevoMotivo) {
+        if (!prospecto?.id || !activeTel) return;
+
+        const motivo = String(nuevoMotivo || "").trim();
+
+        setHeaderEstado("Descalificado");
+
+        setQuickEditDraft((current) => ({
+            ...current,
+            estado: "Descalificado",
+            motivo_descalificacion: motivo,
+        }));
+
+        if (!motivo) return;
+
+        try {
+            await api.digitalesPatchProspecto(
+                prospecto.id,
+                {
+                    estado: "Descalificado",
+                    motivo_descalificacion: motivo,
+                }
+            );
+
+            await refreshActiveChat(activeTel).catch(() => { });
+        } catch (error) {
+            console.error(
+                "Error guardando motivo de descalificación:",
+                error
+            );
+        }
     }
 
     // ── Effects ───────────────────────────────────────────────────────────────
@@ -2784,13 +2901,24 @@ export default function DigitalesContacto() {
 
     useEffect(() => {
         if (!prospecto) return;
+
         setHeaderEstado(prospecto.estado || "");
+
         setQuickEditDraft({
-            nombre: prospecto.nombre || "", auto_interes: prospecto.auto_interes || "", estado: prospecto.estado || "",
-            canal_contacto: prospecto.canal_contacto || "", comentarios: prospecto.comentarios || prospecto.comentario || "",
-            enganche_monto: prospecto.enganche_monto || "", presupuesto_mensual: prospecto.presupuesto_mensual || "",
-            buro_estado: prospecto.buro_estado || "", forma_pago: prospecto.forma_pago || "", tipo_cliente: prospecto.tipo_cliente || "",
-            uso_vehiculo: prospecto.uso_vehiculo || "", plazo_compra: prospecto.plazo_compra || "", comprobacion_ingresos: prospecto.comprobacion_ingresos || "",
+            nombre: prospecto.nombre || "",
+            auto_interes: prospecto.auto_interes || "",
+            estado: prospecto.estado || "",
+            motivo_descalificacion: prospecto.motivo_descalificacion || "",
+            canal_contacto: prospecto.canal_contacto || "",
+            comentarios: prospecto.comentarios || prospecto.comentario || "",
+            enganche_monto: prospecto.enganche_monto || "",
+            presupuesto_mensual: prospecto.presupuesto_mensual || "",
+            buro_estado: prospecto.buro_estado || "",
+            forma_pago: prospecto.forma_pago || "",
+            tipo_cliente: prospecto.tipo_cliente || "",
+            uso_vehiculo: prospecto.uso_vehiculo || "",
+            plazo_compra: prospecto.plazo_compra || "",
+            comprobacion_ingresos: prospecto.comprobacion_ingresos || "",
         });
     }, [prospecto]);
 
@@ -3132,6 +3260,26 @@ export default function DigitalesContacto() {
                                                 {renderOptionsConValorActual(ESTADOS_HEADER, headerEstado, "Sin estado")}
                                             </select>
                                         ) : null}
+                                        {/* Estado prospecto */}
+                                        {activeTel &&
+                                            String(headerEstado || "").toLowerCase() === "descalificado" ? (
+                                            <select
+                                                value={
+                                                    quickEditDraft.motivo_descalificacion || ""
+                                                }
+                                                onChange={(e) =>
+                                                    saveHeaderMotivo(e.target.value)
+                                                }
+                                                className="shrink-0 h-6 max-w-[220px] rounded-md border border-red-200 bg-red-50 px-1.5 text-[11px] font-semibold text-red-700 outline-none focus:border-red-400"
+                                                title="Motivo de descalificación"
+                                            >
+                                                {renderOptionsConValorActual(
+                                                    MOTIVOS_DESCALIFICACION,
+                                                    quickEditDraft.motivo_descalificacion,
+                                                    "Selecciona el motivo…"
+                                                )}
+                                            </select>
+                                        ) : null}
                                         {/* Pauta */}
                                         {activeTel ? (
                                             <select value={quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || ""}
@@ -3157,7 +3305,7 @@ export default function DigitalesContacto() {
                                     {!isDirectChatMode ? (
                                         <button type="button" onClick={() => marcarChatComoNoLeido(activeTel)}
                                             disabled={!activeTel || markingUnreadTel === activeTel}
-                                            className="inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 bg-white px-2 text-[11px] font-semibold text-slate-500 hover:bg-neutral-50 disabled:opacity-50 transition"
+                                            className="inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 bg-blue-50 px-2 text-[11px] font-semibold text-blue-500 hover:bg-blue-50 disabled:opacity-50 transition"
                                             title="Marcar como no leído">
                                             <MailOpen className="h-3.5 w-3.5" />
                                             <span className="hidden sm:inline">{markingUnreadTel === activeTel ? "..." : "No leído"}</span>
@@ -3241,7 +3389,7 @@ export default function DigitalesContacto() {
                                 </summary>
 
                                 <div className="border-t border-[#131E5C]/10 px-4 py-4">
-                                    <div className="mx-auto max-w-5xl">
+                                    <div className="mx-auto max-w-6xl">
                                         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                             <div>
                                                 <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Vehículo</div>
@@ -3251,6 +3399,39 @@ export default function DigitalesContacto() {
                                                 <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Estado</div>
                                                 <select value={quickEditDraft.estado || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, estado: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}</select>
                                             </div>
+                                            {String(quickEditDraft.estado || "")
+                                                .toLowerCase() === "descalificado" ? (
+                                                <div>
+                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-red-600">
+                                                        Motivo de descalificación *
+                                                    </div>
+
+                                                    <select
+                                                        value={
+                                                            quickEditDraft.motivo_descalificacion || ""
+                                                        }
+                                                        onChange={(e) =>
+                                                            setQuickEditDraft((current) => ({
+                                                                ...current,
+                                                                motivo_descalificacion:
+                                                                    e.target.value,
+                                                            }))
+                                                        }
+                                                        className={cls(
+                                                            "h-9 w-full rounded-lg border bg-white px-3 text-sm font-semibold outline-none focus:ring-1",
+                                                            quickEditDraft.motivo_descalificacion
+                                                                ? "border-black/10 text-[#131E5C]"
+                                                                : "border-red-300 text-red-700"
+                                                        )}
+                                                    >
+                                                        {renderOptionsConValorActual(
+                                                            MOTIVOS_DESCALIFICACION,
+                                                            quickEditDraft.motivo_descalificacion,
+                                                            "Selecciona el motivo…"
+                                                        )}
+                                                    </select>
+                                                </div>
+                                            ) : null}
                                             <div>
                                                 <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Canal</div>
                                                 <select value={quickEditDraft.canal_contacto || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, canal_contacto: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}</select>

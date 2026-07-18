@@ -432,6 +432,7 @@ function normalizeProspecto(p) {
         origen: p.canal_contacto || "",
         pauta: p.pauta || "",
         estado: p.estado || "",
+        motivo_descalificacion: p.motivo_descalificacion || "",
         comentarios: p.comentarios || "",
         resumen: p.resumen || "",
 
@@ -1864,6 +1865,7 @@ export default function DigitalesProspectos() {
             "Canal de Contacto": limpiarValorExcel(row.origen),
             "Pauta de Origen": limpiarValorExcel(row.pauta),
             Estado: limpiarValorExcel(row.estado),
+            "Motivo de descalificación": limpiarValorExcel(row.motivo_descalificacion),
             "Asesor Digital": limpiarValorExcel(row.asesor_digital),
             "Asignado a": limpiarValorExcel(row.asesor_solicita),
             "VW de sus sueños": limpiarValorExcel(row.cliente_interes),
@@ -1911,6 +1913,7 @@ export default function DigitalesProspectos() {
             origen: "",
             pauta: "",
             estado: "Contactado",
+            motivo_descalificacion: "",
             cliente_interes: "",
             comentarios: "",
             asesor_digital: !isAdmin ? contextoDigitalSesion?.asesor_digital || "" : "",
@@ -1951,7 +1954,7 @@ export default function DigitalesProspectos() {
         setAgendaInfo({ id_exp: row.id_exp, cliente_id: row.cliente_id, nombre, telefono: row.telefono || "", correo: row.correo || "", auto_interes: row.cliente_interes || "", agencia: row.agencia || "", fuente_prospeccion: row.origen || "", fecha_cita: "", asesor_digital: row.asesor_digital, asesor_solicita: row.asesor_solicita, tipo_cita: "" });
         setOpenAgendaModal(true);
     };
-    const openEdit = async (row) => {
+    const openEdit = async (row, estadoInicial = "") => {
         resetPlantillasModal();
         resetCacheProspectoGuardado();
         try {
@@ -1972,7 +1975,11 @@ export default function DigitalesProspectos() {
                 linea: p.business || "",
                 origen: p.canal_contacto || "",
                 pauta: p.pauta || "",
-                estado: p.estado || "",
+                estado: estadoInicial || p.estado || "",
+                motivo_descalificacion:
+                    normalizeText(estadoInicial || p.estado) === "descalificado"
+                        ? p.motivo_descalificacion || ""
+                        : "",
                 cliente_interes: p.auto_interes || "",
                 comentarios: p.comentarios || "",
                 resumen: p.resumen || "",
@@ -2033,6 +2040,10 @@ export default function DigitalesProspectos() {
             canal_contacto: draft.origen || "",
             pauta: draft.pauta || "",
             estado: draft.estado || "",
+            motivo_descalificacion:
+                normalizeText(draft.estado) === "descalificado"
+                    ? String(draft.motivo_descalificacion || "").trim()
+                    : "",
             asesor_digital: asesorDigitalFinal,
             asesor_ventas: draft.asesor_solicita || "",
             auto_interes: draft.cliente_interes || "",
@@ -2060,6 +2071,17 @@ export default function DigitalesProspectos() {
     async function asegurarProspectoGuardado() {
         if (!draft || saving) return null;
         setTouchedSave(true);
+        if (
+            normalizeText(draft.estado) === "descalificado" &&
+            !String(draft.motivo_descalificacion || "").trim()
+        ) {
+            alert("Selecciona un motivo de descalificación.");
+            return null;
+        }
+
+        if (missing.length || telInvalid || !telIsOk) {
+            return null;
+        }
         if (missing.length || telInvalid || !telIsOk) return null;
 
         const payloadActual = buildProspectoPayload();
@@ -2075,6 +2097,13 @@ export default function DigitalesProspectos() {
     async function guardarProspecto({ cerrar = true, procesarEvidencias = true } = {}) {
         if (!draft || saving) return null;
         setTouchedSave(true);
+        if (
+            normalizeText(draft.estado) === "descalificado" &&
+            !String(draft.motivo_descalificacion || "").trim()
+        ) {
+            alert("Selecciona un motivo de descalificación.");
+            return null;
+        }
         if (missing.length || telInvalid || !telIsOk) {
             return null;
         }
@@ -2213,17 +2242,34 @@ export default function DigitalesProspectos() {
     const updateEstadoInline = async (row, newEstado) => {
         const id = row?.id_exp;
         if (!id) return;
+        if (normalizeText(newEstado) === "descalificado") {
+            await openEdit(row, "Descalificado");
+            return;
+        }
         const prevEstado = row.estado;
         const prevPrimer = row.primer_contacto_at;
         const prevUltimo = row.ultimo_contacto_at;
         const now = new Date();
         const nowLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
         const primerContactoNuevo = row.primer_contacto_at || nowLocal; // solo se fija la primera vez
-        setCases((prev) => prev.map((c) => (c.id_exp === id ? { ...c, estado: newEstado, primer_contacto_at: primerContactoNuevo, ultimo_contacto_at: nowLocal } : c)));
+        setCases((prev) =>
+            prev.map((caso) =>
+                caso.id_exp === id
+                    ? {
+                        ...caso,
+                        estado: newEstado,
+                        motivo_descalificacion: "",
+                        primer_contacto_at: primerContactoNuevo,
+                        ultimo_contacto_at: nowLocal,
+                    }
+                    : caso
+            )
+        );
         setUpdatingEstado((p) => ({ ...p, [id]: true }));
         try {
             await api.digitalesPatchProspecto(id, {
                 estado: newEstado,
+                motivo_descalificacion: "",
                 primer_mensaje_cliente: primerContactoNuevo,
                 ultimo_contacto_asesor: nowLocal,
             });
@@ -3116,16 +3162,47 @@ export default function DigitalesProspectos() {
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="">
-                                        <div className="mb-1 text-sm font-bold text-[#131E5C]">Motivo Descalificacion</div>
-                                        <select value={draft.estado || ""} onChange={(e) => setDraft((p) => ({ ...p, estado: e.target.value }))} className={cls(inputBase, inputOk)}>
-                                            {MOTIVOS_DESCALIFICACION.map((s) => (
-                                                <option key={s} value={s}>
-                                                    {s}
+                                    {normalizeText(draft.estado) === "descalificado" ? (
+                                        <div>
+                                            <div className="mb-1 text-sm font-bold text-red-700">
+                                                Motivo de descalificación *
+                                            </div>
+
+                                            <select
+                                                value={draft.motivo_descalificacion || ""}
+                                                onChange={(e) =>
+                                                    setDraft((current) => ({
+                                                        ...current,
+                                                        motivo_descalificacion: e.target.value,
+                                                    }))
+                                                }
+                                                className={cls(
+                                                    inputBase,
+                                                    draft.motivo_descalificacion
+                                                        ? inputOk
+                                                        : "border-red-400 bg-red-50"
+                                                )}
+                                            >
+                                                <option value="">
+                                                    — Selecciona el motivo —
                                                 </option>
-                                            ))}
-                                        </select>
-                                    </div>
+
+                                                {MOTIVOS_DESCALIFICACION
+                                                    .filter(Boolean)
+                                                    .map((motivo) => (
+                                                        <option key={motivo} value={motivo}>
+                                                            {motivo}
+                                                        </option>
+                                                    ))}
+                                            </select>
+
+                                            {!draft.motivo_descalificacion ? (
+                                                <div className="mt-1 text-xs font-bold text-red-600">
+                                                    Debes seleccionar un motivo.
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
                                 </div>
                                 <div className="grid gap-3 md:grid-cols-2">
                                     <div>
