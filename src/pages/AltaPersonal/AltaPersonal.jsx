@@ -1,6 +1,22 @@
-import React, { useState } from "react";
-import { Search, Plus } from "lucide-react";
+import React, { useState, useEffect } from "react";
+
+import {
+    Search,
+    Plus,
+    Eye,
+    Pencil,
+    Trash2
+} from "lucide-react";
+
 import ModalColaborador from "./components/ModalColaborador";
+
+import {
+    obtenerColaboradores,
+    crearColaborador,
+    actualizarColaborador,
+    eliminarColaborador,
+} from "../../lib/apiColaboradores";
+
 
 export default function AltaPersonal() {
 
@@ -8,6 +24,22 @@ export default function AltaPersonal() {
     const [busqueda, setBusqueda] = useState("");
     const [mostrarModal, setMostrarModal] = useState(false);
     const [colaboradores, setColaboradores] = useState([]);
+
+    const cargarColaboradores = async () => {
+        try {
+            const datos = await obtenerColaboradores({
+                agencia: agenciaSeleccionada,
+                buscar: busqueda,
+            });
+
+            setColaboradores(datos);
+        } catch (error) {
+            console.error("Error al cargar colaboradores:", error);
+        }
+    };
+    useEffect(() => {
+        cargarColaboradores();
+    }, []);
 
     const agencias = [
         "Córdoba",
@@ -17,199 +49,379 @@ export default function AltaPersonal() {
         "Tuxpan"
     ];
 
+    const colaboradoresFiltrados = colaboradores.filter((item) => {
+
+        const texto = busqueda.toLowerCase();
+
+        return (
+            item.nombre?.toLowerCase().includes(texto) ||
+            item.puesto?.toLowerCase().includes(texto) ||
+            item.curp?.toLowerCase().includes(texto) ||
+            item.nss?.toLowerCase().includes(texto)
+        );
+
+    });
+
     return (
-        <div className="p-6">
 
-            {/* Encabezado */}
-            <div className="mb-6">
+        <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-slate-200 p-8">
 
-                <h1 className="text-3xl font-bold text-[#131E5C]">
-                    Alta del Personal
-                </h1>
+            <div className="max-w-7xl mx-auto">
 
-                <p className="mt-2 text-slate-600">
-                    Administración del personal por agencia.
-                </p>
+                {/* ENCABEZADO */}
 
-            </div>
+                <div className="flex justify-between items-center mb-8">
 
+                    <div>
 
+                        <h1 className="text-4xl font-bold text-[#131E5C]">
+                            Alta del Personal
+                        </h1>
 
-            {/* Botones de agencias */}
-            <div className="flex gap-3 mb-6 flex-wrap">
+                        <p className="text-slate-500 mt-1">
+                            Administración del personal por agencia
+                        </p>
 
-                {agencias.map((agencia) => (
-
-                    <button
-                        key={agencia}
-                        onClick={() => setAgenciaSeleccionada(agencia)}
-                        className={`
-                            px-5 
-                            py-2 
-                            rounded-lg 
-                            font-semibold
-                            transition
-
-                            ${
-                                agenciaSeleccionada === agencia
-                                ? "bg-[#131E5C] text-white"
-                                : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                            }
-                        `}
-                    >
-
-                        {agencia}
-
-                    </button>
-
-                ))}
-
-            </div>
-
-
-
-
-            {/* Buscador y botón nuevo */}
-            <div className="flex justify-between items-center mb-6">
-
-
-                {/* Buscador */}
-                <div className="relative w-96">
-
-
-                    <Search
-                        size={20}
-                        className="absolute left-3 top-3 text-slate-400"
-                    />
-
-
-                    <input
-                        type="text"
-                        placeholder="Buscar colaborador..."
-                        value={busqueda}
-                        onChange={(e)=>setBusqueda(e.target.value)}
-                        className="
-                            w-full
-                            pl-10
-                            pr-4
-                            py-2
-                            border
-                            rounded-lg
-                            focus:outline-none
-                            focus:ring-2
-                            focus:ring-[#131E5C]
-                        "
-                    />
-
+                    </div>
 
                 </div>
 
+                {/* AGENCIAS */}
 
-                {/* Nuevo colaborador */}
-                <button
-                    onClick={() => {
-                        console.log("Abriendo modal");
-                        setMostrarModal(true);
-                    }}
-                    className="flex items-center gap-2 bg-[#131E5C] text-white px-5 py-2 rounded-lg hover:opacity-90"
-                >
-                    <Plus size={20}/>
-                    Nuevo Colaborador
-                </button>
+                <div className="flex gap-3 flex-wrap mb-8">
 
+                    {agencias.map((agencia) => (
 
-            </div>
+                        <button
+                            key={agencia}
+                            onClick={() => setAgenciaSeleccionada(agencia)}
+                            className={`
 
+                            px-7
+                            py-2.5
+                            rounded-xl
+                            border
+                            transition-all
+                            duration-200
+                            font-semibold
+                            shadow-md
 
+                            ${
+                                agenciaSeleccionada === agencia
+                                    ? `
+                                        bg-gradient-to-b
+                                        from-[#2B438E]
+                                        to-[#131E5C]
+                                        text-white
+                                        border-[#10184B]
+                                        shadow-xl
+                                      `
+                                    : `
+                                        bg-gradient-to-b
+                                        from-white
+                                        to-slate-200
+                                        border-slate-300
+                                        text-slate-700
+                                        hover:from-slate-100
+                                        hover:to-slate-300
+                                      `
+                            }
 
+                        `}
+                        >
+                            {agencia}
+                        </button>
 
-           {/* Área donde irá la tabla */}
-            <div className="bg-white rounded-xl shadow border overflow-hidden">
-                <table className="w-full">
-                    <thead className="bg-[#131E5C] text-white">
+                    ))}
 
-                        <tr>
+                </div>
 
-                            <th className="px-4 py-3 text-left">
-                                Nombre
-                            </th>
+                {/* BUSCADOR */}
 
-                            <th className="px-4 py-3 text-left">
-                                Puesto
-                            </th>
+                <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
 
-                            <th className="px-4 py-3 text-left">
-                                Fecha Alta
-                            </th>
+                    <div className="relative w-[360px]">
 
-                            <th className="px-4 py-3 text-left">
-                                Fecha Baja
-                            </th>
+                        <Search
+                            className="absolute left-4 top-3.5 text-slate-500"
+                            size={20}
+                        />
 
-                        </tr>
+                        <input
+                            type="text"
+                            placeholder="Buscar colaborador..."
+                            value={busqueda}
+                            onChange={(e) => setBusqueda(e.target.value)}
+                            className="
 
-                    </thead>
+                                w-full
+                                pl-11
+                                pr-4
+                                py-3
+                                rounded-xl
+                                border
+                                border-slate-400
+                                bg-gradient-to-b
+                                from-white
+                                to-slate-200
+                                shadow-inner
+                                outline-none
+                                focus:ring-2
+                                focus:ring-[#131E5C]
 
-                    <tbody>
+                            "
+                        />
 
-                        {colaboradores.length === 0 ? (
+                    </div>
+
+                    <button
+
+                        onClick={() => setMostrarModal(true)}
+
+                        className="
+
+                            flex
+                            items-center
+                            gap-2
+                            px-6
+                            py-3
+                            rounded-xl
+                            bg-gradient-to-b
+                            from-[#2B438E]
+                            to-[#131E5C]
+                            text-white
+                            font-semibold
+                            shadow-lg
+                            hover:brightness-110
+                            transition
+
+                        "
+
+                    >
+
+                        <Plus size={20} />
+
+                        Nuevo Colaborador
+
+                    </button>
+
+                </div>
+
+                {/* TABLA */}
+
+                <div className="rounded-2xl overflow-hidden shadow-2xl border border-slate-300 bg-white">
+
+                    <table className="min-w-full">
+
+                        <thead className="bg-gradient-to-b from-[#2B438E] to-[#131E5C] text-white">
 
                             <tr>
 
-                                <td
-                                    colSpan={4}
-                                    className="text-center py-10 text-slate-400"
-                                >
-                                    No hay colaboradores registrados.
-                                </td>
+                                <th className="px-5 py-4 text-left">
+                                    Nombre
+                                </th>
+
+                                <th className="px-5 py-4 text-left">
+                                    Puesto
+                                </th>
+
+                                <th className="px-5 py-4 text-left">
+                                    CURP
+                                </th>
+
+                                <th className="px-5 py-4 text-left">
+                                    NSS
+                                </th>
+
+                                <th className="px-5 py-4 text-left">
+                                    Fecha Nacimiento
+                                </th>
+
+                                <th className="px-5 py-4 text-left">
+                                    Fecha Alta
+                                </th>
+
+                                <th className="px-5 py-4 text-center">
+                                    Estado
+                                </th>
+
+                                <th className="px-5 py-4 text-center">
+                                    Acciones
+                                </th>
 
                             </tr>
 
-                        ) : (
+                        </thead>
 
-                            colaboradores.map((colaborador, index) => (
+                        <tbody>
 
-                                <tr
-                                    key={index}
-                                    className="border-b hover:bg-slate-50"
-                                >
+                            {colaboradoresFiltrados.length === 0 ? (
 
-                                    <td className="px-4 py-3">
-                                        {colaborador.nombre}
-                                    </td>
+                                <tr>
 
-                                    <td className="px-4 py-3">
-                                        {colaborador.puesto}
-                                    </td>
-
-                                    <td className="px-4 py-3">
-                                        {colaborador.fechaAlta}
-                                    </td>
-
-                                    <td className="px-4 py-3">
-                                        {colaborador.fechaBaja || "-"}
+                                    <td
+                                        colSpan={8}
+                                        className="py-16 text-center text-slate-400 text-lg"
+                                    >
+                                        No hay colaboradores registrados.
                                     </td>
 
                                 </tr>
 
-                            ))
+                            ) : (
 
-                        )}
+                                colaboradoresFiltrados.map((colaborador, index) => (
 
-                    </tbody>
+                                    <tr
 
-                </table>
+                                        key={index}
+
+                                        className={`
+                                            transition
+                                            hover:bg-blue-50
+
+                                            ${
+                                                index % 2 === 0
+                                                    ? "bg-white"
+                                                    : "bg-slate-100"
+                                            }
+
+                                        `}
+                                    >
+
+                                        <td className="px-5 py-4">
+
+                                            {colaborador.nombre}
+
+                                        </td>
+
+                                        <td className="px-5 py-4">
+
+                                            {colaborador.puesto}
+
+                                        </td>
+
+                                        <td className="px-5 py-4">
+
+                                            {colaborador.curp}
+
+                                        </td>
+
+                                        <td className="px-5 py-4">
+
+                                            {colaborador.nss}
+
+                                        </td>
+
+                                        <td className="px-5 py-4">
+
+                                            {colaborador.cumpleanos}
+
+                                        </td>
+
+                                        <td className="px-5 py-4">
+
+                                            {colaborador.fechaAlta}
+
+                                        </td>
+
+                                        <td className="px-5 py-4 text-center">
+
+                                            <div className="w-3 h-3 rounded-full bg-green-500 mx-auto shadow"></div>
+
+                                        </td>
+
+                                        <td className="px-5 py-4">
+
+                                            <div className="flex justify-center gap-2">
+                                                                                                <button
+                                                    className="
+                                                        w-9
+                                                        h-9
+                                                        rounded-lg
+                                                        bg-gradient-to-b
+                                                        from-slate-200
+                                                        to-slate-400
+                                                        hover:brightness-110
+                                                        transition
+                                                        flex
+                                                        items-center
+                                                        justify-center
+                                                    "
+                                                >
+                                                    <Eye size={17} />
+                                                </button>
+
+                                                <button
+                                                    className="
+                                                        w-9
+                                                        h-9
+                                                        rounded-lg
+                                                        bg-gradient-to-b
+                                                        from-slate-200
+                                                        to-slate-400
+                                                        hover:brightness-110
+                                                        transition
+                                                        flex
+                                                        items-center
+                                                        justify-center
+                                                    "
+                                                >
+                                                    <Pencil size={17} />
+                                                </button>
+
+                                                <button
+                                                    className="
+                                                        w-9
+                                                        h-9
+                                                        rounded-lg
+                                                        bg-gradient-to-b
+                                                        from-red-300
+                                                        to-red-500
+                                                        text-white
+                                                        hover:brightness-110
+                                                        transition
+                                                        flex
+                                                        items-center
+                                                        justify-center
+                                                    "
+                                                >
+                                                    <Trash2 size={17} />
+                                                </button>
+
+                                            </div>
+
+                                        </td>
+
+                                    </tr>
+
+                                ))
+
+                            )}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                {/* MODAL */}
+
+                <ModalColaborador
+                    open={mostrarModal}
+                    agencia={agenciaSeleccionada}
+                    onClose={() => setMostrarModal(false)}
+                   onGuardar={async (nuevo) => {
+                        await crearColaborador(nuevo);
+                        await cargarColaboradores();
+                        setMostrarModal(false);
+                    }}
+                />
 
             </div>
 
-           <ModalColaborador
-                open={mostrarModal}
-                onClose={() => setMostrarModal(false)}
-                onGuardar={(nuevo) =>
-                    setColaboradores((prev) => [...prev, nuevo])
-                }
-            />
+        </div>
 
-            </div>
     );
+
 }

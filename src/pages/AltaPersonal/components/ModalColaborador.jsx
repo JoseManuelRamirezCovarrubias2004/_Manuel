@@ -1,16 +1,27 @@
 import React, { useState } from "react";
 import { X, UserPlus, Calendar } from "lucide-react";
 
-export default function ModalColaborador({ open, onClose, onGuardar }) {
-    const [formulario, setFormulario] = useState({
+export default function ModalColaborador({
+    open,
+    onClose,
+    onGuardar,
+    agencia
+}) {
+   const [formulario, setFormulario] = useState({
         nombre: "",
         puesto: "",
+        curp: "",
+        nss: "",
+        cumpleanos: "",
         fechaAlta: "",
         fechaBaja: "",
+        motivoBaja: "",
         indicadores: "",
         planAccion: "",
         seguimiento: ""
     });
+
+    const [mostrarBaja, setMostrarBaja] = useState(false);
 
     const handleChange = (e) => {
         setFormulario({
@@ -21,8 +32,11 @@ export default function ModalColaborador({ open, onClose, onGuardar }) {
 
    const guardar = () => {
 
-    onGuardar(formulario);
-
+    onGuardar({
+        ...formulario,
+        agencia
+    });
+    
     setFormulario({
         nombre: "",
         puesto: "",
@@ -75,8 +89,7 @@ export default function ModalColaborador({ open, onClose, onGuardar }) {
                 {/* Body */}
                 <div className="p-6 space-y-6">
 
-                    {/* Información */}
-                    <div className="bg-slate-50 rounded-xl p-5 border">
+                   <div className="bg-slate-50 rounded-xl p-5 border">
 
                         <h3 className="font-semibold text-[#131E5C] mb-4">
                             Información del colaborador
@@ -84,6 +97,7 @@ export default function ModalColaborador({ open, onClose, onGuardar }) {
 
                         <div className="space-y-4">
 
+                            {/* Nombre */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Nombre Completo
@@ -98,6 +112,7 @@ export default function ModalColaborador({ open, onClose, onGuardar }) {
                                 />
                             </div>
 
+                            {/* Puesto */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Puesto
@@ -112,7 +127,66 @@ export default function ModalColaborador({ open, onClose, onGuardar }) {
                                 />
                             </div>
 
+                            {/* CURP y NSS */}
                             <div className="grid grid-cols-2 gap-4">
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        CURP
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        name="curp"
+                                        value={formulario.curp}
+                                        onChange={handleChange}
+                                        className="w-full rounded-lg border border-slate-300 px-4 py-2.5 uppercase focus:ring-2 focus:ring-[#131E5C] outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        NSS
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        name="nss"
+                                        value={formulario.nss}
+                                        onChange={handleChange}
+                                        className="w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-[#131E5C] outline-none"
+                                    />
+                                </div>
+
+                            </div>
+
+                            {/* Cumpleaños y Fecha Alta */}
+                            <div className="grid grid-cols-2 gap-4">
+
+                                <div>
+
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        Fecha Nacimiento
+                                    </label>
+
+                                    <div className="relative">
+
+                                        <Calendar
+                                            size={18}
+                                            className="absolute left-3 top-3 text-slate-400"
+                                        />
+
+                                        <input
+                                            type="date"
+                                            name="cumpleanos"
+                                            value={formulario.cumpleanos}
+                                            onChange={handleChange}
+                                            className="w-full rounded-lg border border-slate-300 pl-10 pr-3 py-2.5 focus:ring-2 focus:ring-[#131E5C] outline-none"
+                                        />
+
+                                    </div>
+
+                                </div>
 
                                 <div>
 
@@ -139,37 +213,11 @@ export default function ModalColaborador({ open, onClose, onGuardar }) {
 
                                 </div>
 
-                                <div>
-
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        Fecha Baja
-                                    </label>
-
-                                    <div className="relative">
-
-                                        <Calendar
-                                            size={18}
-                                            className="absolute left-3 top-3 text-slate-400"
-                                        />
-
-                                        <input
-                                            type="date"
-                                            name="fechaBaja"
-                                            value={formulario.fechaBaja}
-                                            onChange={handleChange}
-                                            className="w-full rounded-lg border border-slate-300 pl-10 pr-3 py-2.5 focus:ring-2 focus:ring-[#131E5C] outline-none"
-                                        />
-
-                                    </div>
-
-                                </div>
-
                             </div>
 
                         </div>
 
                     </div>
-
                     {/* Clima */}
                     <div className="bg-slate-50 rounded-xl p-5 border">
 
