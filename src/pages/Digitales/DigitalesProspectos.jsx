@@ -34,7 +34,7 @@ const origenMeta = {
 const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Candy Denisse Marquez Cortes"];
 
 const ESTADOS_PROSPECTO = ["Contactado", "Calificado", "Pendiente de Cotización", "Requiere Asesor", "Financiamiento", "Sin Respuesta", "Descalificado"];
-const MOTIVOS_DESCALIFICACION = ["", "Busca trabajo", "No contesto", "Poco presupuesto", "Descalificado por consultor", "Compro en otra marca"];
+const MOTIVOS_DESCALIFICACION = ["", "Busca trabajo", "No contesto", "Poco presupuesto", "Datos Incorrectos", "Compro en otra marca"];
 
 const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter"];
 

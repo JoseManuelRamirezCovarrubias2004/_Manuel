@@ -61,7 +61,7 @@ const VEHICULOS = [
 const CANALES = ["VW-Concesionario", "WhatsApp", "Facebook", "Llamada Entrante"];
 
 const ESTADOS_PROSPECTO = ["Descalificado", "Contactado", "Sin Respuesta"];
-const MOTIVOS_DESCALIFICACION = ["Busca trabajo", "No contesto", "Poco presupuesto", "Descalificado por consultor", "Compro en otra marca"];
+const MOTIVOS_DESCALIFICACION = ["Busca trabajo", "No contesto", "Poco presupuesto", "Datos Incorrectos", "Compro en otra marca"];
 
 const BURO_OPTIONS = [
     { value: "", label: "— Selecciona —" },
