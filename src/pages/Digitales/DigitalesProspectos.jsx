@@ -3099,69 +3099,74 @@ export default function DigitalesProspectos() {
                                 <div className="mt-1 text-xs font-semibold">{missing.map((k) => REQUIRED[k]).join(" · ")}</div>
                             </div>
                         )}
-                        <Field label="Dealer" icon={Building2}>
-                            <select value={draft.agencia || ""} onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))} disabled={!isAdmin && userAgencias.length <= 1} className={cls(inputBase, isInvalid("agencia") ? inputBad : inputOk, !isAdmin && contextoDigitalSesion ? "cursor-not-allowed opacity-70" : "")}>
-                                <option value="" disabled>
-                                    Selecciona un dealer...
-                                </option>
-                                {(isAdmin ? DEALERS : userAgencias.length > 0 ? userAgencias : DEALERS).map((d) => (
-                                    <option key={d} value={d}>
-                                        {d}
-                                    </option>
-                                ))}
-                            </select>
-                        </Field>
-                        <Field label="Asesor Digital" icon={User}>
-                            <select value={draft.asesor_digital || ""} onChange={(e) => setDraft((p) => ({ ...p, asesor_digital: e.target.value }))} className={cls(inputBase, inputOk)}>
-                                <option value="">— Selecciona —</option>
-                                {ASESORES_DIGITALES.map((n) => (
-                                    <option key={n} value={n}>
-                                        {n}
-                                    </option>
-                                ))}
-                            </select>
-                        </Field>
-                        <Field label="Asignado a" icon={User}>
-                            <select value={draft.asesor_solicita || ""} onChange={(e) => setDraft((p) => ({ ...p, asesor_solicita: e.target.value }))} className={cls(inputBase, inputOk)}>
-                                <option value="">— Selecciona —</option>
-                                {ASESORES.map((n) => (
-                                    <option key={n} value={n}>
-                                        {n}
-                                    </option>
-                                ))}
-                            </select>
-                        </Field>
-                        <Field label="VW de sus sueños">
-                            <div>
-                                <select value={draft.cliente_interes || ""} onChange={(e) => setDraft((p) => ({ ...p, cliente_interes: e.target.value }))} className={cls(inputBase, inputOk)}>
+                       <div className="md:col-span-4 grid gap-3 md:grid-cols-3">
+                            <Field label="Dealer" icon={Building2}>
+                                <select value={draft.agencia || ""} onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))} disabled={!isAdmin && userAgencias.length <= 1} className={cls(inputBase, isInvalid("agencia") ? inputBad : inputOk, !isAdmin && contextoDigitalSesion ? "cursor-not-allowed opacity-70" : "")}>
                                     <option value="" disabled>
-                                        Selecciona un modelo...
+                                        Selecciona un dealer...
                                     </option>
-                                    {VEHICULOS.map((d) => (
+                                    {(isAdmin ? DEALERS : userAgencias.length > 0 ? userAgencias : DEALERS).map((d) => (
                                         <option key={d} value={d}>
                                             {d}
                                         </option>
                                     ))}
                                 </select>
-                            </div>
-                        </Field>
+                            </Field>
 
-                        
+                            <Field label="Asesor Digital" icon={User}>
+                                <select value={draft.asesor_digital || ""} onChange={(e) => setDraft((p) => ({ ...p, asesor_digital: e.target.value }))} className={cls(inputBase, inputOk)}>
+                                    <option value="">— Selecciona —</option>
+                                    {ASESORES_DIGITALES.map((n) => (
+                                        <option key={n} value={n}>
+                                            {n}
+                                        </option>
+                                    ))}
+                                </select>
+                            </Field>
 
-                        <Field label="Año del vehículo" icon={CalendarDays}>
-                            <select
-                                value={draft.anio_auto || ""}
-                                onChange={(e) => setDraft((p) => ({ ...p, anio_auto: e.target.value }))}
-                                className={cls(inputBase, inputOk)}
-                            >
-                                <option value="">— Selecciona —</option>
-                                {ANIOS_VEHICULO.map((anio) => (
-                                    <option key={anio} value={anio}>
-                                        {anio}
-                                    </option>
-                                ))}
-                            </select>
-                        </Field>
+                            <Field label="Asignado a" icon={User}>
+                                <select value={draft.asesor_solicita || ""} onChange={(e) => setDraft((p) => ({ ...p, asesor_solicita: e.target.value }))} className={cls(inputBase, inputOk)}>
+                                    <option value="">— Selecciona —</option>
+                                    {ASESORES.map((n) => (
+                                        <option key={n} value={n}>
+                                            {n}
+                                        </option>
+                                    ))}
+                                </select>
+                            </Field>
+                        </div>
+
+                        <div className="md:col-span-4 grid gap-3 md:grid-cols-2">
+                            <Field label="VW de sus sueños">
+                                <div>
+                                    <select value={draft.cliente_interes || ""} onChange={(e) => setDraft((p) => ({ ...p, cliente_interes: e.target.value }))} className={cls(inputBase, inputOk)}>
+                                        <option value="" disabled>
+                                            Selecciona un modelo...
+                                        </option>
+                                        {VEHICULOS.map((d) => (
+                                            <option key={d} value={d}>
+                                                {d}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </Field>
+
+                            <Field label="Año del vehículo" icon={CalendarDays}>
+                                <select
+                                    value={draft.anio_auto || ""}
+                                    onChange={(e) => setDraft((p) => ({ ...p, anio_auto: e.target.value }))}
+                                    className={cls(inputBase, inputOk)}
+                                >
+                                    <option value="">— Selecciona —</option>
+                                    {ANIOS_VEHICULO.map((anio) => (
+                                        <option key={anio} value={anio}>
+                                            {anio}
+                                        </option>
+                                    ))}
+                                </select>
+                            </Field>
+                        </div>
 
                         <div className="md:col-span-4">
                             <Field label="Cliente" icon={User}>
