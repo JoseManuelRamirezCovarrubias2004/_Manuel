@@ -452,9 +452,9 @@ export async function http(
   error.code = res.status === 401 ? "SESSION_EXPIRED" : "API_ERROR";
 
   // 👇 AGREGA ESTO
-  console.log("========== ERROR DEL BACK ==========");
-  console.log(responseData);
-  console.log("===================================");
+  //console.log("========== ERROR DEL BACK ==========");
+  //console.log(responseData);
+  //console.log("===================================");
 
   if (res.status === 401) {
     clearJwtTokens();

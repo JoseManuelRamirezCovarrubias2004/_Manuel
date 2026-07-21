@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import {
     Search,
     Plus,
-    Eye,
     Pencil,
     Trash2
 } from "lucide-react";
@@ -24,6 +23,7 @@ export default function AltaPersonal() {
     const [busqueda, setBusqueda] = useState("");
     const [mostrarModal, setMostrarModal] = useState(false);
     const [colaboradores, setColaboradores] = useState([]);
+    const [colaboradorEditar, setColaboradorEditar] =useState(null);
 
     const cargarColaboradores = async () => {
         try {
@@ -314,15 +314,11 @@ export default function AltaPersonal() {
                                         </td>
 
                                         <td className="px-5 py-4">
-
-                                            {colaborador.cumpleanos}
-
+                                            {colaborador.fecha_nacimiento}
                                         </td>
 
                                         <td className="px-5 py-4">
-
-                                            {colaborador.fechaAlta}
-
+                                            {colaborador.fecha_alta}
                                         </td>
 
                                         <td className="px-5 py-4 text-center">
@@ -334,7 +330,12 @@ export default function AltaPersonal() {
                                         <td className="px-5 py-4">
 
                                             <div className="flex justify-center gap-2">
-                                                                                                <button
+
+                                                <button
+                                                    onClick={() => {
+                                                        setColaboradorEditar(colaborador);
+                                                        setMostrarModal(true);
+                                                    }}
                                                     className="
                                                         w-9
                                                         h-9
@@ -349,28 +350,35 @@ export default function AltaPersonal() {
                                                         justify-center
                                                     "
                                                 >
-                                                    <Eye size={17} />
+                                                    <Pencil size={17}/>
                                                 </button>
 
-                                                <button
-                                                    className="
-                                                        w-9
-                                                        h-9
-                                                        rounded-lg
-                                                        bg-gradient-to-b
-                                                        from-slate-200
-                                                        to-slate-400
-                                                        hover:brightness-110
-                                                        transition
-                                                        flex
-                                                        items-center
-                                                        justify-center
-                                                    "
-                                                >
-                                                    <Pencil size={17} />
-                                                </button>
+                                               <button
+                                                    onClick={async () => {
 
-                                                <button
+                                                        const confirmar = window.confirm(
+                                                            `¿Deseas eliminar a "${colaborador.nombre}"?`
+                                                        );
+
+                                                        if (!confirmar) return;
+
+                                                        try {
+
+                                                            await eliminarColaborador(
+                                                                colaborador.id_colaborador
+                                                            );
+
+                                                            await cargarColaboradores();
+
+                                                        } catch (error) {
+
+                                                            console.error(error);
+
+                                                            alert("No fue posible eliminar el colaborador.");
+
+                                                        }
+
+                                                    }}
                                                     className="
                                                         w-9
                                                         h-9
@@ -406,15 +414,33 @@ export default function AltaPersonal() {
                 </div>
 
                 {/* MODAL */}
-
                 <ModalColaborador
                     open={mostrarModal}
                     agencia={agenciaSeleccionada}
-                    onClose={() => setMostrarModal(false)}
-                   onGuardar={async (nuevo) => {
-                        await crearColaborador(nuevo);
-                        await cargarColaboradores();
+                    colaborador={colaboradorEditar}
+                    onClose={() => {
                         setMostrarModal(false);
+                        setColaboradorEditar(null);
+                    }}
+                    onGuardar={async (datos) => {
+
+                        if (colaboradorEditar) {
+
+                            await actualizarColaborador(
+                                colaboradorEditar.id_colaborador,
+                                datos
+                            );
+
+                        } else {
+
+                            await crearColaborador(datos);
+
+                        }
+
+                        await cargarColaboradores();
+
+                        setMostrarModal(false);
+                        setColaboradorEditar(null);
                     }}
                 />
 

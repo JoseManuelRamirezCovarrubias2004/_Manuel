@@ -1,25 +1,60 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, UserPlus, Calendar } from "lucide-react";
 
 export default function ModalColaborador({
     open,
     onClose,
     onGuardar,
-    agencia
+    agencia,
+    colaborador
 }) {
-   const [formulario, setFormulario] = useState({
+  const [formulario, setFormulario] = useState({
         nombre: "",
         puesto: "",
         curp: "",
         nss: "",
-        cumpleanos: "",
-        fechaAlta: "",
-        fechaBaja: "",
+        fecha_nacimiento: "",
+        fecha_alta: "",
+        fecha_baja: "",
         motivoBaja: "",
-        indicadores: "",
-        planAccion: "",
-        seguimiento: ""
+        comentarios: ""
     });
+
+    useEffect(() => {
+
+        if (colaborador) {
+
+            setFormulario({
+                nombre: colaborador.nombre || "",
+                puesto: colaborador.puesto || "",
+                curp: colaborador.curp || "",
+                nss: colaborador.nss || "",
+                fecha_nacimiento: colaborador.fecha_nacimiento || "",
+                fecha_alta: colaborador.fecha_alta || "",
+                fecha_baja: colaborador.fecha_baja || "",
+                motivoBaja: "",
+                comentarios: ""
+            });
+
+        } else {
+
+            setFormulario({
+                nombre: "",
+                puesto: "",
+                curp: "",
+                nss: "",
+                fecha_nacimiento: "",
+                fecha_alta: "",
+                fecha_baja: "",
+                motivoBaja: "",
+                indicadores: "",
+                planAccion: "",
+                seguimiento: ""
+            });
+
+        }
+
+    }, [colaborador, open]);
 
     const [mostrarBaja, setMostrarBaja] = useState(false);
 
@@ -32,23 +67,35 @@ export default function ModalColaborador({
 
    const guardar = () => {
 
-    onGuardar({
-        ...formulario,
-        agencia
-    });
-    
+    const datos = {
+        agencia,
+        nombre: formulario.nombre,
+        puesto: formulario.puesto,
+        curp: formulario.curp,
+        nss: formulario.nss,
+        fecha_alta: formulario.fecha_alta,
+        fecha_baja: formulario.fecha_baja || null,
+        fecha_nacimiento: formulario.fecha_nacimiento || null,
+    };
+
+    //console.log("DATOS QUE SE ENVÍAN:", datos);
+
+    onGuardar(datos);
+
     setFormulario({
         nombre: "",
         puesto: "",
-        fechaAlta: "",
-        fechaBaja: "",
-        indicadores: "",
-        planAccion: "",
-        seguimiento: ""
+        curp: "",
+        nss: "",
+        fecha_nacimiento: "",
+        fecha_alta: "",
+        fecha_baja: "",
+        motivoBaja: "",
+        comentarios: ""
     });
 
-    onClose();
 };
+
     if (!open) return null;
 
     return (
@@ -66,8 +113,8 @@ export default function ModalColaborador({
                         </div>
 
                         <div>
-                            <h2 className="text-xl font-semibold">
-                                Nuevo Colaborador
+                           <h2 className="text-xl font-semibold">
+                                {colaborador ? "Editar Colaborador" : "Nuevo Colaborador"}
                             </h2>
 
                             <p className="text-xs text-blue-100">
@@ -178,10 +225,9 @@ export default function ModalColaborador({
 
                                         <input
                                             type="date"
-                                            name="cumpleanos"
-                                            value={formulario.cumpleanos}
+                                            name="fecha_nacimiento"
+                                            value={formulario.fecha_nacimiento}
                                             onChange={handleChange}
-                                            className="w-full rounded-lg border border-slate-300 pl-10 pr-3 py-2.5 focus:ring-2 focus:ring-[#131E5C] outline-none"
                                         />
 
                                     </div>
@@ -203,10 +249,9 @@ export default function ModalColaborador({
 
                                         <input
                                             type="date"
-                                            name="fechaAlta"
-                                            value={formulario.fechaAlta}
+                                            name="fecha_alta"
+                                            value={formulario.fecha_alta}
                                             onChange={handleChange}
-                                            className="w-full rounded-lg border border-slate-300 pl-10 pr-3 py-2.5 focus:ring-2 focus:ring-[#131E5C] outline-none"
                                         />
 
                                     </div>
@@ -218,67 +263,35 @@ export default function ModalColaborador({
                         </div>
 
                     </div>
-                    {/* Clima */}
+
+                   {/* Comentarios */}
                     <div className="bg-slate-50 rounded-xl p-5 border">
 
                         <h3 className="font-semibold text-[#131E5C] mb-4">
-                            Clima Laboral
+                            Comentarios
                         </h3>
 
-                        <div className="grid grid-cols-3 gap-4">
-
-                            <div>
-
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Indicadores
-                                </label>
-
-                                <textarea
-                                    rows={2}
-                                    name="indicadores"
-                                    value={formulario.indicadores}
-                                    onChange={handleChange}
-                                    className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-[#131E5C] outline-none"
-                                />
-
-                            </div>
-
-                            <div>
-
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Plan de Acción
-                                </label>
-
-                                <textarea
-                                    rows={2}
-                                    name="planAccion"
-                                    value={formulario.planAccion}
-                                    onChange={handleChange}
-                                    className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-[#131E5C] outline-none"
-                                />
-
-                            </div>
-
-                            <div>
-
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Seguimiento
-                                </label>
-
-                                <textarea
-                                    rows={2}
-                                    name="seguimiento"
-                                    value={formulario.seguimiento}
-                                    onChange={handleChange}
-                                    className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-[#131E5C] outline-none"
-                                />
-
-                            </div>
-
-                        </div>
+                        <textarea
+                            rows={4}
+                            name="comentarios"
+                            value={formulario.comentarios}
+                            onChange={handleChange}
+                            placeholder="Escriba observaciones o comentarios del colaborador..."
+                            className="
+                                w-full
+                                resize-none
+                                rounded-lg
+                                border
+                                border-slate-300
+                                px-4
+                                py-3
+                                focus:ring-2
+                                focus:ring-[#131E5C]
+                                outline-none
+                            "
+                        />
 
                     </div>
-
                 </div>
 
                 {/* Footer */}
@@ -295,7 +308,7 @@ export default function ModalColaborador({
                         onClick={guardar}
                         className="px-6 py-2 rounded-lg bg-[#131E5C] text-white hover:bg-[#0f1748] transition"
                     >
-                        Guardar
+                       {colaborador ? "Actualizar" : "Guardar"}
                     </button>
 
                 </div>
