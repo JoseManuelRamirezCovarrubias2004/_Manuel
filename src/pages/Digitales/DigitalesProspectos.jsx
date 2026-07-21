@@ -38,6 +38,10 @@ const MOTIVOS_DESCALIFICACION = ["", "Busca trabajo", "No contesto", "Poco presu
 
 const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter"];
 
+const ANIO_INICIAL = 2060;
+const ANIOS_VEHICULO = Array.from({ length: 2060 - 2010 + 1 }, (_, i) => 2060 - i);
+
+
 const BURO_OPTIONS = [
     { value: "", label: "— Selecciona —" },
     { value: "bueno", label: "Bueno" },
@@ -385,8 +389,10 @@ function normalizeProspecto(p) {
     const nombreCompleto =
         p.nombre ||
         p.nombre_out ||
+        
         p.cliente?.nombre ||
-        "";
+        
+            "";
 
     const { nombre, apellidos } = splitNombre(nombreCompleto);
 
@@ -1904,6 +1910,7 @@ export default function DigitalesProspectos() {
         setDraft({
             id_exp: null,
             agencia: !isAdmin ? contextoDigitalSesion?.agencia || "" : "",
+            anio_auto: "",
             tiene_nombre: false,
             cliente_nombre: "",
             cliente_apellidos: "",
@@ -1968,6 +1975,7 @@ export default function DigitalesProspectos() {
             setDraft({
                 id_exp: p.id,
                 agencia: p.agencia || "",
+                anio_auto: p.anio_auto || "",
                 tiene_nombre: tieneNombre,
                 nombre_cliente: tieneNombre ? nombreCompleto : "",
                 telefono: String(p.telefono || ""),
@@ -2036,6 +2044,7 @@ export default function DigitalesProspectos() {
             telefono: normalizaTelefonoMx(draft.telefono),
             correo: draft.correo || "",
             agencia: agenciaFinal,
+            anio_auto: draft.anio_auto ? Number(draft.anio_auto) : null,
             business: draft.linea || "",
             canal_contacto: draft.origen || "",
             pauta: draft.pauta || "",
@@ -3136,6 +3145,24 @@ export default function DigitalesProspectos() {
                                 </select>
                             </div>
                         </Field>
+
+                        
+
+                        <Field label="Año del vehículo" icon={CalendarDays}>
+                            <select
+                                value={draft.anio_auto || ""}
+                                onChange={(e) => setDraft((p) => ({ ...p, anio_auto: e.target.value }))}
+                                className={cls(inputBase, inputOk)}
+                            >
+                                <option value="">— Selecciona —</option>
+                                {ANIOS_VEHICULO.map((anio) => (
+                                    <option key={anio} value={anio}>
+                                        {anio}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+
                         <div className="md:col-span-4">
                             <Field label="Cliente" icon={User}>
                                 <div className="grid gap-3 md:grid-cols-4">
