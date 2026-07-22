@@ -1442,14 +1442,14 @@ export default function DigitalesProspectos() {
                 .filter(Boolean),
         [user?.agencia],
     );
-    const userTieneAgencia = useCallback(
-        (agenciaRegistro) => {
-            const agencia = String(agenciaRegistro || "").trim();
-            if (!agencia) return false;
-            return userAgencias.some((a) => a.toLowerCase() === agencia.toLowerCase());
-        },
-        [userAgencias],
-    );
+   const userTieneAgencia = useCallback(
+    (agenciaRegistro) => {
+        const agencia = normalizeDealerGrupo(agenciaRegistro);
+        if (!agencia) return false;
+        return userAgencias.some((a) => normalizeDealerGrupo(a) === agencia);
+    },
+    [userAgencias],
+);
 
     const numeroUsuarioSesion = useMemo(() => getNumeroUsuarioSesion(user), [user]);
     const contextoDigitalSesion = useMemo(() => getContextoDigitalPorNumero(numeroUsuarioSesion), [numeroUsuarioSesion]);
