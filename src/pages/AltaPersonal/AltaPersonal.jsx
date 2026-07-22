@@ -37,9 +37,10 @@ export default function AltaPersonal() {
             console.error("Error al cargar colaboradores:", error);
         }
     };
+   
     useEffect(() => {
         cargarColaboradores();
-    }, []);
+    }, [agenciaSeleccionada, busqueda]);
 
     const agencias = [
         "Córdoba",
@@ -64,7 +65,7 @@ export default function AltaPersonal() {
 
     return (
 
-        <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-slate-200 p-8">
+        <div className="min-h-screen bg-[#f8f8fa] p-10">
 
             <div className="max-w-7xl mx-auto">
 
@@ -74,11 +75,11 @@ export default function AltaPersonal() {
 
                     <div>
 
-                        <h1 className="text-4xl font-bold text-[#131E5C]">
+                       <h1 className="text-3xl font-semibold text-[#1c1c1c]">
                             Alta del Personal
                         </h1>
 
-                        <p className="text-slate-500 mt-1">
+                        <p className="text-gray-500 text-sm mt-1">
                             Administración del personal por agencia
                         </p>
 
@@ -88,48 +89,32 @@ export default function AltaPersonal() {
 
                 {/* AGENCIAS */}
 
-                <div className="flex gap-3 flex-wrap mb-8">
-
-                    {agencias.map((agencia) => (
+               <div className="flex items-center border-b border-gray-300 mb-8">
+                    {agencias.map((agencia)=>(
 
                         <button
+
                             key={agencia}
-                            onClick={() => setAgenciaSeleccionada(agencia)}
+
+                            onClick={()=>setAgenciaSeleccionada(agencia)}
+
                             className={`
+                                px-7
+                                py-3
+                                text-sm
+                                transition-all
+                                border-b-2
 
-                            px-7
-                            py-2.5
-                            rounded-xl
-                            border
-                            transition-all
-                            duration-200
-                            font-semibold
-                            shadow-md
-
-                            ${
-                                agenciaSeleccionada === agencia
-                                    ? `
-                                        bg-gradient-to-b
-                                        from-[#2B438E]
-                                        to-[#131E5C]
-                                        text-white
-                                        border-[#10184B]
-                                        shadow-xl
-                                      `
-                                    : `
-                                        bg-gradient-to-b
-                                        from-white
-                                        to-slate-200
-                                        border-slate-300
-                                        text-slate-700
-                                        hover:from-slate-100
-                                        hover:to-slate-300
-                                      `
-                            }
-
-                        `}
+                                ${
+                                    agenciaSeleccionada===agencia
+                                    ? "border-[#1A2B72] text-[#1A2B72] font-semibold"
+                                    : "border-transparent text-gray-500 hover:text-[#1A2B72]"
+                                }
+                            `}
                         >
+
                             {agencia}
+
                         </button>
 
                     ))}
@@ -138,37 +123,35 @@ export default function AltaPersonal() {
 
                 {/* BUSCADOR */}
 
-                <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+               {/* BUSCADOR Y BOTÓN */}
 
-                    <div className="relative w-[360px]">
+                <div className="flex justify-between items-center mb-8">
+
+                    <div className="relative w-[380px]">
 
                         <Search
-                            className="absolute left-4 top-3.5 text-slate-500"
-                            size={20}
+                            className="absolute left-4 top-3.5 text-gray-400"
+                            size={18}
                         />
 
                         <input
                             type="text"
                             placeholder="Buscar colaborador..."
                             value={busqueda}
-                            onChange={(e) => setBusqueda(e.target.value)}
+                            onChange={(e)=>setBusqueda(e.target.value)}
                             className="
-
                                 w-full
                                 pl-11
                                 pr-4
-                                py-3
-                                rounded-xl
+                                h-11
+                                rounded-lg
                                 border
-                                border-slate-400
-                                bg-gradient-to-b
-                                from-white
-                                to-slate-200
-                                shadow-inner
-                                outline-none
+                                border-gray-200
+                                bg-white
+                                shadow-sm
+                                focus:outline-none
                                 focus:ring-2
-                                focus:ring-[#131E5C]
-
+                                focus:ring-[#1A2B72]
                             "
                         />
 
@@ -176,30 +159,25 @@ export default function AltaPersonal() {
 
                     <button
 
-                        onClick={() => setMostrarModal(true)}
+                        onClick={()=>setMostrarModal(true)}
 
                         className="
-
+                            h-11
+                            px-5
+                            rounded-lg
+                            bg-[#16255E]
+                            hover:bg-[#1F327B]
+                            text-white
+                            font-medium
                             flex
                             items-center
                             gap-2
-                            px-6
-                            py-3
-                            rounded-xl
-                            bg-gradient-to-b
-                            from-[#2B438E]
-                            to-[#131E5C]
-                            text-white
-                            font-semibold
-                            shadow-lg
-                            hover:brightness-110
                             transition
-
                         "
 
                     >
 
-                        <Plus size={20} />
+                        <Plus size={18}/>
 
                         Nuevo Colaborador
 
@@ -209,16 +187,18 @@ export default function AltaPersonal() {
 
                 {/* TABLA */}
 
-                <div className="rounded-2xl overflow-hidden shadow-2xl border border-slate-300 bg-white">
+                <div className="rounded-xl border border-gray-200 bg-white shadow-md">
 
                     <table className="min-w-full">
 
-                        <thead className="bg-gradient-to-b from-[#2B438E] to-[#131E5C] text-white">
+                        <thead className="bg-[#16255E] text-white">
 
                             <tr>
 
-                                <th className="px-5 py-4 text-left">
+                                <th className="py-3 px-4 text-left text-sm font-medium">
+
                                     Nombre
+
                                 </th>
 
                                 <th className="px-5 py-4 text-left">
@@ -275,18 +255,8 @@ export default function AltaPersonal() {
                                     <tr
 
                                         key={index}
+                                        className="border-b border-gray-100 hover:bg-gray-50 transition"
 
-                                        className={`
-                                            transition
-                                            hover:bg-blue-50
-
-                                            ${
-                                                index % 2 === 0
-                                                    ? "bg-white"
-                                                    : "bg-slate-100"
-                                            }
-
-                                        `}
                                     >
 
                                         <td className="px-5 py-4">
@@ -323,7 +293,9 @@ export default function AltaPersonal() {
 
                                         <td className="px-5 py-4 text-center">
 
-                                            <div className="w-3 h-3 rounded-full bg-green-500 mx-auto shadow"></div>
+                                            <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                                                Activo
+                                            </span>
 
                                         </td>
 

@@ -31,7 +31,7 @@ const origenMeta = {
     "Llamada Entrante": { Icon: ImgIcon(PHONE, "Llamada Entrante"), label: "Llamada Entrante" },
 };
 
-const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Candy Denisse Marquez Cortes"];
+const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Chavez Alarcon", "Candy Denisse Marquez"];
 
 const ESTADOS_PROSPECTO = ["Contactado", "Calificado", "Pendiente de Cotización", "Requiere Asesor", "Financiamiento", "Sin Respuesta", "Descalificado"];
 const MOTIVOS_DESCALIFICACION = ["", "Busca trabajo", "No contesto", "Poco presupuesto", "Datos Incorrectos", "Compro en otra marca"];
@@ -93,7 +93,7 @@ const ASESOR_DIGITAL_POR_NUMERO = {
     522871232641: { asesor_digital: "Marelly Tenorio Salinas", agencia: "VW Tuxtepec" },
     527831263814: { asesor_digital: "Edgar Omar Noguera Solis", agencia: "VW Tuxpan" },
     527821820706: { asesor_digital: "Dulce Abigail Garcia Olivares", agencia: "VW Poza Rica" },
-    522712837999: { asesor_digital: "Bianca Chávez Alarcón", agencia: "VW Córdoba Usados" },
+    522712837999: { asesor_digital: "Bianca Chavez Alarcon", agencia: "VW Cordoba Usados" },
     522721986539: { asesor_digital: "Candy Denisse Marquez", agencia: "VW Orizaba Usados" },
 };
 
@@ -164,7 +164,7 @@ const ASESORES = [
     "Luis Manuel Alvarez Martinez",
 ];
 
-const DEALERS = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"];
+const DEALERS = ["VW Cordoba", "VW Cordoba Usados", "VW Orizaba", "VW Orizaba Usados", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
