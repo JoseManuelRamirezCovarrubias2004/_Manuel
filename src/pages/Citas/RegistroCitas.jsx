@@ -777,7 +777,7 @@ export default function RegistroCitas() {
     const [vista, setVista] = useState("tabla");
 
     const DEALERS = useMemo(() => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"], []);
-    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Edgar Omar Nogera Solis", "Candy Denisse Marquez Cortes"];
+    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Candy Denisse Marquez Cortes"];
     const ASESORES = [
         "AURA MARLIZETH FERNANDEZ LOPEZ",
         "Bianca Isabel Chavez Alarcon",
@@ -1375,7 +1375,7 @@ export default function RegistroCitas() {
                                 {ASESORES.map((d) => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </Field>
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-3">
                             <Field label="Comentarios" icon={MessageSquareText}>
                                 <textarea value={draft.comentarios} onChange={(e) => setDraft((p) => ({ ...p, comentarios: e.target.value }))} className={[inputBase, inputOk, "min-h-[110px]"].join(" ")} placeholder="Notas internas..." />
                             </Field>

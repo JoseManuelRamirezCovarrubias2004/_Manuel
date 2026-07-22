@@ -1614,10 +1614,12 @@ export default function DigitalesContacto() {
     const [loadingIaAction, setLoadingIaAction] = useState(false);
     const [mensajes, setMensajes] = useState([]);
     const [draftMsg, setDraftMsg] = useState("");
+    const [draftOwnerTel, setDraftOwnerTel] = useState("");
     const [mobileView, setMobileView] = useState("list");
     const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(false);
     const [pautasOptions, setPautasOptions] = useState(PAUTAS_ORIGEN);
     const [headerEstado, setHeaderEstado] = useState("");
+    const [showProspectoPanel, setShowProspectoPanel] = useState(false);
 
     // Edición del nombre del cliente desde el header del chat
     const [editingNombre, setEditingNombre] = useState(false);
@@ -1674,7 +1676,7 @@ export default function DigitalesContacto() {
     const messagesScrollRef = useRef(null);
     const activeTelRef = useRef("");
     const mensajesRef = useRef([]);
-    const didInitFromQuery = useRef(false);
+    const didInitSelection = useRef(false);
     const emojiRef = useRef(null);
     const fileInputRef = useRef(null);
     const inputRef = useRef(null);
@@ -1781,6 +1783,9 @@ export default function DigitalesContacto() {
         if (clienteBloqueado) return "Contacto bloqueado. Desbloquéalo para responder…";
         return "Escribe tu mensaje…";
     }, [activeTel, clienteBloqueado]);
+    const hasComposerDraft = Boolean(
+        draftMsg.trim() || attachments.length || replyToMsg || editingMsgId
+    );
     const templatePreview = useMemo(
         () => tplSelected ? buildTemplatePreviewText(tplSelected, tplDraft) : "",
         [tplSelected, tplDraft]
@@ -1806,6 +1811,17 @@ export default function DigitalesContacto() {
         const d = new Date(iso);
         if (Number.isNaN(d.getTime())) return "—";
         return new Intl.DateTimeFormat("es-MX", { dateStyle: "short", timeStyle: "short", hour12: true, timeZone: "America/Mexico_City" }).format(d);
+    }
+
+    function updateDraftMessage(value) {
+        const next = String(value ?? "");
+        setDraftMsg(next);
+
+        if (next && activeTelRef.current) {
+            setDraftOwnerTel(current => current || activeTelRef.current);
+        } else if (!next && attachments.length === 0 && !replyToMsg && !editingMsgId) {
+            setDraftOwnerTel("");
+        }
     }
 
     function cleanupPreviews(list) {
@@ -1893,7 +1909,7 @@ export default function DigitalesContacto() {
         shouldStickToBottomRef.current = true;
         try {
             const data = await api.digitalesContacto(target, { limit: CHAT_PAGE_SIZE, mark_read: 1 });
-            if (chatRequestRef.current !== requestId) return;
+            if (chatRequestRef.current !== requestId || activeTelRef.current !== target) return;
             const items = (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage);
             const paginacion = data.paginacion || {};
             guardarChatEnCache(target, data);
@@ -1906,17 +1922,34 @@ export default function DigitalesContacto() {
             requestAnimationFrame(() => { endRef.current?.scrollIntoView({ behavior: "auto" }); });
         } catch (error) {
             console.error("Error cargando chat:", error);
-            if (chatRequestRef.current !== requestId) return;
+            if (chatRequestRef.current !== requestId || activeTelRef.current !== target) return;
             setProspecto(null); setIaEstado(null); setMensajes([]); setChatHasMore(false); setOldestMessageId(null);
         } finally { if (chatRequestRef.current === requestId) setLoadingChat(false); }
     }
 
     async function refreshActiveChat(tel52, { forceBottom = false } = {}) {
-        const target = tel52 || activeTel;
+        const target = normalizaTelefonoMx(tel52 || activeTelRef.current);
         if (!target) return;
-        const data = await api.digitalesContacto(target, { limit: CHAT_PAGE_SIZE, mark_read: forceBottom ? 1 : 0 });
+
+        const data = await api.digitalesContacto(target, {
+            limit: CHAT_PAGE_SIZE,
+            mark_read: forceBottom ? 1 : 0,
+        });
         const incoming = (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage);
         const paginacion = data.paginacion || {};
+
+        guardarChatEnCache(target, {
+            ...data,
+            mensajes: incoming,
+            paginacion,
+        });
+
+        // Una respuesta tardía nunca debe pintar datos sobre otro chat.
+        if (activeTelRef.current !== target) {
+            if (!isDirectChatMode) await refreshChats().catch(() => { });
+            return;
+        }
+
         setProspecto(data.prospecto || null);
         setIaEstado(data.ia_estado || null);
         setMensajes(prev => mergeMessages(prev.filter(m => !m.local_pending), incoming));
@@ -1949,19 +1982,46 @@ export default function DigitalesContacto() {
     }
 
     async function cargarMensajesAnteriores() {
-        if (!activeTel || !chatHasMore || !oldestMessageId || loadingOlderRef.current) return;
+        const target = activeTelRef.current;
+        const beforeId = oldestMessageId;
+        if (!target || !chatHasMore || !beforeId || loadingOlderRef.current) return;
+
         const container = messagesScrollRef.current;
-        const prevH = container?.scrollHeight || 0, prevT = container?.scrollTop || 0;
+        const prevH = container?.scrollHeight || 0;
+        const prevT = container?.scrollTop || 0;
+
         try {
-            loadingOlderRef.current = true; setLoadingOlder(true);
-            const data = await api.digitalesContacto(activeTel, { limit: CHAT_PAGE_SIZE, before_id: oldestMessageId });
+            loadingOlderRef.current = true;
+            setLoadingOlder(true);
+
+            const data = await api.digitalesContacto(target, {
+                limit: CHAT_PAGE_SIZE,
+                before_id: beforeId,
+                mark_read: 0,
+            });
+
+            if (activeTelRef.current !== target) return;
+
             const older = (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage);
             const paginacion = data.paginacion || {};
-            if (older.length) { setMensajes(prev => mergeMessages(older, prev)); setOldestMessageId(paginacion.oldest_id || older[0]?.id || oldestMessageId); }
+
+            if (older.length) {
+                setMensajes(prev => mergeMessages(older, prev));
+                setOldestMessageId(paginacion.oldest_id || older[0]?.id || beforeId);
+            }
+
             setChatHasMore(Boolean(paginacion.has_more));
-            requestAnimationFrame(() => { const cur = messagesScrollRef.current; if (!cur) return; cur.scrollTop = cur.scrollHeight - prevH + prevT; });
-        } catch (error) { console.error("Error cargando mensajes anteriores:", error); }
-        finally { loadingOlderRef.current = false; setLoadingOlder(false); }
+            requestAnimationFrame(() => {
+                const cur = messagesScrollRef.current;
+                if (!cur || activeTelRef.current !== target) return;
+                cur.scrollTop = cur.scrollHeight - prevH + prevT;
+            });
+        } catch (error) {
+            console.error("Error cargando mensajes anteriores:", error);
+        } finally {
+            loadingOlderRef.current = false;
+            setLoadingOlder(false);
+        }
     }
 
     function onMessagesScroll(e) {
@@ -2020,6 +2080,9 @@ export default function DigitalesContacto() {
         const arr = Array.from(files || []);
 
         if (!arr.length) return;
+        if (activeTelRef.current) {
+            setDraftOwnerTel(current => current || activeTelRef.current);
+        }
 
         setAttachments(prev => {
             const next = [...prev];
@@ -2067,8 +2130,14 @@ export default function DigitalesContacto() {
     function resetComposer() {
         setDraftMsg("");
         if (inputRef.current) inputRef.current.value = "";
-        setEditingMsgId(null); setReplyToMsg(null); setOpenEmoji(false);
-        cleanupPreviews(attachments); setAttachments([]);
+        setEditingMsgId(null);
+        setReplyToMsg(null);
+        setDraftOwnerTel("");
+        setOpenEmoji(false);
+        setShowQuickBubblesDropdown(false);
+        setShowTemplatesDropdown(false);
+        cleanupPreviews(attachments);
+        setAttachments([]);
     }
 
     function clearTelQueryIfAny() {
@@ -2079,8 +2148,28 @@ export default function DigitalesContacto() {
     async function openChatByTel(tel52) {
         const normalized = normalizaTelefonoMx(tel52);
         if (!normalized) return;
+
+        if (
+            hasComposerDraft &&
+            draftOwnerTel &&
+            normalized !== draftOwnerTel
+        ) {
+            const ok = window.confirm(
+                "Tienes un mensaje sin enviar en la conversación actual. " +
+                "¿Deseas descartarlo y cambiar de cliente?"
+            );
+            if (!ok) return;
+            resetComposer();
+        }
+
         clearTelQueryIfAny();
-        setActiveTel(normalized); setMobileView("chat");
+        activeTelRef.current = normalized;
+        setActiveTel(normalized);
+        setMobileView("chat");
+        setShowProspectoPanel(false);
+        setOpenEmoji(false);
+        setShowQuickBubblesDropdown(false);
+        setShowTemplatesDropdown(false);
         localStorage.setItem("last_active_chat", normalized);
         setChats(prev => prev.map(c => c.telefono === normalized ? { ...c, unread: 0 } : c));
     }
@@ -2088,15 +2177,18 @@ export default function DigitalesContacto() {
     function onPickEmoji(emojiObj) {
         const emoji = emojiObj?.emoji || "";
         if (!emoji) return;
+        if (activeTelRef.current) {
+            setDraftOwnerTel(current => current || activeTelRef.current);
+        }
         const input = inputRef.current;
         if (input && typeof input.selectionStart === "number") {
             const s = input.selectionStart, e = input.selectionEnd;
             const next = `${draftMsg.slice(0, s)}${emoji}${draftMsg.slice(e)}`;
-            setDraftMsg(next);
+            updateDraftMessage(next);
             requestAnimationFrame(() => { input.focus(); input.setSelectionRange(s + emoji.length, s + emoji.length); });
             return;
         }
-        setDraftMsg(prev => `${prev}${emoji}`);
+        updateDraftMessage(`${draftMsg}${emoji}`);
         requestAnimationFrame(() => inputRef.current?.focus?.());
     }
 
@@ -2133,6 +2225,7 @@ export default function DigitalesContacto() {
         setTplSelected(null);
         setTplDraft({});
         setTemplatesError("");
+        setOpenEmoji(false);
         setShowQuickBubblesDropdown(false);
         setShowTemplatesDropdown(true);
 
@@ -2241,18 +2334,37 @@ export default function DigitalesContacto() {
     function deleteQuickBubble(id) { setQuickBubbles(prev => prev.filter(b => b.id !== id)); }
 
     async function sendQuickBubble(text) {
-        if (!activeTel || !text.trim()) return;
+        const targetTel = activeTelRef.current;
+        if (!targetTel || !text.trim()) return;
+
         setShowQuickBubblesDropdown(false);
         const optimisticId = crypto.randomUUID();
+        const replyMessageId = replyToMsg?.wa_message_id || replyToMsg?.id || "";
         shouldStickToBottomRef.current = true;
-        setMensajes(prev => [...prev, { id: optimisticId, local_pending: true, local_created_at: new Date().toISOString(), mine: true, text: text.replace(/\r\n/g, "\n").trim(), time: "Ahora", status: "sent", reply_to_id: replyToMsg?.wa_message_id || "", attachments: [] }]);
+
+        setMensajes(prev => [...prev, {
+            id: optimisticId,
+            local_pending: true,
+            local_created_at: new Date().toISOString(),
+            mine: true,
+            text: text.replace(/\r\n/g, "\n").trim(),
+            time: "Ahora",
+            status: "sent",
+            reply_to_id: replyMessageId,
+            attachments: [],
+        }]);
+
         try {
-            await api.digitalesEnviarMensaje({ to: activeTel, text: text.trim(), reply_to_message_id: replyToMsg?.wa_message_id || "" });
+            await api.digitalesEnviarMensaje({
+                to: targetTel,
+                text: text.trim(),
+                reply_to_message_id: replyMessageId,
+            });
             setReplyToMsg(null);
-            await refreshActiveChat(activeTel, { forceBottom: true });
+            await refreshActiveChat(targetTel, { forceBottom: true });
         } catch (error) {
             alert(`Falló: ${error.message}`);
-            await refreshActiveChat(activeTel).catch(() => { });
+            await refreshActiveChat(targetTel).catch(() => { });
         }
     }
 
@@ -2278,7 +2390,17 @@ export default function DigitalesContacto() {
     }
 
     async function enviarMensaje() {
-        if (!activeTel) return;
+        const visibleTel = activeTelRef.current;
+        const targetTel = normalizaTelefonoMx(draftOwnerTel || visibleTel);
+        if (!targetTel) return;
+
+        if (visibleTel !== targetTel) {
+            activeTelRef.current = targetTel;
+            setActiveTel(targetTel);
+            setMobileView("chat");
+            alert("El borrador pertenece a otra conversación. Regresé al cliente correcto para evitar un envío equivocado.");
+            return;
+        }
         if (clienteBloqueado) {
             alert("Este contacto está bloqueado. Desbloquéalo antes de enviar mensajes.");
             return;
@@ -2318,15 +2440,15 @@ export default function DigitalesContacto() {
 
             try {
                 await api.digitalesEditarMensaje({
-                    to: activeTel,
+                    to: targetTel,
                     message_id: editId,
                     text,
                 });
 
-                await refreshActiveChat(activeTel, { forceBottom: true });
+                await refreshActiveChat(targetTel, { forceBottom: true });
             } catch (error) {
                 alert(`Falló edición: ${error.message}`);
-                await refreshActiveChat(activeTel).catch(() => { });
+                await refreshActiveChat(targetTel).catch(() => { });
             }
 
             return;
@@ -2373,7 +2495,7 @@ export default function DigitalesContacto() {
         try {
             if (hasAttachments) {
                 await api.digitalesEnviarMedia({
-                    to: activeTel,
+                    to: targetTel,
                     text: hasText ? text : "",
                     files: currentAttachments
                         .map(a => a.file)
@@ -2382,24 +2504,25 @@ export default function DigitalesContacto() {
                 });
             } else {
                 await api.digitalesEnviarMensaje({
-                    to: activeTel,
+                    to: targetTel,
                     text,
                     reply_to_message_id: replyMessageId,
                 });
             }
 
-            await refreshActiveChat(activeTel, { forceBottom: true });
+            await refreshActiveChat(targetTel, { forceBottom: true });
         } catch (error) {
             alert(`Falló: ${error.message}`);
-            await refreshActiveChat(activeTel).catch(() => { });
+            await refreshActiveChat(targetTel).catch(() => { });
         } finally {
             cleanupPreviews(optimisticAttachments);
         }
     }
 
     async function enviarPlantilla() {
+        const targetTel = activeTelRef.current;
         if (
-            !activeTel ||
+            !targetTel ||
             !tplSelected ||
             sendingTemplate
         ) {
@@ -2486,7 +2609,7 @@ export default function DigitalesContacto() {
 
         try {
             await api.digitalesEnviarPlantilla({
-                to: activeTel,
+                to: targetTel,
                 template_name: templateName,
                 idioma,
                 components:
@@ -2505,7 +2628,7 @@ export default function DigitalesContacto() {
             setTemplatesError("");
 
             await refreshActiveChat(
-                activeTel,
+                targetTel,
                 { forceBottom: true }
             );
         } catch (error) {
@@ -2526,7 +2649,7 @@ export default function DigitalesContacto() {
                 )
             );
 
-            await refreshActiveChat(activeTel)
+            await refreshActiveChat(targetTel)
                 .catch(() => { });
         } finally {
             setSendingTemplate(false);
@@ -2898,6 +3021,19 @@ export default function DigitalesContacto() {
 
     useEffect(() => { try { localStorage.setItem(QUICK_BUBBLES_KEY, JSON.stringify(quickBubbles)); } catch { } }, [quickBubbles]);
     useEffect(() => { activeTelRef.current = activeTel; }, [activeTel]);
+    useEffect(() => {
+        if (!hasComposerDraft && draftOwnerTel) {
+            setDraftOwnerTel("");
+        }
+    }, [hasComposerDraft, draftOwnerTel]);
+    useEffect(() => {
+        if (!hasComposerDraft || !draftOwnerTel || !activeTel) return;
+        if (activeTel === draftOwnerTel) return;
+
+        activeTelRef.current = draftOwnerTel;
+        setActiveTel(draftOwnerTel);
+        setMobileView("chat");
+    }, [activeTel, draftOwnerTel, hasComposerDraft]);
 
     useEffect(() => {
         if (!prospecto) return;
@@ -2966,7 +3102,11 @@ export default function DigitalesContacto() {
             const data = e.detail || {};
             const telefonoMensaje = normalizaTelefonoMx(data.telefono || "");
             if (!telefonoMensaje) return;
-            if (telefonoMensaje === activeTelRef.current) { await refreshActiveChat(telefonoMensaje, { forceBottom: true }).catch(() => { }); return; }
+            if (telefonoMensaje === activeTelRef.current) {
+                const shouldFollow = isNearBottom(messagesScrollRef.current);
+                await refreshActiveChat(telefonoMensaje, { forceBottom: shouldFollow }).catch(() => { });
+                return;
+            }
             if (!isDirectChatMode) await refreshChats().catch(() => { });
         };
         window.addEventListener("whatsapp:nuevo-mensaje", onNuevoMensaje);
@@ -2985,21 +3125,43 @@ export default function DigitalesContacto() {
     }, [isDirectChatMode]);
 
     useEffect(() => {
-        if (tel && !didInitFromQuery.current) {
-            didInitFromQuery.current = true; setActiveTel(tel); setMobileView("chat");
-            const last = localStorage.getItem("last_active_chat");
-            if (last && last !== tel) localStorage.setItem("last_active_chat", tel);
+        if (didInitSelection.current) return;
+
+        if (tel) {
+            didInitSelection.current = true;
+            activeTelRef.current = tel;
+            setActiveTel(tel);
+            setMobileView("chat");
+            localStorage.setItem("last_active_chat", tel);
             return;
         }
-        if (!tel && !activeTel && chats.length) {
-            const last = localStorage.getItem("last_active_chat");
-            if (last && chats.some(c => c.telefono === last)) setActiveTel(last);
-            else setActiveTel(chats[0].telefono);
+
+        if (!isDirectChatMode && chats.length) {
+            const last = normalizaTelefonoMx(localStorage.getItem("last_active_chat") || "");
+            const initialTel = last && chats.some(c => c.telefono === last)
+                ? last
+                : chats[0].telefono;
+
+            didInitSelection.current = true;
+            activeTelRef.current = initialTel;
+            setActiveTel(initialTel);
         }
-    }, [tel, chats, activeTel]);
+    }, [tel, chats, isDirectChatMode]);
 
     useEffect(() => {
-        if (!activeTel) { setProspecto(null); setMensajes([]); setChatHasMore(false); setOldestMessageId(null); return; }
+        setShowProspectoPanel(false);
+        setOpenEmoji(false);
+        setShowQuickBubblesDropdown(false);
+        setShowTemplatesDropdown(false);
+
+        if (!activeTel) {
+            setProspecto(null);
+            setMensajes([]);
+            setChatHasMore(false);
+            setOldestMessageId(null);
+            return;
+        }
+
         cargarChatInicial(activeTel);
     }, [activeTel, isDirectChatMode]);
 
@@ -3024,6 +3186,10 @@ export default function DigitalesContacto() {
                 if (!lastId && !lastCreatedAt) { timer = setTimeout(tick, 3500); return; }
                 const data = await api.digitalesContactoUpdates(target, lastCreatedAt, { limit: CHAT_UPDATES_LIMIT, after_id: lastId });
                 if (!alive) return;
+                if (activeTelRef.current !== target) {
+                    timer = setTimeout(tick, 3500);
+                    return;
+                }
                 const incoming = (Array.isArray(data?.mensajes) ? data.mensajes : []).map(normalizeMessage);
                 if (incoming.length) {
                     shouldStickToBottomRef.current = isNearBottom(messagesScrollRef.current);
@@ -3204,7 +3370,7 @@ export default function DigitalesContacto() {
 
                         {/* ── HEADER COMPACTO ─────────────────────────────────── */}
                         <div className="shrink-0 border-b border-black/10 bg-white px-3 py-2 sm:px-4">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {/* Botón volver mobile */}
                                 {!isDirectChatMode ? (
                                     <button onClick={() => setMobileView("list")}
@@ -3217,9 +3383,9 @@ export default function DigitalesContacto() {
                                 <Avatar name={activeChat?.nombre || "Prospecto"} />
 
                                 {/* Centro: nombre + teléfono + estado + pauta en una sola fila, fechas debajo */}
-                                <div className="min-w-0 flex-1">
+                                <div className="min-w-[220px] flex-1 basis-[420px]">
                                     {/* Fila 1: nombre + teléfono + estado + pauta (todo en línea, overflow hidden) */}
-                                    <div className="flex items-center gap-1.5 overflow-hidden">
+                                    <div className="flex flex-wrap items-center gap-1.5">
                                         {editingNombre ? (
                                             <input
                                                 ref={nombreInputRef}
@@ -3255,7 +3421,7 @@ export default function DigitalesContacto() {
                                         {/* Estado prospecto */}
                                         {activeTel ? (
                                             <select value={headerEstado} onChange={(e) => saveHeaderEstado(e.target.value)}
-                                                className="shrink-0 h-6 rounded-md border border-black/10 bg-white px-1.5 text-[11px] font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                className="h-6 min-w-0 max-w-[150px] rounded-md border border-black/10 bg-white px-1.5 text-[11px] font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
                                                 title="Estado del prospecto">
                                                 {renderOptionsConValorActual(ESTADOS_HEADER, headerEstado, "Sin estado")}
                                             </select>
@@ -3270,7 +3436,7 @@ export default function DigitalesContacto() {
                                                 onChange={(e) =>
                                                     saveHeaderMotivo(e.target.value)
                                                 }
-                                                className="shrink-0 h-6 max-w-[220px] rounded-md border border-red-200 bg-red-50 px-1.5 text-[11px] font-semibold text-red-700 outline-none focus:border-red-400"
+                                                className="h-6 min-w-0 max-w-[180px] rounded-md border border-red-200 bg-red-50 px-1.5 text-[11px] font-semibold text-red-700 outline-none focus:border-red-400"
                                                 title="Motivo de descalificación"
                                             >
                                                 {renderOptionsConValorActual(
@@ -3284,7 +3450,7 @@ export default function DigitalesContacto() {
                                         {activeTel ? (
                                             <select value={quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || ""}
                                                 onChange={(e) => setQuickEditDraft(p => ({ ...p, pauta: e.target.value }))}
-                                                className="shrink-0 h-6 rounded-md border border-black/10 bg-white px-1.5 text-[11px] font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
+                                                className="h-6 min-w-0 max-w-[190px] rounded-md border border-black/10 bg-white px-1.5 text-[11px] font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
                                                 title="Pauta / campaña">
                                                 {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || "", "Sin campaña")}
                                             </select>
@@ -3300,7 +3466,7 @@ export default function DigitalesContacto() {
                                 </div>
 
                                 {/* Derecha: botones de acción — siempre en la misma fila */}
-                                <div className="flex shrink-0 items-center gap-1">
+                                <div className="flex w-full flex-wrap items-center justify-end gap-1 border-t border-black/5 pt-2 sm:w-auto sm:shrink-0 sm:border-0 sm:pt-0">
                                     {/* Marcar no leído */}
                                     {!isDirectChatMode ? (
                                         <button type="button" onClick={() => marcarChatComoNoLeido(activeTel)}
@@ -3308,7 +3474,7 @@ export default function DigitalesContacto() {
                                             className="inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 bg-blue-50 px-2 text-[11px] font-semibold text-blue-500 hover:bg-blue-50 disabled:opacity-50 transition"
                                             title="Marcar como no leído">
                                             <MailOpen className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline">{markingUnreadTel === activeTel ? "..." : "No leído"}</span>
+                                            <span className="hidden xl:inline">{markingUnreadTel === activeTel ? "..." : "No leído"}</span>
                                         </button>
                                     ) : null}
 
@@ -3318,7 +3484,7 @@ export default function DigitalesContacto() {
                                         className="inline-flex h-7 items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 text-[11px] font-extrabold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 transition"
                                         title="Agendar cita">
                                         <CalendarPlus className="h-3.5 w-3.5" />
-                                        <span className="hidden sm:inline">Agendar cita</span>
+                                        <span className="hidden xl:inline">Agendar cita</span>
                                     </button>
 
                                     {/* Pausar / Reactivar IA */}
@@ -3328,14 +3494,14 @@ export default function DigitalesContacto() {
                                                 className="inline-flex h-7 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 text-[11px] font-extrabold text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition"
                                                 title="Pausar IA">
                                                 <ZapOff className="h-3.5 w-3.5" />
-                                                <span className="hidden sm:inline">Pausar IA</span>
+                                                <span className="hidden xl:inline">Pausar IA</span>
                                             </button>
                                         ) : (
                                             <button type="button" onClick={reactivarIaActiva} disabled={loadingIaAction}
                                                 className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-[11px] font-extrabold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition"
                                                 title="Reactivar IA">
                                                 <Zap className="h-3.5 w-3.5" />
-                                                <span className="hidden sm:inline">Reactivar IA</span>
+                                                <span className="hidden xl:inline">Reactivar IA</span>
                                             </button>
                                         )
                                     ) : null}
@@ -3354,7 +3520,7 @@ export default function DigitalesContacto() {
                                             title={clienteBloqueado ? "Desbloquear contacto" : "Bloquear contacto"}
                                         >
                                             <Ban className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline">
+                                            <span className="hidden xl:inline">
                                                 {blockingTel === activeTel
                                                     ? "..."
                                                     : clienteBloqueado
@@ -3376,8 +3542,13 @@ export default function DigitalesContacto() {
 
                         {/* ── BANNER DATOS DEL PROSPECTO (desplegable) ─────────── */}
                         {activeTel ? (
-                            <details className="group shrink-0 border-b border-[#131E5C]/10 bg-[#131E5C]/[0.03]">
-                                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2">
+                            <section className="shrink-0 border-b border-[#131E5C]/10 bg-[#131E5C]/[0.03]">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowProspectoPanel(prev => !prev)}
+                                    aria-expanded={showProspectoPanel}
+                                    className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left"
+                                >
                                     <div className="flex min-w-0 flex-1 items-center gap-2">
                                         <Pencil className="h-3.5 w-3.5 shrink-0 text-[#131E5C]/60" />
                                         <span className="text-xs font-extrabold text-[#131E5C]">Datos del prospecto</span>
@@ -3385,90 +3556,101 @@ export default function DigitalesContacto() {
                                             — {[quickEditDraft.auto_interes || prospecto?.auto_interes, quickEditDraft.estado || prospecto?.estado].filter(Boolean).join(" · ") || "Sin datos aún"}
                                         </span>
                                     </div>
-                                    <ChevronDown className="h-4 w-4 shrink-0 text-[#131E5C]/40 transition-transform duration-200 group-open:rotate-180" />
-                                </summary>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        {showProspectoPanel ? (
+                                            <span className="hidden text-[11px] font-extrabold text-[#131E5C]/60 sm:inline">Cerrar</span>
+                                        ) : null}
+                                        {showProspectoPanel ? (
+                                            <X className="h-4 w-4 text-[#131E5C]/50" />
+                                        ) : (
+                                            <ChevronDown className="h-4 w-4 text-[#131E5C]/40" />
+                                        )}
+                                    </div>
+                                </button>
 
-                                <div className="border-t border-[#131E5C]/10 px-4 py-4">
-                                    <div className="mx-auto max-w-6xl">
-                                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                            <div>
-                                                <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Vehículo</div>
-                                                <select value={quickEditDraft.auto_interes || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, auto_interes: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}</select>
-                                            </div>
-                                            <div>
-                                                <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Estado</div>
-                                                <select value={quickEditDraft.estado || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, estado: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}</select>
-                                            </div>
-                                            {String(quickEditDraft.estado || "")
-                                                .toLowerCase() === "descalificado" ? (
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-red-600">
-                                                        Motivo de descalificación *
-                                                    </div>
-
-                                                    <select
-                                                        value={
-                                                            quickEditDraft.motivo_descalificacion || ""
-                                                        }
-                                                        onChange={(e) =>
-                                                            setQuickEditDraft((current) => ({
-                                                                ...current,
-                                                                motivo_descalificacion:
-                                                                    e.target.value,
-                                                            }))
-                                                        }
-                                                        className={cls(
-                                                            "h-9 w-full rounded-lg border bg-white px-3 text-sm font-semibold outline-none focus:ring-1",
-                                                            quickEditDraft.motivo_descalificacion
-                                                                ? "border-black/10 text-[#131E5C]"
-                                                                : "border-red-300 text-red-700"
-                                                        )}
-                                                    >
-                                                        {renderOptionsConValorActual(
-                                                            MOTIVOS_DESCALIFICACION,
-                                                            quickEditDraft.motivo_descalificacion,
-                                                            "Selecciona el motivo…"
-                                                        )}
-                                                    </select>
-                                                </div>
-                                            ) : null}
-                                            <div>
-                                                <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Canal</div>
-                                                <select value={quickEditDraft.canal_contacto || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, canal_contacto: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}</select>
-                                            </div>
-                                            <div>
-                                                <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Comentarios</div>
-                                                <textarea value={quickEditDraft.comentarios || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, comentarios: e.target.value }))} rows={2} className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" />
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-4 rounded-xl border border-[#131E5C]/10 bg-white p-4">
-                                            <div className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-[#131E5C]/60">
-                                                <Activity className="h-3.5 w-3.5" />Perfil comercial y financiero
-                                            </div>
+                                {showProspectoPanel ? (
+                                    <div className="max-h-[min(62dvh,640px)] overflow-y-auto overscroll-contain border-t border-[#131E5C]/10 px-3 py-4 sm:px-4">
+                                        <div className="mx-auto max-w-6xl">
                                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                                <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Enganche</div><input type="number" min="0" inputMode="numeric" value={quickEditDraft.enganche_monto || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, enganche_monto: e.target.value.replace(/\D/g, "") }))} placeholder="Ej. 80000" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
-                                                <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Presupuesto mensual</div><input type="number" min="0" inputMode="numeric" value={quickEditDraft.presupuesto_mensual || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, presupuesto_mensual: e.target.value.replace(/\D/g, "") }))} placeholder="Ej. 9000" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
-                                                <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Buró</div><select value={quickEditDraft.buro_estado || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, buro_estado: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{BURO_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
-                                                <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Forma de pago</div><select value={quickEditDraft.forma_pago || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, forma_pago: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{FORMA_PAGO_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
-                                                <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Tipo cliente</div><select value={quickEditDraft.tipo_cliente || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, tipo_cliente: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{TIPO_CLIENTE_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
-                                                <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Plazo de compra</div><select value={quickEditDraft.plazo_compra || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, plazo_compra: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{PLAZO_COMPRA_OPTIONS.map(i => <option key={i || "empty"} value={i}>{i || "— Selecciona —"}</option>)}</select></div>
-                                                <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Uso del vehículo</div><input value={quickEditDraft.uso_vehiculo || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, uso_vehiculo: e.target.value }))} placeholder="Personal, familiar…" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
-                                                <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Comprobación ingresos</div><input value={quickEditDraft.comprobacion_ingresos || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, comprobacion_ingresos: e.target.value }))} placeholder="Nómina, estados…" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
-                                            </div>
-                                        </div>
+                                                <div>
+                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Vehículo</div>
+                                                    <select value={quickEditDraft.auto_interes || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, auto_interes: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}</select>
+                                                </div>
+                                                <div>
+                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Estado</div>
+                                                    <select value={quickEditDraft.estado || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, estado: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}</select>
+                                                </div>
+                                                {String(quickEditDraft.estado || "")
+                                                    .toLowerCase() === "descalificado" ? (
+                                                    <div>
+                                                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-red-600">
+                                                            Motivo de descalificación *
+                                                        </div>
 
-                                        <div className="mt-4 flex justify-end">
-                                            <button onClick={saveQuickEdit} disabled={savingQuickEdit || !prospecto?.id}
-                                                className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                                                style={{ backgroundColor: BRAND_BLUE }} type="button">
-                                                <Save className="h-4 w-4" />
-                                                {savingQuickEdit ? "Guardando..." : "Guardar cambios"}
-                                            </button>
+                                                        <select
+                                                            value={
+                                                                quickEditDraft.motivo_descalificacion || ""
+                                                            }
+                                                            onChange={(e) =>
+                                                                setQuickEditDraft((current) => ({
+                                                                    ...current,
+                                                                    motivo_descalificacion:
+                                                                        e.target.value,
+                                                                }))
+                                                            }
+                                                            className={cls(
+                                                                "h-9 w-full rounded-lg border bg-white px-3 text-sm font-semibold outline-none focus:ring-1",
+                                                                quickEditDraft.motivo_descalificacion
+                                                                    ? "border-black/10 text-[#131E5C]"
+                                                                    : "border-red-300 text-red-700"
+                                                            )}
+                                                        >
+                                                            {renderOptionsConValorActual(
+                                                                MOTIVOS_DESCALIFICACION,
+                                                                quickEditDraft.motivo_descalificacion,
+                                                                "Selecciona el motivo…"
+                                                            )}
+                                                        </select>
+                                                    </div>
+                                                ) : null}
+                                                <div>
+                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Canal</div>
+                                                    <select value={quickEditDraft.canal_contacto || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, canal_contacto: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}</select>
+                                                </div>
+                                                <div>
+                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Comentarios</div>
+                                                    <textarea value={quickEditDraft.comentarios || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, comentarios: e.target.value }))} rows={2} className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" />
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4 rounded-xl border border-[#131E5C]/10 bg-white p-4">
+                                                <div className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-[#131E5C]/60">
+                                                    <Activity className="h-3.5 w-3.5" />Perfil comercial y financiero
+                                                </div>
+                                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Enganche</div><input type="number" min="0" inputMode="numeric" value={quickEditDraft.enganche_monto || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, enganche_monto: e.target.value.replace(/\D/g, "") }))} placeholder="Ej. 80000" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
+                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Presupuesto mensual</div><input type="number" min="0" inputMode="numeric" value={quickEditDraft.presupuesto_mensual || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, presupuesto_mensual: e.target.value.replace(/\D/g, "") }))} placeholder="Ej. 9000" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
+                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Buró</div><select value={quickEditDraft.buro_estado || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, buro_estado: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{BURO_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
+                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Forma de pago</div><select value={quickEditDraft.forma_pago || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, forma_pago: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{FORMA_PAGO_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
+                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Tipo cliente</div><select value={quickEditDraft.tipo_cliente || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, tipo_cliente: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{TIPO_CLIENTE_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
+                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Plazo de compra</div><select value={quickEditDraft.plazo_compra || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, plazo_compra: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{PLAZO_COMPRA_OPTIONS.map(i => <option key={i || "empty"} value={i}>{i || "— Selecciona —"}</option>)}</select></div>
+                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Uso del vehículo</div><input value={quickEditDraft.uso_vehiculo || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, uso_vehiculo: e.target.value }))} placeholder="Personal, familiar…" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
+                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Comprobación ingresos</div><input value={quickEditDraft.comprobacion_ingresos || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, comprobacion_ingresos: e.target.value }))} placeholder="Nómina, estados…" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4 flex justify-end">
+                                                <button onClick={saveQuickEdit} disabled={savingQuickEdit || !prospecto?.id}
+                                                    className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    style={{ backgroundColor: BRAND_BLUE }} type="button">
+                                                    <Save className="h-4 w-4" />
+                                                    {savingQuickEdit ? "Guardando..." : "Guardar cambios"}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </details>
+                                ) : null}
+                            </section>
                         ) : null}
 
                         {/* ── ÁREA DE MENSAJES ──────────────────────────────────── */}
@@ -3545,6 +3727,7 @@ export default function DigitalesContacto() {
                                                         } : null}
                                                         onReply={messageId && !message.local_pending ? () => {
                                                             setReplyToMsg(message);
+                                                            setDraftOwnerTel(activeTelRef.current);
                                                             requestAnimationFrame(() => inputRef.current?.focus?.());
                                                         } : null}
                                                     />
@@ -3613,21 +3796,26 @@ export default function DigitalesContacto() {
                                 {/* Caja compositor */}
                                 <div className="rounded-2xl border border-black/10 bg-white shadow-sm">
                                     <div className="px-2 pt-2">
-                                        <WhatsAppComposerInput value={draftMsg} onChange={setDraftMsg} onSend={enviarMensaje}
+                                        <WhatsAppComposerInput value={draftMsg} onChange={updateDraftMessage} onSend={enviarMensaje}
                                             disabled={!activeTel || clienteBloqueado} placeholder={composerHint} inputRef={inputRef} onPaste={onPasteInComposer} />
                                     </div>
 
                                     {/* Barra de botones */}
-                                    <div className="flex items-center gap-0.5 px-2 pb-2 pt-1">
+                                    <div className="flex flex-wrap items-center gap-0.5 px-2 pb-2 pt-1">
                                         {/* Emoji */}
                                         <div className="relative" ref={emojiRef}>
                                             <button className={cls("inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-neutral-100 hover:text-[#131E5C] transition", !activeTel ? "cursor-not-allowed opacity-50" : "")}
-                                                title="Emojis" type="button" disabled={!activeTel} onClick={() => setOpenEmoji(p => !p)}>
+                                                title="Emojis" type="button" disabled={!activeTel}
+                                                onClick={() => {
+                                                    setOpenEmoji(prev => !prev);
+                                                    setShowTemplatesDropdown(false);
+                                                    setShowQuickBubblesDropdown(false);
+                                                }}>
                                                 <Smile className="h-4 w-4" />
                                             </button>
                                             {openEmoji ? (
-                                                <div className="absolute bottom-10 left-0 z-50 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
-                                                    <EmojiPicker onEmojiClick={onPickEmoji} searchDisabled={false} skinTonesDisabled={false} lazyLoadEmojis height={360} width={320} />
+                                                <div className="fixed inset-x-3 bottom-[92px] z-[80] w-auto overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-10 sm:left-0 sm:w-[320px]">
+                                                    <EmojiPicker onEmojiClick={onPickEmoji} searchDisabled={false} skinTonesDisabled={false} lazyLoadEmojis height={360} width="100%" />
                                                 </div>
                                             ) : null}
                                         </div>
@@ -3653,7 +3841,7 @@ export default function DigitalesContacto() {
                                             </button>
 
                                             {showTemplatesDropdown ? (
-                                                <div className="absolute bottom-12 left-0 z-50 w-96 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
+                                                <div className="fixed inset-x-3 bottom-[92px] z-[80] max-h-[calc(100dvh-120px)] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-12 sm:left-0 sm:w-[min(24rem,calc(100vw-2rem))]">
                                                     <div className="flex items-center justify-between border-b border-black/5 px-4 py-2.5">
                                                         <div className="flex items-center gap-2">
                                                             {tplSelected ? (
@@ -3671,7 +3859,7 @@ export default function DigitalesContacto() {
                                                         </button>
                                                     </div>
 
-                                                    <div className="max-h-80 overflow-y-auto">
+                                                    <div className="max-h-[calc(100dvh-180px)] overflow-y-auto sm:max-h-80">
                                                         {!tplSelected ? (
                                                             // Lista de plantillas
                                                             loadingTemplates ? (
@@ -3803,7 +3991,11 @@ export default function DigitalesContacto() {
                                         {/* Mensajes rápidos — dropdown */}
                                         <div className="relative" ref={quickBubblesDropdownRef}>
                                             <button type="button" disabled={!activeTel}
-                                                onClick={() => { setShowQuickBubblesDropdown(p => !p); setShowTemplatesDropdown(false); }}
+                                                onClick={() => {
+                                                    setShowQuickBubblesDropdown(prev => !prev);
+                                                    setShowTemplatesDropdown(false);
+                                                    setOpenEmoji(false);
+                                                }}
                                                 className={cls(
                                                     "inline-flex h-8 items-center gap-1 rounded-xl px-2 text-xs font-extrabold text-slate-400 hover:bg-neutral-100 hover:text-[#131E5C] transition",
                                                     !activeTel ? "cursor-not-allowed opacity-50" : "",
@@ -3815,7 +4007,7 @@ export default function DigitalesContacto() {
                                             </button>
 
                                             {showQuickBubblesDropdown ? (
-                                                <div className="absolute bottom-12 left-0 z-50 w-72 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
+                                                <div className="fixed inset-x-3 bottom-[92px] z-[80] max-h-[calc(100dvh-120px)] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-12 sm:left-0 sm:w-72">
                                                     <div className="flex items-center justify-between border-b border-black/5 px-4 py-2.5">
                                                         <span className="text-xs font-extrabold text-[#131E5C]">Mensajes rápidos</span>
                                                         <div className="flex items-center gap-1">
@@ -3858,12 +4050,12 @@ export default function DigitalesContacto() {
                                                                         <div className="mt-0.5 truncate text-[11px] font-medium text-slate-500">{bubble.text}</div>
                                                                     </button>
                                                                     <button type="button" onClick={() => startEditQuickBubble(bubble)}
-                                                                        className="hidden h-6 w-6 shrink-0 items-center justify-center rounded-full text-[#131E5C] hover:bg-[#131E5C]/10 group-hover:inline-flex"
+                                                                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[#131E5C] hover:bg-[#131E5C]/10 sm:opacity-0 sm:group-hover:opacity-100"
                                                                         title="Editar">
                                                                         <Pencil className="h-3.5 w-3.5" />
                                                                     </button>
                                                                     <button type="button" onClick={() => deleteQuickBubble(bubble.id)}
-                                                                        className="hidden h-6 w-6 shrink-0 items-center justify-center rounded-full text-red-400 hover:bg-red-50 hover:text-red-600 group-hover:inline-flex"
+                                                                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-red-400 hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100"
                                                                         title="Eliminar">
                                                                         <X className="h-3.5 w-3.5" />
                                                                     </button>
