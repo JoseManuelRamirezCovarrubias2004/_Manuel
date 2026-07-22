@@ -36,3 +36,12 @@ export async function eliminarColaborador(idColaborador) {
 
   return { ok: true };
 }
+
+// ↓↓↓ NUEVO — agrégalo aquí, al final del archivo ↓↓↓
+
+export async function darDeBajaColaborador(idColaborador, datos) {
+  return await http(`${ENDPOINT}${idColaborador}/dar_baja/`, {
+    method: "POST",
+    body: datos,
+  });
+}

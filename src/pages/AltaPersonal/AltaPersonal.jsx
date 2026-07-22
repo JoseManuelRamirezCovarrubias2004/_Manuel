@@ -4,16 +4,19 @@ import {
     Search,
     Plus,
     Pencil,
-    Trash2
+    Trash2,
+    UserX
 } from "lucide-react";
 
 import ModalColaborador from "./components/ModalColaborador";
+import ModalBaja from "./components/ModalBaja";
 
 import {
     obtenerColaboradores,
     crearColaborador,
     actualizarColaborador,
     eliminarColaborador,
+    darDeBajaColaborador,
 } from "../../lib/apiColaboradores";
 
 
@@ -24,6 +27,8 @@ export default function AltaPersonal() {
     const [mostrarModal, setMostrarModal] = useState(false);
     const [colaboradores, setColaboradores] = useState([]);
     const [colaboradorEditar, setColaboradorEditar] =useState(null);
+    const [mostrarModalBaja, setMostrarModalBaja] = useState(false);
+    const [colaboradorBaja, setColaboradorBaja] = useState(null);
 
     const cargarColaboradores = async () => {
         try {
@@ -293,8 +298,19 @@ export default function AltaPersonal() {
 
                                         <td className="px-5 py-4 text-center">
 
-                                            <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                                                Activo
+                                            <span
+                                                className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                                    colaborador.activo
+                                                        ? "bg-green-100 text-green-700"
+                                                        : "bg-red-100 text-red-700"
+                                                }`}
+                                                title={
+                                                    colaborador.activo
+                                                        ? "Activo"
+                                                        : `Baja: ${colaborador.motivo_baja || ""}`
+                                                }
+                                            >
+                                                {colaborador.activo ? "Activo" : "Baja"}
                                             </span>
 
                                         </td>
@@ -365,10 +381,35 @@ export default function AltaPersonal() {
                                                         items-center
                                                         justify-center
                                                     "
-                                                >
+                                               >
                                                     <Trash2 size={17} />
                                                 </button>
 
+                                                <button
+                                                    onClick={() => {
+                                                        setColaboradorBaja(colaborador);
+                                                        setMostrarModalBaja(true);
+                                                    }}
+                                                    title="Dar de baja"
+                                                    className="
+                                                        w-9
+                                                        h-9
+                                                        rounded-lg
+                                                        bg-gradient-to-b
+                                                        from-amber-300
+                                                        to-amber-500
+                                                        text-white
+                                                        hover:brightness-110
+                                                        transition
+                                                        flex
+                                                        items-center
+                                                        justify-center
+                                                    "
+                                                >
+                                                    <UserX size={17} />
+                                                </button>
+
+                                            
                                             </div>
 
                                         </td>
@@ -386,7 +427,7 @@ export default function AltaPersonal() {
                 </div>
 
                 {/* MODAL */}
-                <ModalColaborador
+             <ModalColaborador
                     open={mostrarModal}
                     agencia={agenciaSeleccionada}
                     colaborador={colaboradorEditar}
@@ -413,6 +454,28 @@ export default function AltaPersonal() {
 
                         setMostrarModal(false);
                         setColaboradorEditar(null);
+                    }}
+                />
+
+                {/* MODAL DE BAJA */}
+                <ModalBaja
+                    open={mostrarModalBaja}
+                    colaborador={colaboradorBaja}
+                    onClose={() => {
+                        setMostrarModalBaja(false);
+                        setColaboradorBaja(null);
+                    }}
+                    onGuardar={async (datos) => {
+
+                        await darDeBajaColaborador(
+                            colaboradorBaja.id_colaborador,
+                            datos
+                        );
+
+                        await cargarColaboradores();
+
+                        setMostrarModalBaja(false);
+                        setColaboradorBaja(null);
                     }}
                 />
 
