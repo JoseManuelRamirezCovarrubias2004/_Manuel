@@ -1713,11 +1713,10 @@ async function eliminarArchivoVehiculo(tipo, ruta) {
                                         placeholder="Buscar modelo, versión…"
                                         className="h-9 w-64 rounded-xl border border-[#E4E7F0] bg-white pl-9 pr-3 text-sm text-[#1A1F3C] placeholder:text-[#C8CEDF] outline-none focus:border-[#131E5C]/30 focus:ring-2 focus:ring-[#131E5C]/10" />
                                 </div>
-                                <button onClick={() => setSoloActivos((v) => !v)}
-                                    className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-all ${soloActivos ? "border-[#131E5C]/30 bg-[#131E5C]/8 text-[#131E5C]" : "border-[#E4E7F0] bg-white text-[#515778] hover:bg-[#F7F8FC]"}`}>
-                                    <Toggle size="sm" value={soloActivos} onChange={setSoloActivos} />
-                                    Solo activos
-                                </button>
+                                <label className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-all cursor-pointer ${soloActivos ? "border-[#131E5C]/30 bg-[#131E5C]/8 text-[#131E5C]" : "border-[#E4E7F0] bg-white text-[#515778] hover:bg-[#F7F8FC]"}`}>
+                                <Toggle size="sm" value={soloActivos} onChange={setSoloActivos} />
+                                Solo activos
+                                </label>
                                 <button onClick={cargarCatalogo} disabled={cargandoCatalogo}
                                     className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#E4E7F0] bg-white px-3 text-xs font-semibold text-[#515778] hover:bg-[#F7F8FC] disabled:opacity-50 transition-all">
                                     {cargandoCatalogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
