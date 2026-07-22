@@ -907,6 +907,26 @@ export const api = {
     http(`/digitales/catalogo/vehiculos/${id}/`, {
       method: "DELETE",
     }),
+    catalogoVehiculoSubirMedia: (id, tipo, files) => {
+    const fd = new FormData();
+    fd.append("tipo", tipo);
+
+    const arr = Array.isArray(files) ? files : Array.from(files || []);
+    arr.forEach((file) => {
+      if (file) fd.append("files", file);
+    });
+
+    return http(`/digitales/catalogo/vehiculos/${id}/upload/`, {
+      method: "POST",
+      body: fd,
+    });
+  },
+
+  catalogoVehiculoEliminarMedia: (id, tipo, ruta) =>
+    http(
+      `/digitales/catalogo/vehiculos/${id}/media/${buildQuery({ tipo, ruta })}`,
+      { method: "DELETE" },
+    ),
 };
 
 export {

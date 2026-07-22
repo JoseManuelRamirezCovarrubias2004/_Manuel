@@ -1048,6 +1048,7 @@ export default function ConfigIA() {
     const [imagenesTexto, setImagenesTexto] = useState("");
     const [videosTexto, setVideosTexto] = useState("");
     const [guardandoVehiculo, setGuardVeh] = useState(false);
+    const [subiendoMedia, setSubiendoMedia] = useState({ ficha: false, imagenes: false, videos: false });
     const [errorVehiculo, setErrorVehiculo] = useState("");
     const [activeModalTab, setActiveModalTab] = useState("info");
 
@@ -1289,6 +1290,7 @@ export default function ConfigIA() {
 
     function patchDraft(campo, valor) { setVehiculoDraft((p) => ({ ...p, [campo]: valor })); }
 
+
     async function guardarVehiculo() {
         setErrorVehiculo("");
 
@@ -1326,8 +1328,8 @@ export default function ConfigIA() {
             resumen: String(vehiculoDraft.resumen || "").trim(),
             ficha_tecnica: ficha,
             url_ficha_tecnica: String(vehiculoDraft.url_ficha_tecnica || "").trim(),
-            imagenes,
-            videos,
+           imagenes: Array.isArray(vehiculoDraft.imagenes) ? vehiculoDraft.imagenes : [],
+            videos: Array.isArray(vehiculoDraft.videos) ? vehiculoDraft.videos : [],
             ultima_actualizacion: vehiculoDraft.ultima_actualizacion || null,
             activo: Boolean(vehiculoDraft.activo),
         };
@@ -1355,6 +1357,59 @@ export default function ConfigIA() {
             setGuardVeh(false);
         }
     }
+
+    async function subirArchivosVehiculo(tipo, fileList) {
+    if (!vehiculoDraft.id) {
+        showToast("Guarda el vehículo primero para poder subir archivos.", "error");
+        return;
+    }
+
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+
+    setSubiendoMedia((p) => ({ ...p, [tipo]: true }));
+
+    try {
+        const res = await api.catalogoVehiculoSubirMedia(vehiculoDraft.id, tipo, files);
+        const item = res?.item || res;
+
+        setVehiculoDraft((p) => ({
+            ...p,
+            url_ficha_tecnica: item.url_ficha_tecnica ?? p.url_ficha_tecnica,
+            imagenes: item.imagenes ?? p.imagenes,
+            videos: item.videos ?? p.videos,
+        }));
+
+        await cargarCatalogo();
+        showToast("Archivo subido correctamente.");
+    } catch (e) {
+        showToast(e?.message || "No se pudo subir el archivo.", "error");
+    } finally {
+        setSubiendoMedia((p) => ({ ...p, [tipo]: false }));
+    }
+}
+
+async function eliminarArchivoVehiculo(tipo, ruta) {
+    if (!vehiculoDraft.id) return;
+    if (!confirm("¿Eliminar este archivo del catálogo?")) return;
+
+    try {
+        const res = await api.catalogoVehiculoEliminarMedia(vehiculoDraft.id, tipo, ruta);
+        const item = res?.item || res;
+
+        setVehiculoDraft((p) => ({
+            ...p,
+            url_ficha_tecnica: item.url_ficha_tecnica ?? "",
+            imagenes: item.imagenes ?? [],
+            videos: item.videos ?? [],
+        }));
+
+        await cargarCatalogo();
+        showToast("Archivo eliminado.");
+    } catch (e) {
+        showToast(e?.message || "No se pudo eliminar el archivo.", "error");
+    }
+}
 
     async function desactivarVehiculo(item) {
         if (!confirm(`¿Desactivar ${item.modelo} ${item.ano}?`)) return;
@@ -1879,141 +1934,102 @@ export default function ConfigIA() {
                 )}
 
                 {activeModalTab === "media" && (
-                    <div className="space-y-5">
-                        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 flex items-start gap-2.5">
-                            <Info className="h-4 w-4 text-blue-700 flex-shrink-0 mt-0.5" />
-                            <div className="text-xs font-medium text-blue-800 space-y-1">
-                                <p>
-                                    Guarda rutas relativas desde <b>/media/</b>. No pongas <b>media/</b> al inicio.
-                                </p>
-                                <p className="font-mono">
-                                    Ej: catalogo/tiguan/imagenes/tiguan_2026_exterior.jpg
-                                </p>
-                            </div>
-                        </div>
+    <div className="space-y-5">
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 flex items-start gap-2.5">
+            <Info className="h-4 w-4 text-blue-700 flex-shrink-0 mt-0.5" />
+            <p className="text-xs font-medium text-blue-800">
+                Los archivos se guardan automáticamente en <b>/media/catalogo/{vehiculoDraft.modelo ? `${vehiculoDraft.modelo.toLowerCase().replace(/\s+/g, "_")}_${vehiculoDraft.ano}` : "modelo_año"}/</b>
+            </p>
+        </div>
 
-                        <Field label="Ficha técnica / PDF">
-                            <div className="relative">
-                                <ExternalLink className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8891AD]" />
-                                <input
-                                    value={vehiculoDraft.url_ficha_tecnica}
-                                    onChange={(e) => patchDraft("url_ficha_tecnica", e.target.value)}
-                                    className={`${inputCls} pl-9`}
-                                    placeholder="catalogo/tiguan/ficha/tiguan_2026_ficha_tecnica.pdf"
-                                />
-                            </div>
+        {!vehiculoDraft.id && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs font-semibold text-amber-700">
+                    Guarda la pestaña "Información" primero para poder subir archivos.
+                </p>
+            </div>
+        )}
 
-                            {vehiculoDraft.url_ficha_tecnica && (
-                                <a
-                                    href={toMediaUrl(vehiculoDraft.url_ficha_tecnica)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[#131E5C] hover:underline"
-                                >
-                                    Verificar PDF <ExternalLink className="h-3 w-3" />
-                                </a>
-                            )}
-                        </Field>
+        {/* Ficha técnica */}
+        <Field label="Ficha técnica / PDF">
+            <label className={`inline-flex items-center gap-2 rounded-xl border border-dashed border-[#C8CEDF] bg-[#F7F8FC] px-4 py-2.5 text-xs font-semibold text-[#515778] transition-all ${(!vehiculoDraft.id || subiendoMedia.ficha) ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-[#131E5C]/40"}`}>
+                {subiendoMedia.ficha ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                {vehiculoDraft.url_ficha_tecnica ? "Reemplazar PDF" : "Subir PDF"}
+                <input type="file" accept="application/pdf" className="hidden"
+                    disabled={!vehiculoDraft.id || subiendoMedia.ficha}
+                    onChange={(e) => { subirArchivosVehiculo("ficha", e.target.files); e.target.value = ""; }} />
+            </label>
 
-                        <Field label="Imágenes (una ruta o URL por línea)">
-                            <textarea
-                                value={imagenesTexto}
-                                onChange={(e) => setImagenesTexto(e.target.value)}
-                                rows={5}
-                                className={textareaCls}
-                                placeholder={
-                                    "catalogo/tiguan/imagenes/tiguan_2026_exterior.jpg\n" +
-                                    "catalogo/tiguan/imagenes/tiguan_2026_interior.jpg"
-                                }
-                            />
+            {vehiculoDraft.url_ficha_tecnica && (
+                <div className="mt-2 flex items-center gap-3">
+                    <a href={toMediaUrl(vehiculoDraft.url_ficha_tecnica)} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#131E5C] hover:underline">
+                        Ver PDF actual <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <button onClick={() => eliminarArchivoVehiculo("ficha", vehiculoDraft.url_ficha_tecnica)}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-700">
+                        <Trash2 className="h-3 w-3" /> Quitar
+                    </button>
+                </div>
+            )}
+        </Field>
 
-                            {imagenesTexto && (
-                                <p className="mt-1.5 text-xs text-[#8891AD]">
-                                    {splitLineasTexto(imagenesTexto).length} imágenes registradas
-                                </p>
-                            )}
-                        </Field>
+        {/* Imágenes */}
+        <Field label="Imágenes">
+            <label className={`inline-flex items-center gap-2 rounded-xl border border-dashed border-[#C8CEDF] bg-[#F7F8FC] px-4 py-2.5 text-xs font-semibold text-[#515778] transition-all ${(!vehiculoDraft.id || subiendoMedia.imagenes) ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-[#131E5C]/40"}`}>
+                {subiendoMedia.imagenes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Subir imágenes
+                <input type="file" accept="image/*" multiple className="hidden"
+                    disabled={!vehiculoDraft.id || subiendoMedia.imagenes}
+                    onChange={(e) => { subirArchivosVehiculo("imagenes", e.target.files); e.target.value = ""; }} />
+            </label>
+        </Field>
 
-                        {imagenesTexto && (
-                            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                                {splitLineasTexto(imagenesTexto).slice(0, 6).map((url, i) => (
-                                    <a
-                                        key={i}
-                                        href={toMediaUrl(url)}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="group aspect-video overflow-hidden rounded-xl border border-[#E4E7F0] bg-[#F7F8FC] relative"
-                                    >
-                                        <img
-                                            src={toMediaUrl(url)}
-                                            alt={`Preview imagen ${i + 1}`}
-                                            className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = "none";
-                                            }}
-                                        />
-                                        <div className="absolute bottom-1 left-1 right-1 rounded bg-black/50 px-2 py-1 text-[10px] text-white truncate">
-                                            {url}
-                                        </div>
-                                    </a>
-                                ))}
-                            </div>
-                        )}
-
-                        <Field label="Videos MP4 (una ruta o URL por línea)">
-                            <textarea
-                                value={videosTexto}
-                                onChange={(e) => setVideosTexto(e.target.value)}
-                                rows={5}
-                                className={textareaCls}
-                                placeholder={
-                                    "catalogo/tiguan/videos/tiguan_2026_video.mp4\n" +
-                                    "catalogo/tiguan/videos/tiguan_2026_asmr.mp4"
-                                }
-                            />
-
-                            {videosTexto && (
-                                <p className="mt-1.5 text-xs text-[#8891AD]">
-                                    {splitLineasTexto(videosTexto).length} videos registrados
-                                </p>
-                            )}
-                        </Field>
-
-                        {videosTexto && (
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                {splitLineasTexto(videosTexto).slice(0, 4).map((url, i) => (
-                                    <div
-                                        key={i}
-                                        className="overflow-hidden rounded-xl border border-[#E4E7F0] bg-[#F7F8FC]"
-                                    >
-                                        <video
-                                            src={toMediaUrl(url)}
-                                            controls
-                                            preload="metadata"
-                                            className="aspect-video w-full bg-black object-contain"
-                                        />
-
-                                        <div className="flex items-center justify-between gap-2 px-3 py-2">
-                                            <p className="truncate text-[11px] font-medium text-[#515778]">
-                                                {url}
-                                            </p>
-
-                                            <a
-                                                href={toMediaUrl(url)}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#131E5C] hover:underline"
-                                            >
-                                                Abrir <ExternalLink className="h-3 w-3" />
-                                            </a>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+        {safeArray(vehiculoDraft.imagenes).length > 0 && (
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                {vehiculoDraft.imagenes.map((url, i) => (
+                    <div key={url + i} className="group relative aspect-video overflow-hidden rounded-xl border border-[#E4E7F0] bg-[#F7F8FC]">
+                        <img src={toMediaUrl(url)} alt={`Imagen ${i + 1}`} className="h-full w-full object-cover"
+                            onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                        <button onClick={() => eliminarArchivoVehiculo("imagenes", url)}
+                            className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
+                            <X className="h-3.5 w-3.5" />
+                        </button>
                     </div>
-                )}
+                ))}
+            </div>
+        )}
 
+        {/* Videos */}
+        <Field label="Videos MP4">
+            <label className={`inline-flex items-center gap-2 rounded-xl border border-dashed border-[#C8CEDF] bg-[#F7F8FC] px-4 py-2.5 text-xs font-semibold text-[#515778] transition-all ${(!vehiculoDraft.id || subiendoMedia.videos) ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-[#131E5C]/40"}`}>
+                {subiendoMedia.videos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Subir videos
+                <input type="file" accept="video/mp4" multiple className="hidden"
+                    disabled={!vehiculoDraft.id || subiendoMedia.videos}
+                    onChange={(e) => { subirArchivosVehiculo("videos", e.target.files); e.target.value = ""; }} />
+            </label>
+        </Field>
+
+        {safeArray(vehiculoDraft.videos).length > 0 && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {vehiculoDraft.videos.map((url, i) => (
+                    <div key={url + i} className="overflow-hidden rounded-xl border border-[#E4E7F0] bg-[#F7F8FC]">
+                        <video src={toMediaUrl(url)} controls preload="metadata" className="aspect-video w-full bg-black object-contain" />
+                        <div className="flex items-center justify-between gap-2 px-3 py-2">
+                            <p className="truncate text-[11px] font-medium text-[#515778]">{url.split("/").pop()}</p>
+                            <button onClick={() => eliminarArchivoVehiculo("videos", url)}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-red-500 hover:text-red-700">
+                                <Trash2 className="h-3 w-3" /> Quitar
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
+    </div>
+)}
                 {errorVehiculo && (
                     <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
                         <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
