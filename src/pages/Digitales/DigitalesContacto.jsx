@@ -32,6 +32,8 @@ import {
     Ban,
     Phone,
     CalendarPlus,
+    Mic,
+    Square,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
@@ -43,6 +45,7 @@ const CHAT_PAGE_SIZE = 24;
 const CHAT_UPDATES_LIMIT = 80;
 const CHAT_CACHE_LIMIT = 80;
 const PREFETCH_CHAT_LIMIT = 12;
+const MAX_RECORDING_SECONDS = 300;
 
 const DEALERS = [
     "VW Cordoba",
@@ -514,6 +517,40 @@ function formatAudioTime(seconds) {
     const min = Math.floor(total / 60);
     const sec = total % 60;
     return `${min}:${String(sec).padStart(2, "0")}`;
+}
+function getSupportedRecorderMimeType() {
+    if (typeof MediaRecorder === "undefined") {
+        return "";
+    }
+
+    const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+        "audio/webm",
+    ];
+
+    return (
+        candidates.find((mime) =>
+            MediaRecorder.isTypeSupported?.(mime)
+        ) || ""
+    );
+}
+
+function getAudioExtension(mimeType = "") {
+    const mime = String(
+        mimeType || ""
+    ).toLowerCase();
+
+    if (mime.includes("ogg")) {
+        return "ogg";
+    }
+
+    if (mime.includes("mp4")) {
+        return "m4a";
+    }
+
+    return "webm";
 }
 
 function humanBytes(bytes) {
@@ -1655,6 +1692,11 @@ export default function DigitalesContacto() {
     const [openEmoji, setOpenEmoji] = useState(false);
     const [attachments, setAttachments] = useState([]);
     const [dragOver, setDragOver] = useState(false);
+
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingSeconds, setRecordingSeconds] = useState(0);
+    const [recordingError, setRecordingError] = useState("");
+
     const [editingMsgId, setEditingMsgId] = useState(null);
 
     const [quickBubbles, setQuickBubbles] = useState(() => {
@@ -1680,6 +1722,13 @@ export default function DigitalesContacto() {
     const emojiRef = useRef(null);
     const fileInputRef = useRef(null);
     const inputRef = useRef(null);
+
+    const mediaRecorderRef = useRef(null);
+    const mediaStreamRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const recordingTimerRef = useRef(null);
+    const discardRecordingRef = useRef(false);
+
     const dragDepthRef = useRef(0);
     const shouldStickToBottomRef = useRef(true);
     const chatRequestRef = useRef(0);
@@ -1784,7 +1833,11 @@ export default function DigitalesContacto() {
         return "Escribe tu mensaje…";
     }, [activeTel, clienteBloqueado]);
     const hasComposerDraft = Boolean(
-        draftMsg.trim() || attachments.length || replyToMsg || editingMsgId
+        draftMsg.trim()
+        || attachments.length
+        || replyToMsg
+        || editingMsgId
+        || isRecording
     );
     const templatePreview = useMemo(
         () => tplSelected ? buildTemplatePreviewText(tplSelected, tplDraft) : "",
@@ -2076,6 +2129,246 @@ export default function DigitalesContacto() {
         }
     }
 
+    function cleanupRecordingResources() {
+        if (recordingTimerRef.current) {
+            window.clearInterval(
+                recordingTimerRef.current
+            );
+
+            recordingTimerRef.current = null;
+        }
+
+        const stream = mediaStreamRef.current;
+
+        if (stream) {
+            stream
+                .getTracks()
+                .forEach((track) => track.stop());
+        }
+
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+
+        setIsRecording(false);
+        setRecordingSeconds(0);
+    }
+
+    function detenerGrabacionAudio() {
+        const recorder = mediaRecorderRef.current;
+
+        if (
+            !recorder
+            || recorder.state === "inactive"
+        ) {
+            cleanupRecordingResources();
+            return;
+        }
+
+        recorder.stop();
+    }
+
+    function cancelarGrabacionAudio() {
+        discardRecordingRef.current = true;
+
+        detenerGrabacionAudio();
+    }
+
+    async function iniciarGrabacionAudio() {
+        if (
+            !activeTelRef.current
+            || clienteBloqueado
+            || isRecording
+        ) {
+            return;
+        }
+
+        if (
+            !navigator.mediaDevices?.getUserMedia
+            || typeof MediaRecorder === "undefined"
+        ) {
+            setRecordingError(
+                "Este navegador no permite grabar audio. "
+                + "Usa Chrome, Edge o Safari actualizado."
+            );
+
+            return;
+        }
+
+        try {
+            setRecordingError("");
+
+            discardRecordingRef.current = false;
+            audioChunksRef.current = [];
+
+            const stream =
+                await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    },
+                    video: false,
+                });
+
+            const mimeType =
+                getSupportedRecorderMimeType();
+
+            const options = mimeType
+                ? {
+                    mimeType,
+                    audioBitsPerSecond: 64000,
+                }
+                : {
+                    audioBitsPerSecond: 64000,
+                };
+
+            const recorder = new MediaRecorder(
+                stream,
+                options,
+            );
+
+            mediaStreamRef.current = stream;
+            mediaRecorderRef.current = recorder;
+
+            recorder.ondataavailable = (event) => {
+                if (event.data?.size > 0) {
+                    audioChunksRef.current.push(
+                        event.data
+                    );
+                }
+            };
+
+            recorder.onerror = (event) => {
+                console.error(
+                    "Error grabando audio:",
+                    event?.error || event,
+                );
+
+                setRecordingError(
+                    "Ocurrió un error durante la grabación."
+                );
+
+                discardRecordingRef.current = true;
+
+                cleanupRecordingResources();
+            };
+
+            recorder.onstop = () => {
+                const chunks = [
+                    ...audioChunksRef.current,
+                ];
+
+                const discard =
+                    discardRecordingRef.current;
+
+                const finalMime =
+                    recorder.mimeType
+                    || mimeType
+                    || "audio/webm";
+
+                audioChunksRef.current = [];
+                discardRecordingRef.current = false;
+
+                cleanupRecordingResources();
+
+                if (
+                    discard
+                    || !chunks.length
+                ) {
+                    return;
+                }
+
+                const blob = new Blob(
+                    chunks,
+                    {
+                        type: finalMime,
+                    },
+                );
+
+                if (blob.size < 512) {
+                    setRecordingError(
+                        "La grabación quedó vacía. "
+                        + "Intenta nuevamente."
+                    );
+
+                    return;
+                }
+
+                const extension =
+                    getAudioExtension(finalMime);
+
+                const file = new File(
+                    [blob],
+                    `nota-voz-${Date.now()}.${extension}`,
+                    {
+                        type: finalMime,
+                        lastModified: Date.now(),
+                    },
+                );
+                addFilesAsAttachments([file]);
+            };
+
+            recorder.start(250);
+            setDraftOwnerTel(
+                (current) =>
+                    current || activeTelRef.current
+            );
+
+            setIsRecording(true);
+            setRecordingSeconds(0);
+
+            recordingTimerRef.current =
+                window.setInterval(() => {
+                    setRecordingSeconds((current) => {
+                        const next = current + 1;
+
+                        if (
+                            next >=
+                            MAX_RECORDING_SECONDS
+                        ) {
+                            window.setTimeout(
+                                detenerGrabacionAudio,
+                                0,
+                            );
+                        }
+
+                        return Math.min(
+                            next,
+                            MAX_RECORDING_SECONDS,
+                        );
+                    });
+                }, 1000);
+
+        } catch (error) {
+            console.error(
+                "No se pudo iniciar la grabación:",
+                error,
+            );
+
+            if (error?.name === "NotAllowedError") {
+                setRecordingError(
+                    "Permite el acceso al micrófono "
+                    + "para grabar notas de voz."
+                );
+
+            } else if (
+                error?.name === "NotFoundError"
+            ) {
+                setRecordingError(
+                    "No se encontró un micrófono disponible."
+                );
+
+            } else {
+                setRecordingError(
+                    error?.message
+                    || "No se pudo iniciar la grabación."
+                );
+            }
+
+            cleanupRecordingResources();
+        }
+    }
+
     function addFilesAsAttachments(files) {
         const arr = Array.from(files || []);
 
@@ -2128,18 +2421,26 @@ export default function DigitalesContacto() {
     }
 
     function resetComposer() {
+        if (isRecording) {
+            cancelarGrabacionAudio();
+        }
+
         setDraftMsg("");
-        if (inputRef.current) inputRef.current.value = "";
+
+        if (inputRef.current) {
+            inputRef.current.value = "";
+        }
+
         setEditingMsgId(null);
         setReplyToMsg(null);
         setDraftOwnerTel("");
         setOpenEmoji(false);
         setShowQuickBubblesDropdown(false);
         setShowTemplatesDropdown(false);
+
         cleanupPreviews(attachments);
         setAttachments([]);
     }
-
     function clearTelQueryIfAny() {
         if (!telParam) return;
         navigate({ pathname: location.pathname, search: "" }, { replace: true });
@@ -2390,49 +2691,100 @@ export default function DigitalesContacto() {
     }
 
     async function enviarMensaje() {
-        const visibleTel = activeTelRef.current;
-        const targetTel = normalizaTelefonoMx(draftOwnerTel || visibleTel);
-        if (!targetTel) return;
+        if (isRecording) {
+            setRecordingError(
+                "Detén la grabación antes de enviar el mensaje."
+            );
+
+            return;
+        }
+
+        const visibleTel =
+            activeTelRef.current;
+
+        const targetTel = normalizaTelefonoMx(
+            draftOwnerTel || visibleTel
+        );
+
+        if (!targetTel) {
+            return;
+        }
 
         if (visibleTel !== targetTel) {
             activeTelRef.current = targetTel;
+
             setActiveTel(targetTel);
             setMobileView("chat");
-            alert("El borrador pertenece a otra conversación. Regresé al cliente correcto para evitar un envío equivocado.");
+
+            alert(
+                "El borrador pertenece a otra conversación. "
+                + "Regresé al cliente correcto para evitar "
+                + "un envío equivocado."
+            );
+
             return;
         }
+
         if (clienteBloqueado) {
-            alert("Este contacto está bloqueado. Desbloquéalo antes de enviar mensajes.");
+            alert(
+                "Este contacto está bloqueado. "
+                + "Desbloquéalo antes de enviar mensajes."
+            );
+
             return;
         }
 
-        const text = draftMsg.replace(/\r\n/g, "\n").trim();
-        const hasText = Boolean(text);
-        const hasAttachments = attachments.length > 0;
+        const text = draftMsg
+            .replace(/\r\n/g, "\n")
+            .trim();
 
-        if (!hasText && !hasAttachments) return;
+        const hasText = Boolean(text);
+        const hasAttachments =
+            attachments.length > 0;
+
+        if (
+            !hasText
+            && !hasAttachments
+        ) {
+            return;
+        }
 
         const editId = editingMsgId;
-        const currentAttachments = attachments;
-        const replyMessageId = replyToMsg?.wa_message_id || replyToMsg?.id || "";
 
-        // ── Edición de mensaje ─────────────────────────────────────────────
+        /*
+         * Conservamos una copia porque resetComposer()
+         * limpia attachments antes de hacer el request.
+         */
+        const currentAttachments = attachments;
+
+        const replyMessageId =
+            replyToMsg?.wa_message_id
+            || replyToMsg?.id
+            || "";
+
+        // ── Edición de mensaje ─────────────────────────────
         if (editId) {
             if (!hasText) {
-                alert("Para editar, escribe texto.");
+                alert(
+                    "Para editar, escribe texto."
+                );
+
                 return;
             }
 
-            setMensajes(prev =>
-                prev.map(m =>
-                    (m.wa_message_id || m.id) === editId
+            setMensajes((previous) =>
+                previous.map((message) =>
+                    (
+                        message.wa_message_id
+                        || message.id
+                    ) === editId
                         ? {
-                            ...m,
+                            ...message,
                             text,
                             status: "sent",
                             edited: true,
                         }
-                        : m
+                        : message
                 )
             );
 
@@ -2445,48 +2797,75 @@ export default function DigitalesContacto() {
                     text,
                 });
 
-                await refreshActiveChat(targetTel, { forceBottom: true });
+                await refreshActiveChat(
+                    targetTel,
+                    {
+                        forceBottom: true,
+                    },
+                );
+
             } catch (error) {
-                alert(`Falló edición: ${error.message}`);
-                await refreshActiveChat(targetTel).catch(() => { });
+                alert(
+                    `Falló edición: ${error.message}`
+                );
+
+                await refreshActiveChat(
+                    targetTel
+                ).catch(() => { });
             }
 
             return;
         }
 
-        // ── Mensaje nuevo ──────────────────────────────────────────────────
-        const optimisticId = crypto.randomUUID();
+        // ── Mensaje nuevo ──────────────────────────────────
+        const optimisticId =
+            crypto.randomUUID();
 
-        const optimisticAttachments = currentAttachments.map((a) => {
-            const localUrl = a.file
-                ? URL.createObjectURL(a.file)
-                : (a.url || a.previewUrl || "");
+        const optimisticAttachments =
+            currentAttachments.map((attachment) => {
+                const localUrl = attachment.file
+                    ? URL.createObjectURL(
+                        attachment.file
+                    )
+                    : (
+                        attachment.url
+                        || attachment.previewUrl
+                        || ""
+                    );
 
-            return {
-                id: a.id,
-                kind: a.kind,
-                previewUrl: localUrl,
-                url: localUrl,
-                name: a.name,
-                size: a.size,
-                mime: a.mime || a.file?.type || "",
-            };
-        });
+                return {
+                    id: attachment.id,
+                    kind: attachment.kind,
+                    previewUrl: localUrl,
+                    url: localUrl,
+                    name: attachment.name,
+                    size: attachment.size,
+                    mime:
+                        attachment.mime
+                        || attachment.file?.type
+                        || "",
+                };
+            });
 
         shouldStickToBottomRef.current = true;
 
-        setMensajes(prev => [
-            ...prev,
+        setMensajes((previous) => [
+            ...previous,
             {
                 id: optimisticId,
                 local_pending: true,
-                local_created_at: new Date().toISOString(),
+                local_created_at:
+                    new Date().toISOString(),
                 mine: true,
-                text: hasText ? text : "Adjunto",
+                text: hasText
+                    ? text
+                    : "Adjunto",
                 time: "Ahora",
                 status: "sent",
-                reply_to_id: replyMessageId || "",
-                attachments: optimisticAttachments,
+                reply_to_id:
+                    replyMessageId || "",
+                attachments:
+                    optimisticAttachments,
             },
         ]);
 
@@ -2496,26 +2875,48 @@ export default function DigitalesContacto() {
             if (hasAttachments) {
                 await api.digitalesEnviarMedia({
                     to: targetTel,
-                    text: hasText ? text : "",
+                    text: hasText
+                        ? text
+                        : "",
                     files: currentAttachments
-                        .map(a => a.file)
+                        .map(
+                            (attachment) =>
+                                attachment.file
+                        )
                         .filter(Boolean),
-                    reply_to_message_id: replyMessageId,
+                    reply_to_message_id:
+                        replyMessageId,
                 });
+
             } else {
                 await api.digitalesEnviarMensaje({
                     to: targetTel,
                     text,
-                    reply_to_message_id: replyMessageId,
+                    reply_to_message_id:
+                        replyMessageId,
                 });
             }
 
-            await refreshActiveChat(targetTel, { forceBottom: true });
+            await refreshActiveChat(
+                targetTel,
+                {
+                    forceBottom: true,
+                },
+            );
+
         } catch (error) {
-            alert(`Falló: ${error.message}`);
-            await refreshActiveChat(targetTel).catch(() => { });
+            alert(
+                `Falló: ${error.message}`
+            );
+
+            await refreshActiveChat(
+                targetTel
+            ).catch(() => { });
+
         } finally {
-            cleanupPreviews(optimisticAttachments);
+            cleanupPreviews(
+                optimisticAttachments
+            );
         }
     }
 
@@ -3065,7 +3466,37 @@ export default function DigitalesContacto() {
 
     useEffect(() => { if (!shouldStickToBottomRef.current) return; endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [mensajes.length, activeTel]);
     useEffect(() => () => cleanupPreviews(attachments), []);
+    useEffect(() => {
+        return () => {
+            discardRecordingRef.current = true;
 
+            const recorder =
+                mediaRecorderRef.current;
+
+            if (
+                recorder
+                && recorder.state !== "inactive"
+            ) {
+                try {
+                    recorder.stop();
+                } catch {
+                    // Sin acción.
+                }
+            }
+
+            if (recordingTimerRef.current) {
+                window.clearInterval(
+                    recordingTimerRef.current
+                );
+            }
+
+            mediaStreamRef.current
+                ?.getTracks?.()
+                .forEach(
+                    (track) => track.stop()
+                );
+        };
+    }, []);
     // Cerrar emoji al click fuera
     useEffect(() => {
         const onDoc = (e) => { if (!openEmoji) return; if (emojiRef.current && !emojiRef.current.contains(e.target)) setOpenEmoji(false); };
@@ -3771,6 +4202,67 @@ export default function DigitalesContacto() {
                                     </div>
                                 ) : null}
 
+                                {recordingError ? (
+                                    <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                                        <span>
+                                            {recordingError}
+                                        </span>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setRecordingError("")
+                                            }
+                                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg hover:bg-red-100"
+                                            title="Cerrar"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ) : null}
+
+                                {isRecording ? (
+                                    <div className="mb-2 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 shadow-sm">
+                                        <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-xs font-extrabold text-red-700">
+                                                Grabando nota de voz
+                                            </div>
+
+                                            <div className="text-[11px] font-semibold text-red-500">
+                                                {formatAudioTime(
+                                                    recordingSeconds
+                                                )}
+                                                {" / "}
+                                                {formatAudioTime(
+                                                    MAX_RECORDING_SECONDS
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={cancelarGrabacionAudio}
+                                            className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 bg-white px-2 text-xs font-extrabold text-red-600 hover:bg-red-100"
+                                            title="Cancelar grabación"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                            Cancelar
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={detenerGrabacionAudio}
+                                            className="inline-flex h-8 items-center gap-1 rounded-lg bg-red-600 px-2 text-xs font-extrabold text-white hover:bg-red-700"
+                                            title="Detener y adjuntar"
+                                        >
+                                            <Square className="h-3.5 w-3.5 fill-current" />
+                                            Detener
+                                        </button>
+                                    </div>
+                                ) : null}
+
                                 {/* Previews adjuntos */}
                                 {attachments.length ? (
                                     <div className="mb-2 flex flex-wrap gap-2">
@@ -3778,13 +4270,63 @@ export default function DigitalesContacto() {
                                             <div key={a.id} className="flex items-center gap-2 rounded-xl border border-black/10 bg-neutral-50 px-3 py-2">
                                                 {a.kind === "image" ? (
                                                     <div className="flex items-center gap-2">
-                                                        <div className="h-10 w-10 overflow-hidden rounded-lg border border-black/10 bg-white"><img src={a.previewUrl} alt={a.name} className="h-full w-full object-cover" /></div>
-                                                        <div className="min-w-0"><div className="max-w-[180px] truncate text-xs font-extrabold text-[#131E5C]">{a.name ? shortName(a.name) : "Imagen"}</div><div className="text-[11px] font-bold text-slate-500">{humanBytes(a.size)}</div></div>
+                                                        <div className="h-10 w-10 overflow-hidden rounded-lg border border-black/10 bg-white">
+                                                            <img
+                                                                src={a.previewUrl}
+                                                                alt={a.name}
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        </div>
+
+                                                        <div className="min-w-0">
+                                                            <div className="max-w-[180px] truncate text-xs font-extrabold text-[#131E5C]">
+                                                                {a.name
+                                                                    ? shortName(a.name)
+                                                                    : "Imagen"}
+                                                            </div>
+
+                                                            <div className="text-[11px] font-bold text-slate-500">
+                                                                {humanBytes(a.size)}
+                                                            </div>
+                                                        </div>
                                                     </div>
+
+                                                ) : a.kind === "audio" ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#131E5C]/10 text-[#131E5C]">
+                                                            <Mic className="h-4 w-4" />
+                                                        </div>
+
+                                                        <div className="min-w-0">
+                                                            <div className="max-w-[180px] truncate text-xs font-extrabold text-[#131E5C]">
+                                                                Nota de voz
+                                                            </div>
+
+                                                            <div className="text-[11px] font-bold text-slate-500">
+                                                                {humanBytes(a.size)}
+                                                                {" · "}
+                                                                se convertirá a OGG/Opus
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
                                                 ) : (
                                                     <div className="flex items-center gap-2">
-                                                        <FileText className="h-4 w-4 text-[#131E5C]" />
-                                                        <div className="min-w-0"><div className="max-w-[180px] truncate text-xs font-extrabold text-[#131E5C]">{a.name ? shortName(a.name) : "Archivo"}</div><div className="text-[11px] font-bold text-slate-500">{humanBytes(a.size)}</div></div>
+                                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#131E5C]/10 text-[#131E5C]">
+                                                            <FileText className="h-4 w-4" />
+                                                        </div>
+
+                                                        <div className="min-w-0">
+                                                            <div className="max-w-[180px] truncate text-xs font-extrabold text-[#131E5C]">
+                                                                {a.name
+                                                                    ? shortName(a.name)
+                                                                    : "Archivo"}
+                                                            </div>
+
+                                                            <div className="text-[11px] font-bold text-slate-500">
+                                                                {humanBytes(a.size)}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
                                                 <button type="button" onClick={() => removeAttachment(a.id)} className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white hover:bg-neutral-100" title="Quitar"><X className="h-4 w-4 text-[#131E5C]" /></button>
@@ -3796,8 +4338,23 @@ export default function DigitalesContacto() {
                                 {/* Caja compositor */}
                                 <div className="rounded-2xl border border-black/10 bg-white shadow-sm">
                                     <div className="px-2 pt-2">
-                                        <WhatsAppComposerInput value={draftMsg} onChange={updateDraftMessage} onSend={enviarMensaje}
-                                            disabled={!activeTel || clienteBloqueado} placeholder={composerHint} inputRef={inputRef} onPaste={onPasteInComposer} />
+                                        <WhatsAppComposerInput
+                                            value={draftMsg}
+                                            onChange={updateDraftMessage}
+                                            onSend={enviarMensaje}
+                                            disabled={
+                                                !activeTel
+                                                || clienteBloqueado
+                                                || isRecording
+                                            }
+                                            placeholder={
+                                                isRecording
+                                                    ? "Grabando nota de voz…"
+                                                    : composerHint
+                                            }
+                                            inputRef={inputRef}
+                                            onPaste={onPasteInComposer}
+                                        />
                                     </div>
 
                                     {/* Barra de botones */}
@@ -3822,9 +4379,65 @@ export default function DigitalesContacto() {
 
                                         {/* Adjuntar */}
                                         <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { addFilesAsAttachments(e.target.files); e.target.value = ""; }} />
-                                        <button className={cls("inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-neutral-100 hover:text-[#131E5C] transition", !activeTel ? "cursor-not-allowed opacity-50" : "")}
-                                            title="Adjuntar" type="button" disabled={!activeTel} onClick={() => fileInputRef.current?.click()}>
+                                        <button
+                                            className={cls(
+                                                "inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-neutral-100 hover:text-[#131E5C] transition",
+                                                (
+                                                    !activeTel
+                                                    || isRecording
+                                                )
+                                                    ? "cursor-not-allowed opacity-50"
+                                                    : ""
+                                            )}
+                                            title="Adjuntar"
+                                            type="button"
+                                            disabled={
+                                                !activeTel
+                                                || isRecording
+                                            }
+                                            onClick={() =>
+                                                fileInputRef.current?.click()
+                                            }
+                                        >
                                             <Paperclip className="h-4 w-4" />
+                                        </button>
+                                        {/* Nota de voz */}
+                                        <button
+                                            className={cls(
+                                                "inline-flex h-8 w-8 items-center justify-center rounded-xl transition",
+
+                                                isRecording
+                                                    ? "bg-red-100 text-red-600"
+                                                    : "text-slate-400 hover:bg-neutral-100 hover:text-[#131E5C]",
+
+                                                (
+                                                    !activeTel
+                                                    || clienteBloqueado
+                                                )
+                                                    ? "cursor-not-allowed opacity-50"
+                                                    : "",
+                                            )}
+                                            title={
+                                                isRecording
+                                                    ? "Detener grabación"
+                                                    : "Grabar nota de voz"
+                                            }
+                                            type="button"
+                                            disabled={
+                                                !activeTel
+                                                || clienteBloqueado
+                                            }
+                                            onClick={
+                                                isRecording
+                                                    ? detenerGrabacionAudio
+                                                    : iniciarGrabacionAudio
+                                            }
+                                        >
+                                            {isRecording ? (
+                                                <Square className="h-3.5 w-3.5 fill-current" />
+                                            ) : (
+                                                <Mic className="h-4 w-4" />
+                                            )}
                                         </button>
 
                                         {/* Plantillas — dropdown igual que mensajes rápidos */}
@@ -4078,13 +4691,16 @@ export default function DigitalesContacto() {
                                         ) : null}
 
                                         {/* Enviar */}
-                                        <button onClick={enviarMensaje}
-                                            disabled={!activeTel || (!draftMsg.trim() && attachments.length === 0)}
+                                        <button
+                                            onClick={enviarMensaje}
+                                            disabled={isRecording || !activeTel || (!draftMsg.trim() && attachments.length === 0)
+                                            }
                                             className={cls(
                                                 "inline-flex h-8 items-center gap-1 rounded-xl px-3 text-xs font-extrabold text-white shadow-sm transition",
-                                                !activeTel || (!draftMsg.trim() && attachments.length === 0) ? "cursor-not-allowed bg-slate-300" : "hover:opacity-90"
-                                            )}
-                                            style={{ backgroundColor: !activeTel || (!draftMsg.trim() && attachments.length === 0) ? undefined : BRAND_BLUE }}
+                                                isRecording || !activeTel || (!draftMsg.trim() && attachments.length === 0) ? "cursor-not-allowed bg-slate-300" : "hover:opacity-90")}
+                                            style={{
+                                                backgroundColor: isRecording || !activeTel || (!draftMsg.trim() && attachments.length === 0) ? undefined : BRAND_BLUE
+                                            }}
                                             title="Enviar" type="button">
                                             <Send className="h-3.5 w-3.5" />
                                             <span className="hidden sm:inline">Enviar</span>
