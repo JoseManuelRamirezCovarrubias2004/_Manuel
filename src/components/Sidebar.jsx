@@ -218,7 +218,7 @@ export default function Sidebar() {
                 to: "/comercial",
                 label: "Gestión Comercial",
                 icon: HandCoins,
-                show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_CALL_CENTER"]),
+                show: hasAnyPermission(["CRM_RECLAMACIONES", "CRM_DIGITALES", "CRM_VENTAS", "USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_CALL_CENTER", "CRM_COORDINADOR_DIGITAL"]),
             },
             {
                 section: "Comercial",
@@ -231,7 +231,7 @@ export default function Sidebar() {
                 section: "Comercial",
                 to: "/inventario",
                 label: "Inventario",
-                icon: LayoutList,   // importar de lucide-react
+                icon: LayoutList,
                 show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD", "CRM_VENTAS"]),
             },
             {
@@ -260,7 +260,7 @@ export default function Sidebar() {
                 to: "/configuracion_ia",
                 label: "Panel de Inteligencias Artificiales",
                 icon: BrainCircuit,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_DIGITALES"]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_DIGITALES", "CRM_COORDINADOR_DIGITAL"]),
             },
             {
                 section: "Herramientas",
