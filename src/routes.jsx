@@ -52,6 +52,7 @@ import CalidadIndex from "./pages/Calidad/CalidadIndex";
 
 import ComercialLayout from "./pages/Comercial/ComercialLayout";
 import ComercialIndex from "./pages/Comercial/ComercialIndex";
+import VehiculosUsados from "./pages/VehiculosUsados/VehiculosUsados.jsx";
 
 import UsadosIndex from "./pages/Usados/UsadosIndex";
 import UsadosLayout from "./pages/Usados/UsadosLayout";
@@ -547,6 +548,21 @@ export const router = createBrowserRouter(
                                             element: <RegistroEntregas />,
                                         },
                                     ],
+                                },
+                                {
+                                    path: "vehiculos_usados", // 👈 nuevo — coincide con el href del botón
+                                    element: (
+                                        <RequirePermission
+                                            anyOf={[
+                                                "CRM_DIGITALES",
+                                                "CRM_VENTAS",
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
+                                            <VehiculosUsados />
+                                        </RequirePermission>
+                                    ),
                                 },
                             ],
                         },

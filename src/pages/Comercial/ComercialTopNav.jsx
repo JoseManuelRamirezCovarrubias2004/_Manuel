@@ -11,6 +11,7 @@ import {
     BarChart2,
     UsersRound,
     LayoutPanelTop,
+    Car,
 } from "lucide-react";
 
 import vwDark from "../../assets/vw_dark.png";
@@ -125,6 +126,17 @@ export default function ComercialTopNav() {
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
                     "CRM_CALL_CENTER",
+                ]),
+            },
+            {
+                label: "Vehículos Usados",
+                href: "/comercial/vehiculos_usados",
+                icon: Car,
+                show: hasAnyPermission([
+                    "CRM_DIGITALES",
+                    "CRM_VENTAS",
+                    "USUARIOS_ADMIN",
+                    "CRM_CALIDAD",
                 ]),
             },
             {

@@ -927,6 +927,41 @@ export const api = {
       `/digitales/catalogo/vehiculos/${id}/media/${buildQuery({ tipo, ruta })}`,
       { method: "DELETE" },
     ),
+
+  // Vehículos usados (catálogo tipo WhatsApp Business)
+  digitalesListAutosUsados: () => http("/digitales/catalogo/usados/"),
+
+  digitalesGetAutoUsado: (id) =>
+    http(`/digitales/catalogo/usados/${id}/`),
+
+  digitalesCreateAutoUsado: (payload) =>
+    http("/digitales/catalogo/usados/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  digitalesUpdateAutoUsado: (id, payload) =>
+    http(`/digitales/catalogo/usados/${id}/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  digitalesDeleteAutoUsado: (id) =>
+    http(`/digitales/catalogo/usados/${id}/`, {
+      method: "DELETE",
+    }),
+
+  digitalesSubirImagenAutoUsado: (file) => {
+    const fd = new FormData();
+    fd.append("imagen", file);
+
+    return http("/digitales/catalogo/usados/subir-imagen/", {
+      method: "POST",
+      body: fd,
+    });
+  },
 };
 
 export {
