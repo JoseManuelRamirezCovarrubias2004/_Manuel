@@ -1,5 +1,11 @@
 //Volkswagen
 // src/pages/Digitaltes/DigitalesContacto.jsx
+import { useAuth } from "../../auth/AuthContext";
+import {
+    LINEAS_WHATSAPP,
+    obtenerNumerosWhatsAppUsuario,
+    obtenerEtiquetaLinea,
+} from "../../config/lineasWhatsApp";
 import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -32,6 +38,8 @@ import {
     Ban,
     Phone,
     CalendarPlus,
+    Mic,
+    Square,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
@@ -43,6 +51,7 @@ const CHAT_PAGE_SIZE = 24;
 const CHAT_UPDATES_LIMIT = 80;
 const CHAT_CACHE_LIMIT = 80;
 const PREFETCH_CHAT_LIMIT = 12;
+const MAX_RECORDING_SECONDS = 300;
 
 const DEALERS = [
     "VW Cordoba",
@@ -514,6 +523,40 @@ function formatAudioTime(seconds) {
     const min = Math.floor(total / 60);
     const sec = total % 60;
     return `${min}:${String(sec).padStart(2, "0")}`;
+}
+function getSupportedRecorderMimeType() {
+    if (typeof MediaRecorder === "undefined") {
+        return "";
+    }
+
+    const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+        "audio/webm",
+    ];
+
+    return (
+        candidates.find((mime) =>
+            MediaRecorder.isTypeSupported?.(mime)
+        ) || ""
+    );
+}
+
+function getAudioExtension(mimeType = "") {
+    const mime = String(
+        mimeType || ""
+    ).toLowerCase();
+
+    if (mime.includes("ogg")) {
+        return "ogg";
+    }
+
+    if (mime.includes("mp4")) {
+        return "m4a";
+    }
+
+    return "webm";
 }
 
 function humanBytes(bytes) {
@@ -1593,6 +1636,71 @@ export default function DigitalesContacto() {
     const navigate = useNavigate();
     const location = useLocation();
     const [params] = useSearchParams();
+    const { user, ready } = useAuth();
+
+    const isAdmin = useMemo(() => {
+        const permisos = user?.permisos || [];
+        const rol = normalizeText(user?.rol);
+
+        return (
+            rol === "administrador" ||
+            permisos.includes("ALL") ||
+            permisos.includes("USUARIOS_ADMIN")
+        );
+    }, [user]);
+
+    const numerosAsignados = useMemo(
+        () => obtenerNumerosWhatsAppUsuario(user),
+        [user]
+    );
+
+    const numerosDisponibles = useMemo(() => {
+        if (isAdmin) {
+            return [
+                ...new Set([
+                    ...Object.keys(LINEAS_WHATSAPP),
+                    ...numerosAsignados,
+                ]),
+            ];
+        }
+
+        return numerosAsignados;
+    }, [isAdmin, numerosAsignados]);
+
+    const [numeroAsesorActivo, setNumeroAsesorActivo] = useState("");
+
+    useEffect(() => {
+        if (!ready) return;
+
+        if (!numerosDisponibles.length) {
+            setNumeroAsesorActivo("");
+            return;
+        }
+
+        const numeroGuardado = normalizaTelefonoMx(
+            localStorage.getItem(
+                "digitales_numero_asesor_activo"
+            ) || ""
+        );
+
+        const numeroInicial =
+            numeroGuardado &&
+                numerosDisponibles.includes(numeroGuardado)
+                ? numeroGuardado
+                : numerosDisponibles[0];
+
+        setNumeroAsesorActivo((numeroActual) => {
+            if (
+                numeroActual &&
+                numerosDisponibles.includes(numeroActual)
+            ) {
+                return numeroActual;
+            }
+
+            return numeroInicial;
+        });
+    }, [ready, numerosDisponibles]);
+
     const [replyToMsg, setReplyToMsg] = useState(null);
     const [blockingTel, setBlockingTel] = useState("");
 
@@ -1655,6 +1763,11 @@ export default function DigitalesContacto() {
     const [openEmoji, setOpenEmoji] = useState(false);
     const [attachments, setAttachments] = useState([]);
     const [dragOver, setDragOver] = useState(false);
+
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingSeconds, setRecordingSeconds] = useState(0);
+    const [recordingError, setRecordingError] = useState("");
+
     const [editingMsgId, setEditingMsgId] = useState(null);
 
     const [quickBubbles, setQuickBubbles] = useState(() => {
@@ -1677,9 +1790,18 @@ export default function DigitalesContacto() {
     const activeTelRef = useRef("");
     const mensajesRef = useRef([]);
     const didInitSelection = useRef(false);
+    const numeroAsesorActivoRef = useRef("");
+    const chatsRequestRef = useRef(0);
     const emojiRef = useRef(null);
     const fileInputRef = useRef(null);
     const inputRef = useRef(null);
+
+    const mediaRecorderRef = useRef(null);
+    const mediaStreamRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const recordingTimerRef = useRef(null);
+    const discardRecordingRef = useRef(false);
+
     const dragDepthRef = useRef(0);
     const shouldStickToBottomRef = useRef(true);
     const chatRequestRef = useRef(0);
@@ -1784,8 +1906,57 @@ export default function DigitalesContacto() {
         return "Escribe tu mensaje…";
     }, [activeTel, clienteBloqueado]);
     const hasComposerDraft = Boolean(
-        draftMsg.trim() || attachments.length || replyToMsg || editingMsgId
+        draftMsg.trim()
+        || attachments.length
+        || replyToMsg
+        || editingMsgId
+        || isRecording
     );
+    function cambiarNumeroAsesor(nuevoNumero) {
+        const numero = normalizaTelefonoMx(nuevoNumero);
+
+        if (!numero || numero === numeroAsesorActivo) {
+            return;
+        }
+
+        if (hasComposerDraft) {
+            const continuar = window.confirm(
+                "Tienes un mensaje o archivo sin enviar. " +
+                "Al cambiar de línea se descartará el borrador."
+            );
+
+            if (!continuar) {
+                return;
+            }
+        }
+
+        resetComposer();
+
+        activeTelRef.current = "";
+        didInitSelection.current = false;
+
+        chatsRequestRef.current += 1;
+
+        numeroAsesorActivoRef.current =
+            numero;
+
+        setNumeroAsesorActivo(numero);
+        setActiveTel("");
+        setChats([]);
+        setProspecto(null);
+        setMensajes([]);
+        setIaEstado(null);
+        setChatHasMore(false);
+        setOldestMessageId(null);
+
+        mensajesCacheRef.current.clear();
+        prefetchedChatsRef.current.clear();
+
+        localStorage.setItem(
+            "digitales_numero_asesor_activo",
+            numero
+        );
+    }
     const templatePreview = useMemo(
         () => tplSelected ? buildTemplatePreviewText(tplSelected, tplDraft) : "",
         [tplSelected, tplDraft]
@@ -1872,30 +2043,185 @@ export default function DigitalesContacto() {
         if (prefetchedChatsRef.current.has(target)) return;
         prefetchedChatsRef.current.add(target);
         try {
-            const data = await api.digitalesContacto(target, { limit: PREFETCH_CHAT_LIMIT, mark_read: 0 });
+            const data = await api.digitalesContacto(target, {
+                limit: PREFETCH_CHAT_LIMIT,
+                mark_read: 0,
+                numero_asesor: numeroAsesorActivo,
+            });
             guardarChatEnCache(target, data);
         } catch { prefetchedChatsRef.current.delete(target); }
     }
 
-    async function refreshChats() {
-        const data = await api.digitalesChats();
-        console.log("CHATS RAW:", data[0]);
-        const normalized = (Array.isArray(data) ? data : []).map(chat => ({
-            id: chat.id || chat.telefono || crypto.randomUUID(),
-            telefono: normalizaTelefonoMx(chat.telefono || ""),
-            nombre: chat.nombre || "Prospecto",
-            agencia: chat.agencia || "",
-            linea: chat.linea || "",
-            estado: chat.estado || "",
-            ia_estado: chat.ia_estado || null,
-            ia_pausada: Boolean(chat.ia_pausada),
-            ia_bloqueos: Array.isArray(chat.ia_bloqueos) ? chat.ia_bloqueos : [],
-            unread: Number(chat.unread || 0),
-            last: { text: chat.last_text || "", time: chat.last_time || "", timestamp: chat.last_message_at || "" },
-            whatsapp_bloqueado: Boolean(chat.whatsapp_bloqueado),
-            whatsapp_bloqueado_motivo: chat.whatsapp_bloqueado_motivo || "",
-        }));
-        setChats(normalized);
+    async function refreshChats({
+        numeroAsesor =
+        numeroAsesorActivoRef.current,
+        allowEmpty = false,
+    } = {}) {
+        const numeroLinea =
+            normalizaTelefonoMx(numeroAsesor);
+
+        /*
+         * No vaciamos la lista cuando todavía
+         * no se ha inicializado la línea.
+         */
+        if (!numeroLinea) {
+            return;
+        }
+
+        const requestId =
+            chatsRequestRef.current + 1;
+
+        chatsRequestRef.current =
+            requestId;
+
+        const response =
+            await api.digitalesChats({
+                numero_asesor:
+                    numeroLinea,
+            });
+
+        /*
+         * Ignora respuestas anteriores si otra
+         * petición más reciente ya fue enviada.
+         */
+        if (
+            requestId !==
+            chatsRequestRef.current
+        ) {
+            return;
+        }
+
+        /*
+         * Ignora respuestas correspondientes a
+         * otra línea que ya no está seleccionada.
+         */
+        if (
+            numeroAsesorActivoRef.current !==
+            numeroLinea
+        ) {
+            return;
+        }
+
+        let items;
+
+        if (Array.isArray(response)) {
+            items = response;
+        } else if (
+            Array.isArray(response?.results)
+        ) {
+            items = response.results;
+        } else {
+            /*
+             * Una respuesta inválida no debe
+             * convertirse silenciosamente en [].
+             */
+            throw new Error(
+                "La API de chats devolvió una respuesta inválida."
+            );
+        }
+
+        const normalized = items
+            .map((chat) => {
+                const telefono =
+                    normalizaTelefonoMx(
+                        chat?.telefono || ""
+                    );
+
+                return {
+                    id:
+                        chat?.id ||
+                        `${numeroLinea}-${telefono}`,
+
+                    numero_asesor:
+                        normalizaTelefonoMx(
+                            chat?.numero_asesor ||
+                            chat?.numero_destino ||
+                            chat?.phone_number ||
+                            numeroLinea
+                        ),
+
+                    telefono,
+                    nombre:
+                        chat?.nombre ||
+                        "Prospecto",
+
+                    agencia:
+                        chat?.agencia || "",
+
+                    linea:
+                        chat?.linea || "",
+
+                    estado:
+                        chat?.estado || "",
+
+                    ia_estado:
+                        chat?.ia_estado || null,
+
+                    ia_pausada:
+                        Boolean(
+                            chat?.ia_pausada
+                        ),
+
+                    ia_bloqueos:
+                        Array.isArray(
+                            chat?.ia_bloqueos
+                        )
+                            ? chat.ia_bloqueos
+                            : [],
+
+                    unread:
+                        Number(
+                            chat?.unread || 0
+                        ),
+
+                    last: {
+                        text:
+                            chat?.last_text || "",
+
+                        time:
+                            chat?.last_time || "",
+
+                        timestamp:
+                            chat?.last_message_at ||
+                            "",
+                    },
+
+                    whatsapp_bloqueado:
+                        Boolean(
+                            chat?.whatsapp_bloqueado
+                        ),
+
+                    whatsapp_bloqueado_motivo:
+                        chat
+                            ?.whatsapp_bloqueado_motivo ||
+                        "",
+                };
+            })
+            .filter(
+                (chat) =>
+                    Boolean(chat.telefono)
+            );
+
+        setChats((previous) => {
+            if (
+                !allowEmpty &&
+                normalized.length === 0 &&
+                previous.length > 0
+            ) {
+                console.warn(
+                    "La actualización de chats llegó vacía; " +
+                    "se conserva la lista anterior.",
+                    {
+                        numeroLinea,
+                        requestId,
+                    }
+                );
+
+                return previous;
+            }
+
+            return normalized;
+        });
     }
 
     async function cargarChatInicial(tel52) {
@@ -1908,7 +2234,11 @@ export default function DigitalesContacto() {
         if (!hadCache) { setProspecto(null); setIaEstado(null); setMensajes([]); setChatHasMore(false); setOldestMessageId(null); }
         shouldStickToBottomRef.current = true;
         try {
-            const data = await api.digitalesContacto(target, { limit: CHAT_PAGE_SIZE, mark_read: 1 });
+            const data = await api.digitalesContacto(target, {
+                limit: CHAT_PAGE_SIZE,
+                mark_read: 1,
+                numero_asesor: numeroAsesorActivo,
+            });
             if (chatRequestRef.current !== requestId || activeTelRef.current !== target) return;
             const items = (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage);
             const paginacion = data.paginacion || {};
@@ -1921,10 +2251,60 @@ export default function DigitalesContacto() {
             if (!isDirectChatMode) await refreshChats().catch(() => { });
             requestAnimationFrame(() => { endRef.current?.scrollIntoView({ behavior: "auto" }); });
         } catch (error) {
-            console.error("Error cargando chat:", error);
-            if (chatRequestRef.current !== requestId || activeTelRef.current !== target) return;
-            setProspecto(null); setIaEstado(null); setMensajes([]); setChatHasMore(false); setOldestMessageId(null);
-        } finally { if (chatRequestRef.current === requestId) setLoadingChat(false); }
+            console.error(
+                "Error cargando chat:",
+                error
+            );
+
+            if (
+                chatRequestRef.current !== requestId ||
+                activeTelRef.current !== target
+            ) {
+                return;
+            }
+
+            /*
+             * Conservamos el contenido ya cargado.
+             * Un error de renovación o conexión no debe
+             * hacer desaparecer la conversación.
+             */
+            const cached =
+                mensajesCacheRef.current.get(target);
+
+            if (
+                cached &&
+                Array.isArray(cached.mensajes)
+            ) {
+                setProspecto(
+                    cached.prospecto || null
+                );
+
+                setIaEstado(
+                    cached.ia_estado || null
+                );
+
+                setMensajes(
+                    cached.mensajes
+                );
+
+                setChatHasMore(
+                    Boolean(
+                        cached.paginacion?.has_more
+                    )
+                );
+
+                setOldestMessageId(
+                    cached.paginacion?.oldest_id ||
+                    cached.mensajes?.[0]?.id ||
+                    null
+                );
+            }
+
+            /*
+             * No ejecutamos setMensajes([]).
+             */
+        }
+        finally { if (chatRequestRef.current === requestId) setLoadingChat(false); }
     }
 
     async function refreshActiveChat(tel52, { forceBottom = false } = {}) {
@@ -1934,6 +2314,7 @@ export default function DigitalesContacto() {
         const data = await api.digitalesContacto(target, {
             limit: CHAT_PAGE_SIZE,
             mark_read: forceBottom ? 1 : 0,
+            numero_asesor: numeroAsesorActivo,
         });
         const incoming = (Array.isArray(data.mensajes) ? data.mensajes : []).map(normalizeMessage);
         const paginacion = data.paginacion || {};
@@ -1963,7 +2344,11 @@ export default function DigitalesContacto() {
         if (!activeTel || loadingIaAction) return;
         setLoadingIaAction(true);
         try {
-            const res = await api.iaPausarConversacion({ tel: activeTel, motivo: "manual_desde_chat" });
+            const res = await api.iaPausarConversacion({
+                tel: activeTel,
+                motivo: "manual_desde_chat",
+                numero_asesor: numeroAsesorActivo,
+            });
             setIaEstado(res?.estado_ia || null);
             await refreshActiveChat(activeTel).catch(() => { });
         } catch (error) { console.error(error); alert(error?.message || "No se pudo pausar la IA."); }
@@ -1974,7 +2359,10 @@ export default function DigitalesContacto() {
         if (!activeTel || loadingIaAction) return;
         setLoadingIaAction(true);
         try {
-            const res = await api.iaReactivarConversacion({ tel: activeTel });
+            const res = await api.iaReactivarConversacion({
+                tel: activeTel,
+                numero_asesor: numeroAsesorActivo,
+            });
             setIaEstado(res?.estado_ia || null);
             await refreshActiveChat(activeTel).catch(() => { });
         } catch (error) { console.error(error); alert(error?.message || "No se pudo reactivar la IA."); }
@@ -1998,6 +2386,7 @@ export default function DigitalesContacto() {
                 limit: CHAT_PAGE_SIZE,
                 before_id: beforeId,
                 mark_read: 0,
+                numero_asesor: numeroAsesorActivo,
             });
 
             if (activeTelRef.current !== target) return;
@@ -2037,8 +2426,9 @@ export default function DigitalesContacto() {
         setTemplatesError("");
 
         try {
-            const response = await api.digitalesPlantillas();
-
+            const response = await api.digitalesPlantillas({
+                numero_asesor: numeroAsesorActivo,
+            });
             const items = Array.isArray(response?.items)
                 ? response.items
                 : Array.isArray(response)
@@ -2073,6 +2463,246 @@ export default function DigitalesContacto() {
             );
         } finally {
             setLoadingTemplates(false);
+        }
+    }
+
+    function cleanupRecordingResources() {
+        if (recordingTimerRef.current) {
+            window.clearInterval(
+                recordingTimerRef.current
+            );
+
+            recordingTimerRef.current = null;
+        }
+
+        const stream = mediaStreamRef.current;
+
+        if (stream) {
+            stream
+                .getTracks()
+                .forEach((track) => track.stop());
+        }
+
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+
+        setIsRecording(false);
+        setRecordingSeconds(0);
+    }
+
+    function detenerGrabacionAudio() {
+        const recorder = mediaRecorderRef.current;
+
+        if (
+            !recorder
+            || recorder.state === "inactive"
+        ) {
+            cleanupRecordingResources();
+            return;
+        }
+
+        recorder.stop();
+    }
+
+    function cancelarGrabacionAudio() {
+        discardRecordingRef.current = true;
+
+        detenerGrabacionAudio();
+    }
+
+    async function iniciarGrabacionAudio() {
+        if (
+            !activeTelRef.current
+            || clienteBloqueado
+            || isRecording
+        ) {
+            return;
+        }
+
+        if (
+            !navigator.mediaDevices?.getUserMedia
+            || typeof MediaRecorder === "undefined"
+        ) {
+            setRecordingError(
+                "Este navegador no permite grabar audio. "
+                + "Usa Chrome, Edge o Safari actualizado."
+            );
+
+            return;
+        }
+
+        try {
+            setRecordingError("");
+
+            discardRecordingRef.current = false;
+            audioChunksRef.current = [];
+
+            const stream =
+                await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    },
+                    video: false,
+                });
+
+            const mimeType =
+                getSupportedRecorderMimeType();
+
+            const options = mimeType
+                ? {
+                    mimeType,
+                    audioBitsPerSecond: 64000,
+                }
+                : {
+                    audioBitsPerSecond: 64000,
+                };
+
+            const recorder = new MediaRecorder(
+                stream,
+                options,
+            );
+
+            mediaStreamRef.current = stream;
+            mediaRecorderRef.current = recorder;
+
+            recorder.ondataavailable = (event) => {
+                if (event.data?.size > 0) {
+                    audioChunksRef.current.push(
+                        event.data
+                    );
+                }
+            };
+
+            recorder.onerror = (event) => {
+                console.error(
+                    "Error grabando audio:",
+                    event?.error || event,
+                );
+
+                setRecordingError(
+                    "Ocurrió un error durante la grabación."
+                );
+
+                discardRecordingRef.current = true;
+
+                cleanupRecordingResources();
+            };
+
+            recorder.onstop = () => {
+                const chunks = [
+                    ...audioChunksRef.current,
+                ];
+
+                const discard =
+                    discardRecordingRef.current;
+
+                const finalMime =
+                    recorder.mimeType
+                    || mimeType
+                    || "audio/webm";
+
+                audioChunksRef.current = [];
+                discardRecordingRef.current = false;
+
+                cleanupRecordingResources();
+
+                if (
+                    discard
+                    || !chunks.length
+                ) {
+                    return;
+                }
+
+                const blob = new Blob(
+                    chunks,
+                    {
+                        type: finalMime,
+                    },
+                );
+
+                if (blob.size < 512) {
+                    setRecordingError(
+                        "La grabación quedó vacía. "
+                        + "Intenta nuevamente."
+                    );
+
+                    return;
+                }
+
+                const extension =
+                    getAudioExtension(finalMime);
+
+                const file = new File(
+                    [blob],
+                    `nota-voz-${Date.now()}.${extension}`,
+                    {
+                        type: finalMime,
+                        lastModified: Date.now(),
+                    },
+                );
+                addFilesAsAttachments([file]);
+            };
+
+            recorder.start(250);
+            setDraftOwnerTel(
+                (current) =>
+                    current || activeTelRef.current
+            );
+
+            setIsRecording(true);
+            setRecordingSeconds(0);
+
+            recordingTimerRef.current =
+                window.setInterval(() => {
+                    setRecordingSeconds((current) => {
+                        const next = current + 1;
+
+                        if (
+                            next >=
+                            MAX_RECORDING_SECONDS
+                        ) {
+                            window.setTimeout(
+                                detenerGrabacionAudio,
+                                0,
+                            );
+                        }
+
+                        return Math.min(
+                            next,
+                            MAX_RECORDING_SECONDS,
+                        );
+                    });
+                }, 1000);
+
+        } catch (error) {
+            console.error(
+                "No se pudo iniciar la grabación:",
+                error,
+            );
+
+            if (error?.name === "NotAllowedError") {
+                setRecordingError(
+                    "Permite el acceso al micrófono "
+                    + "para grabar notas de voz."
+                );
+
+            } else if (
+                error?.name === "NotFoundError"
+            ) {
+                setRecordingError(
+                    "No se encontró un micrófono disponible."
+                );
+
+            } else {
+                setRecordingError(
+                    error?.message
+                    || "No se pudo iniciar la grabación."
+                );
+            }
+
+            cleanupRecordingResources();
         }
     }
 
@@ -2128,18 +2758,26 @@ export default function DigitalesContacto() {
     }
 
     function resetComposer() {
+        if (isRecording) {
+            cancelarGrabacionAudio();
+        }
+
         setDraftMsg("");
-        if (inputRef.current) inputRef.current.value = "";
+
+        if (inputRef.current) {
+            inputRef.current.value = "";
+        }
+
         setEditingMsgId(null);
         setReplyToMsg(null);
         setDraftOwnerTel("");
         setOpenEmoji(false);
         setShowQuickBubblesDropdown(false);
         setShowTemplatesDropdown(false);
+
         cleanupPreviews(attachments);
         setAttachments([]);
     }
-
     function clearTelQueryIfAny() {
         if (!telParam) return;
         navigate({ pathname: location.pathname, search: "" }, { replace: true });
@@ -2359,6 +2997,7 @@ export default function DigitalesContacto() {
                 to: targetTel,
                 text: text.trim(),
                 reply_to_message_id: replyMessageId,
+                numero_asesor: numeroAsesorActivo,
             });
             setReplyToMsg(null);
             await refreshActiveChat(targetTel, { forceBottom: true });
@@ -2390,49 +3029,100 @@ export default function DigitalesContacto() {
     }
 
     async function enviarMensaje() {
-        const visibleTel = activeTelRef.current;
-        const targetTel = normalizaTelefonoMx(draftOwnerTel || visibleTel);
-        if (!targetTel) return;
+        if (isRecording) {
+            setRecordingError(
+                "Detén la grabación antes de enviar el mensaje."
+            );
+
+            return;
+        }
+
+        const visibleTel =
+            activeTelRef.current;
+
+        const targetTel = normalizaTelefonoMx(
+            draftOwnerTel || visibleTel
+        );
+
+        if (!targetTel) {
+            return;
+        }
 
         if (visibleTel !== targetTel) {
             activeTelRef.current = targetTel;
+
             setActiveTel(targetTel);
             setMobileView("chat");
-            alert("El borrador pertenece a otra conversación. Regresé al cliente correcto para evitar un envío equivocado.");
+
+            alert(
+                "El borrador pertenece a otra conversación. "
+                + "Regresé al cliente correcto para evitar "
+                + "un envío equivocado."
+            );
+
             return;
         }
+
         if (clienteBloqueado) {
-            alert("Este contacto está bloqueado. Desbloquéalo antes de enviar mensajes.");
+            alert(
+                "Este contacto está bloqueado. "
+                + "Desbloquéalo antes de enviar mensajes."
+            );
+
             return;
         }
 
-        const text = draftMsg.replace(/\r\n/g, "\n").trim();
-        const hasText = Boolean(text);
-        const hasAttachments = attachments.length > 0;
+        const text = draftMsg
+            .replace(/\r\n/g, "\n")
+            .trim();
 
-        if (!hasText && !hasAttachments) return;
+        const hasText = Boolean(text);
+        const hasAttachments =
+            attachments.length > 0;
+
+        if (
+            !hasText
+            && !hasAttachments
+        ) {
+            return;
+        }
 
         const editId = editingMsgId;
-        const currentAttachments = attachments;
-        const replyMessageId = replyToMsg?.wa_message_id || replyToMsg?.id || "";
 
-        // ── Edición de mensaje ─────────────────────────────────────────────
+        /*
+         * Conservamos una copia porque resetComposer()
+         * limpia attachments antes de hacer el request.
+         */
+        const currentAttachments = attachments;
+
+        const replyMessageId =
+            replyToMsg?.wa_message_id
+            || replyToMsg?.id
+            || "";
+
+        // ── Edición de mensaje ─────────────────────────────
         if (editId) {
             if (!hasText) {
-                alert("Para editar, escribe texto.");
+                alert(
+                    "Para editar, escribe texto."
+                );
+
                 return;
             }
 
-            setMensajes(prev =>
-                prev.map(m =>
-                    (m.wa_message_id || m.id) === editId
+            setMensajes((previous) =>
+                previous.map((message) =>
+                    (
+                        message.wa_message_id
+                        || message.id
+                    ) === editId
                         ? {
-                            ...m,
+                            ...message,
                             text,
                             status: "sent",
                             edited: true,
                         }
-                        : m
+                        : message
                 )
             );
 
@@ -2443,50 +3133,78 @@ export default function DigitalesContacto() {
                     to: targetTel,
                     message_id: editId,
                     text,
+                    numero_asesor: numeroAsesorActivo,
                 });
 
-                await refreshActiveChat(targetTel, { forceBottom: true });
+                await refreshActiveChat(
+                    targetTel,
+                    {
+                        forceBottom: true,
+                    },
+                );
+
             } catch (error) {
-                alert(`Falló edición: ${error.message}`);
-                await refreshActiveChat(targetTel).catch(() => { });
+                alert(
+                    `Falló edición: ${error.message}`
+                );
+
+                await refreshActiveChat(
+                    targetTel
+                ).catch(() => { });
             }
 
             return;
         }
 
-        // ── Mensaje nuevo ──────────────────────────────────────────────────
-        const optimisticId = crypto.randomUUID();
+        // ── Mensaje nuevo ──────────────────────────────────
+        const optimisticId =
+            crypto.randomUUID();
 
-        const optimisticAttachments = currentAttachments.map((a) => {
-            const localUrl = a.file
-                ? URL.createObjectURL(a.file)
-                : (a.url || a.previewUrl || "");
+        const optimisticAttachments =
+            currentAttachments.map((attachment) => {
+                const localUrl = attachment.file
+                    ? URL.createObjectURL(
+                        attachment.file
+                    )
+                    : (
+                        attachment.url
+                        || attachment.previewUrl
+                        || ""
+                    );
 
-            return {
-                id: a.id,
-                kind: a.kind,
-                previewUrl: localUrl,
-                url: localUrl,
-                name: a.name,
-                size: a.size,
-                mime: a.mime || a.file?.type || "",
-            };
-        });
+                return {
+                    id: attachment.id,
+                    kind: attachment.kind,
+                    previewUrl: localUrl,
+                    url: localUrl,
+                    name: attachment.name,
+                    size: attachment.size,
+                    mime:
+                        attachment.mime
+                        || attachment.file?.type
+                        || "",
+                };
+            });
 
         shouldStickToBottomRef.current = true;
 
-        setMensajes(prev => [
-            ...prev,
+        setMensajes((previous) => [
+            ...previous,
             {
                 id: optimisticId,
                 local_pending: true,
-                local_created_at: new Date().toISOString(),
+                local_created_at:
+                    new Date().toISOString(),
                 mine: true,
-                text: hasText ? text : "Adjunto",
+                text: hasText
+                    ? text
+                    : "Adjunto",
                 time: "Ahora",
                 status: "sent",
-                reply_to_id: replyMessageId || "",
-                attachments: optimisticAttachments,
+                reply_to_id:
+                    replyMessageId || "",
+                attachments:
+                    optimisticAttachments,
             },
         ]);
 
@@ -2498,24 +3216,41 @@ export default function DigitalesContacto() {
                     to: targetTel,
                     text: hasText ? text : "",
                     files: currentAttachments
-                        .map(a => a.file)
+                        .map((attachment) => attachment.file)
                         .filter(Boolean),
                     reply_to_message_id: replyMessageId,
+                    numero_asesor: numeroAsesorActivo,
                 });
+
             } else {
                 await api.digitalesEnviarMensaje({
                     to: targetTel,
                     text,
                     reply_to_message_id: replyMessageId,
+                    numero_asesor: numeroAsesorActivo,
                 });
             }
 
-            await refreshActiveChat(targetTel, { forceBottom: true });
+            await refreshActiveChat(
+                targetTel,
+                {
+                    forceBottom: true,
+                },
+            );
+
         } catch (error) {
-            alert(`Falló: ${error.message}`);
-            await refreshActiveChat(targetTel).catch(() => { });
+            alert(
+                `Falló: ${error.message}`
+            );
+
+            await refreshActiveChat(
+                targetTel
+            ).catch(() => { });
+
         } finally {
-            cleanupPreviews(optimisticAttachments);
+            cleanupPreviews(
+                optimisticAttachments
+            );
         }
     }
 
@@ -2620,6 +3355,7 @@ export default function DigitalesContacto() {
                     components.length > 0
                         ? undefined
                         : [],
+                numero_asesor: numeroAsesorActivo,
             });
 
             setShowTemplatesDropdown(false);
@@ -2662,9 +3398,21 @@ export default function DigitalesContacto() {
     }
 
     async function llamarMarkUnread(tel52) {
-        if (typeof api.digitalesMarkUnread === "function") return api.digitalesMarkUnread({ tel: tel52 });
-        if (typeof api.post === "function") return api.post("/digitales/chats/mark-unread/", { tel: tel52 });
-        throw new Error("Falta agregar api.digitalesMarkUnread en src/lib/apiPruebas.js");
+        if (
+            typeof api.digitalesMarkUnread ===
+            "function"
+        ) {
+            return api.digitalesMarkUnread({
+                tel: tel52,
+                numero_asesor:
+                    numeroAsesorActivo,
+            });
+        }
+
+        throw new Error(
+            "Falta agregar digitalesMarkUnread "
+            + "en apiPruebas.js"
+        );
     }
 
     async function marcarChatComoNoLeido(tel52 = activeTel) {
@@ -2770,7 +3518,9 @@ export default function DigitalesContacto() {
         try {
             await api.digitalesBloquearContacto({
                 tel: activeTel,
-                motivo: "Cliente bloqueado manualmente desde el chat",
+                motivo:
+                    "Cliente bloqueado manualmente desde el chat",
+                numero_asesor: numeroAsesorActivo,
             });
 
             setProspecto(prev => prev ? {
@@ -2821,6 +3571,7 @@ export default function DigitalesContacto() {
         try {
             await api.digitalesDesbloquearContacto({
                 tel: activeTel,
+                numero_asesor: numeroAsesorActivo,
             });
 
             setProspecto(prev => prev ? {
@@ -3022,6 +3773,12 @@ export default function DigitalesContacto() {
     useEffect(() => { try { localStorage.setItem(QUICK_BUBBLES_KEY, JSON.stringify(quickBubbles)); } catch { } }, [quickBubbles]);
     useEffect(() => { activeTelRef.current = activeTel; }, [activeTel]);
     useEffect(() => {
+        numeroAsesorActivoRef.current =
+            normalizaTelefonoMx(
+                numeroAsesorActivo
+            );
+    }, [numeroAsesorActivo]);
+    useEffect(() => {
         if (!hasComposerDraft && draftOwnerTel) {
             setDraftOwnerTel("");
         }
@@ -3065,7 +3822,37 @@ export default function DigitalesContacto() {
 
     useEffect(() => { if (!shouldStickToBottomRef.current) return; endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [mensajes.length, activeTel]);
     useEffect(() => () => cleanupPreviews(attachments), []);
+    useEffect(() => {
+        return () => {
+            discardRecordingRef.current = true;
 
+            const recorder =
+                mediaRecorderRef.current;
+
+            if (
+                recorder
+                && recorder.state !== "inactive"
+            ) {
+                try {
+                    recorder.stop();
+                } catch {
+                    // Sin acción.
+                }
+            }
+
+            if (recordingTimerRef.current) {
+                window.clearInterval(
+                    recordingTimerRef.current
+                );
+            }
+
+            mediaStreamRef.current
+                ?.getTracks?.()
+                .forEach(
+                    (track) => track.stop()
+                );
+        };
+    }, []);
     // Cerrar emoji al click fuera
     useEffect(() => {
         const onDoc = (e) => { if (!openEmoji) return; if (emojiRef.current && !emojiRef.current.contains(e.target)) setOpenEmoji(false); };
@@ -3098,31 +3885,146 @@ export default function DigitalesContacto() {
     }, [chatMenu]);
 
     useEffect(() => {
-        const onNuevoMensaje = async (e) => {
-            const data = e.detail || {};
-            const telefonoMensaje = normalizaTelefonoMx(data.telefono || "");
-            if (!telefonoMensaje) return;
-            if (telefonoMensaje === activeTelRef.current) {
-                const shouldFollow = isNearBottom(messagesScrollRef.current);
-                await refreshActiveChat(telefonoMensaje, { forceBottom: shouldFollow }).catch(() => { });
-                return;
-            }
-            if (!isDirectChatMode) await refreshChats().catch(() => { });
+        const numeroLinea =
+            normalizaTelefonoMx(
+                numeroAsesorActivo
+            );
+
+        if (!numeroLinea) {
+            return;
+        }
+
+        const onNuevoMensaje =
+            async (event) => {
+                const data =
+                    event.detail || {};
+
+                const telefonoMensaje =
+                    normalizaTelefonoMx(
+                        data.telefono || ""
+                    );
+
+                if (!telefonoMensaje) {
+                    return;
+                }
+
+                /*
+                 * Ignora eventos que indiquen
+                 * explícitamente otra línea.
+                 */
+                const lineaEvento =
+                    normalizaTelefonoMx(
+                        data.numero_asesor ||
+                        data.numero_destino ||
+                        ""
+                    );
+
+                if (
+                    lineaEvento &&
+                    lineaEvento !== numeroLinea
+                ) {
+                    return;
+                }
+
+                if (
+                    telefonoMensaje ===
+                    activeTelRef.current
+                ) {
+                    const shouldFollow =
+                        isNearBottom(
+                            messagesScrollRef.current
+                        );
+
+                    await refreshActiveChat(
+                        telefonoMensaje,
+                        {
+                            forceBottom:
+                                shouldFollow,
+                        }
+                    ).catch((error) => {
+                        console.error(
+                            "No se pudo actualizar el chat activo:",
+                            error
+                        );
+                    });
+
+                    return;
+                }
+
+                if (!isDirectChatMode) {
+                    await refreshChats({
+                        numeroAsesor:
+                            numeroLinea,
+                    }).catch((error) => {
+                        console.error(
+                            "No se pudo actualizar la lista por nuevo mensaje:",
+                            error
+                        );
+                    });
+                }
+            };
+
+        window.addEventListener(
+            "whatsapp:nuevo-mensaje",
+            onNuevoMensaje
+        );
+
+        return () => {
+            window.removeEventListener(
+                "whatsapp:nuevo-mensaje",
+                onNuevoMensaje
+            );
         };
-        window.addEventListener("whatsapp:nuevo-mensaje", onNuevoMensaje);
-        return () => window.removeEventListener("whatsapp:nuevo-mensaje", onNuevoMensaje);
-    }, [isDirectChatMode]);
+    }, [
+        isDirectChatMode,
+        numeroAsesorActivo,
+    ]);
 
     useEffect(() => {
         let ignore = false;
-        if (isDirectChatMode) { setChats([]); setLoadingList(false); return () => { ignore = true; }; }
+
+        if (isDirectChatMode) {
+            setLoadingList(false);
+
+            return () => {
+                ignore = true;
+            };
+        }
+
+        if (!numeroAsesorActivo) {
+            return () => {
+                ignore = true;
+            };
+        }
+
         (async () => {
-            try { setLoadingList(true); await refreshChats(); }
-            catch { if (!ignore) setChats([]); }
-            finally { if (!ignore) setLoadingList(false); }
+            try {
+                setLoadingList(true);
+
+                await refreshChats({
+                    numeroAsesor:
+                        numeroAsesorActivo,
+                    allowEmpty: true,
+                });
+            } catch (error) {
+                console.error(
+                    "No se pudo actualizar la lista de chats:",
+                    error
+                );
+            } finally {
+                if (!ignore) {
+                    setLoadingList(false);
+                }
+            }
         })();
-        return () => { ignore = true; };
-    }, [isDirectChatMode]);
+
+        return () => {
+            ignore = true;
+        };
+    }, [
+        isDirectChatMode,
+        numeroAsesorActivo,
+    ]);
 
     useEffect(() => {
         if (didInitSelection.current) return;
@@ -3169,12 +4071,23 @@ export default function DigitalesContacto() {
         let ignore = false;
         if (isDirectChatMode) return;
         (async () => {
-            try { const data = await api.digitalesListProspectos(); if (ignore) return; setProspectosIndex(Array.isArray(data) ? data : []); }
-            catch (error) { console.error("Error cargando índice de prospectos:", error); if (!ignore) setProspectosIndex([]); }
+            try {
+                const data =
+                    await api.digitalesListProspectos({
+                        numero_asesor:
+                            numeroAsesorActivo,
+                    });
+                if (ignore) return; setProspectosIndex(Array.isArray(data) ? data : []);
+            }
+            catch (error) {
+                console.error(
+                    "Error cargando índice de prospectos:",
+                    error
+                );
+            }
         })();
         return () => { ignore = true; };
-    }, [isDirectChatMode]);
-
+    }, [isDirectChatMode, numeroAsesorActivo,]);
     useEffect(() => {
         let alive = true, timer = null, tickCount = 0;
         const tick = async () => {
@@ -3184,7 +4097,15 @@ export default function DigitalesContacto() {
                 const prev = mensajesRef.current || [], last = prev[prev.length - 1];
                 const lastId = last?.id || last?.wa_message_id || "", lastCreatedAt = last?.created_at || "";
                 if (!lastId && !lastCreatedAt) { timer = setTimeout(tick, 3500); return; }
-                const data = await api.digitalesContactoUpdates(target, lastCreatedAt, { limit: CHAT_UPDATES_LIMIT, after_id: lastId });
+                const data = await api.digitalesContactoUpdates(
+                    target,
+                    lastCreatedAt,
+                    {
+                        limit: CHAT_UPDATES_LIMIT,
+                        after_id: lastId,
+                        numero_asesor: numeroAsesorActivo,
+                    }
+                );
                 if (!alive) return;
                 if (activeTelRef.current !== target) {
                     timer = setTimeout(tick, 3500);
@@ -3253,7 +4174,6 @@ export default function DigitalesContacto() {
                                             <ChevronLeft className="h-4 w-4" />
                                         </button>
                                     </div>
-
                                     {/* Búsqueda */}
                                     <div className="flex items-center gap-2 rounded-2xl bg-neutral-100 px-3 py-2">
                                         <Search className="h-4 w-4 shrink-0 text-slate-400" />
@@ -3262,6 +4182,29 @@ export default function DigitalesContacto() {
                                             className="w-full bg-transparent text-sm font-semibold text-[#131E5C] outline-none placeholder:text-slate-400" />
                                         {q ? (<button type="button" onClick={() => setQ("")} className="shrink-0 text-slate-400 hover:text-slate-600"><X className="h-3.5 w-3.5" /></button>) : null}
                                     </div>
+
+                                    {numerosDisponibles.length > 0 ? (
+                                        <div className="mb-2 p-2">
+                                            <select
+                                                value={numeroAsesorActivo}
+                                                onChange={(event) =>
+                                                    cambiarNumeroAsesor(event.target.value)
+                                                }
+                                                disabled={!ready || numerosDisponibles.length === 0}
+                                                className="h-9 w-full rounded-lg border border-[#131E5C]/20 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/15"
+                                            >
+                                                {numerosDisponibles.map((numero) => (
+                                                    <option key={numero} value={numero}>
+                                                        {obtenerEtiquetaLinea(numero)} · {formateaTelUi(numero)}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    ) : (
+                                        <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                                            Este usuario no tiene líneas de WhatsApp asignadas.
+                                        </div>
+                                    )}
 
                                     {/* Filtros con scroll horizontal */}
                                     <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
@@ -3771,6 +4714,67 @@ export default function DigitalesContacto() {
                                     </div>
                                 ) : null}
 
+                                {recordingError ? (
+                                    <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                                        <span>
+                                            {recordingError}
+                                        </span>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setRecordingError("")
+                                            }
+                                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg hover:bg-red-100"
+                                            title="Cerrar"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ) : null}
+
+                                {isRecording ? (
+                                    <div className="mb-2 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 shadow-sm">
+                                        <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-xs font-extrabold text-red-700">
+                                                Grabando nota de voz
+                                            </div>
+
+                                            <div className="text-[11px] font-semibold text-red-500">
+                                                {formatAudioTime(
+                                                    recordingSeconds
+                                                )}
+                                                {" / "}
+                                                {formatAudioTime(
+                                                    MAX_RECORDING_SECONDS
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={cancelarGrabacionAudio}
+                                            className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 bg-white px-2 text-xs font-extrabold text-red-600 hover:bg-red-100"
+                                            title="Cancelar grabación"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                            Cancelar
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={detenerGrabacionAudio}
+                                            className="inline-flex h-8 items-center gap-1 rounded-lg bg-red-600 px-2 text-xs font-extrabold text-white hover:bg-red-700"
+                                            title="Detener y adjuntar"
+                                        >
+                                            <Square className="h-3.5 w-3.5 fill-current" />
+                                            Detener
+                                        </button>
+                                    </div>
+                                ) : null}
+
                                 {/* Previews adjuntos */}
                                 {attachments.length ? (
                                     <div className="mb-2 flex flex-wrap gap-2">
@@ -3778,13 +4782,63 @@ export default function DigitalesContacto() {
                                             <div key={a.id} className="flex items-center gap-2 rounded-xl border border-black/10 bg-neutral-50 px-3 py-2">
                                                 {a.kind === "image" ? (
                                                     <div className="flex items-center gap-2">
-                                                        <div className="h-10 w-10 overflow-hidden rounded-lg border border-black/10 bg-white"><img src={a.previewUrl} alt={a.name} className="h-full w-full object-cover" /></div>
-                                                        <div className="min-w-0"><div className="max-w-[180px] truncate text-xs font-extrabold text-[#131E5C]">{a.name ? shortName(a.name) : "Imagen"}</div><div className="text-[11px] font-bold text-slate-500">{humanBytes(a.size)}</div></div>
+                                                        <div className="h-10 w-10 overflow-hidden rounded-lg border border-black/10 bg-white">
+                                                            <img
+                                                                src={a.previewUrl}
+                                                                alt={a.name}
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        </div>
+
+                                                        <div className="min-w-0">
+                                                            <div className="max-w-[180px] truncate text-xs font-extrabold text-[#131E5C]">
+                                                                {a.name
+                                                                    ? shortName(a.name)
+                                                                    : "Imagen"}
+                                                            </div>
+
+                                                            <div className="text-[11px] font-bold text-slate-500">
+                                                                {humanBytes(a.size)}
+                                                            </div>
+                                                        </div>
                                                     </div>
+
+                                                ) : a.kind === "audio" ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#131E5C]/10 text-[#131E5C]">
+                                                            <Mic className="h-4 w-4" />
+                                                        </div>
+
+                                                        <div className="min-w-0">
+                                                            <div className="max-w-[180px] truncate text-xs font-extrabold text-[#131E5C]">
+                                                                Nota de voz
+                                                            </div>
+
+                                                            <div className="text-[11px] font-bold text-slate-500">
+                                                                {humanBytes(a.size)}
+                                                                {" · "}
+                                                                se convertirá a OGG/Opus
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
                                                 ) : (
                                                     <div className="flex items-center gap-2">
-                                                        <FileText className="h-4 w-4 text-[#131E5C]" />
-                                                        <div className="min-w-0"><div className="max-w-[180px] truncate text-xs font-extrabold text-[#131E5C]">{a.name ? shortName(a.name) : "Archivo"}</div><div className="text-[11px] font-bold text-slate-500">{humanBytes(a.size)}</div></div>
+                                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#131E5C]/10 text-[#131E5C]">
+                                                            <FileText className="h-4 w-4" />
+                                                        </div>
+
+                                                        <div className="min-w-0">
+                                                            <div className="max-w-[180px] truncate text-xs font-extrabold text-[#131E5C]">
+                                                                {a.name
+                                                                    ? shortName(a.name)
+                                                                    : "Archivo"}
+                                                            </div>
+
+                                                            <div className="text-[11px] font-bold text-slate-500">
+                                                                {humanBytes(a.size)}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
                                                 <button type="button" onClick={() => removeAttachment(a.id)} className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white hover:bg-neutral-100" title="Quitar"><X className="h-4 w-4 text-[#131E5C]" /></button>
@@ -3796,8 +4850,23 @@ export default function DigitalesContacto() {
                                 {/* Caja compositor */}
                                 <div className="rounded-2xl border border-black/10 bg-white shadow-sm">
                                     <div className="px-2 pt-2">
-                                        <WhatsAppComposerInput value={draftMsg} onChange={updateDraftMessage} onSend={enviarMensaje}
-                                            disabled={!activeTel || clienteBloqueado} placeholder={composerHint} inputRef={inputRef} onPaste={onPasteInComposer} />
+                                        <WhatsAppComposerInput
+                                            value={draftMsg}
+                                            onChange={updateDraftMessage}
+                                            onSend={enviarMensaje}
+                                            disabled={
+                                                !activeTel
+                                                || clienteBloqueado
+                                                || isRecording
+                                            }
+                                            placeholder={
+                                                isRecording
+                                                    ? "Grabando nota de voz…"
+                                                    : composerHint
+                                            }
+                                            inputRef={inputRef}
+                                            onPaste={onPasteInComposer}
+                                        />
                                     </div>
 
                                     {/* Barra de botones */}
@@ -3822,9 +4891,65 @@ export default function DigitalesContacto() {
 
                                         {/* Adjuntar */}
                                         <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { addFilesAsAttachments(e.target.files); e.target.value = ""; }} />
-                                        <button className={cls("inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-neutral-100 hover:text-[#131E5C] transition", !activeTel ? "cursor-not-allowed opacity-50" : "")}
-                                            title="Adjuntar" type="button" disabled={!activeTel} onClick={() => fileInputRef.current?.click()}>
+                                        <button
+                                            className={cls(
+                                                "inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-neutral-100 hover:text-[#131E5C] transition",
+                                                (
+                                                    !activeTel
+                                                    || isRecording
+                                                )
+                                                    ? "cursor-not-allowed opacity-50"
+                                                    : ""
+                                            )}
+                                            title="Adjuntar"
+                                            type="button"
+                                            disabled={
+                                                !activeTel
+                                                || isRecording
+                                            }
+                                            onClick={() =>
+                                                fileInputRef.current?.click()
+                                            }
+                                        >
                                             <Paperclip className="h-4 w-4" />
+                                        </button>
+                                        {/* Nota de voz */}
+                                        <button
+                                            className={cls(
+                                                "inline-flex h-8 w-8 items-center justify-center rounded-xl transition",
+
+                                                isRecording
+                                                    ? "bg-red-100 text-red-600"
+                                                    : "text-slate-400 hover:bg-neutral-100 hover:text-[#131E5C]",
+
+                                                (
+                                                    !activeTel
+                                                    || clienteBloqueado
+                                                )
+                                                    ? "cursor-not-allowed opacity-50"
+                                                    : "",
+                                            )}
+                                            title={
+                                                isRecording
+                                                    ? "Detener grabación"
+                                                    : "Grabar nota de voz"
+                                            }
+                                            type="button"
+                                            disabled={
+                                                !activeTel
+                                                || clienteBloqueado
+                                            }
+                                            onClick={
+                                                isRecording
+                                                    ? detenerGrabacionAudio
+                                                    : iniciarGrabacionAudio
+                                            }
+                                        >
+                                            {isRecording ? (
+                                                <Square className="h-3.5 w-3.5 fill-current" />
+                                            ) : (
+                                                <Mic className="h-4 w-4" />
+                                            )}
                                         </button>
 
                                         {/* Plantillas — dropdown igual que mensajes rápidos */}
@@ -4078,13 +5203,16 @@ export default function DigitalesContacto() {
                                         ) : null}
 
                                         {/* Enviar */}
-                                        <button onClick={enviarMensaje}
-                                            disabled={!activeTel || (!draftMsg.trim() && attachments.length === 0)}
+                                        <button
+                                            onClick={enviarMensaje}
+                                            disabled={isRecording || !activeTel || (!draftMsg.trim() && attachments.length === 0)
+                                            }
                                             className={cls(
                                                 "inline-flex h-8 items-center gap-1 rounded-xl px-3 text-xs font-extrabold text-white shadow-sm transition",
-                                                !activeTel || (!draftMsg.trim() && attachments.length === 0) ? "cursor-not-allowed bg-slate-300" : "hover:opacity-90"
-                                            )}
-                                            style={{ backgroundColor: !activeTel || (!draftMsg.trim() && attachments.length === 0) ? undefined : BRAND_BLUE }}
+                                                isRecording || !activeTel || (!draftMsg.trim() && attachments.length === 0) ? "cursor-not-allowed bg-slate-300" : "hover:opacity-90")}
+                                            style={{
+                                                backgroundColor: isRecording || !activeTel || (!draftMsg.trim() && attachments.length === 0) ? undefined : BRAND_BLUE
+                                            }}
                                             title="Enviar" type="button">
                                             <Send className="h-3.5 w-3.5" />
                                             <span className="hidden sm:inline">Enviar</span>

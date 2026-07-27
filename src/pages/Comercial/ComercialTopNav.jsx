@@ -46,6 +46,7 @@ export default function ComercialTopNav() {
         "USUARIOS_ADMIN",
         "CRM_CALIDAD",
         "CRM_CALL_CENTER",
+        "CRM_COORDINADOR_DIGITAL",
     ]);
 
     const tabs = useMemo(() => {
@@ -58,6 +59,7 @@ export default function ComercialTopNav() {
                     "CRM_DIGITALES",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL"
                 ]),
             },
             {
@@ -81,6 +83,7 @@ export default function ComercialTopNav() {
                     "CRM_VENTAS",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
             {
@@ -92,6 +95,7 @@ export default function ComercialTopNav() {
                     "CRM_VENTAS",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
             {
@@ -103,6 +107,7 @@ export default function ComercialTopNav() {
                     "CRM_VENTAS",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
             {
@@ -114,6 +119,7 @@ export default function ComercialTopNav() {
                     "CRM_VENTAS",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
             {
@@ -126,6 +132,7 @@ export default function ComercialTopNav() {
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
                     "CRM_CALL_CENTER",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
             {
@@ -147,6 +154,7 @@ export default function ComercialTopNav() {
                     "CRM_DIGITALES",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
         ];

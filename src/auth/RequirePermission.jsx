@@ -25,8 +25,6 @@ export function obtenerRutaInicialPorUsuario(user) {
 
     if (permisos.includes("CRM_CALL_CENTER")) {
         return "/comercial/entregas";
-        // También podrías usar:
-        // return "/postventa/hoja_ingresos";
     }
 
     if (permisos.includes("CRM_POSTVENTA")) {
@@ -35,7 +33,8 @@ export function obtenerRutaInicialPorUsuario(user) {
 
     if (
         permisos.includes("CRM_DIGITALES") ||
-        permisos.includes("CRM_VENTAS")
+        permisos.includes("CRM_VENTAS") ||
+        permisos.includes("CRM_COORDINADOR_DIGITAL")
     ) {
         return "/comercial";
     }

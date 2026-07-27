@@ -20,15 +20,18 @@ import {
     Car,
     CheckCircle2,
     ChevronDown,
+    ClipboardList,
     Gauge,
     Mail,
     MapPin,
     MessageCircle,
     Phone,
     PhoneCall,
+    Plus,
     RefreshCw,
     Search,
     Table2,
+    Trash2,
     Users,
     Wallet,
     Wrench,
@@ -62,6 +65,21 @@ const CONTACTO_OPCIONES = [
     "Contactado No Responde",
     "Contactado Con Respuesta",
 ];
+
+// NUEVO: estados de las tareas del cliente
+const ESTADO_TAREA_LABELS = {
+    pendiente: "Pendiente",
+    en_progreso: "En progreso",
+    completada: "Completada",
+    cancelada: "Cancelada",
+};
+
+const ESTADO_TAREA_COLORS = {
+    pendiente: { bg: "#94a3b81a", text: "#64748b" },
+    en_progreso: { bg: `${ACCENT}1a`, text: ACCENT },
+    completada: { bg: "#1D9E751a", text: "#1D9E75" },
+    cancelada: { bg: "#D85A301a", text: "#D85A30" },
+};
 
 const TooltipStyle = {
     fontSize: 12,
@@ -717,8 +735,157 @@ function VistaGraficas({ datos }) {
     );
 }
 
+// ---- Tarjeta de tarea individual (editable) ----
+function TareaCard({ tarea, onActualizar, onEliminar }) {
+    const [titulo, setTitulo] = useState(tarea.titulo);
+    const [descripcion, setDescripcion] = useState(tarea.descripcion || "");
+    const colores = ESTADO_TAREA_COLORS[tarea.estado] || ESTADO_TAREA_COLORS.pendiente;
+
+    useEffect(() => {
+        setTitulo(tarea.titulo);
+        setDescripcion(tarea.descripcion || "");
+    }, [tarea.id, tarea.titulo, tarea.descripcion]);
+
+    function guardarTitulo() {
+        const limpio = titulo.trim();
+        if (!limpio) {
+            setTitulo(tarea.titulo);
+            return;
+        }
+        if (limpio !== tarea.titulo) onActualizar(tarea.id, { titulo: limpio });
+    }
+
+    function guardarDescripcion() {
+        if (descripcion !== (tarea.descripcion || "")) {
+            onActualizar(tarea.id, { descripcion });
+        }
+    }
+
+    return (
+        <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:shadow-md">
+            <div className="flex items-start justify-between gap-2">
+                <input
+                    value={titulo}
+                    onChange={(e) => setTitulo(e.target.value)}
+                    onBlur={guardarTitulo}
+                    placeholder="Título de la tarea"
+                    className="min-w-0 flex-1 rounded-lg bg-transparent text-sm font-bold text-slate-800 outline-none transition focus:bg-slate-50"
+                />
+                <button
+                    type="button"
+                    onClick={() => onEliminar(tarea.id)}
+                    title="Eliminar tarea"
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
+                >
+                    <Trash2 className="h-3.5 w-3.5" />
+                </button>
+            </div>
+
+            <textarea
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                onBlur={guardarDescripcion}
+                placeholder="Agregar descripción..."
+                rows={2}
+                className="mt-1.5 w-full resize-none rounded-lg bg-transparent text-xs text-slate-500 outline-none transition focus:bg-slate-50"
+            />
+
+            <div className="mt-2 flex items-center justify-between gap-2">
+                <select
+                    value={tarea.estado}
+                    onChange={(e) => onActualizar(tarea.id, { estado: e.target.value })}
+                    className="h-7 appearance-none rounded-full border-none px-3 text-[11px] font-bold outline-none"
+                    style={{ backgroundColor: colores.bg, color: colores.text }}
+                >
+                    {Object.entries(ESTADO_TAREA_LABELS).map(([valor, label]) => (
+                        <option key={valor} value={valor}>
+                            {label}
+                        </option>
+                    ))}
+                </select>
+                <span className="text-[11px] font-medium text-slate-400">
+                    {formatDate(String(tarea.created_at || "").slice(0, 10))}
+                </span>
+            </div>
+        </div>
+    );
+}
+
+// ---- Apartado de tareas del cliente (dentro del modal) ----
+function TareasCliente({ telefono, tareas, loading, error, onCrear, onActualizar, onEliminar }) {
+    return (
+        <div className="mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <div className="flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4" style={{ color: NAVY }} />
+                    <span className="text-sm font-extrabold" style={{ color: NAVY }}>
+                        Tareas
+                    </span>
+                    {telefono ? (
+                        <span className="text-xs font-medium text-slate-400">
+                            · {formatTelefono(telefono)}
+                        </span>
+                    ) : null}
+                </div>
+                <button
+                    type="button"
+                    onClick={onCrear}
+                    disabled={!telefono}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    style={{ backgroundColor: NAVY }}
+                >
+                    <Plus className="h-3.5 w-3.5" />
+                    Nueva tarea
+                </button>
+            </div>
+
+            <div className="p-4">
+                {!telefono ? (
+                    <div className="py-6 text-center text-sm font-medium text-slate-400">
+                        Este cliente no tiene teléfono registrado, no se pueden ligar tareas.
+                    </div>
+                ) : loading ? (
+                    <div className="py-6 text-center text-sm font-semibold text-slate-400">
+                        Cargando tareas...
+                    </div>
+                ) : error ? (
+                    <div className="py-4 text-sm font-bold text-red-600">{error}</div>
+                ) : tareas.length === 0 ? (
+                    <div className="py-6 text-center text-sm font-medium text-slate-400">
+                        Sin tareas para este cliente todavía.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {tareas.map((tarea) => (
+                            <TareaCard
+                                key={tarea.id}
+                                tarea={tarea}
+                                onActualizar={onActualizar}
+                                onEliminar={onEliminar}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ---- Modal de historial ----
-function DetalleModal({ open, cliente, historial, loading, error, onClose }) {
+function DetalleModal({
+    open,
+    cliente,
+    historial,
+    loading,
+    error,
+    tareas,
+    loadingTareas,
+    errorTareas,
+    onCrearTarea,
+    onActualizarTarea,
+    onEliminarTarea,
+    onClose,
+}) {
     if (!open) return null;
 
     return createPortal(
@@ -760,6 +927,17 @@ function DetalleModal({ open, cliente, historial, loading, error, onClose }) {
                                 <InfoItem icon={PhoneCall} label="Medio de contacto" value={cliente.medio_contacto} />
                             </div>
                         ) : null}
+
+                        {/* NUEVO: apartado de tareas ligado al teléfono del cliente */}
+                        <TareasCliente
+                            telefono={cliente?.telefono_cliente}
+                            tareas={tareas}
+                            loading={loadingTareas}
+                            error={errorTareas}
+                            onCrear={onCrearTarea}
+                            onActualizar={onActualizarTarea}
+                            onEliminar={onEliminarTarea}
+                        />
 
                         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
                             <div className="border-b border-slate-200 px-4 py-3 text-sm font-extrabold text-[#131E5C]">
@@ -874,6 +1052,11 @@ export default function Retencion() {
     const [historial, setHistorial] = useState([]);
     const [loadingHistorial, setLoadingHistorial] = useState(false);
     const [errorHistorial, setErrorHistorial] = useState(null);
+
+    // NUEVO: estado de tareas del cliente abierto en el modal
+    const [tareas, setTareas] = useState([]);
+    const [loadingTareas, setLoadingTareas] = useState(false);
+    const [errorTareas, setErrorTareas] = useState(null);
 
     const cacheRef = useRef(new Map());
 
@@ -1029,6 +1212,8 @@ export default function Retencion() {
         setHistorial([]);
         setErrorHistorial(null);
         setLoadingHistorial(true);
+        setTareas([]);
+        setErrorTareas(null);
 
         try {
             const data = await apiRetencion.historial(cliente.vin);
@@ -1038,6 +1223,19 @@ export default function Retencion() {
         } finally {
             setLoadingHistorial(false);
         }
+
+        if (cliente.telefono_cliente) {
+            setLoadingTareas(true);
+            try {
+                const data = await apiRetencion.tareas(cliente.telefono_cliente);
+                const lista = Array.isArray(data) ? data : data.results ?? [];
+                setTareas(lista);
+            } catch (err) {
+                setErrorTareas(err.message || "No se pudieron cargar las tareas.");
+            } finally {
+                setLoadingTareas(false);
+            }
+        }
     }
 
     function cerrarDetalle() {
@@ -1045,6 +1243,46 @@ export default function Retencion() {
         setClienteSeleccionado(null);
         setHistorial([]);
         setErrorHistorial(null);
+        setTareas([]);
+        setErrorTareas(null);
+    }
+
+    // NUEVO: crear una tarea nueva ligada al cliente abierto en el modal
+    async function crearTarea() {
+        if (!clienteSeleccionado?.telefono_cliente) return;
+        try {
+            const nueva = await apiRetencion.crearTarea({
+                telefono_cliente: clienteSeleccionado.telefono_cliente,
+                nombre_cliente: clienteSeleccionado.nombre_cliente,
+                titulo: "Nueva tarea",
+                estado: "pendiente",
+            });
+            setTareas((prev) => [nueva, ...prev]);
+        } catch (err) {
+            setErrorTareas(err.message || "No se pudo crear la tarea.");
+        }
+    }
+
+    // NUEVO: actualizar título, descripción o estado de una tarea (optimista)
+    async function actualizarTarea(id, cambios) {
+        setTareas((prev) => prev.map((t) => (t.id === id ? { ...t, ...cambios } : t)));
+        try {
+            await apiRetencion.actualizarTarea(id, cambios);
+        } catch (err) {
+            setErrorTareas(err.message || "No se pudo actualizar la tarea.");
+        }
+    }
+
+    // NUEVO: eliminar una tarea (optimista, con rollback si falla)
+    async function eliminarTarea(id) {
+        const anterior = tareas;
+        setTareas((prev) => prev.filter((t) => t.id !== id));
+        try {
+            await apiRetencion.eliminarTarea(id);
+        } catch (err) {
+            setTareas(anterior);
+            setErrorTareas(err.message || "No se pudo eliminar la tarea.");
+        }
     }
 
     if (loadingGeneral) {
@@ -1206,6 +1444,12 @@ export default function Retencion() {
                 historial={historial}
                 loading={loadingHistorial}
                 error={errorHistorial}
+                tareas={tareas}
+                loadingTareas={loadingTareas}
+                errorTareas={errorTareas}
+                onCrearTarea={crearTarea}
+                onActualizarTarea={actualizarTarea}
+                onEliminarTarea={eliminarTarea}
                 onClose={cerrarDetalle}
             />
         </div>

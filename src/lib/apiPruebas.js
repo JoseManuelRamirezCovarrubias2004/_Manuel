@@ -7,6 +7,65 @@ const API =
 
 const LOGIN_PATH = "/login";
 
+const ACCESS_REFRESH_MARGIN_SECONDS = 60;
+
+let refreshTokenPromise = null;
+
+function createAuthError(
+  message,
+  { code = "AUTH_ERROR", status = 0, rejected = false, cause = null } = {},
+) {
+  const error = new Error(message);
+
+  error.code = code;
+  error.status = status;
+  error.authRejected = rejected;
+  error.cause = cause;
+
+  return error;
+}
+
+function decodeJwtPayload(token) {
+  const value = cleanToken(token);
+
+  if (!isJwt(value)) {
+    return null;
+  }
+
+  try {
+    const payloadPart = value.split(".")[1];
+
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+function jwtExpiresSoon(token, marginSeconds = ACCESS_REFRESH_MARGIN_SECONDS) {
+  const payload = decodeJwtPayload(token);
+  const expiresAt = Number(payload?.exp || 0);
+
+  if (!expiresAt) {
+    return false;
+  }
+
+  const currentSeconds = Math.floor(Date.now() / 1000);
+
+  return expiresAt - currentSeconds <= marginSeconds;
+}
+
+function isRefreshEndpoint(path) {
+  return String(path || "").includes("/api/auth/token/refresh/");
+}
+
+function isLoginEndpoint(path) {
+  return String(path || "").includes("/api/auth/login/");
+}
+
 function isFormData(x) {
   return typeof FormData !== "undefined" && x instanceof FormData;
 }
@@ -230,33 +289,123 @@ function redirectToLogin() {
   }
 }
 
-async function refreshAccessToken() {
+async function executeRefreshAccessToken() {
   const refresh = getRefreshToken();
 
   if (!refresh) {
-    throw new Error("No hay refresh token.");
+    throw createAuthError("No hay refresh token disponible.", {
+      code: "REFRESH_TOKEN_MISSING",
+      rejected: true,
+    });
   }
 
-  const res = await fetch(`${API}/conformidad/api/auth/token/refresh/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ refresh }),
-  });
+  let res;
+
+  try {
+    res = await fetch(`${API}/conformidad/api/auth/token/refresh/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        refresh,
+      }),
+    });
+  } catch (cause) {
+    /*
+     * No eliminamos la sesión por un fallo
+     * temporal de red.
+     */
+    throw createAuthError(
+      "No se pudo conectar con el servidor para renovar la sesión.",
+      {
+        code: "REFRESH_NETWORK_ERROR",
+        cause,
+      },
+    );
+  }
 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok || !data?.access) {
-    throw new Error(data?.detail || "No se pudo refrescar el token.");
+    const rejected = res.status === 401 || res.status === 403;
+
+    throw createAuthError(
+      data?.detail || data?.error || "No se pudo renovar la sesión.",
+      {
+        code: rejected ? "REFRESH_TOKEN_REJECTED" : "REFRESH_REQUEST_FAILED",
+        status: res.status,
+        rejected,
+      },
+    );
   }
 
+  /*
+   * Si SimpleJWT está configurado para rotar
+   * refresh tokens, usamos el nuevo.
+   *
+   * En caso contrario conservamos el anterior.
+   */
   saveJwtTokens({
     access: data.access,
-    refresh,
+    refresh: data.refresh || refresh,
   });
 
   return data.access;
+}
+
+function refreshAccessToken() {
+  /*
+   * Todas las peticiones que reciban 401
+   * compartirán la misma renovación.
+   */
+  if (!refreshTokenPromise) {
+    refreshTokenPromise = executeRefreshAccessToken().finally(() => {
+      refreshTokenPromise = null;
+    });
+  }
+
+  return refreshTokenPromise;
+}
+
+async function ensureFreshAccessToken() {
+  const access = getAccessToken();
+  const refresh = getRefreshToken();
+
+  /*
+   * No hay sesión que renovar.
+   */
+  if (!access && !refresh) {
+    return "";
+  }
+
+  /*
+   * Si tenemos access vigente, continuamos.
+   */
+  if (access && !jwtExpiresSoon(access)) {
+    return access;
+  }
+
+  /*
+   * Si el access está vencido o próximo
+   * a vencer, renovamos automáticamente.
+   */
+  if (refresh) {
+    return refreshAccessToken();
+  }
+
+  throw createAuthError(
+    "La sesión no puede renovarse porque no existe refresh token.",
+    {
+      code: "REFRESH_TOKEN_MISSING",
+      rejected: true,
+    },
+  );
+}
+
+function closeExpiredSession() {
+  clearFullSession();
+  redirectToLogin();
 }
 
 function normalizaTelefonoMx(tel) {
@@ -295,25 +444,43 @@ function getCrmUsername() {
   ).trim();
 }
 
-function getWhatsAppNumberFromSources() {
+function getWhatsAppNumbersFromSources() {
   const user = getStoredUserObject();
 
-  if (!user) return "";
+  if (!user) return [];
 
-  const numero = normalizaTelefonoMx(
+  const raw =
     user.telefono ||
-      user.numero_asesor ||
-      user.whatsapp_number ||
-      user.phone ||
-      "",
-  );
+    user.numero_asesor ||
+    user.whatsapp_number ||
+    user.phone ||
+    "";
 
-  return numero || "";
+  const partes = Array.isArray(raw) ? raw : String(raw || "").split(/[|,;\n]+/);
+
+  return [
+    ...new Set(
+      partes
+        .map(normalizaTelefonoMx)
+        .filter((numero) => /^52\d{10}$/.test(numero)),
+    ),
+  ];
+}
+
+function getWhatsAppNumberFromSources(numeroPreferido = "") {
+  const numeroExplicito = normalizaTelefonoMx(numeroPreferido);
+
+  if (/^52\d{10}$/.test(numeroExplicito)) {
+    return numeroExplicito;
+  }
+
+  return getWhatsAppNumbersFromSources()[0] || "";
 }
 
 function withRequestContext(payload = {}) {
-  const numero = getWhatsAppNumberFromSources();
-  const usuario = getCrmUsername();
+  const numero = getWhatsAppNumberFromSources(payload?.numero_asesor || "");
+
+  const usuario = String(payload?.usuario || "").trim() || getCrmUsername();
 
   return {
     ...payload,
@@ -334,12 +501,18 @@ function buildQuery(params) {
   return query ? `?${query}` : "";
 }
 
-function appendContextToFormData(fd) {
-  const numero = getWhatsAppNumberFromSources();
+function appendContextToFormData(fd, numeroAsesor = "") {
+  const numero = getWhatsAppNumberFromSources(numeroAsesor);
+
   const usuario = getCrmUsername();
 
-  if (numero) fd.append("numero_asesor", numero);
-  if (usuario) fd.append("usuario", usuario);
+  if (numero) {
+    fd.append("numero_asesor", numero);
+  }
+
+  if (usuario) {
+    fd.append("usuario", usuario);
+  }
 }
 
 async function parseErrorResponse(res) {
@@ -363,9 +536,45 @@ async function http(
     body,
     headers,
     _retryRefresh = true,
-    _retryWithoutAuth = true,
+    _skipProactiveRefresh = false,
   } = {},
 ) {
+  const refreshRequest = isRefreshEndpoint(path);
+
+  const loginRequest = isLoginEndpoint(path);
+
+  /*
+   * Renovación preventiva:
+   * se ejecuta antes de enviar la petición.
+   */
+  if (!_skipProactiveRefresh && !refreshRequest && !loginRequest) {
+    try {
+      await ensureFreshAccessToken();
+    } catch (error) {
+      /*
+       * Solo cerramos la sesión cuando el
+       * servidor confirmó que el refresh
+       * ya no es válido.
+       */
+      if (error?.authRejected) {
+        closeExpiredSession();
+
+        throw createAuthError("Tu sesión expiró. Inicia sesión nuevamente.", {
+          code: "SESSION_EXPIRED",
+          status: error?.status || 401,
+          rejected: true,
+          cause: error,
+        });
+      }
+
+      /*
+       * Un fallo de conexión no debe borrar
+       * el usuario ni las conversaciones.
+       */
+      throw error;
+    }
+  }
+
   const finalHeaders = {
     ...getAuthHeader(),
     ...(headers || {}),
@@ -376,54 +585,88 @@ async function http(
     delete finalHeaders["content-type"];
   }
 
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: finalHeaders,
-    body,
-  });
+  let res;
 
-  if (res.status === 401 && _retryRefresh) {
-    try {
-      await refreshAccessToken();
-
-      return http(path, {
-        method,
-        body,
-        headers,
-        _retryRefresh: false,
-        _retryWithoutAuth,
-      });
-    } catch {
-      clearJwtTokensOnly();
-
-      if (_retryWithoutAuth) {
-        return http(path, {
-          method,
-          body,
-          headers,
-          _retryRefresh: false,
-          _retryWithoutAuth: false,
-        });
-      }
-    }
+  try {
+    res = await fetch(`${API}${path}`, {
+      method,
+      headers: finalHeaders,
+      body,
+    });
+  } catch (cause) {
+    throw createAuthError("No fue posible conectar con el servidor.", {
+      code: "NETWORK_ERROR",
+      cause,
+    });
   }
 
-  if (res.status === 401) {
-    clearFullSession();
-    redirectToLogin();
-    throw new Error("Sesión expirada. Inicia sesión nuevamente.");
+  /*
+   * El access pudo vencer entre la validación
+   * previa y la petición. Renovamos y repetimos
+   * solamente una vez.
+   */
+  if (res.status === 401 && _retryRefresh && !refreshRequest && !loginRequest) {
+    try {
+      await refreshAccessToken();
+    } catch (error) {
+      if (error?.authRejected) {
+        closeExpiredSession();
+
+        throw createAuthError("Tu sesión expiró. Inicia sesión nuevamente.", {
+          code: "SESSION_EXPIRED",
+          status: error?.status || 401,
+          rejected: true,
+          cause: error,
+        });
+      }
+
+      /*
+       * Conservamos localStorage cuando se trata
+       * de un problema temporal del servidor o red.
+       */
+      throw error;
+    }
+
+    return http(path, {
+      method,
+      body,
+      headers,
+      _retryRefresh: false,
+      _skipProactiveRefresh: true,
+    });
+  }
+
+  /*
+   * Si después de renovar el access la API
+   * todavía responde 401, la sesión ya no
+   * es utilizable.
+   */
+  if (res.status === 401 && !refreshRequest && !loginRequest) {
+    closeExpiredSession();
+
+    throw createAuthError("Tu sesión expiró. Inicia sesión nuevamente.", {
+      code: "SESSION_EXPIRED",
+      status: 401,
+      rejected: true,
+    });
   }
 
   if (!res.ok) {
     const message = await parseErrorResponse(res);
-    throw new Error(message || `HTTP ${res.status}`);
+
+    throw createAuthError(message || `HTTP ${res.status}`, {
+      code: "HTTP_ERROR",
+      status: res.status,
+    });
   }
 
-  if (res.status === 204) return null;
+  if (res.status === 204) {
+    return null;
+  }
 
-  const ct = res.headers.get("content-type") || "";
+  const contentType = res.headers.get("content-type") || "";
 
-  if (ct.includes("application/json")) {
+  if (contentType.includes("application/json")) {
     return res.json();
   }
 
@@ -483,8 +726,8 @@ export const api = {
     }),
 
   // Prospectos digitales
-  digitalesListProspectos: () => http("/digitales/api/prospectos/"),
-
+  digitalesListProspectos: (params = {}) =>
+    http(`/digitales/api/prospectos/${buildQuery(withRequestContext(params))}`),
   digitalesGetProspecto: (id) => http(`/digitales/api/prospectos/${id}/`),
 
   digitalesCreateProspecto: (payload) =>
@@ -553,17 +796,8 @@ export const api = {
     http(`/digitales/api/campanas-meta/?days=${encodeURIComponent(days)}`),
 
   // Chats WhatsApp
-  digitalesChats: () => {
-    const numero = getWhatsAppNumberFromSources();
-    const usuario = getCrmUsername();
-
-    return http(
-      `/digitales/chats/${buildQuery({
-        numero_asesor: numero,
-        usuario,
-      })}`,
-    );
-  },
+  digitalesChats: (params = {}) =>
+    http(`/digitales/chats/${buildQuery(withRequestContext(params))}`),
 
   digitalesMarkRead: (tel) =>
     http("/digitales/chats/mark-read/", {
@@ -572,25 +806,22 @@ export const api = {
       body: JSON.stringify(withRequestContext({ tel })),
     }),
 
-  digitalesMarkUnread: ({ tel }) =>
+  digitalesMarkUnread: (payload = {}) =>
     http("/digitales/chats/mark-unread/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({ tel })),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(withRequestContext(payload)),
     }),
 
-  digitalesBloquearContacto: ({ tel, motivo = "" }) =>
+  digitalesBloquearContacto: (payload = {}) =>
     http("/digitales/chats/bloquear/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({ tel, motivo })),
-    }),
-
-  digitalesDesbloquearContacto: ({ tel }) =>
-    http("/digitales/chats/desbloquear/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({ tel })),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(withRequestContext(payload)),
     }),
 
   digitalesContacto: (
@@ -639,17 +870,13 @@ export const api = {
   },
 
   // Envío de mensajes
-  digitalesEnviarMensaje: ({ to, text, reply_to_message_id = "" }) =>
+  digitalesEnviarMensaje: (payload = {}) =>
     http("/digitales/mensajes/enviar/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        withRequestContext({
-          to,
-          text,
-          reply_to_message_id,
-        }),
-      ),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(withRequestContext(payload)),
     }),
 
   digitalesEnviarPlantilla: (payload) =>
@@ -664,6 +891,7 @@ export const api = {
     text = "",
     files = [],
     reply_to_message_id = "",
+    numero_asesor = "",
   }) => {
     const fd = new FormData();
 
@@ -677,7 +905,7 @@ export const api = {
       fd.append("reply_to_message_id", String(reply_to_message_id));
     }
 
-    appendContextToFormData(fd);
+    appendContextToFormData(fd, numero_asesor);
 
     const arr = Array.isArray(files) ? files : Array.from(files || []);
 
@@ -690,32 +918,21 @@ export const api = {
       body: fd,
     });
   },
-
-  digitalesEditarMensaje: ({ to, message_id, text }) =>
+  digitalesEditarMensaje: (payload = {}) =>
     http("/digitales/mensajes/editar/", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({ to, message_id, text })),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(withRequestContext(payload)),
     }),
 
-  digitalesEliminarMensaje: ({ to, message_id }) =>
-    http("/digitales/mensajes/eliminar/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({ to, message_id })),
-    }),
-
-  digitalesPlantillas: () => {
-    const numero = getWhatsAppNumberFromSources();
-    const usuario = getCrmUsername();
-
-    return http(
-      `/digitales/mensajes/plantillas/${buildQuery({
-        numero_asesor: numero,
-        usuario,
-      })}`,
-    );
-  },
+  digitalesPlantillas: (params = {}) =>
+    http(
+      `/digitales/mensajes/plantillas/${buildQuery(
+        withRequestContext(params),
+      )}`,
+    ),
 
   // Administración de plantillas directamente en Meta.
   digitalesPlantillasAdmin: (numeroAsesor = "") => {
@@ -806,7 +1023,7 @@ export const api = {
     }),
 
   // Control de IA por conversación
-  iaPausarConversacion: ({ tel, motivo = "manual_desde_chat" }) =>
+  iaPausarConversacion: (payload = {}) =>
     http("/digitales/ia/conversacion/pausar/", {
       method: "POST",
       headers: {
@@ -814,13 +1031,14 @@ export const api = {
       },
       body: JSON.stringify(
         withRequestContext({
-          tel: normalizaTelefonoMx(tel),
-          motivo,
+          ...payload,
+          tel: normalizaTelefonoMx(payload?.tel),
+          motivo: payload?.motivo || "manual_desde_chat",
         }),
       ),
     }),
 
-  iaReactivarConversacion: ({ tel }) =>
+  iaReactivarConversacion: (payload = {}) =>
     http("/digitales/ia/conversacion/reactivar/", {
       method: "POST",
       headers: {
@@ -828,7 +1046,8 @@ export const api = {
       },
       body: JSON.stringify(
         withRequestContext({
-          tel: normalizaTelefonoMx(tel),
+          ...payload,
+          tel: normalizaTelefonoMx(payload?.tel),
         }),
       ),
     }),
@@ -907,7 +1126,7 @@ export const api = {
     http(`/digitales/catalogo/vehiculos/${id}/`, {
       method: "DELETE",
     }),
-    catalogoVehiculoSubirMedia: (id, tipo, files) => {
+  catalogoVehiculoSubirMedia: (id, tipo, files) => {
     const fd = new FormData();
     fd.append("tipo", tipo);
 
