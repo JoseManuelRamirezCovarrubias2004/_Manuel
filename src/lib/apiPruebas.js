@@ -1,4 +1,3 @@
-//volkswagen
 // src/lib/apiPruebas.js
 
 const API =
@@ -1188,4 +1187,13 @@ export {
   normalizaTelefonoMx,
   getCrmUsername,
   getWhatsAppNumberFromSources,
+  getAccessToken,
+  getRefreshToken,
+  getAuthHeader,
+  saveJwtTokens,
+  refreshAccessToken,
+  ensureFreshAccessToken,
+  clearFullSession,
+  closeExpiredSession,
+  getStoredUserObject,
 };

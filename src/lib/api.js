@@ -1,41 +1,5 @@
 // src/lib/api.js
-const API =
-  import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com";
-// import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/";
-
-async function http(path, { method = "GET", body, headers = {} } = {}) {
-  
-  const token = localStorage.getItem("@token_access_jwt");
-
-  const finalHeaders = {
-    ...headers,
-  };
-
-  if (token) {
-   
-    finalHeaders["Authorization"] = `Bearer ${token}`;
-  }
-
-  if (body instanceof FormData) {
-    delete finalHeaders["Content-Type"];
-    delete finalHeaders["content-type"];
-  }
-
-  
-  const res = await fetch(`${API}${path}`, { method, body, headers: finalHeaders });
-
-
-  if (res.status === 401) {
-    console.log("🔒 JWT Expirado o inválido. Redirigiendo al Login.");
-    localStorage.removeItem("@token_access_jwt");
-    window.location.href = "/login";
-    throw new Error("Sesión expirada");
-  }
-
-  if (!res.ok) throw new Error(await res.text());
-
-  return res.status === 204 ? null : res.json();
-}
+import { http } from "./apiPruebas";
 
 export const api = {
   listCasos: () => http("/conformidad/api/casos/"),
