@@ -84,15 +84,20 @@ export async function http(
 ) {
   const finalBody = buildBody({ body, data });
 
+  const finalHeaders = { ...headers };
+  if (!isFormData(finalBody) && finalBody !== undefined && !finalHeaders["Content-Type"]) {
+    finalHeaders["Content-Type"] = "application/json";
+  }
+
   if (!auth) {
-    return fetchPublic(path, { method, body: finalBody, headers });
+    return fetchPublic(path, { method, body: finalBody, headers: finalHeaders });
   }
 
   try {
-    return await httpPruebas(path, { method, body: finalBody, headers });
+    return await httpPruebas(path, { method, body: finalBody, headers: finalHeaders });
   } catch (error) {
     if (error?.code === "SESSION_EXPIRED" && retryWithoutAuth) {
-      return fetchPublic(path, { method, body: finalBody, headers });
+      return fetchPublic(path, { method, body: finalBody, headers: finalHeaders });
     }
     throw error;
   }
