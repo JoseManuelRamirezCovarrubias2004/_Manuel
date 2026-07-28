@@ -12,6 +12,8 @@ import {
     UsersRound,
     LayoutPanelTop,
     Car,
+    ChartNoAxesColumn,
+    ChartNoAxesCombined,
 } from "lucide-react";
 
 import vwDark from "../../assets/vw_dark.png";
@@ -75,6 +77,12 @@ export default function ComercialTopNav() {
                 show: canSeeContacto && inProspectos,
             },
             {
+                label: "Rendimiento Digital",
+                href: "/comercial/prospectos/rendimiento_digitales",
+                icon: ChartNoAxesCombined,
+                show: canSeeContacto && inProspectos,
+            },
+            {
                 label: "Citas",
                 href: "/comercial/citas",
                 icon: CalendarDays,
@@ -133,17 +141,6 @@ export default function ComercialTopNav() {
                     "CRM_CALIDAD",
                     "CRM_CALL_CENTER",
                     "CRM_COORDINADOR_DIGITAL",
-                ]),
-            },
-            {
-                label: "Vehículos Usados",
-                href: "/comercial/vehiculos_usados",
-                icon: Car,
-                show: hasAnyPermission([
-                    "CRM_DIGITALES",
-                    "CRM_VENTAS",
-                    "USUARIOS_ADMIN",
-                    "CRM_CALIDAD",
                 ]),
             },
             {

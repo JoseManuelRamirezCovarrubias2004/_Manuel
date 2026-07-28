@@ -52,7 +52,6 @@ import CalidadIndex from "./pages/Calidad/CalidadIndex";
 
 import ComercialLayout from "./pages/Comercial/ComercialLayout";
 import ComercialIndex from "./pages/Comercial/ComercialIndex";
-import VehiculosUsados from "./pages/VehiculosUsados/VehiculosUsados.jsx";
 
 import UsadosIndex from "./pages/Usados/UsadosIndex";
 import UsadosLayout from "./pages/Usados/UsadosLayout";
@@ -104,6 +103,7 @@ import InventarioLayout from "./pages/Inventario/InventarioLayout";
 import InventarioIndex from "./pages/Inventario/InventarioIndex";
 import BitacoraMantenimiento from "./pages/Inventario/BitacoraMantenimiento";
 import NoConformidad from "./pages/Calidad/NoConformidad";
+import DigitalesRendimiento from "./pages/Digitales/DigitalesRendimiento";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
@@ -441,6 +441,10 @@ export const router = createBrowserRouter(
                                             element: <DigitalesPlantillas />,
                                         },
                                         {
+                                            path: "rendimiento_digitales",
+                                            element: <DigitalesRendimiento />,
+                                        },
+                                        {
                                             path: "contacto",
                                             element: <DigitalesContacto />,
                                         },
@@ -558,21 +562,6 @@ export const router = createBrowserRouter(
                                             element: <RegistroEntregas />,
                                         },
                                     ],
-                                },
-                                {
-                                    path: "vehiculos_usados", // 👈 nuevo — coincide con el href del botón
-                                    element: (
-                                        <RequirePermission
-                                            anyOf={[
-                                                "CRM_DIGITALES",
-                                                "CRM_VENTAS",
-                                                "USUARIOS_ADMIN",
-                                                "CRM_CALIDAD",
-                                            ]}
-                                        >
-                                            <VehiculosUsados />
-                                        </RequirePermission>
-                                    ),
                                 },
                             ],
                         },

@@ -794,6 +794,25 @@ export const api = {
   digitalesCampanasMeta: (days = 30) =>
     http(`/digitales/api/campanas-meta/?days=${encodeURIComponent(days)}`),
 
+  // Analítica y bitácora de asesores digitales
+  digitalesAnaliticaAsesores: (params = {}) =>
+    http(`/digitales/analitica/asesores/${buildQuery(params)}`),
+
+  digitalesAnaliticaCliente: (expedienteId, params = {}) =>
+    http(
+      `/digitales/analitica/asesores/cliente/${encodeURIComponent(expedienteId)}/${buildQuery(params)}`,
+    ),
+
+  digitalesAnaliticaActualizarResultado: (eventoId, resultado) =>
+    http(
+      `/digitales/analitica/eventos/${encodeURIComponent(eventoId)}/resultado/`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resultado }),
+      },
+    ),
+
   // Chats WhatsApp
   digitalesChats: (params = {}) =>
     http(`/digitales/chats/${buildQuery(withRequestContext(params))}`),
@@ -1149,8 +1168,7 @@ export const api = {
   // Vehículos usados (catálogo tipo WhatsApp Business)
   digitalesListAutosUsados: () => http("/digitales/catalogo/usados/"),
 
-  digitalesGetAutoUsado: (id) =>
-    http(`/digitales/catalogo/usados/${id}/`),
+  digitalesGetAutoUsado: (id) => http(`/digitales/catalogo/usados/${id}/`),
 
   digitalesCreateAutoUsado: (payload) =>
     http("/digitales/catalogo/usados/", {
