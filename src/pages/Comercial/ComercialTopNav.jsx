@@ -51,6 +51,10 @@ export default function ComercialTopNav() {
         "CRM_COORDINADOR_DIGITAL",
     ]);
 
+    const canSeeRendimiento = hasAnyPermission([
+        "USUARIOS_ADMIN",
+    ]);
+
     const tabs = useMemo(() => {
         const items = [
             {
@@ -80,7 +84,7 @@ export default function ComercialTopNav() {
                 label: "Rendimiento Digital",
                 href: "/comercial/prospectos/rendimiento_digitales",
                 icon: ChartNoAxesCombined,
-                show: canSeeContacto && inProspectos,
+                show: canSeeRendimiento && inProspectos,
             },
             {
                 label: "Citas",
