@@ -1,74 +1,5 @@
 // src/lib/apiRetencion.js
-const API =
-  import.meta.env.VITE_API_URL || "https://crm.grupoautomotrizryr.com";
-// const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-
-function getAuthToken() {
-  try {
-    const directo = localStorage.getItem("auth.access");
-    if (directo) return directo;
-
-    const raw = localStorage.getItem("auth");
-    if (!raw) return "";
-
-    const parsed = JSON.parse(raw);
-    return parsed?.token || "";
-  } catch {
-    return "";
-  }
-}
-
-function getAuthHeader() {
-  const token = getAuthToken();
-  if (!token) return {};
-  return { Authorization: `Bearer ${token}` };
-}
-
-async function http(path, { method = "GET", body, headers, signal } = {}) {
-  const finalHeaders = {
-    ...getAuthHeader(),
-    ...(headers || {}),
-  };
-
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: finalHeaders,
-    body,
-    signal,
-  });
-
-  if (!res.ok) {
-    let mensaje = "";
-    try {
-      const ct = res.headers.get("content-type") || "";
-      if (ct.includes("application/json")) {
-        const data = await res.json();
-        mensaje = data?.detail || data?.message || JSON.stringify(data);
-      } else {
-        mensaje = await res.text();
-      }
-    } catch {
-      mensaje = "";
-    }
-
-    if (res.status === 401 || res.status === 403) {
-      throw new Error(
-        mensaje ||
-          "No tienes permisos para consultar Retención. Verifica que tu sesión esté activa.",
-      );
-    }
-
-    throw new Error(mensaje || `HTTP ${res.status}`);
-  }
-
-  if (res.status === 204) return null;
-
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) {
-    return res.json();
-  }
-  return res.text();
-}
+import { http } from "./apiPruebas";
 
 function esFiltroVacio(valor) {
   return (
@@ -138,4 +69,34 @@ export const apiRetencion = {
     http(`/retencion/api/ordenes-ventas/${encodeURIComponent(vin)}/`, options),
 
   historial: (vin, options = {}) => obtenerHistorialRetencion(vin, options),
+
+  // ---- Tareas ----
+  tareas: (telefono, options = {}) => {
+    const params = new URLSearchParams();
+    if (telefono) params.set("telefono", telefono);
+    const query = params.toString();
+    return http(`/retencion/api/tareas/${query ? `?${query}` : ""}`, options);
+},
+
+  crearTarea: (payload, options = {}) =>
+    http("/retencion/api/tareas/", {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      body: JSON.stringify(payload),
+    }),
+
+  actualizarTarea: (id, cambios, options = {}) =>
+    http(`/retencion/api/tareas/${id}/`, {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      body: JSON.stringify(cambios),
+    }),
+
+  eliminarTarea: (id, options = {}) =>
+    http(`/retencion/api/tareas/${id}/`, {
+      ...options,
+      method: "DELETE",
+    }),
 };

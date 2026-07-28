@@ -11,6 +11,9 @@ import {
     BarChart2,
     UsersRound,
     LayoutPanelTop,
+    Car,
+    ChartNoAxesColumn,
+    ChartNoAxesCombined,
 } from "lucide-react";
 
 import vwDark from "../../assets/vw_dark.png";
@@ -45,6 +48,7 @@ export default function ComercialTopNav() {
         "USUARIOS_ADMIN",
         "CRM_CALIDAD",
         "CRM_CALL_CENTER",
+        "CRM_COORDINADOR_DIGITAL",
     ]);
 
     const tabs = useMemo(() => {
@@ -57,6 +61,7 @@ export default function ComercialTopNav() {
                     "CRM_DIGITALES",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL"
                 ]),
             },
             {
@@ -72,6 +77,12 @@ export default function ComercialTopNav() {
                 show: canSeeContacto && inProspectos,
             },
             {
+                label: "Rendimiento Digital",
+                href: "/comercial/prospectos/rendimiento_digitales",
+                icon: ChartNoAxesCombined,
+                show: canSeeContacto && inProspectos,
+            },
+            {
                 label: "Citas",
                 href: "/comercial/citas",
                 icon: CalendarDays,
@@ -80,6 +91,7 @@ export default function ComercialTopNav() {
                     "CRM_VENTAS",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
             {
@@ -91,6 +103,7 @@ export default function ComercialTopNav() {
                     "CRM_VENTAS",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
             {
@@ -102,6 +115,7 @@ export default function ComercialTopNav() {
                     "CRM_VENTAS",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
             {
@@ -113,6 +127,7 @@ export default function ComercialTopNav() {
                     "CRM_VENTAS",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
             {
@@ -125,6 +140,7 @@ export default function ComercialTopNav() {
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
                     "CRM_CALL_CENTER",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
             {
@@ -135,6 +151,7 @@ export default function ComercialTopNav() {
                     "CRM_DIGITALES",
                     "USUARIOS_ADMIN",
                     "CRM_CALIDAD",
+                    "CRM_COORDINADOR_DIGITAL",
                 ]),
             },
         ];

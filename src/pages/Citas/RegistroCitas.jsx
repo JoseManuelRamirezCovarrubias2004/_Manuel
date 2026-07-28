@@ -28,6 +28,11 @@ import {
     BarChart3,
     Calendar,
     CalendarCheck,
+    Clock,
+    CheckCircle2,
+    XCircle,
+    PieChart,
+    MoreVertical,
 } from "lucide-react";
 import { apiCitas } from "../../lib/apiCitas";
 import { createPortal } from "react-dom";
@@ -266,6 +271,7 @@ function MobileCardList({ rows, loading, onEdit, onContext, onToggleAsistencia, 
 
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
 const DAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const FULL_DAYS_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 const MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 const TIPO_COLORS = {
@@ -296,6 +302,314 @@ function isSameDay(d1, d2) {
         d1.getMonth() === d2.getMonth() &&
         d1.getDate() === d2.getDate();
 }
+
+function formatFullDateEs(d) {
+    return `${FULL_DAYS_ES[d.getDay()]}, ${d.getDate()} de ${MONTHS_ES[d.getMonth()].toLowerCase()} de ${d.getFullYear()}`;
+}
+
+// Deriva el estatus real de una cita: si aún no llega la fecha, está "Pendiente";
+// si ya pasó, se basa en el campo asistencia.
+function getEstatusCita(cita) {
+    if (!cita.fecha_hora_cita) return "pendiente";
+    const dt = new Date(cita.fecha_hora_cita);
+    if (Number.isNaN(dt.getTime())) return "pendiente";
+    if (dt.getTime() > Date.now()) return "pendiente";
+    return cita.asistencia ? "asistio" : "no_asistio";
+}
+
+const ESTATUS_UI = {
+    pendiente: { label: "Pendiente", bg: "bg-amber-100", text: "text-amber-800" },
+    asistio: { label: "Asistió", bg: "bg-emerald-100", text: "text-emerald-800" },
+    no_asistio: { label: "No asistió", bg: "bg-red-100", text: "text-red-700" },
+};
+
+function getMonthMatrix(year, month) {
+    // month: 0-11. Devuelve arreglo de semanas (arreglos de 7), lun-dom.
+    const first = new Date(year, month, 1);
+    const firstWeekday = (first.getDay() + 6) % 7; // 0 = lunes
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const cells = [];
+    for (let i = 0; i < firstWeekday; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const weeks = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    return weeks;
+}
+
+
+function MiniKpiCard({ icon: Icon, label, value, sub, iconBg, iconColor }) {
+    return (
+        <div className="flex items-center gap-3 rounded-xl border border-black/10 bg-white p-4 shadow-sm">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
+                <Icon className={`h-5 w-5 ${iconColor}`} />
+            </div>
+            <div className="min-w-0">
+                <div className="text-xs font-bold text-slate-500 truncate">{label}</div>
+                <div className="text-2xl font-extrabold text-[#131E5C] leading-tight">{value}</div>
+                {sub ? <div className="text-[10px] font-semibold text-slate-400">{sub}</div> : null}
+            </div>
+        </div>
+    );
+}
+
+function CalendarioView({ rows, loading, onEdit, onContext, onToggleAsistencia, updatingInline }) {
+    const today = useMemo(() => new Date(), []);
+    const [viewMonth, setViewMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+    const [selectedDate, setSelectedDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()));
+    const [page, setPage] = useState(1);
+    const PAGE_SIZE = 10;
+
+    // Citas agrupadas por día (YMD) usando TODO lo que llega en rows (ya filtrado por tus filtros de arriba)
+    const citasByDay = useMemo(() => {
+        const map = {};
+        for (const c of rows) {
+            if (!c.fecha_hora_cita) continue;
+            const dt = new Date(c.fecha_hora_cita);
+            if (Number.isNaN(dt.getTime())) continue;
+            const key = toYMDLocal(dt);
+            if (!map[key]) map[key] = [];
+            map[key].push(c);
+        }
+        return map;
+    }, [rows]);
+
+    const weeks = useMemo(
+        () => getMonthMatrix(viewMonth.getFullYear(), viewMonth.getMonth()),
+        [viewMonth]
+    );
+
+    const monthLabel = `${MONTHS_ES[viewMonth.getMonth()]} ${viewMonth.getFullYear()}`;
+
+    const goPrevMonth = () => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+    const goNextMonth = () => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+
+    const selectedKey = toYMDLocal(selectedDate);
+    const esHoySeleccionado = isSameDay(selectedDate, today);
+
+    const citasDelDia = useMemo(() => {
+        const list = citasByDay[selectedKey] || [];
+        return [...list].sort((a, b) => new Date(a.fecha_hora_cita) - new Date(b.fecha_hora_cita));
+    }, [citasByDay, selectedKey]);
+
+    // KPIs calculados SOLO sobre las citas del día seleccionado en el calendario
+    const kpis = useMemo(() => {
+        let pendientes = 0, asistieron = 0, noAsistieron = 0;
+        for (const c of citasDelDia) {
+            const est = getEstatusCita(c);
+            if (est === "pendiente") pendientes++;
+            else if (est === "asistio") asistieron++;
+            else noAsistieron++;
+        }
+        const totalResueltas = asistieron + noAsistieron;
+        const pctAsist = totalResueltas > 0 ? Math.round((asistieron / totalResueltas) * 100) : 0;
+
+        return { citasDia: citasDelDia.length, pendientes, asistieron, noAsistieron, pctAsist, totalResueltas };
+    }, [citasDelDia]);
+
+    useEffect(() => { setPage(1); }, [selectedKey]);
+
+    const totalPages = Math.max(1, Math.ceil(citasDelDia.length / PAGE_SIZE));
+    const pageItems = citasDelDia.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+    const pickDay = (d) => {
+        if (!d) return;
+        setSelectedDate(d);
+    };
+
+    const orderedDayLabels = useMemo(() => DAYS_ES.filter((_, i) => i !== 0).concat(DAYS_ES[0]), []);
+
+    return (
+        <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+            {/* KPIs arriba, ocupando todo el ancho — se recalculan según el día seleccionado en el calendario */}
+            <div className="lg:col-span-2 grid grid-cols-2 gap-3 md:grid-cols-5">
+                <MiniKpiCard
+                    icon={CalendarClock}
+                    label={esHoySeleccionado ? "Citas de hoy" : "Citas del día"}
+                    value={kpis.citasDia}
+                    iconBg="bg-blue-100"
+                    iconColor="text-blue-700"
+                />
+                <MiniKpiCard icon={Clock} label="Pendientes" value={kpis.pendientes} iconBg="bg-amber-100" iconColor="text-amber-700" />
+                <MiniKpiCard icon={CheckCircle2} label="Asistieron" value={kpis.asistieron} iconBg="bg-emerald-100" iconColor="text-emerald-700" />
+                <MiniKpiCard icon={XCircle} label="No asistieron" value={kpis.noAsistieron} iconBg="bg-red-100" iconColor="text-red-700" />
+                <MiniKpiCard
+                    icon={PieChart}
+                    label="Tasa de asistencia"
+                    value={`${kpis.pctAsist}%`}
+                    sub={`${kpis.asistieron} de ${kpis.totalResueltas}`}
+                    iconBg="bg-sky-100"
+                    iconColor="text-sky-700"
+                />
+            </div>
+
+            {/* Calendario mensual */}
+            <div className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                    <button onClick={goPrevMonth} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <div className="text-sm font-extrabold text-[#131E5C]">{monthLabel}</div>
+                    <button onClick={goNextMonth} className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#131E5C]/20 hover:bg-[#131E5C]/5 text-[#131E5C]">
+                        <ChevronRight className="h-4 w-4" />
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-400 mb-1">
+                    {orderedDayLabels.map((d) => (
+                        <div key={d}>{d}</div>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-1">
+                    {weeks.flat().map((d, i) => {
+                        if (!d) return <div key={i} className="h-11" />;
+                        const key = toYMDLocal(d);
+                        const hasCitas = !!citasByDay[key]?.length;
+                        const isSelected = key === selectedKey;
+                        const isToday = isSameDay(d, today);
+                        return (
+                            <button
+                                key={i}
+                                onClick={() => pickDay(d)}
+                                className={[
+                                    "h-11 rounded-lg flex flex-col items-center justify-center text-xs font-bold transition",
+                                    isSelected
+                                        ? "bg-[#131E5C] text-white"
+                                        : isToday
+                                            ? "border border-[#131E5C] text-[#131E5C]"
+                                            : "text-slate-600 hover:bg-slate-100",
+                                ].join(" ")}
+                            >
+                                <span>{d.getDate()}</span>
+                                {hasCitas ? (
+                                    <span className={`mt-0.5 h-1 w-1 rounded-full ${isSelected ? "bg-white" : "bg-blue-500"}`} />
+                                ) : (
+                                    <span className="mt-0.5 h-1 w-1" />
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Lista de citas del día seleccionado */}
+            <div className="rounded-xl border border-black/10 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-black/10">
+                    <div className="text-sm font-extrabold text-[#131E5C] capitalize">{formatFullDateEs(selectedDate)}</div>
+                    <div className="text-xs font-bold text-slate-400">
+                        {citasDelDia.length} cita{citasDelDia.length !== 1 ? "s" : ""}
+                    </div>
+                </div>
+
+                <div className="overflow-auto">
+                    <table className="min-w-full text-left text-sm">
+                        <thead className="text-xs bg-slate-50 text-slate-500 border-b border-black/10">
+                            <tr>
+                                {["Hora", "Cliente", "Vehículo de interés", "Asesor", "Tipo de cita", "Estatus", ""].map((h) => (
+                                    <th key={h} className="px-4 py-2 font-bold">{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-black/5">
+                            {loading ? (
+                                Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)
+                            ) : pageItems.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-sm font-semibold">
+                                        No hay citas para este día.
+                                    </td>
+                                </tr>
+                            ) : (
+                                pageItems.map((row) => {
+                                    const dt = new Date(row.fecha_hora_cita);
+                                    const hora = `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
+                                    const nombre = row?.cliente?.nombre || "—";
+                                    const tel = row?.cliente?.telefono || "—";
+                                    const iniciales = nombre.trim().split(/\s+/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join("") || "?";
+                                    const color = getColor(row.tipo_cita);
+                                    const estKey = getEstatusCita(row);
+                                    const est = ESTATUS_UI[estKey];
+                                    const isUpdating = !!updatingInline[row.id];
+
+                                    return (
+                                        <tr key={row.id} className="hover:bg-slate-50 cursor-pointer" onDoubleClick={() => onEdit(row)}>
+                                            <td className="px-4 py-3 font-bold text-[#131E5C]">{hora}</td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold text-slate-600">
+                                                        {iniciales}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="truncate text-sm font-bold text-[#131E5C]">{nombre}</div>
+                                                        <div className="truncate text-xs text-slate-400">{tel}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-600">{row.auto_interes || "—"}</td>
+                                            <td className="px-4 py-3 text-slate-600">{row.asesor_piso || row.asesor_digital || "—"}</td>
+                                            <td className="px-4 py-3">
+                                                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${color.bg} ${color.text}`}>
+                                                    <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
+                                                    {row.tipo_cita || "—"}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <button
+                                                    disabled={isUpdating || estKey === "pendiente"}
+                                                    onClick={(e) => { e.stopPropagation(); onToggleAsistencia(row); }}
+                                                    className={[
+                                                        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold",
+                                                        est.bg, est.text,
+                                                        estKey === "pendiente" ? "cursor-default" : "hover:opacity-80",
+                                                    ].join(" ")}
+                                                    title={estKey === "pendiente" ? "La cita aún no ocurre" : "Cambiar asistencia"}
+                                                >
+                                                    {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                                                    {est.label}
+                                                </button>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-end gap-2 text-slate-400">
+                                                    <button onClick={() => onEdit(row)} title="Editar" className="hover:text-[#131E5C]">
+                                                        <CalendarDays className="h-4 w-4" />
+                                                    </button>
+                                                    <button onClick={(e) => onContext(e, row)} title="Más opciones" className="hover:text-[#131E5C]">
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {citasDelDia.length > 0 && (
+                    <div className="flex items-center justify-between border-t border-black/10 px-4 py-2">
+                        <div className="text-xs font-semibold text-slate-400">
+                            Mostrando {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, citasDelDia.length)} de {citasDelDia.length} citas
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="h-7 w-7 flex items-center justify-center rounded-lg border border-black/10 text-[#131E5C] disabled:opacity-40">
+                                <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <span className="h-7 w-7 flex items-center justify-center rounded-lg bg-[#131E5C] text-white text-xs font-bold">{page}</span>
+                            <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="h-7 w-7 flex items-center justify-center rounded-lg border border-black/10 text-[#131E5C] disabled:opacity-40">
+                                <ChevronRight className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 
 function AgendaView({ rows, loading, onEdit, onNewAtSlot, onToggleAsistencia, updatingInline }) {
     const [weekRef, setWeekRef] = useState(new Date());
@@ -774,76 +1088,79 @@ export default function RegistroCitas() {
     );
 
     const [citas, setCitas] = useState([]);
-    const [vista, setVista] = useState("tabla");
+    const [vista, setVista] = useState("calendario");
 
     const DEALERS = useMemo(() => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"], []);
-    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Edgar Omar Nogera Solis", "Candy Denisse Marquez Cortes"];
+    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Candy Denisse Marquez Cortes"];
     const ASESORES = [
+        "ADRIAN GALVEZ ROLDAN",
         "AURA MARLIZETH FERNANDEZ LOPEZ",
         "Bianca Isabel Chavez Alarcon",
-        "ERENDIRA SANTOS COYOTZI",
-        "IRENE DEL CARMEN GUIZA LOPEZ",
-        "MARCOS RAUL DIAZ RAMOS",
-        "MARIO ALBERTO LOPEZ RAMOS",
-        "MARISOL LAGUNES GONZALEZ",
-        "NALLELY HERNANDEZ GARCIA",
-        "OCTAVIO BRUNO GONZALEZ",
-        "ROGELIO VAZQUEZ SANCHEZ",
-        "RUBEN ALBERTO TOSQUY ADRIANO",
-        "Saja Azzam Mohammad Jamous",
-        "SANDRA LUZ PRIETO PEREZ",
-        "YAMIL MISAEL RODRIGUEZ AGUILAR",
-        "LUIS ALFONSO CORIA MARROQUIN",
+        "Blanca Patricia Hernández Hernández",
         "CANDY DENISSE MARQUEZ CORTES",
-        "DELMAR JAVIER ILLESCAS DOMINGUEZ",
-        "EDGAR JESUS GOMEZ PEREZ",
-        "Valeria Zilli Durante",
-        "IDALMY JIMENEZ SANCHEZ",
-        "IVAN JUAREZ ORTEGA",
-        "JESSICA OLIVARES CAMPOS",
-        "JESUS XITLAMA GOMEZ",
-        "LIZBETH CANO CLARA",
-        "LUIS MANUEL PALOMARES OLAYO",
-        "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
-        "OMAR VILLIERS MONDRAGON",
-        "RUBEN ROMERO VALDES",
-        "VERONICA CASTILLO FUENTES",
-        "Hector Rodriguez",
-        "GEOVANI NAVA DIAZ",
-        "ZEILA NAVARRO CONTRERAS",
-        "JOSE ALFREDO BARRANCA REYES",
-        "ADRIAN GALVEZ ROLDAN",
-        "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
-        "Marelly Tenorio Salinas",
-        "ELIA INES ARANO REYES",
-        "JORGE LUIS ALAMILLO RODRIGUEZ",
+        "Carlos Arturo Garces Vengas",
         "Cesar Ivan Salazar Reyes",
         "Cristian Fernando Rivera Godinez",
+        "DELMAR JAVIER ILLESCAS DOMINGUEZ",
         "DULCE ABIGAIL GARCIA OLIVARES",
+        "EDGAR JESUS GOMEZ PEREZ",
+        "Edgar Omar Noguera Solis",
+        "ELIA INES ARANO REYES",
+        "ERENDIRA SANTOS COYOTZI",
+        "Estefano Marlom De Azcue Aparicio",
         "Felix Emmanuel Solis Angeles",
+        "GEOVANI NAVA DIAZ",
         "GERMAN JARITH SALAZAR MIRANDA",
+        "Hector Rodriguez",
+        "IDALMY JIMENEZ SANCHEZ",
+        "IRENE DEL CARMEN GUIZA LOPEZ",
         "Iris Yazmín Gómez Velázquez",
         "Israel Garcia Juarez",
-        "JORGE ANTONIO RODRIGUEZ MARTINEZ",
-        "JOSE DE JESUS GARCIA ROMAN",
-        "JUAN MANUEL SOBREVILLA VICENCIO",
-        "Miguel Capitanachi Paredes",
-        "OLIMPIA VAZQUEZ MENDEZ",
-        "Roberto Ramses Luna Fajardo",
-        "Carlos Arturo Garces Vengas",
-        "Edgar Omar Noguera Solis",
+        "IVAN JUAREZ ORTEGA",
         "Javier Perez Meraz",
+        "JESSICA OLIVARES CAMPOS",
+        "JESUS XITLAMA GOMEZ",
+        "JORGE ANTONIO RODRIGUEZ MARTINEZ",
+        "JORGE LUIS ALAMILLO RODRIGUEZ",
+        "JOSE ALBERTO SEDAS FLORES",
+        "JOSE ALFREDO BARRANCA REYES",
+        "JOSE DE JESUS GARCIA ROMAN",
+        "JUAN JESUS MARQUEZ AQUINO",
+        "JUAN MANUEL SOBREVILLA VICENCIO",
+        "LIZBETH CANO CLARA",
+        "Luis Alberto Ramirez Santamaria",
+        "LUIS ALFONSO CORIA MARROQUIN",
         "Luis Armando Almora Perez",
+        "Luis Manuel Alvarez Martinez",
+        "Luis Manuel Hernández Espejo",
+        "LUIS MANUEL PALOMARES OLAYO",
         "Mara Erubey Soto Villegas",
+        "MARCOS RAUL DIAZ RAMOS",
+        "Marelly Tenorio Salinas",
+        "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
+        "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
+        "MARIO ALBERTO LOPEZ RAMOS",
+        "MARISOL LAGUNES GONZALEZ",
+        "Miguel Capitanachi Paredes",
+        "NALLELY HERNANDEZ GARCIA",
+        "OCTAVIO BRUNO GONZALEZ",
+        "OLIMPIA VAZQUEZ MENDEZ",
+        "OMAR VILLIERS MONDRAGON",
+        "Paul Serrano Vera",
+        "Roberto Ramses Luna Fajardo",
+        "ROGELIO VAZQUEZ SANCHEZ",
+        "RUBEN ALBERTO TOSQUY ADRIANO",
+        "RUBEN ROMERO VALDES",
+        "Saja Azzam Mohammad Jamous",
+        "SANDRA LUZ PRIETO PEREZ",
         "Sergio Ivan Quintana Martinez",
         "Sergio Rene Delgado Sarmiento",
+        "Valeria Zilli Durante",
+        "VANESSA JIMENEZ MEDINA",
+        "VERONICA CASTILLO FUENTES",
+        "YAMIL MISAEL RODRIGUEZ AGUILAR",
         "Yoseth Ruiz Castellanos",
-        "Luis Alberto Ramirez Santamaria",
-        "Paul Serrano Vera",
-        "Luis Manuel Alvarez Martinez",
-        "Estefano Marlom De Azcue Aparicio",
-        "Blanca Patricia Hernández Hernández",
-        "Luis Manuel Hernández Espejo",
+        "ZEILA NAVARRO CONTRERAS",
     ];
 
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
@@ -1041,8 +1358,11 @@ export default function RegistroCitas() {
             const payload = {
                 agencia: agenciaFinal, ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}), nombre: draft.cliente_nombre || "", telefono: normalizeStr(draft.cliente_telefono), auto_interes: draft.auto_interes || "", fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita), asistencia: !!draft.asistencia, tipo_cita: draft.tipo_cita || "", fuente_prospeccion: draft.fuente_prospeccion || "", asesor_digital: draft.asesor_digital || "", asesor_piso: draft.asesor_piso || "", comentarios: draft.comentarios || ""
             };
-            if (mode === "create") await apiCitas.create(payload);
-            else await apiCitas.update(draft.id, payload);
+            if (mode === "create") {
+                await apiCitas.create(payload);
+            } else {
+                await apiCitas.patch(draft.id, payload);
+            }
             await refreshList(); closeModal();
         } catch (e) { console.error(e); alert("Error guardando la cita (revisa consola)."); }
         finally { setSaving(false); }
@@ -1067,6 +1387,7 @@ export default function RegistroCitas() {
     const ViewToggle = () => (
         <div className="flex items-center rounded-lg border border-[#131E5C]/30 overflow-hidden">
             {[
+                { key: "calendario", label: "Calendario", Icon: CalendarClock },
                 { key: "agenda", label: "Agenda", Icon: Calendar },
                 { key: "tabla", label: "Tabla", Icon: Table2 },
                 { key: "graficos", label: "Gráficos", Icon: BarChart3 },
@@ -1241,6 +1562,17 @@ export default function RegistroCitas() {
                 </div>
             </div>
 
+            {vista === "calendario" && (
+                <CalendarioView
+                    rows={sorted}
+                    loading={loadingList}
+                    onEdit={openEdit}
+                    onContext={onRowContextMenu}
+                    onToggleAsistencia={toggleAsistenciaInline}
+                    updatingInline={updatingInline}
+                />
+            )}
+
             {vista === "agenda" && (
                 <AgendaView
                     rows={sorted}
@@ -1375,7 +1707,7 @@ export default function RegistroCitas() {
                                 {ASESORES.map((d) => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </Field>
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-3">
                             <Field label="Comentarios" icon={MessageSquareText}>
                                 <textarea value={draft.comentarios} onChange={(e) => setDraft((p) => ({ ...p, comentarios: e.target.value }))} className={[inputBase, inputOk, "min-h-[110px]"].join(" ")} placeholder="Notas internas..." />
                             </Field>

@@ -1019,7 +1019,61 @@ function Field({ label, children, col, required }) {
 
 const inputCls = "w-full rounded-xl border border-[#E4E7F0] bg-white px-3.5 py-2.5 text-sm text-[#1A1F3C] placeholder:text-[#C8CEDF] outline-none transition focus:border-[#131E5C]/30 focus:ring-2 focus:ring-[#131E5C]/10";
 const textareaCls = `${inputCls} resize-y`;
+// ─── Celda de Media (PDF + miniatura) ─────────────────────────────────────────
+function MediaCell({ item, toMediaUrl, safeArray }) {
+    const tienePdf = Boolean(item.url_ficha_tecnica);
 
+    return (
+        <div className="flex items-center gap-2.5">
+            {tienePdf ? (
+                <a
+                    href={toMediaUrl(item.url_ficha_tecnica)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex h-11 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#E4E7F0] bg-white hover:border-[#131E5C]/40 transition-colors"
+                >
+                    {item.ficha_tecnica_thumbnail ? (
+                        <img
+                            src={toMediaUrl(item.ficha_tecnica_thumbnail)}
+                            alt="Miniatura PDF"
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                            }}
+                        />
+                    ) : (
+                        <ExternalLink className="h-3.5 w-3.5 text-[#C8CEDF]" />
+                    )}
+                </a>
+            ) : (
+                <div className="flex h-11 w-9 flex-shrink-0 items-center justify-center rounded-md border border-dashed border-[#E4E7F0] bg-[#F7F8FC]">
+                    <span className="text-[8px] font-semibold text-[#C8CEDF]">
+                        Sin PDF
+                    </span>
+                </div>
+            )}
+
+            <div className="flex flex-col gap-0.5">
+                {tienePdf ? (
+                    <a
+                        href={toMediaUrl(item.url_ficha_tecnica)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-semibold text-[#131E5C] hover:underline"
+                    >
+                        Ver PDF
+                    </a>
+                ) : (
+                    <span className="text-xs text-[#C8CEDF]">—</span>
+                )}
+
+                <span className="text-[11px] text-[#8891AD]">
+                    {safeArray(item.imagenes).length} img · {safeArray(item.videos).length} video
+                </span>
+            </div>
+        </div>
+    );
+}
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function ConfigIA() {
     const [tab, setTab] = useState("config");
@@ -1659,11 +1713,10 @@ async function eliminarArchivoVehiculo(tipo, ruta) {
                                         placeholder="Buscar modelo, versión…"
                                         className="h-9 w-64 rounded-xl border border-[#E4E7F0] bg-white pl-9 pr-3 text-sm text-[#1A1F3C] placeholder:text-[#C8CEDF] outline-none focus:border-[#131E5C]/30 focus:ring-2 focus:ring-[#131E5C]/10" />
                                 </div>
-                                <button onClick={() => setSoloActivos((v) => !v)}
-                                    className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-all ${soloActivos ? "border-[#131E5C]/30 bg-[#131E5C]/8 text-[#131E5C]" : "border-[#E4E7F0] bg-white text-[#515778] hover:bg-[#F7F8FC]"}`}>
-                                    <Toggle size="sm" value={soloActivos} onChange={setSoloActivos} />
-                                    Solo activos
-                                </button>
+                                <label className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-all cursor-pointer ${soloActivos ? "border-[#131E5C]/30 bg-[#131E5C]/8 text-[#131E5C]" : "border-[#E4E7F0] bg-white text-[#515778] hover:bg-[#F7F8FC]"}`}>
+                                <Toggle size="sm" value={soloActivos} onChange={setSoloActivos} />
+                                Solo activos
+                                </label>
                                 <button onClick={cargarCatalogo} disabled={cargandoCatalogo}
                                     className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#E4E7F0] bg-white px-3 text-xs font-semibold text-[#515778] hover:bg-[#F7F8FC] disabled:opacity-50 transition-all">
                                     {cargandoCatalogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
@@ -1733,24 +1786,7 @@ async function eliminarArchivoVehiculo(tipo, ruta) {
                                                     <td className="px-4 py-3.5 text-sm text-[#515778]">{money(item.precio_contado)}</td>
                                                     <td className="px-4 py-3.5 text-sm text-[#515778]">{money(item.precio_financiado)}</td>
                                                     <td className="px-4 py-3.5">
-                                                        <div className="flex flex-col gap-1">
-                                                            {item.url_ficha_tecnica ? (
-                                                                <a
-                                                                    href={toMediaUrl(item.url_ficha_tecnica)}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#131E5C] hover:underline"
-                                                                >
-                                                                    PDF <ExternalLink className="h-3 w-3" />
-                                                                </a>
-                                                            ) : (
-                                                                <span className="text-xs text-[#C8CEDF]">Sin PDF</span>
-                                                            )}
-
-                                                            <span className="text-[11px] text-[#8891AD]">
-                                                                {safeArray(item.imagenes).length} img · {safeArray(item.videos).length} video
-                                                            </span>
-                                                        </div>
+                                                        <MediaCell item={item} toMediaUrl={toMediaUrl} safeArray={safeArray} />
                                                     </td>
                                                     <td className="px-4 py-3.5">
                                                         <Badge variant={item.activo ? "success" : "default"} dot>
@@ -1962,15 +1998,30 @@ async function eliminarArchivoVehiculo(tipo, ruta) {
             </label>
 
             {vehiculoDraft.url_ficha_tecnica && (
-                <div className="mt-2 flex items-center gap-3">
+                <div className="mt-3 flex items-center gap-3">
                     <a href={toMediaUrl(vehiculoDraft.url_ficha_tecnica)} target="_blank" rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#131E5C] hover:underline">
-                        Ver PDF actual <ExternalLink className="h-3 w-3" />
+                        className="flex h-24 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E4E7F0] bg-white hover:border-[#131E5C]/40 transition-colors">
+                        {vehiculoDraft.ficha_tecnica_thumbnail ? (
+                            <img src={toMediaUrl(vehiculoDraft.ficha_tecnica_thumbnail)} alt="Miniatura PDF"
+                                className="h-full w-full object-cover"
+                                onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                        ) : (
+                            <div className="flex flex-col items-center gap-1 text-[#C8CEDF]">
+                                <ExternalLink className="h-5 w-5" />
+                                <span className="text-[9px] font-semibold">PDF</span>
+                            </div>
+                        )}
                     </a>
-                    <button onClick={() => eliminarArchivoVehiculo("ficha", vehiculoDraft.url_ficha_tecnica)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-700">
-                        <Trash2 className="h-3 w-3" /> Quitar
-                    </button>
+                    <div className="flex flex-col gap-1.5">
+                        <a href={toMediaUrl(vehiculoDraft.url_ficha_tecnica)} target="_blank" rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#131E5C] hover:underline">
+                            Ver PDF completo <ExternalLink className="h-3 w-3" />
+                        </a>
+                        <button onClick={() => eliminarArchivoVehiculo("ficha", vehiculoDraft.url_ficha_tecnica)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-700 w-fit">
+                            <Trash2 className="h-3 w-3" /> Quitar
+                        </button>
+                    </div>
                 </div>
             )}
         </Field>

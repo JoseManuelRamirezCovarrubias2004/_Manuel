@@ -77,14 +77,25 @@ function normalizePhone(value) {
     return digits;
 }
 
-function getUserPhone(user) {
-    return normalizePhone(
+function getUserPhones(user) {
+    const raw =
         user?.telefono ||
         user?.numero_asesor ||
         user?.whatsapp_number ||
         user?.phone ||
-        "",
-    );
+        "";
+
+    const valores = Array.isArray(raw)
+        ? raw
+        : String(raw || "").split(/[|,;\n]+/);
+
+    return [
+        ...new Set(
+            valores
+                .map((numero) => normalizePhone(numero))
+                .filter((numero) => /^52\d{10}$/.test(numero))
+        ),
+    ];
 }
 
 function isAdministrator(user) {
@@ -99,6 +110,41 @@ function isAdministrator(user) {
         role === "administrador" ||
         permissions.includes("ALL") ||
         permissions.includes("USUARIOS_ADMIN")
+    );
+}
+
+function isDigitalCoordinator(user) {
+    const role = normalizeText(
+        typeof user?.rol === "object"
+            ? user?.rol?.nombre ||
+            user?.rol?.name ||
+            ""
+            : user?.rol
+    );
+
+    const permissions = (
+        Array.isArray(user?.permisos)
+            ? user.permisos
+            : []
+    )
+        .map((permission) =>
+            normalizeText(
+                typeof permission === "object"
+                    ? permission?.codigo ||
+                    permission?.nombre ||
+                    permission?.name ||
+                    ""
+                    : permission
+            )
+        )
+        .filter(Boolean);
+
+    return (
+        role === "coordinador digital" ||
+        role === "coordinador_digital" ||
+        permissions.includes(
+            "crm_coordinador_digital"
+        )
     );
 }
 
@@ -507,8 +553,23 @@ export default function Plantillas() {
     const headerInputRef = useRef(null);
     const bodyInputRef = useRef(null);
 
-    const admin = useMemo(() => isAdministrator(user), [user]);
-    const userPhone = useMemo(() => getUserPhone(user), [user]);
+    const admin = useMemo(
+        () => isAdministrator(user),
+        [user]
+    );
+
+    const coordinadorDigital = useMemo(
+        () => isDigitalCoordinator(user),
+        [user]
+    );
+
+    const puedeVerTodasLasLineas =
+        admin || coordinadorDigital;
+
+    const userPhones = useMemo(
+        () => getUserPhones(user),
+        [user]
+    );
 
     const [lineasIA, setLineasIA] = useState([]);
     const [numeroSeleccionado, setNumeroSeleccionado] = useState("");
@@ -587,57 +648,96 @@ export default function Plantillas() {
         setLoadingLines(true);
 
         try {
-            const response = await api.iaLineas();
-            const allLines = Array.isArray(response?.items) ? response.items : [];
+            const response =
+                await api.iaLineas();
 
-            const allowedLines = admin
-                ? allLines
-                : allLines.filter(
-                    (line) => normalizePhone(line?.numero) === userPhone,
-                );
+            const allLines =
+                Array.isArray(response?.items)
+                    ? response.items
+                    : [];
+
+            /*
+             * Administrador y coordinador digital
+             * pueden visualizar todas las líneas.
+             *
+             * Los demás usuarios solo visualizan
+             * los números que tienen asignados.
+             */
+            const allowedLines =
+                puedeVerTodasLasLineas
+                    ? allLines
+                    : allLines.filter(
+                        (line) =>
+                            userPhones.includes(
+                                normalizePhone(
+                                    line?.numero
+                                )
+                            )
+                    );
 
             setLineasIA(allowedLines);
 
-            setNumeroSeleccionado((current) => {
-                const currentExists = allowedLines.some(
-                    (line) => normalizePhone(line?.numero) === normalizePhone(current),
-                );
+            setNumeroSeleccionado(
+                (current) => {
+                    const currentNormalized =
+                        normalizePhone(current);
 
-                if (currentExists) return normalizePhone(current);
+                    const currentExists =
+                        allowedLines.some(
+                            (line) =>
+                                normalizePhone(
+                                    line?.numero
+                                ) ===
+                                currentNormalized
+                        );
 
-                if (!admin && userPhone) {
-                    const assignedLine = allowedLines.find(
-                        (line) => normalizePhone(line?.numero) === userPhone,
+                    if (currentExists) {
+                        return currentNormalized;
+                    }
+
+                    return normalizePhone(
+                        allowedLines[0]
+                            ?.numero || ""
                     );
-
-                    return normalizePhone(assignedLine?.numero || "");
                 }
+            );
 
-                return normalizePhone(allowedLines[0]?.numero || "");
-            });
-
-            if (!admin && !userPhone) {
+            if (
+                !puedeVerTodasLasLineas &&
+                userPhones.length === 0
+            ) {
                 showToast(
-                    "Tu usuario no tiene un número de WhatsApp asignado. Solicita que lo configuren en tu cuenta.",
-                    "error",
+                    "Tu usuario no tiene números de WhatsApp asignados.",
+                    "error"
                 );
-            } else if (!admin && userPhone && allowedLines.length === 0) {
+            } else if (
+                !puedeVerTodasLasLineas &&
+                userPhones.length > 0 &&
+                allowedLines.length === 0
+            ) {
                 showToast(
-                    "El número asignado a tu usuario no coincide con ninguna línea de WhatsApp configurada.",
-                    "error",
+                    "Ninguno de los números asignados a tu usuario coincide con una línea de WhatsApp configurada.",
+                    "error"
                 );
             }
         } catch (error) {
             setLineasIA([]);
             setNumeroSeleccionado("");
+
             showToast(
-                error?.message || "No se pudieron cargar las líneas de WhatsApp.",
-                "error",
+                error?.message ||
+                "No se pudieron cargar las líneas de WhatsApp.",
+                "error"
             );
         } finally {
             setLoadingLines(false);
         }
-    }, [admin, ready, showToast, userPhone]);
+    }, [
+        ready,
+        puedeVerTodasLasLineas,
+        userPhones,
+        showToast,
+    ]);
 
     const loadTemplates = useCallback(async () => {
         if (!numeroSeleccionado) {
@@ -975,16 +1075,30 @@ export default function Plantillas() {
                             <label className="text-[11px] font-bold uppercase tracking-widest text-[#8891AD]">
                                 Línea de WhatsApp
                             </label>
-                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${admin ? "bg-[#131E5C]/10 text-[#131E5C]" : "bg-blue-50 text-blue-700"}`}>
-                                {admin ? "Administrador · todas las líneas" : "Línea asignada a tu usuario"}
+                            <span
+                                className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${puedeVerTodasLasLineas
+                                        ? "bg-[#131E5C]/10 text-[#131E5C]"
+                                        : "bg-blue-50 text-blue-700"
+                                    }`}
+                            >
+                                {admin
+                                    ? "Administrador · todas las líneas"
+                                    : coordinadorDigital
+                                        ? "Coordinador digital · todas las líneas"
+                                        : userPhones.length > 1
+                                            ? `${userPhones.length} líneas asignadas`
+                                            : "Línea asignada a tu usuario"}
                             </span>
                         </div>
 
                         <select
                             value={numeroSeleccionado}
                             onChange={(event) => setNumeroSeleccionado(normalizePhone(event.target.value))}
-                            disabled={loadingLines || !admin || lineasIA.length === 0}
-                            className={`${inputCls} max-w-xl disabled:cursor-not-allowed disabled:bg-[#F7F8FC] disabled:text-[#8891AD]`}
+                            disabled={
+                                loadingLines ||
+                                !puedeVerTodasLasLineas ||
+                                lineasIA.length === 0
+                            } className={`${inputCls} max-w-xl disabled:cursor-not-allowed disabled:bg-[#F7F8FC] disabled:text-[#8891AD]`}
                         >
                             {loadingLines ? (
                                 <option value="">Cargando líneas...</option>

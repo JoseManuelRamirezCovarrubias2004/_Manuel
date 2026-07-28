@@ -217,23 +217,77 @@ function tryParseJson(text) {
     }
 }
 
-function getNumeroUsuarioSesion(user) {
-    const nd = normalizaTelefonoMx(user?.telefono || user?.numero_asesor || user?.whatsapp_number || user?.phone || "");
-    if (nd) return nd;
-    for (const key of ["auth", "crm.user", "user"]) {
+function extraerNumerosWhatsApp(value) {
+    const partes = Array.isArray(value)
+        ? value
+        : String(value || "").split(/[|,;\n]+/);
+
+    return [
+        ...new Set(
+            partes
+                .map(normalizaTelefonoMx)
+                .filter((numero) =>
+                    /^52\d{10}$/.test(numero)
+                )
+        ),
+    ];
+}
+
+function getNumerosUsuarioSesion(user) {
+    const numerosUsuario = extraerNumerosWhatsApp(
+        user?.telefono ||
+        user?.numero_asesor ||
+        user?.whatsapp_number ||
+        user?.phone ||
+        ""
+    );
+
+    if (numerosUsuario.length) {
+        return numerosUsuario;
+    }
+
+    for (const key of [
+        "auth",
+        "crm.user",
+        "user",
+    ]) {
         try {
             const raw = localStorage.getItem(key);
+
             if (!raw) continue;
+
             const parsed = tryParseJson(raw);
-            if (!parsed || typeof parsed !== "object") continue;
-            const userObj = parsed?.user && typeof parsed.user === "object" ? parsed.user : parsed;
-            const numero = normalizaTelefonoMx(userObj?.telefono || userObj?.numero_asesor || userObj?.whatsapp_number || userObj?.phone || "");
-            if (numero) return numero;
+
+            if (
+                !parsed ||
+                typeof parsed !== "object"
+            ) {
+                continue;
+            }
+
+            const userObj =
+                parsed?.user &&
+                    typeof parsed.user === "object"
+                    ? parsed.user
+                    : parsed;
+
+            const numeros = extraerNumerosWhatsApp(
+                userObj?.telefono ||
+                userObj?.numero_asesor ||
+                userObj?.whatsapp_number ||
+                userObj?.phone ||
+                ""
+            );
+
+            if (numeros.length) {
+                return numeros;
+            }
         } catch {
-            /* sin acción */
+            // Continúa con la siguiente fuente.
         }
     }
-    return "";
+
+    return [];
 }
 
 function getAsesorDigitalPorNumero(numero) {
@@ -389,10 +443,10 @@ function normalizeProspecto(p) {
     const nombreCompleto =
         p.nombre ||
         p.nombre_out ||
-        
+
         p.cliente?.nombre ||
-        
-            "";
+
+        "";
 
     const { nombre, apellidos } = splitNombre(nombreCompleto);
 
@@ -1434,6 +1488,13 @@ export default function DigitalesProspectos() {
             .toLowerCase();
         return rol === "administrador" || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
     }, [user]);
+    const isCoordinador = useMemo(() => {
+        const permisos = user?.permisos || [];
+        const rol = String(user?.rol || "")
+            .trim()
+            .toLowerCase();
+        return rol === "coordinador digital" || permisos.includes("CRM_COORDINADOR_DIGITAL") || permisos.includes("USUARIOS_ADMIN");
+    }, [user]);
     const userAgencias = useMemo(
         () =>
             String(user?.agencia || "")
@@ -1442,17 +1503,22 @@ export default function DigitalesProspectos() {
                 .filter(Boolean),
         [user?.agencia],
     );
-   const userTieneAgencia = useCallback(
-    (agenciaRegistro) => {
-        const agencia = normalizeDealerGrupo(agenciaRegistro);
-        if (!agencia) return false;
-        return userAgencias.some((a) => normalizeDealerGrupo(a) === agencia);
-    },
-    [userAgencias],
-);
+    const userTieneAgencia = useCallback(
+        (agenciaRegistro) => {
+            const agencia = normalizeDealerGrupo(agenciaRegistro);
+            if (!agencia) return false;
+            return userAgencias.some((a) => normalizeDealerGrupo(a) === agencia);
+        },
+        [userAgencias],
+    );
 
-    const numeroUsuarioSesion = useMemo(() => getNumeroUsuarioSesion(user), [user]);
-    const contextoDigitalSesion = useMemo(() => getContextoDigitalPorNumero(numeroUsuarioSesion), [numeroUsuarioSesion]);
+    const numerosUsuarioSesion = useMemo(
+        () => getNumerosUsuarioSesion(user),
+        [user]
+    );
+
+    const numeroUsuarioSesion =
+        numerosUsuarioSesion[0] || "";
     const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
     const [pautasMeta, setPautasMeta] = useState([]);
     const [loadingPautas, setLoadingPautas] = useState(false);
@@ -1462,7 +1528,35 @@ export default function DigitalesProspectos() {
     const [summaryInfo, setSummaryInfo] = useState(null);
     const [sort, setSort] = useState({ key: null, dir: "asc" });
     const [filters, setFilters] = useState(INITIAL_FILTERS);
-    const [selectedNumeroAsesor, setSelectedNumeroAsesor] = useState("Todos");
+    const [
+        selectedNumeroAsesor,
+        setSelectedNumeroAsesor,
+    ] = useState("");
+    const numeroAsesorActivo = useMemo(() => {
+        if (
+            selectedNumeroAsesor &&
+            selectedNumeroAsesor !== "Todos"
+        ) {
+            return normalizaTelefonoMx(
+                selectedNumeroAsesor
+            );
+        }
+
+        return "";
+    }, [selectedNumeroAsesor]);
+
+    const contextoDigitalSesion = useMemo(() => {
+        const numeroContexto =
+            numeroAsesorActivo ||
+            numeroUsuarioSesion;
+
+        return getContextoDigitalPorNumero(
+            numeroContexto
+        );
+    }, [
+        numeroAsesorActivo,
+        numeroUsuarioSesion,
+    ]);
     const deferredQ = useDeferredValue(filters.q);
     const [page, setPage] = useState(1);
     const [openModal, setOpenModal] = useState(false);
@@ -1552,20 +1646,83 @@ export default function DigitalesProspectos() {
     const inputBad = "border-red-500 bg-red-50";
     const filterControlCls = "h-9 w-full rounded-lg border border-[#131E5C] bg-white px-3 text-sm text-[#131E5C] shadow-sm outline-none transition focus:border-[#131E5C] focus:ring-2 focus:ring-[#131E5C]/15";
     const filterLabelCls = "mb-1.5 block text-xs font-bold text-[#131E5C]";
-    useEffect(() => {
-        (async () => {
+    const cargarProspectosPorLinea =
+        useCallback(async () => {
+            if (!ready) {
+                return;
+            }
+
+            /*
+             * Para usuarios que no son administradores,
+             * esperamos hasta tener una línea válida.
+             */
+            if (
+                !isAdmin &&
+                !numeroAsesorActivo
+            ) {
+                setCases([]);
+                return;
+            }
+
+            /*
+             * Evita que el coordinador modifique
+             * manualmente el número desde DevTools.
+             */
+            if (
+                !isAdmin &&
+                !numerosUsuarioSesion.includes(
+                    numeroAsesorActivo
+                )
+            ) {
+                setCases([]);
+                return;
+            }
+
             setLoadingCases(true);
+
             try {
-                const data = await api.digitalesListProspectos();
-                setCases(getListItems(data).map(normalizeProspecto));
-            } catch (e) {
-                console.error(e);
+                const params =
+                    numeroAsesorActivo
+                        ? {
+                            numero_asesor:
+                                numeroAsesorActivo,
+                        }
+                        : {};
+
+                const data =
+                    await api
+                        .digitalesListProspectos(
+                            params
+                        );
+
+                const registros =
+                    getListItems(data)
+                        .map(normalizeProspecto);
+
+                setCases(registros);
+                setPage(1);
+
+            } catch (error) {
+                console.error(
+                    "Error cargando prospectos " +
+                    "por línea:",
+                    error
+                );
+
                 setCases([]);
             } finally {
                 setLoadingCases(false);
             }
-        })();
-    }, []);
+        }, [
+            ready,
+            isAdmin,
+            numeroAsesorActivo,
+            numerosUsuarioSesion,
+        ]);
+
+    useEffect(() => {
+        cargarProspectosPorLinea();
+    }, [cargarProspectosPorLinea]);
     useEffect(() => {
         if (!openModal || pautasMeta.length) return;
         (async () => {
@@ -1583,12 +1740,43 @@ export default function DigitalesProspectos() {
     }, [openModal, pautasMeta.length]);
     useEffect(() => {
         if (!ready) return;
-        if (!isAdmin) {
-            setSelectedNumeroAsesor(numeroUsuarioSesion || "");
+
+        if (isAdmin) {
+            setSelectedNumeroAsesor(
+                (current) =>
+                    current || "Todos"
+            );
+
             return;
         }
-        setSelectedNumeroAsesor((prev) => prev || "Todos");
-    }, [isAdmin, numeroUsuarioSesion, ready]);
+
+        if (!numerosUsuarioSesion.length) {
+            setSelectedNumeroAsesor("");
+            return;
+        }
+
+        setSelectedNumeroAsesor(
+            (current) => {
+                const normalizado =
+                    normalizaTelefonoMx(current);
+
+                if (
+                    normalizado &&
+                    numerosUsuarioSesion.includes(
+                        normalizado
+                    )
+                ) {
+                    return normalizado;
+                }
+
+                return numerosUsuarioSesion[0];
+            }
+        );
+    }, [
+        ready,
+        isAdmin,
+        numerosUsuarioSesion,
+    ]);
     useEffect(() => {
         if (!ready || !numeroUsuarioSesion) return;
         cargarTelefonosConChat();
@@ -1599,7 +1787,7 @@ export default function DigitalesProspectos() {
             return ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(selectedNumeroAsesor)] || null;
         }
         return ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(numeroUsuarioSesion)] || null;
-    }, [isAdmin, selectedNumeroAsesor, numeroUsuarioSesion]);
+    }, [isAdmin, isCoordinador, selectedNumeroAsesor, numeroUsuarioSesion]);
     const dealers = useMemo(() => {
         const ordenDealers = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"];
         const source = !isAdmin && userAgencias.length > 0 ? userAgencias : cases.map((c) => c.agencia);
@@ -1635,9 +1823,30 @@ export default function DigitalesProspectos() {
         return ["Todos", ...items.sort((a, b) => valueOrDash(a).localeCompare(valueOrDash(b), "es"))];
     }, [cases]);
     const phoneOptions = useMemo(() => {
-        const numeros = Object.keys(ASESOR_DIGITAL_POR_NUMERO).sort((a, b) => a.localeCompare(b, "es"));
-        return ["Todos", ...numeros];
-    }, []);
+        if (isAdmin) {
+            const numeros = Object.keys(
+                ASESOR_DIGITAL_POR_NUMERO
+            ).sort(
+                (a, b) =>
+                    a.localeCompare(b, "es")
+            );
+
+            return [
+                "Todos",
+                ...numeros,
+            ];
+        }
+
+        if (isCoordinador) {
+            return numerosUsuarioSesion;
+        }
+
+        return numerosUsuarioSesion.slice(0, 1);
+    }, [
+        isAdmin,
+        isCoordinador,
+        numerosUsuarioSesion,
+    ]);
     function toggleSort(key) {
         setSort((prev) => (prev.key !== key ? { key, dir: "asc" } : { key, dir: prev.dir === "asc" ? "desc" : "asc" }));
     }
@@ -2031,8 +2240,7 @@ export default function DigitalesProspectos() {
         setDraft(null);
     };
     const refreshList = async () => {
-        const data = await api.digitalesListProspectos();
-        setCases(getListItems(data).map(normalizeProspecto));
+        await cargarProspectosPorLinea();
     };
     function buildProspectoPayload() {
         const agenciaFinal = !isAdmin && contextoDigitalSesion?.agencia ? contextoDigitalSesion.agencia : draft.agencia || "";
@@ -2672,15 +2880,41 @@ export default function DigitalesProspectos() {
                                     ))}
                                 </select>
                             </div>
-                            {isAdmin ? (
+                            {isAdmin || isCoordinador ? (
                                 <div className="xl:col-span-3">
-                                    <label className={filterLabelCls}>Línea / número asesor</label>
-                                    <select value={selectedNumeroAsesor} onChange={(e) => setSelectedNumeroAsesor(e.target.value)} className={filterControlCls}>
-                                        {phoneOptions.map((numero) => (
-                                            <option key={numero} value={numero}>
-                                                {numero === "Todos" ? "Todos los números" : `${formatTelefonoMx(numero)} • ${getAsesorDigitalPorNumero(numero)}`}
-                                            </option>
-                                        ))}
+                                    <label className={filterLabelCls}>
+                                        Línea de WhatsApp
+                                    </label>
+
+                                    <select
+                                        value={selectedNumeroAsesor}
+                                        onChange={(event) => {
+                                            setSelectedNumeroAsesor(
+                                                event.target.value
+                                            );
+
+                                            setPage(1);
+                                        }}
+                                        className={filterControlCls}
+                                    >
+                                        {phoneOptions.map(
+                                            (numero) => (
+                                                <option
+                                                    key={numero}
+                                                    value={numero}
+                                                >
+                                                    {numero === "Todos"
+                                                        ? "Todos los números"
+                                                        : `${formatTelefonoMx(
+                                                            numero
+                                                        )
+                                                        } • ${getAsesorDigitalPorNumero(
+                                                            numero
+                                                        )
+                                                        }`}
+                                                </option>
+                                            )
+                                        )}
                                     </select>
                                 </div>
                             ) : null}
@@ -3099,7 +3333,7 @@ export default function DigitalesProspectos() {
                                 <div className="mt-1 text-xs font-semibold">{missing.map((k) => REQUIRED[k]).join(" · ")}</div>
                             </div>
                         )}
-                       <div className="md:col-span-4 grid gap-3 md:grid-cols-3">
+                        <div className="md:col-span-4 grid gap-3 md:grid-cols-3">
                             <Field label="Dealer" icon={Building2}>
                                 <select value={draft.agencia || ""} onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))} disabled={!isAdmin && userAgencias.length <= 1} className={cls(inputBase, isInvalid("agencia") ? inputBad : inputOk, !isAdmin && contextoDigitalSesion ? "cursor-not-allowed opacity-70" : "")}>
                                     <option value="" disabled>

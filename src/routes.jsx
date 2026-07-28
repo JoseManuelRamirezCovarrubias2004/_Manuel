@@ -104,6 +104,7 @@ import InventarioLayout from "./pages/Inventario/InventarioLayout";
 import InventarioIndex from "./pages/Inventario/InventarioIndex";
 import BitacoraMantenimiento from "./pages/Inventario/BitacoraMantenimiento";
 import NoConformidad from "./pages/Calidad/NoConformidad";
+import DigitalesRendimiento from "./pages/Digitales/DigitalesRendimiento";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
@@ -136,7 +137,8 @@ function obtenerRutaInicialPorUsuario(user) {
 
     if (
         permisos.includes("CRM_DIGITALES") ||
-        permisos.includes("CRM_VENTAS")
+        permisos.includes("CRM_VENTAS") ||
+        permisos.includes("CRM_COORDINADOR_DIGITAL")
     ) {
         return "/comercial";
     }
@@ -184,6 +186,7 @@ function ComercialIndexPorPermisos() {
         "CRM_VENTAS",
         "USUARIOS_ADMIN",
         "CRM_CALIDAD",
+        "CRM_COORDINADOR_DIGITAL"
     ]);
 
     if (!puedeVerIndexComercial && permisos.includes("CRM_CALL_CENTER")) {
@@ -383,6 +386,7 @@ export const router = createBrowserRouter(
                                         "USUARIOS_ADMIN",
                                         "CRM_CALIDAD",
                                         "CRM_CALL_CENTER",
+                                        "CRM_COORDINADOR_DIGITAL",
                                     ]}
                                 >
                                     <ComercialLayout />
@@ -402,6 +406,7 @@ export const router = createBrowserRouter(
                                                 "USUARIOS_ADMIN",
                                                 "CRM_CALIDAD",
                                                 "CRM_VENTAS",
+                                                "CRM_COORDINADOR_DIGITAL",
                                             ]}
                                         >
                                             <CampanasMeta />
@@ -417,6 +422,7 @@ export const router = createBrowserRouter(
                                                 "USUARIOS_ADMIN",
                                                 "CRM_CALIDAD",
                                                 "CRM_VENTAS",
+                                                "CRM_COORDINADOR_DIGITAL",
                                             ]}
                                         >
                                             <DigitalesLayout />
@@ -436,6 +442,10 @@ export const router = createBrowserRouter(
                                             element: <DigitalesPlantillas />,
                                         },
                                         {
+                                            path: "rendimiento_digitales",
+                                            element: <DigitalesRendimiento />,
+                                        },
+                                        {
                                             path: "contacto",
                                             element: <DigitalesContacto />,
                                         },
@@ -450,6 +460,7 @@ export const router = createBrowserRouter(
                                                 "CRM_VENTAS",
                                                 "USUARIOS_ADMIN",
                                                 "CRM_CALIDAD",
+                                                "CRM_COORDINADOR_DIGITAL",
                                             ]}
                                         >
                                             <CitasLayout />
@@ -475,6 +486,7 @@ export const router = createBrowserRouter(
                                                 "CRM_VENTAS",
                                                 "USUARIOS_ADMIN",
                                                 "CRM_CALIDAD",
+                                                "CRM_COORDINADOR_DIGITAL",
                                             ]}
                                         >
                                             <CitasPisoLayout />
@@ -500,6 +512,7 @@ export const router = createBrowserRouter(
                                                 "CRM_VENTAS",
                                                 "USUARIOS_ADMIN",
                                                 "CRM_CALIDAD",
+                                                "CRM_COORDINADOR_DIGITAL",
                                             ]}
                                         >
                                             <TraficoPiso />
@@ -515,6 +528,7 @@ export const router = createBrowserRouter(
                                                 "CRM_VENTAS",
                                                 "USUARIOS_ADMIN",
                                                 "CRM_CALIDAD",
+                                                "CRM_COORDINADOR_DIGITAL",
                                             ]}
                                         >
                                             <PruebaManejoLayout />
@@ -537,6 +551,7 @@ export const router = createBrowserRouter(
                                                 "USUARIOS_ADMIN",
                                                 "CRM_CALIDAD",
                                                 "CRM_CALL_CENTER",
+                                                "CRM_COORDINADOR_DIGITAL",
                                             ]}
                                         >
                                             <EntregasLayout />
@@ -944,7 +959,7 @@ export const router = createBrowserRouter(
                         {
                             path: "configuracion_ia",
                             element: (
-                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_DIGITALES"]}>
+                                <RequirePermission anyOf={["USUARIOS_ADMIN", "CRM_DIGITALES", "CRM_COORDINADOR_DIGITAL"]}>
                                     <ConfigIA />
                                 </RequirePermission>
                             ),
