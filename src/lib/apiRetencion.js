@@ -69,4 +69,34 @@ export const apiRetencion = {
     http(`/retencion/api/ordenes-ventas/${encodeURIComponent(vin)}/`, options),
 
   historial: (vin, options = {}) => obtenerHistorialRetencion(vin, options),
+
+  // ---- Tareas ----
+  tareas: (telefono, options = {}) => {
+    const params = new URLSearchParams();
+    if (telefono) params.set("telefono", telefono);
+    const query = params.toString();
+    return http(`/retencion/api/tareas/${query ? `?${query}` : ""}`, options);
+},
+
+  crearTarea: (payload, options = {}) =>
+    http("/retencion/api/tareas/", {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      body: JSON.stringify(payload),
+    }),
+
+  actualizarTarea: (id, cambios, options = {}) =>
+    http(`/retencion/api/tareas/${id}/`, {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      body: JSON.stringify(cambios),
+    }),
+
+  eliminarTarea: (id, options = {}) =>
+    http(`/retencion/api/tareas/${id}/`, {
+      ...options,
+      method: "DELETE",
+    }),
 };

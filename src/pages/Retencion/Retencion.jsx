@@ -1636,6 +1636,12 @@ export default function Retencion() {
     }
 
     function cerrarDetalle() {
+        // Forzamos el blur del campo activo para que se dispare
+        // cualquier guardado pendiente (onBlur) antes de desmontar el modal.
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+
         setModalOpen(false);
         setClienteSeleccionado(null);
         setHistorial([]);
