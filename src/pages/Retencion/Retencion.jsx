@@ -1,19 +1,8 @@
 // src/pages/Retencion/Retencion.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-    Area,
-    AreaChart,
-    CartesianGrid,
-    Cell,
-    Legend,
-    Pie,
-    PieChart,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
-} from "recharts";
+import ReactECharts from "echarts-for-react";
+import * as echarts from "echarts";
 import {
     Activity,
     BarChart3,
@@ -81,11 +70,15 @@ const ESTADO_TAREA_COLORS = {
     cancelada: { bg: "#D85A301a", text: "#D85A30" },
 };
 
-const TooltipStyle = {
-    fontSize: 12,
-    borderRadius: 10,
-    border: "1px solid #e5e7eb",
-    boxShadow: "0 8px 24px rgba(19,30,92,.12)",
+// ---- Tooltip compartido para ECharts (estilo consistente con el resto del CRM) ----
+const ECHART_TOOLTIP_BASE = {
+    backgroundColor: "#ffffff",
+    borderColor: "#e5e7eb",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: [10, 14],
+    textStyle: { color: "#334155", fontSize: 12, fontWeight: 600 },
+    extraCssText: "box-shadow: 0 8px 24px rgba(19,30,92,.12);",
 };
 
 function parseFechaLocal(fecha) {
@@ -127,6 +120,13 @@ function moneda(valor) {
         currency: "MXN",
         maximumFractionDigits: 0,
     });
+}
+
+function moneda_compacta(valor) {
+    const n = numeroSeguro(valor);
+    if (Math.abs(n) >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+    if (Math.abs(n) >= 1000) return `$${(n / 1000).toFixed(0)}k`;
+    return moneda(n);
 }
 
 function numero(valor) {
@@ -430,8 +430,249 @@ function RankList({ items, from, to, valueFormatter = numero, startRank = 0, max
     );
 }
 
-// ---- Gráficas ----
-function VistaGraficas({ datos }) {
+// ---- Tarjeta de resumen de segmento ----
+function TarjetaSegmento({ icon: Icon, label, value, color, children }) {
+    return (
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition hover:shadow-lg hover:shadow-slate-200/60">
+            <div
+                className="absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-[0.08] transition duration-300 group-hover:scale-110"
+                style={{ backgroundColor: color }}
+            />
+            <div className="relative flex items-center gap-3">
+                <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${color}18`, color }}
+                >
+                    <Icon className="h-5 w-5" />
+                </div>
+                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                    {label}
+                </div>
+            </div>
+            {children ? (
+                <div className="relative mt-4">{children}</div>
+            ) : (
+                <div className="relative mt-4 text-3xl font-black text-slate-800">{value}</div>
+            )}
+        </div>
+    );
+}
+
+// ---- Gauge horizontal para "Retorno de segmento" ----
+function GaugeRetorno({ porcentaje }) {
+    const pct = Number.isFinite(porcentaje) ? Math.max(0, Math.min(100, porcentaje)) : 0;
+    return (
+        <div>
+            <div className="mb-1.5 flex items-baseline justify-between">
+                <span className="text-3xl font-black" style={{ color: "#D4537E" }}>
+                    {pct.toFixed(2)}%
+                </span>
+                <span className="text-xs font-bold text-slate-300">100</span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                        width: `${pct}%`,
+                        background: "linear-gradient(90deg, #F0568A, #D4537E)",
+                    }}
+                />
+            </div>
+        </div>
+    );
+}
+
+// =====================================================================================
+// NUEVO: ResumenProspeccion — SOLO las 4 tarjetas (Total / Activos / Inactivos / Retorno)
+// Este bloque ahora vive arriba de Tabla y de Gráficas, así aparece en ambas vistas.
+// =====================================================================================
+function ResumenProspeccion({ datos, segmento }) {
+    const total = datos.length;
+    const activos = useMemo(
+        () => datos.filter((item) => normalizarTexto(item.estado_actividad) === "activo").length,
+        [datos]
+    );
+    const inactivos = total - activos;
+    const retorno = promedio(activos, total) * 100;
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center gap-2">
+                <span className="text-lg font-extrabold" style={{ color: NAVY }}>
+                    Datos de Prospección
+                </span>
+                <span className="text-lg font-extrabold text-slate-300">|</span>
+                <span className="text-lg font-extrabold italic" style={{ color: ACCENT }}>
+                    {segmento}
+                </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <TarjetaSegmento icon={Car} label="Total de Autos en Segmento" value={numero(total)} color={ACCENT} />
+                <TarjetaSegmento icon={CheckCircle2} label="Autos Activos" value={numero(activos)} color="#1D9E75" />
+                <TarjetaSegmento icon={XCircle} label="Autos Inactivos" value={numero(inactivos)} color="#D85A30" />
+                <TarjetaSegmento icon={Gauge} label={`Retorno de ${segmento}`} color="#D4537E">
+                    <GaugeRetorno porcentaje={retorno} />
+                </TarjetaSegmento>
+            </div>
+        </div>
+    );
+}
+
+// =====================================================================================
+// NUEVO: DesgloseSegmento — gráfica de Estado por modelo (ahora en ECharts) + tabla de
+// desglose de OS por VIN. Exclusivo de la vista Gráficas.
+// =====================================================================================
+function DesgloseSegmento({ datos, segmento }) {
+    const porModeloEstado = useMemo(() => {
+        const map = new Map();
+        datos.forEach((item) => {
+            const clave = item.modelo_nombre || "Sin modelo";
+            if (!map.has(clave)) map.set(clave, { name: clave, Activo: 0, Inactivo: 0 });
+            const actual = map.get(clave);
+            if (normalizarTexto(item.estado_actividad) === "activo") actual.Activo += 1;
+            else actual.Inactivo += 1;
+        });
+        return Array.from(map.values())
+            .sort((a, b) => (b.Activo + b.Inactivo) - (a.Activo + a.Inactivo))
+            .slice(0, 10)
+            .reverse();
+    }, [datos]);
+
+    const desglose = useMemo(() => {
+        return [...datos]
+            .sort((a, b) => String(b.fecha_ultima_os).localeCompare(String(a.fecha_ultima_os)))
+            .slice(0, 150);
+    }, [datos]);
+
+    const opcionModeloEstado = useMemo(() => {
+        const nombres = porModeloEstado.map((d) => d.name);
+        return {
+            grid: { left: 8, right: 24, top: 8, bottom: 8, containLabel: true },
+            tooltip: {
+                trigger: "axis",
+                axisPointer: { type: "shadow" },
+                ...ECHART_TOOLTIP_BASE,
+            },
+            legend: {
+                data: ["Activo", "Inactivo"],
+                bottom: 0,
+                itemWidth: 12,
+                itemHeight: 12,
+                icon: "circle",
+                textStyle: { fontSize: 11, color: "#64748b", fontWeight: 600 },
+            },
+            xAxis: {
+                type: "value",
+                axisLine: { show: false },
+                axisTick: { show: false },
+                splitLine: { lineStyle: { color: "#f1f5f9" } },
+                axisLabel: { color: "#94a3b8", fontSize: 11 },
+            },
+            yAxis: {
+                type: "category",
+                data: nombres,
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: { color: "#475569", fontSize: 11, fontWeight: 600 },
+            },
+            series: [
+                {
+                    name: "Activo",
+                    type: "bar",
+                    stack: "estado",
+                    barWidth: 16,
+                    data: porModeloEstado.map((d) => d.Activo),
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                            { offset: 0, color: "#6BB3F0" },
+                            { offset: 1, color: ACCENT },
+                        ]),
+                    },
+                },
+                {
+                    name: "Inactivo",
+                    type: "bar",
+                    stack: "estado",
+                    barWidth: 16,
+                    data: porModeloEstado.map((d) => d.Inactivo),
+                    itemStyle: {
+                        color: "#F0A500",
+                        borderRadius: [0, 8, 8, 0],
+                    },
+                },
+            ],
+        };
+    }, [porModeloEstado]);
+
+    return (
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2">
+                <p className="text-lg font-extrabold" style={{ color: NAVY }}>
+                    Estado por modelo
+                </p>
+                <p className="mb-4 text-sm text-slate-400">
+                    Activos vs. inactivos por modelo · {segmento}
+                </p>
+
+                <ReactECharts
+                    option={opcionModeloEstado}
+                    style={{ height: Math.max(280, porModeloEstado.length * 34) }}
+                    notMerge
+                />
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white xl:col-span-3">
+                <div className="border-b border-slate-100 px-5 py-3">
+                    <p className="text-lg font-extrabold" style={{ color: NAVY }}>
+                        Desglose de la información
+                    </p>
+                    <p className="text-sm text-slate-400">Órdenes de Servicio por VIN · {segmento}</p>
+                </div>
+                <div className="max-h-[360px] overflow-y-auto">
+                    <table className="min-w-full text-xs">
+                        <thead className="sticky top-0 z-10 bg-slate-50">
+                            <tr className="text-left font-bold uppercase tracking-wide text-slate-400">
+                                <th className="px-4 py-2">Fecha OS</th>
+                                <th className="px-4 py-2">Tipo OS</th>
+                                <th className="px-4 py-2">Modelo</th>
+                                <th className="px-4 py-2">Nombre</th>
+                                <th className="px-4 py-2">Chasis</th>
+                                <th className="px-4 py-2">Fecha Emisión</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {desglose.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                                        Sin datos para este segmento.
+                                    </td>
+                                </tr>
+                            ) : (
+                                desglose.map((item, index) => (
+                                    <tr key={`${item.vin}-${index}`} className="border-t border-slate-50 hover:bg-slate-50">
+                                        <td className="px-4 py-2 text-slate-600">{formatDate(item.fecha_ultima_os)}</td>
+                                        <td className="px-4 py-2 text-slate-600">{item.tipo_orden || "—"}</td>
+                                        <td className="px-4 py-2 font-semibold text-slate-700">{item.modelo_nombre}</td>
+                                        <td className="px-4 py-2 text-slate-600">{item.nombre_cliente}</td>
+                                        <td className="px-4 py-2 text-slate-400">{item.vin || "—"}</td>
+                                        <td className="px-4 py-2 text-slate-600">{formatDate(item.fecha_venta)}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// =====================================================================================
+// Gráficas principales — migradas de recharts a ECharts, con degradados, curvas suaves,
+// donas con etiqueta central y animación de entrada.
+// =====================================================================================
+function VistaGraficas({ datos, segmento }) {
     const porMes = useMemo(() => {
         const map = new Map();
         datos.forEach((item) => {
@@ -512,253 +753,333 @@ function VistaGraficas({ datos }) {
     const totalSegmentos = porSegmento.reduce((acc, i) => acc + i.value, 0);
     const totalEstados = porEstado.reduce((acc, i) => acc + i.value, 0);
 
+    // ---- Opción ECharts: Vehículos por mes (área + línea, doble eje) ----
+    const opcionPorMes = useMemo(() => ({
+        grid: { left: 8, right: 8, top: 40, bottom: 30, containLabel: true },
+        legend: {
+            top: 0,
+            right: 0,
+            itemWidth: 12,
+            itemHeight: 12,
+            icon: "circle",
+            textStyle: { fontSize: 12, color: "#64748b", fontWeight: 600 },
+        },
+        tooltip: {
+            trigger: "axis",
+            ...ECHART_TOOLTIP_BASE,
+            formatter: (params) => {
+                const nombre = params?.[0]?.axisValue || "";
+                const filas = params
+                    .map((p) => {
+                        const val = p.seriesName === "Total servicio" ? moneda(p.value) : numero(p.value);
+                        return `<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">${p.marker}<span style="color:#64748b;font-weight:600;">${p.seriesName}:</span><span style="color:#1e293b;font-weight:800;">${val}</span></div>`;
+                    })
+                    .join("");
+                return `<div style="font-weight:800;color:#1e293b;margin-bottom:4px;">${nombre}</div>${filas}`;
+            },
+        },
+        xAxis: {
+            type: "category",
+            data: porMes.map((d) => d.name),
+            boundaryGap: false,
+            axisLine: { lineStyle: { color: "#e5e7eb" } },
+            axisTick: { show: false },
+            axisLabel: { color: "#94a3b8", fontSize: 11 },
+        },
+        yAxis: [
+            {
+                type: "value",
+                name: "Vehículos",
+                axisLine: { show: false },
+                axisTick: { show: false },
+                splitLine: { lineStyle: { color: "#f1f5f9" } },
+                axisLabel: { color: "#94a3b8", fontSize: 11 },
+            },
+            {
+                type: "value",
+                name: "Servicio",
+                axisLine: { show: false },
+                axisTick: { show: false },
+                splitLine: { show: false },
+                axisLabel: { color: "#94a3b8", fontSize: 11, formatter: (v) => moneda_compacta(v) },
+            },
+        ],
+        series: [
+            {
+                name: "Vehículos",
+                type: "line",
+                smooth: true,
+                symbol: "circle",
+                symbolSize: 7,
+                showSymbol: false,
+                lineStyle: { width: 3, color: ACCENT },
+                itemStyle: { color: ACCENT },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: `${ACCENT}59` },
+                        { offset: 1, color: `${ACCENT}00` },
+                    ]),
+                },
+                data: porMes.map((d) => d.vehiculos),
+                animationDuration: 900,
+            },
+            {
+                name: "Total servicio",
+                type: "line",
+                yAxisIndex: 1,
+                smooth: true,
+                showSymbol: false,
+                lineStyle: { width: 3, color: "#1D9E75" },
+                itemStyle: { color: "#1D9E75" },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: "#1D9E7540" },
+                        { offset: 1, color: "#1D9E7500" },
+                    ]),
+                },
+                data: porMes.map((d) => d.total_servicio),
+                animationDuration: 900,
+                animationDelay: 150,
+            },
+        ],
+    }), [porMes]);
+
+    // ---- Opción ECharts: Distribución por segmento (dona con total al centro) ----
+    const opcionPorSegmento = useMemo(() => ({
+        tooltip: {
+            trigger: "item",
+            ...ECHART_TOOLTIP_BASE,
+            formatter: (p) => `${p.marker}<span style="color:#64748b;font-weight:600;">${p.name}:</span> <span style="color:#1e293b;font-weight:800;">${numero(p.value)} (${p.percent}%)</span>`,
+        },
+        series: [
+            {
+                type: "pie",
+                radius: ["58%", "82%"],
+                center: ["50%", "50%"],
+                padAngle: 3,
+                itemStyle: { borderRadius: 8 },
+                label: { show: false },
+                labelLine: { show: false },
+                data: porSegmento.map((d, i) => ({
+                    name: d.name,
+                    value: d.value,
+                    itemStyle: { color: SEGMENTO_COLORS[i % SEGMENTO_COLORS.length] },
+                })),
+                animationType: "scale",
+                animationEasing: "elasticOut",
+                animationDuration: 900,
+            },
+        ],
+        graphic: {
+            elements: [
+                {
+                    type: "text",
+                    left: "center",
+                    top: "middle",
+                    style: {
+                        text: `${numero(totalSegmentos)}\nvehículos`,
+                        textAlign: "center",
+                        fill: NAVY,
+                        fontSize: 20,
+                        fontWeight: 900,
+                        lineHeight: 20,
+                    },
+                },
+            ],
+        },
+    }), [porSegmento, totalSegmentos]);
+
+    // ---- Opción ECharts: Estado de actividad (dona compacta con centro) ----
+    const opcionPorEstado = useMemo(() => ({
+        tooltip: {
+            trigger: "item",
+            ...ECHART_TOOLTIP_BASE,
+            formatter: (p) => `${p.marker}<span style="color:#64748b;font-weight:600;">${p.name}:</span> <span style="color:#1e293b;font-weight:800;">${numero(p.value)} (${p.percent}%)</span>`,
+        },
+        series: [
+            {
+                type: "pie",
+                radius: ["55%", "80%"],
+                padAngle: 3,
+                itemStyle: { borderRadius: 8 },
+                label: { show: false },
+                labelLine: { show: false },
+                data: porEstado.map((d) => ({
+                    name: d.name,
+                    value: d.value,
+                    itemStyle: { color: ESTADO_COLORS[normalizarTexto(d.name)] || "#94a3b8" },
+                })),
+                animationType: "scale",
+                animationEasing: "elasticOut",
+                animationDuration: 900,
+            },
+        ],
+        graphic: {
+            elements: [
+                {
+                    type: "text",
+                    left: "center",
+                    top: "middle",
+                    style: {
+                        text: `${numero(totalEstados)}\nautos`,
+                        textAlign: "center",
+                        fill: NAVY,
+                        fontSize: 18,
+                        fontWeight: 900,
+                        lineHeight: 18,
+                    },
+                },
+            ],
+        },
+    }), [porEstado, totalEstados]);
+
     return (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
-            {/* Vehículos por mes */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-3">
-                <p className="text-lg font-extrabold" style={{ color: NAVY }}>
-                    Vehículos por mes
-                </p>
-                <p className="mb-4 text-sm text-slate-400">Actividad de servicio por período</p>
+        <div className="space-y-5">
+            {segmento !== "Todos" ? <DesgloseSegmento datos={datos} segmento={segmento} /> : null}
 
-                <ResponsiveContainer width="100%" height={320}>
-                    <AreaChart data={porMes} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                        <defs>
-                            <linearGradient id="gradVehiculos" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={ACCENT} stopOpacity={0.35} />
-                                <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
-                            </linearGradient>
-                            <linearGradient id="gradServicio" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#1D9E75" stopOpacity={0.3} />
-                                <stop offset="100%" stopColor="#1D9E75" stopOpacity={0} />
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                        <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                        <YAxis
-                            yAxisId="right"
-                            orientation="right"
-                            tick={{ fontSize: 11, fill: "#94a3b8" }}
-                            axisLine={false}
-                            tickLine={false}
-                            tickFormatter={(v) => `$${Number(v / 1000).toFixed(0)}k`}
-                        />
-                        <Tooltip
-                            contentStyle={TooltipStyle}
-                            formatter={(value, name) =>
-                                name === "Total servicio" ? [moneda(value), name] : [numero(value), name]
-                            }
-                        />
-                        <Legend wrapperStyle={{ fontSize: 12 }} />
-                        <Area
-                            yAxisId="left"
-                            type="monotone"
-                            dataKey="vehiculos"
-                            name="Vehículos"
-                            stroke={ACCENT}
-                            strokeWidth={3}
-                            fill="url(#gradVehiculos)"
-                        />
-                        <Area
-                            yAxisId="right"
-                            type="monotone"
-                            dataKey="total_servicio"
-                            name="Total servicio"
-                            stroke="#1D9E75"
-                            strokeWidth={3}
-                            fill="url(#gradServicio)"
-                        />
-                    </AreaChart>
-                </ResponsiveContainer>
-            </div>
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
+                {/* Vehículos por mes */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-3">
+                    <p className="text-lg font-extrabold" style={{ color: NAVY }}>
+                        Vehículos por mes
+                    </p>
+                    <p className="mb-4 text-sm text-slate-400">Actividad de servicio por período</p>
 
-            {/* Distribución por segmento */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2">
-                <p className="text-lg font-extrabold" style={{ color: NAVY }}>
-                    Distribución por segmento
-                </p>
-                <p className="mb-4 text-sm text-slate-400">Relación de vehículos por segmento</p>
-
-                <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                        <Pie
-                            data={porSegmento}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={58}
-                            outerRadius={90}
-                            paddingAngle={2}
-                        >
-                            {porSegmento.map((_, index) => (
-                                <Cell key={index} fill={SEGMENTO_COLORS[index % SEGMENTO_COLORS.length]} />
-                            ))}
-                        </Pie>
-                        <Tooltip contentStyle={TooltipStyle} formatter={(v) => [numero(v), "Vehículos"]} />
-                    </PieChart>
-                </ResponsiveContainer>
-
-                <div className="mt-2 space-y-2">
-                    {porSegmento.map((item, index) => {
-                        const pct = totalSegmentos > 0 ? ((item.value / totalSegmentos) * 100).toFixed(1) : "0.0";
-                        return (
-                            <div key={item.name} className="flex items-center gap-2 text-sm">
-                                <div
-                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                    style={{ backgroundColor: SEGMENTO_COLORS[index % SEGMENTO_COLORS.length] }}
-                                />
-                                <span className="font-semibold text-slate-600">{item.name}</span>
-                                <span className="ml-auto font-black text-slate-800">
-                                    {pct}% <span className="font-medium text-slate-400">({numero(item.value)})</span>
-                                </span>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Top dealers */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-3">
-                <p className="text-lg font-extrabold" style={{ color: NAVY }}>
-                    Vehículos por dealer
-                </p>
-                <p className="mb-4 text-sm text-slate-400">Top 10 dealers con más vehículos activos en retención</p>
-
-                <RankList items={porDealer.map((d) => ({ name: d.name, value: d.vehiculos }))} from="#6BB3F0" to={ACCENT} />
-            </div>
-
-            {/* Estado de actividad */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2">
-                <p className="text-lg font-extrabold" style={{ color: NAVY }}>
-                    Estado de actividad
-                </p>
-                <p className="mb-4 text-sm text-slate-400">Vehículos activos vs. inactivos</p>
-
-                <ResponsiveContainer width="100%" height={180}>
-                    <PieChart>
-                        <Pie
-                            data={porEstado}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={48}
-                            outerRadius={75}
-                            paddingAngle={2}
-                        >
-                            {porEstado.map((item) => (
-                                <Cell
-                                    key={item.name}
-                                    fill={ESTADO_COLORS[normalizarTexto(item.name)] || "#94a3b8"}
-                                />
-                            ))}
-                        </Pie>
-                        <Tooltip contentStyle={TooltipStyle} formatter={(v) => [numero(v), "Vehículos"]} />
-                        <Legend
-                            verticalAlign="bottom"
-                            height={24}
-                            formatter={(value) => <span className="text-xs text-slate-600">{value}</span>}
-                        />
-                    </PieChart>
-                </ResponsiveContainer>
-
-                <div className="flex h-4 w-full overflow-hidden rounded-full bg-slate-100">
-                    {porEstado.map((item) => {
-                        const pct = totalEstados > 0 ? (item.value / totalEstados) * 100 : 0;
-                        const color = ESTADO_COLORS[normalizarTexto(item.name)] || "#94a3b8";
-                        return (
-                            <div key={item.name} style={{ width: `${pct}%`, backgroundColor: color }} />
-                        );
-                    })}
+                    <ReactECharts option={opcionPorMes} style={{ height: 320 }} notMerge />
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {porEstado.map((item) => {
-                        const pct = totalEstados > 0 ? ((item.value / totalEstados) * 100).toFixed(1) : "0.0";
-                        const esActivo = normalizarTexto(item.name) === "activo";
-                        const color = ESTADO_COLORS[normalizarTexto(item.name)] || "#94a3b8";
-                        const Icon = esActivo ? CheckCircle2 : XCircle;
-                        return (
-                            <div
-                                key={item.name}
-                                className="rounded-xl p-4"
-                                style={{ backgroundColor: `${color}12` }}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Icon className="h-4 w-4" style={{ color }} />
-                                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                                        {item.name}
+                {/* Distribución por segmento */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2">
+                    <p className="text-lg font-extrabold" style={{ color: NAVY }}>
+                        Distribución por segmento
+                    </p>
+                    <p className="mb-4 text-sm text-slate-400">Relación de vehículos por segmento</p>
+
+                    <ReactECharts option={opcionPorSegmento} style={{ height: 220 }} notMerge />
+
+                    <div className="mt-2 space-y-2">
+                        {porSegmento.map((item, index) => {
+                            const pct = totalSegmentos > 0 ? ((item.value / totalSegmentos) * 100).toFixed(1) : "0.0";
+                            return (
+                                <div key={item.name} className="flex items-center gap-2 text-sm">
+                                    <div
+                                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                        style={{ backgroundColor: SEGMENTO_COLORS[index % SEGMENTO_COLORS.length] }}
+                                    />
+                                    <span className="font-semibold text-slate-600">{item.name}</span>
+                                    <span className="ml-auto font-black text-slate-800">
+                                        {pct}% <span className="font-medium text-slate-400">({numero(item.value)})</span>
                                     </span>
                                 </div>
-                                <div className="mt-2 text-2xl font-black" style={{ color }}>
-                                    {pct}%
-                                </div>
-                                <div className="text-xs font-medium text-slate-400">
-                                    {numero(item.value)} vehículos
-                                </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
 
-            {/* NUEVO: Distribución por modelo */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-3">
-                <p className="text-lg font-extrabold" style={{ color: NAVY }}>
-                    Distribución por modelo
-                </p>
-                <p className="mb-4 text-sm text-slate-400">Top 10 modelos con más vehículos en retención</p>
+                {/* Top dealers */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-3">
+                    <p className="text-lg font-extrabold" style={{ color: NAVY }}>
+                        Vehículos por dealer
+                    </p>
+                    <p className="mb-4 text-sm text-slate-400">Top 10 dealers con más vehículos activos en retención</p>
 
-                <RankList
-                    items={porModelo}
-                    from="#6BD6C2"
-                    to="#1D9E75"
-                />
-            </div>
+                    <RankList items={porDealer.map((d) => ({ name: d.name, value: d.vehiculos }))} from="#6BB3F0" to={ACCENT} />
+                </div>
 
-            {/* Marca */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2">
-                <p className="text-lg font-extrabold" style={{ color: NAVY }}>
-                    Vehículos por marca
-                </p>
-                <p className="mb-4 text-sm text-slate-400">Top 8 marcas</p>
+                {/* Estado de actividad */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2">
+                    <p className="text-lg font-extrabold" style={{ color: NAVY }}>
+                        Estado de actividad
+                    </p>
+                    <p className="mb-4 text-sm text-slate-400">Vehículos activos vs. inactivos</p>
 
-                <RankList
-                    items={porMarca}
-                    from="#A79CF0"
-                    to="#7F77DD"
-                />
+                    <ReactECharts option={opcionPorEstado} style={{ height: 180 }} notMerge />
+
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {porEstado.map((item) => {
+                            const pct = totalEstados > 0 ? ((item.value / totalEstados) * 100).toFixed(1) : "0.0";
+                            const esActivo = normalizarTexto(item.name) === "activo";
+                            const color = ESTADO_COLORS[normalizarTexto(item.name)] || "#94a3b8";
+                            const Icon = esActivo ? CheckCircle2 : XCircle;
+                            return (
+                                <div
+                                    key={item.name}
+                                    className="rounded-xl p-4"
+                                    style={{ backgroundColor: `${color}12` }}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Icon className="h-4 w-4" style={{ color }} />
+                                        <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                                            {item.name}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 text-2xl font-black" style={{ color }}>
+                                        {pct}%
+                                    </div>
+                                    <div className="text-xs font-medium text-slate-400">
+                                        {numero(item.value)} vehículos
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Distribución por modelo */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-3">
+                    <p className="text-lg font-extrabold" style={{ color: NAVY }}>
+                        Distribución por modelo
+                    </p>
+                    <p className="mb-4 text-sm text-slate-400">Top 10 modelos con más vehículos en retención</p>
+
+                    <RankList
+                        items={porModelo}
+                        from="#6BD6C2"
+                        to="#1D9E75"
+                    />
+                </div>
+
+                {/* Marca */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2">
+                    <p className="text-lg font-extrabold" style={{ color: NAVY }}>
+                        Vehículos por marca
+                    </p>
+                    <p className="mb-4 text-sm text-slate-400">Top 8 marcas</p>
+
+                    <RankList
+                        items={porMarca}
+                        from="#A79CF0"
+                        to="#7F77DD"
+                    />
+                </div>
             </div>
         </div>
     );
 }
 
 // ---- Tarjeta de tarea individual (editable) ----
+// ---- Tarjeta de tarea individual (editable) ----
 function TareaCard({ tarea, onActualizar, onEliminar }) {
     const [titulo, setTitulo] = useState(tarea.titulo);
-    const [descripcion, setDescripcion] = useState(tarea.descripcion || "");
+    const [formaContacto, setFormaContacto] = useState(tarea.forma_contacto || "");
+    const [motivoContacto, setMotivoContacto] = useState(tarea.motivo_contacto || "");
+    const [resultado, setResultado] = useState(tarea.resultado || "");
+    const [comentarios, setComentarios] = useState(tarea.descripcion || "");
+    const [fechaTarea, setFechaTarea] = useState(tarea.fecha_limite || "");
     const colores = ESTADO_TAREA_COLORS[tarea.estado] || ESTADO_TAREA_COLORS.pendiente;
 
     useEffect(() => {
         setTitulo(tarea.titulo);
-        setDescripcion(tarea.descripcion || "");
-    }, [tarea.id, tarea.titulo, tarea.descripcion]);
+        setFormaContacto(tarea.forma_contacto || "");
+        setMotivoContacto(tarea.motivo_contacto || "");
+        setResultado(tarea.resultado || "");
+        setComentarios(tarea.descripcion || "");
+        setFechaTarea(tarea.fecha_limite || "");
+    }, [tarea.id, tarea.titulo, tarea.forma_contacto, tarea.motivo_contacto, tarea.resultado, tarea.descripcion, tarea.fecha_limite]);
 
-    function guardarTitulo() {
-        const limpio = titulo.trim();
-        if (!limpio) {
-            setTitulo(tarea.titulo);
-            return;
-        }
-        if (limpio !== tarea.titulo) onActualizar(tarea.id, { titulo: limpio });
-    }
-
-    function guardarDescripcion() {
-        if (descripcion !== (tarea.descripcion || "")) {
-            onActualizar(tarea.id, { descripcion });
-        }
+    function guardarCampo(campo, valorNuevo, valorAnterior) {
+        const limpio = typeof valorNuevo === "string" ? valorNuevo.trim() : valorNuevo;
+        if (limpio !== (valorAnterior || "")) onActualizar(tarea.id, { [campo]: limpio });
     }
 
     return (
@@ -767,7 +1088,7 @@ function TareaCard({ tarea, onActualizar, onEliminar }) {
                 <input
                     value={titulo}
                     onChange={(e) => setTitulo(e.target.value)}
-                    onBlur={guardarTitulo}
+                    onBlur={() => guardarCampo("titulo", titulo, tarea.titulo)}
                     placeholder="Título de la tarea"
                     className="min-w-0 flex-1 rounded-lg bg-transparent text-sm font-bold text-slate-800 outline-none transition focus:bg-slate-50"
                 />
@@ -781,14 +1102,70 @@ function TareaCard({ tarea, onActualizar, onEliminar }) {
                 </button>
             </div>
 
-            <textarea
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                onBlur={guardarDescripcion}
-                placeholder="Agregar descripción..."
-                rows={2}
-                className="mt-1.5 w-full resize-none rounded-lg bg-transparent text-xs text-slate-500 outline-none transition focus:bg-slate-50"
-            />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+                <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        Forma de contacto
+                    </label>
+                    <input
+                        value={formaContacto}
+                        onChange={(e) => setFormaContacto(e.target.value)}
+                        onBlur={() => guardarCampo("forma_contacto", formaContacto, tarea.forma_contacto)}
+                        placeholder="Llamada, WhatsApp..."
+                        className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-600 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-100"
+                    />
+                </div>
+                <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        Motivo de contacto
+                    </label>
+                    <input
+                        value={motivoContacto}
+                        onChange={(e) => setMotivoContacto(e.target.value)}
+                        onBlur={() => guardarCampo("motivo_contacto", motivoContacto, tarea.motivo_contacto)}
+                        placeholder="Servicio, recompra..."
+                        className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-600 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-100"
+                    />
+                </div>
+                <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        Resultado
+                    </label>
+                    <input
+                        value={resultado}
+                        onChange={(e) => setResultado(e.target.value)}
+                        onBlur={() => guardarCampo("resultado", resultado, tarea.resultado)}
+                        placeholder="Contestó, agendó cita..."
+                        className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-600 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-100"
+                    />
+                </div>
+                <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        Fecha de tarea
+                    </label>
+                    <input
+                        type="date"
+                        value={fechaTarea}
+                        onChange={(e) => setFechaTarea(e.target.value)}
+                        onBlur={() => guardarCampo("fecha_limite", fechaTarea, tarea.fecha_limite)}
+                        className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-600 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-100"
+                    />
+                </div>
+            </div>
+
+            <div className="mt-2">
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Comentarios
+                </label>
+                <textarea
+                    value={comentarios}
+                    onChange={(e) => setComentarios(e.target.value)}
+                    onBlur={() => guardarCampo("descripcion", comentarios, tarea.descripcion)}
+                    placeholder="Agregar comentarios..."
+                    rows={2}
+                    className="w-full resize-none rounded-lg bg-transparent text-xs text-slate-500 outline-none transition focus:bg-slate-50"
+                />
+            </div>
 
             <div className="mt-2 flex items-center justify-between gap-2">
                 <select
@@ -1018,7 +1395,7 @@ function InfoItem({ icon: Icon, label, value }) {
 export default function Retencion() {
     const [vista, setVista] = useState("tabla");
 
-    const [anio, setAnio] = useState(ANIO_ACTUAL);
+    const [anio, setAnio] = useState("Todos");
     const [mes, setMes] = useState("Todos");
     const [semana, setSemana] = useState("Todas");
     const [segmento, setSegmento] = useState("Todos");
@@ -1252,11 +1629,14 @@ export default function Retencion() {
         if (!clienteSeleccionado?.telefono_cliente) return;
         try {
             const nueva = await apiRetencion.crearTarea({
-                telefono_cliente: clienteSeleccionado.telefono_cliente,
-                nombre_cliente: clienteSeleccionado.nombre_cliente,
-                titulo: "Nueva tarea",
-                estado: "pendiente",
-            });
+            telefono_cliente: clienteSeleccionado.telefono_cliente,
+            nombre_cliente: clienteSeleccionado.nombre_cliente,
+            titulo: "Nueva tarea",
+            forma_contacto: "",
+            motivo_contacto: "",
+            resultado: "",
+            estado: "pendiente",
+        });     
             setTareas((prev) => [nueva, ...prev]);
         } catch (err) {
             setErrorTareas(err.message || "No se pudo crear la tarea.");
@@ -1318,31 +1698,55 @@ export default function Retencion() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1">
-                    <button
-                        onClick={() => setVista("tabla")}
-                        className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition ${vista === "tabla" ? "text-white" : "text-slate-500 hover:bg-slate-50"
-                            }`}
-                        style={vista === "tabla" ? { backgroundColor: NAVY } : {}}
-                    >
-                        <Table2 className="h-3.5 w-3.5" />
-                        Tabla
-                    </button>
-                    <button
-                        onClick={() => setVista("graficas")}
-                        className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition ${vista === "graficas" ? "text-white" : "text-slate-500 hover:bg-slate-50"
-                            }`}
-                        style={vista === "graficas" ? { backgroundColor: NAVY } : {}}
-                    >
-                        <BarChart3 className="h-3.5 w-3.5" />
-                        Gráficas
-                    </button>
-                    <button
-                        onClick={refrescarDatos}
-                        className="ml-1 flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
-                    >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                    </button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1">
+                        <button
+                            onClick={() => setVista("tabla")}
+                            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition ${vista === "tabla" ? "text-white" : "text-slate-500 hover:bg-slate-50"
+                                }`}
+                            style={vista === "tabla" ? { backgroundColor: NAVY } : {}}
+                        >
+                            <Table2 className="h-3.5 w-3.5" />
+                            Tabla
+                        </button>
+                        <button
+                            onClick={() => setVista("graficas")}
+                            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition ${vista === "graficas" ? "text-white" : "text-slate-500 hover:bg-slate-50"
+                                }`}
+                            style={vista === "graficas" ? { backgroundColor: NAVY } : {}}
+                        >
+                            <BarChart3 className="h-3.5 w-3.5" />
+                            Gráficas
+                        </button>
+                        <button
+                            onClick={refrescarDatos}
+                            className="ml-1 flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+                        >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 rounded-full border border-slate-200 bg-white p-1">
+                        <button
+                            onClick={() => setSegmento("Todos")}
+                            className={`rounded-full px-4 py-2 text-xs font-bold transition ${segmento === "Todos" ? "text-white" : "text-slate-500 hover:bg-slate-50"
+                                }`}
+                            style={segmento === "Todos" ? { backgroundColor: NAVY } : {}}
+                        >
+                            Todos
+                        </button>
+                        {opciones.segmentos.map((item) => (
+                            <button
+                                key={item}
+                                onClick={() => setSegmento(item)}
+                                className={`rounded-full px-4 py-2 text-xs font-bold transition ${segmento === item ? "text-white" : "text-slate-500 hover:bg-slate-50"
+                                    }`}
+                                style={segmento === item ? { backgroundColor: NAVY } : {}}
+                            >
+                                {item}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -1382,13 +1786,6 @@ export default function Retencion() {
                     <option value="Todas">Todas las semanas</option>
                     {SEMANAS.map((item) => (
                         <option key={item} value={String(item)}>Semana {item}</option>
-                    ))}
-                </PillSelect>
-
-                <PillSelect value={segmento} onChange={setSegmento}>
-                    <option value="Todos">Todos los segmentos</option>
-                    {opciones.segmentos.map((item) => (
-                        <option key={item} value={item}>{item}</option>
                     ))}
                 </PillSelect>
 
@@ -1432,10 +1829,13 @@ export default function Retencion() {
                 </button>
             </div>
 
+            {/* NUEVO: Datos de Prospección — ahora arriba, visible tanto en Tabla como en Gráficas */}
+            {segmento !== "Todos" ? <ResumenProspeccion datos={datosFiltrados} segmento={segmento} /> : null}
+
             {vista === "tabla" ? (
                 <TablaClientes datos={datosFiltrados} onAbrirDetalle={abrirDetalle} />
             ) : (
-                <VistaGraficas datos={datosFiltrados} />
+                <VistaGraficas datos={datosFiltrados} segmento={segmento} />
             )}
 
             <DetalleModal
