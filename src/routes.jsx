@@ -86,6 +86,7 @@ import Safety from "./pages/SafetyCulture/Safety";
 import Reclutamiento from "./pages/Reclutamiento/Reclutamiento";
 import Puestos from "./pages/puestos/Puestos";
 import AltaPersonal from "./pages/AltaPersonal/AltaPersonal";
+import AmbienteLaboral from "./pages/AmbienteLaboral/AmbienteLaboral";
 
 import CampanasMeta from "./pages/CampanasMeta/CampanasMeta";
 import Retencion from "./pages/Retencion/Retencion";
@@ -882,6 +883,20 @@ export const router = createBrowserRouter(
                                             ]}
                                         >
                                             <Puestos />
+                                        </RequirePermission>
+                                    ),
+                                },
+                                {
+                                    path: "ambiente-laboral",
+                                    element: (
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_RRHH",
+                                                "CRM_CALIDAD",
+                                            ]}
+                                        >
+                                            <AmbienteLaboral />
                                         </RequirePermission>
                                     ),
                                 },

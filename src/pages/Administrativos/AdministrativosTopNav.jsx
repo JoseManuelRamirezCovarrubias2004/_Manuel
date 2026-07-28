@@ -5,6 +5,7 @@ import {
     CalendarCheck2,
     BriefcaseBusiness,
     UserPlus,
+    HeartHandshake,
 } from "lucide-react";import vwDark from "../../assets/vw_dark.png";
 
 const BRAND_BLUE = "#131E5C";
@@ -41,6 +42,11 @@ export default function AdministrativosTopNav() {
                 label: "Puestos",
                 href: "puestos",
                 icon: BriefcaseBusiness,
+            },
+            {
+                label: "Ambiente laboral",
+                href: "ambiente-laboral",
+                icon: HeartHandshake,
             },
         ],
         []
