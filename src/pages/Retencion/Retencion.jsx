@@ -21,7 +21,6 @@ import {
     Search,
     Table2,
     Trash2,
-    Users,
     Wallet,
     Wrench,
     X,
@@ -207,24 +206,110 @@ function estadoBadgeClass(estado) {
 // ---- KPI ----
 function KpiCard({ icon: Icon, label, value, sub, color }) {
     return (
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition hover:shadow-lg hover:shadow-slate-200/60">
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 transition hover:shadow-lg hover:shadow-slate-200/60">
             <div
-                className="absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-[0.07] transition group-hover:scale-110"
+                className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.07] transition group-hover:scale-110"
                 style={{ backgroundColor: color }}
             />
             <div className="flex items-center gap-3">
                 <div
-                    className="flex h-11 w-11 items-center justify-center rounded-xl"
+                    className="flex h-12 w-12 items-center justify-center rounded-xl"
                     style={{ backgroundColor: `${color}18`, color }}
                 >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-6 w-6" />
                 </div>
-                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
                     {label}
                 </div>
             </div>
-            <div className="mt-4 text-3xl font-black text-slate-800">{value}</div>
-            {sub ? <div className="mt-1 text-xs font-medium text-slate-400">{sub}</div> : null}
+            <div className="mt-5 text-4xl font-black text-slate-800">{value}</div>
+            {sub ? <div className="mt-1.5 text-sm font-medium text-slate-400">{sub}</div> : null}
+        </div>
+    );
+}
+
+// ---- KPI con gauge tipo "líquido" (reemplaza a Meses promedio + Contactables) ----
+function KpiGaugeRetorno({ porcentaje, label }) {
+    const pctObjetivo = Number.isFinite(porcentaje) ? Math.max(0, Math.min(100, porcentaje)) : 0;
+    const [nivel, setNivel] = useState(0);
+
+    useEffect(() => {
+        setNivel(0);
+        let frame;
+        const duracion = 1200;
+        const inicio = performance.now();
+
+        function animar(ahora) {
+            const progreso = Math.min((ahora - inicio) / duracion, 1);
+            const easeOut = 1 - Math.pow(1 - progreso, 3);
+            setNivel(pctObjetivo * easeOut);
+            if (progreso < 1) frame = requestAnimationFrame(animar);
+        }
+
+        const t = setTimeout(() => {
+            frame = requestAnimationFrame(animar);
+        }, 100);
+
+        return () => {
+            clearTimeout(t);
+            if (frame) cancelAnimationFrame(frame);
+        };
+    }, [pctObjetivo, label]);
+
+    const waveY = 120 - (nivel / 100) * 120;
+
+    return (
+        <div className="col-span-2 flex items-center justify-between px-2">
+            <style>{`
+                @keyframes retencionWaveDrift {
+                    from { transform: translateX(0); }
+                    to { transform: translateX(-120px); }
+                }
+                .retencion-wave-back { animation: retencionWaveDrift 7s linear infinite; }
+                .retencion-wave-front { animation: retencionWaveDrift 4.5s linear infinite reverse; }
+            `}</style>
+
+           <div className="flex w-full items-center justify-between gap-6">
+                <div
+                    className="relative h-28 w-28 shrink-0 overflow-hidden rounded-full border-4 border-slate-100"
+                    style={{ boxShadow: "inset 0 2px 8px rgba(19,30,92,0.10)" }}
+                >
+                    <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="olaKpiGradiente" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor={ACCENT} />
+                                <stop offset="100%" stopColor={NAVY} />
+                            </linearGradient>
+                        </defs>
+                        <g style={{ transform: `translateY(${waveY}px)` }}>
+                            <path
+                                className="retencion-wave-back"
+                                d="M-40 8 Q -20 -2 0 8 T 40 8 T 80 8 T 120 8 T 160 8 V 140 H -40 Z"
+                                fill={`${ACCENT}4d`}
+                            />
+                            <path
+                                className="retencion-wave-front"
+                                d="M-40 12 Q -20 2 0 12 T 40 12 T 80 12 T 120 12 T 160 12 V 140 H -40 Z"
+                                fill="url(#olaKpiGradiente)"
+                            />
+                        </g>
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xl font-black tabular-nums" style={{ color: NAVY }}>
+                            {nivel.toFixed(0)}%
+                        </span>
+                    </div>
+                </div>
+
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide text-slate-400">
+                        <Gauge className="h-4 w-4 shrink-0" style={{ color: ACCENT }} />
+                        <span className="truncate">Retorno {label}</span>
+                    </div>
+                    <div className="mt-1 text-5xl font-black text-slate-800">{pctObjetivo.toFixed(1)}%</div>
+                    <div className="text-sm font-medium text-slate-400">activos en servicio</div>
+                </div>
+            </div>
         </div>
     );
 }
@@ -458,71 +543,6 @@ function TarjetaSegmento({ icon: Icon, label, value, color, children }) {
     );
 }
 
-// ---- Gauge horizontal para "Retorno de segmento" ----
-function GaugeRetorno({ porcentaje }) {
-    const pct = Number.isFinite(porcentaje) ? Math.max(0, Math.min(100, porcentaje)) : 0;
-    return (
-        <div>
-            <div className="mb-1.5 flex items-baseline justify-between">
-                <span className="text-3xl font-black" style={{ color: "#D4537E" }}>
-                    {pct.toFixed(2)}%
-                </span>
-                <span className="text-xs font-bold text-slate-300">100</span>
-            </div>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                        width: `${pct}%`,
-                        background: "linear-gradient(90deg, #F0568A, #D4537E)",
-                    }}
-                />
-            </div>
-        </div>
-    );
-}
-
-// =====================================================================================
-// NUEVO: ResumenProspeccion — SOLO las 4 tarjetas (Total / Activos / Inactivos / Retorno)
-// Este bloque ahora vive arriba de Tabla y de Gráficas, así aparece en ambas vistas.
-// =====================================================================================
-function ResumenProspeccion({ datos, segmento }) {
-    const total = datos.length;
-    const activos = useMemo(
-        () => datos.filter((item) => normalizarTexto(item.estado_actividad) === "activo").length,
-        [datos]
-    );
-    const inactivos = total - activos;
-    const retorno = promedio(activos, total) * 100;
-
-    return (
-        <div className="space-y-3">
-            <div className="flex items-center gap-2">
-                <span className="text-lg font-extrabold" style={{ color: NAVY }}>
-                    Datos de Prospección
-                </span>
-                <span className="text-lg font-extrabold text-slate-300">|</span>
-                <span className="text-lg font-extrabold italic" style={{ color: ACCENT }}>
-                    {segmento}
-                </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <TarjetaSegmento icon={Car} label="Total de Autos en Segmento" value={numero(total)} color={ACCENT} />
-                <TarjetaSegmento icon={CheckCircle2} label="Autos Activos" value={numero(activos)} color="#1D9E75" />
-                <TarjetaSegmento icon={XCircle} label="Autos Inactivos" value={numero(inactivos)} color="#D85A30" />
-                <TarjetaSegmento icon={Gauge} label={`Retorno de ${segmento}`} color="#D4537E">
-                    <GaugeRetorno porcentaje={retorno} />
-                </TarjetaSegmento>
-            </div>
-        </div>
-    );
-}
-
-// =====================================================================================
-// NUEVO: DesgloseSegmento — gráfica de Estado por modelo (ahora en ECharts) + tabla de
-// desglose de OS por VIN. Exclusivo de la vista Gráficas.
-// =====================================================================================
 function DesgloseSegmento({ datos, segmento }) {
     const porModeloEstado = useMemo(() => {
         const map = new Map();
@@ -668,10 +688,7 @@ function DesgloseSegmento({ datos, segmento }) {
     );
 }
 
-// =====================================================================================
-// Gráficas principales — migradas de recharts a ECharts, con degradados, curvas suaves,
-// donas con etiqueta central y animación de entrada.
-// =====================================================================================
+
 function VistaGraficas({ datos, segmento }) {
     const porMes = useMemo(() => {
         const map = new Map();
@@ -1058,7 +1075,7 @@ function VistaGraficas({ datos, segmento }) {
 }
 
 // ---- Tarjeta de tarea individual (editable) ----
-// ---- Tarjeta de tarea individual (editable) ----
+
 function TareaCard({ tarea, onActualizar, onEliminar }) {
     const [titulo, setTitulo] = useState(tarea.titulo);
     const [formaContacto, setFormaContacto] = useState(tarea.forma_contacto || "");
@@ -1548,21 +1565,24 @@ export default function Retencion() {
     }, [datosRaw, semana, busqueda]);
 
     const resumen = useMemo(() => {
-        const totalVehiculos = datosFiltrados.length;
-        const totalServicio = datosFiltrados.reduce((acc, item) => acc + item.total_ultimo_servicio, 0);
-        const totalMeses = datosFiltrados.reduce((acc, item) => acc + item.meses_desde_venta, 0);
-        const activos = datosFiltrados.filter((item) => normalizarTexto(item.estado_actividad) === "activo").length;
-        const conTelefono = datosFiltrados.filter((item) => item.telefono_cliente).length;
+    const totalVehiculos = datosFiltrados.length;
+    const totalServicio = datosFiltrados.reduce((acc, item) => acc + item.total_ultimo_servicio, 0);
+    const totalMeses = datosFiltrados.reduce((acc, item) => acc + item.meses_desde_venta, 0);
+    const activos = datosFiltrados.filter((item) => normalizarTexto(item.estado_actividad) === "activo").length;
+    const inactivos = totalVehiculos - activos;
+    const conTelefono = datosFiltrados.filter((item) => item.telefono_cliente).length;
 
-        return {
-            totalVehiculos,
-            totalServicio,
-            ticketPromedio: promedio(totalServicio, totalVehiculos),
-            mesesPromedio: promedio(totalMeses, totalVehiculos),
-            activos,
-            conTelefono,
-        };
-    }, [datosFiltrados]);
+    return {
+        totalVehiculos,
+        totalServicio,
+        ticketPromedio: promedio(totalServicio, totalVehiculos),
+        mesesPromedio: promedio(totalMeses, totalVehiculos),
+        activos,
+        inactivos,
+        conTelefono,
+        retorno: promedio(activos, totalVehiculos) * 100,
+    };
+}, [datosFiltrados]);
 
     const loadingGeneral = loading || loadingOpciones;
 
@@ -1751,12 +1771,15 @@ export default function Retencion() {
             </div>
 
             {/* KPIs */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
                 <KpiCard icon={Car} label="Vehículos" value={numero(resumen.totalVehiculos)} sub="registros filtrados" color={ACCENT} />
                 <KpiCard icon={Activity} label="Activos" value={numero(resumen.activos)} sub="con actividad de servicio" color="#1D9E75" />
+                <KpiCard icon={XCircle} label="Inactivos" value={numero(resumen.inactivos)} sub="sin actividad reciente" color="#D85A30" />
                 <KpiCard icon={Wallet} label="Total servicio" value={moneda(resumen.totalServicio)} sub="último servicio, acumulado" color="#D85A30" />
-                <KpiCard icon={Gauge} label="Meses promedio" value={resumen.mesesPromedio.toFixed(1)} sub="desde la venta" color="#F0A500" />
-                <KpiCard icon={Users} label="Contactables" value={numero(resumen.conTelefono)} sub="con teléfono registrado" color="#D4537E" />
+                <KpiGaugeRetorno
+                    porcentaje={resumen.retorno}
+                    label={segmento !== "Todos" ? segmento : "general"}
+                />
             </div>
 
             {/* Filtros */}
@@ -1828,9 +1851,6 @@ export default function Retencion() {
                     Limpiar
                 </button>
             </div>
-
-            {/* NUEVO: Datos de Prospección — ahora arriba, visible tanto en Tabla como en Gráficas */}
-            {segmento !== "Todos" ? <ResumenProspeccion datos={datosFiltrados} segmento={segmento} /> : null}
 
             {vista === "tabla" ? (
                 <TablaClientes datos={datosFiltrados} onAbrirDetalle={abrirDetalle} />
