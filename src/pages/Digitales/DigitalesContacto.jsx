@@ -3757,6 +3757,7 @@ export default function DigitalesContacto() {
 
     // ── Effects ───────────────────────────────────────────────────────────────
 
+    
     useEffect(() => {
         let mounted = true;
         (async () => {
@@ -3771,6 +3772,11 @@ export default function DigitalesContacto() {
     }, []);
 
     useEffect(() => { try { localStorage.setItem(QUICK_BUBBLES_KEY, JSON.stringify(quickBubbles)); } catch { } }, [quickBubbles]);
+    useEffect(() => {
+    if (!numeroAsesorActivo) return;
+    cargarPlantillas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [numeroAsesorActivo]);
     useEffect(() => { activeTelRef.current = activeTel; }, [activeTel]);
     useEffect(() => {
         numeroAsesorActivoRef.current =
