@@ -29,6 +29,7 @@ import DigitalesLayout from "./pages/Digitales/DigitalesLayout";
 import DigitalesOverView from "./pages/Digitales/DigitalesOverView";
 import DigitalesProspectos from "./pages/Digitales/DigitalesProspectos";
 import DigitalesContacto from "./pages/Digitales/DigitalesContacto";
+import DigitalesBandeja from "./pages/Digitales/DigitalesBandeja";
 import DigitalesPlantillas from "./pages/Plantillas/Plantillas";
 
 import CitasLayout from "./pages/Citas/CitasLayout";
@@ -448,6 +449,10 @@ export const router = createBrowserRouter(
                                         {
                                             path: "contacto",
                                             element: <DigitalesContacto />,
+                                        },
+                                        {
+                                            path: "bandeja",
+                                            element: <DigitalesBandeja />,
                                         },
                                     ],
                                 },

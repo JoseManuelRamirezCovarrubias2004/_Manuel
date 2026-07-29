@@ -1,7 +1,7 @@
 // src/pages/Digitales/DigitalesTopNav.jsx
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutGrid, Phone, Contact, ChartNoAxesCombined } from "lucide-react";
+import { LayoutGrid, Phone, Contact, ChartNoAxesCombined, KanbanSquare } from "lucide-react";
 import vwWhite from "../../assets/vw_white.png";
 import ryr from "../../assets/ryr.png";
 
@@ -14,6 +14,7 @@ export default function DigitalesTopNav() {
         () => [
             { label: "Prospectos", href: "/crm_digitales", icon: Contact },
             { label: "Contacto", href: "/crm_digitales/contacto", icon: Phone },
+            { label: "Bandeja", href: "/crm_digitales/bandeja", icon: KanbanSquare },
             { label: "Resumen", href: "/crm_digitales/resumen", icon: ChartNoAxesCombined },
         ],
         []
