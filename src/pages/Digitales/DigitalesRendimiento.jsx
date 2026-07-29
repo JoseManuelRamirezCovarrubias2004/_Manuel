@@ -20,15 +20,89 @@ import {
 } from "lucide-react";
 import { api } from "../../lib/apiPruebas";
 
+const RESULTADOS = [
+    {
+        value: "pendiente",
+        label: "Esperando respuesta",
+        grupo: "pendiente",
+    },
+    {
+        value: "respuesta_positiva",
+        label: "Respondió con interés",
+        grupo: "positivo",
+    },
+    {
+        value: "respuesta_neutral",
+        label: "Respondió",
+        grupo: "neutral",
+    },
+    {
+        value: "respuesta_negativa",
+        label: "Respondió negativamente",
+        grupo: "negativo",
+    },
+    {
+        value: "sin_respuesta",
+        label: "No respondió",
+        grupo: "sin_respuesta",
+    },
+    {
+        value: "fallido",
+        label: "Falló el envío",
+        grupo: "fallido",
+    },
+    {
+        value: "no_aplica",
+        label: "No aplica",
+        grupo: "no_aplica",
+    },
+    {
+        value: "cita_agendada",
+        label: "Cita agendada",
+        grupo: "positivo",
+    },
+];
+
 const RESULT_STYLES = {
-    respuesta_positiva: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    respuesta_neutral: "bg-sky-50 text-sky-700 border-sky-200",
-    respuesta_negativa: "bg-rose-50 text-rose-700 border-rose-200",
-    sin_respuesta: "bg-amber-50 text-amber-700 border-amber-200",
-    pendiente: "bg-slate-50 text-slate-600 border-slate-200",
-    fallido: "bg-red-50 text-red-700 border-red-200",
-    no_aplica: "bg-violet-50 text-violet-700 border-violet-200",
+    positivo:
+        "bg-emerald-50 text-emerald-700 border-emerald-200",
+
+    neutral:
+        "bg-sky-50 text-sky-700 border-sky-200",
+
+    negativo:
+        "bg-rose-50 text-rose-700 border-rose-200",
+
+    sin_respuesta:
+        "bg-amber-50 text-amber-700 border-amber-200",
+
+    pendiente:
+        "bg-slate-50 text-slate-600 border-slate-200",
+
+    fallido:
+        "bg-red-50 text-red-700 border-red-200",
+
+    no_aplica:
+        "bg-violet-50 text-violet-700 border-violet-200",
 };
+
+function getResultadoConfig(value) {
+    return (
+        RESULTADOS.find(
+            (item) => item.value === value,
+        ) || {
+            value: value || "pendiente",
+            label: String(
+                value || "Sin resultado",
+            )
+                .replaceAll("_", " ")
+                .replace(/\b\w/g, (letter) =>
+                    letter.toUpperCase(),
+                ),
+            grupo: "pendiente",
+        }
+    );
+}
 
 function isoDate(daysAgo = 0) {
     const date = new Date();
@@ -48,11 +122,16 @@ function formatNumber(value) {
     return new Intl.NumberFormat("es-MX").format(Number(value || 0));
 }
 
-function ResultBadge({ value, label }) {
-    const style = RESULT_STYLES[value] || RESULT_STYLES.pendiente;
+function ResultBadge({ value, label, grupo, }) {
+    const config = getResultadoConfig(value);
+
+    const grupoFinal = grupo || config.grupo || "pendiente";
+
+    const style = RESULT_STYLES[grupoFinal] || RESULT_STYLES.pendiente;
+
     return (
         <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${style}`}>
-            {label || value || "Sin resultado"}
+            {label || config.label}
         </span>
     );
 }
@@ -116,19 +195,46 @@ function ClientDrawer({ open, client, onClose, onResultChanged }) {
         };
     }, [open, client?.expediente_id, client?.numero_asesor]);
 
-    async function updateResult(eventoId, resultado) {
+    async function updateResult(
+        eventoId,
+        resultado,
+    ) {
+        const config =
+            getResultadoConfig(resultado);
+
         setUpdatingId(eventoId);
+        setError("");
+
         try {
-            const response = await api.digitalesAnaliticaActualizarResultado(eventoId, resultado);
+            const response =
+                await api.digitalesAnaliticaActualizarResultado(
+                    eventoId,
+                    {
+                        resultado: config.value,
+                        resultado_label:
+                            config.label,
+                        grupo_resultado:
+                            config.grupo,
+                    },
+                );
+
             setDetail((current) => ({
                 ...current,
-                eventos: (current?.eventos || []).map((item) =>
-                    item.id === eventoId ? response.evento : item,
+                eventos: (
+                    current?.eventos || []
+                ).map((item) =>
+                    item.id === eventoId
+                        ? response.evento
+                        : item,
                 ),
             }));
+
             onResultChanged?.();
         } catch (err) {
-            setError(err?.message || "No fue posible actualizar el resultado.");
+            setError(
+                err?.message
+                || "No fue posible actualizar el resultado.",
+            );
         } finally {
             setUpdatingId("");
         }
@@ -180,8 +286,7 @@ function ClientDrawer({ open, client, onClose, onResultChanged }) {
                                             <div>
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{item.tipo_label}</span>
-                                                    <ResultBadge value={item.resultado} label={item.resultado_label} />
-                                                </div>
+                                                    <ResultBadge value={item.resultado} label={item.resultado_label} grupo={item.resultado_grupo} />                                                </div>
                                                 <h3 className="mt-2 font-medium text-slate-900">{item.accion}</h3>
                                                 {item.detalle ? <p className="mt-1 text-sm text-slate-600">{item.detalle}</p> : null}
                                             </div>
@@ -206,12 +311,14 @@ function ClientDrawer({ open, client, onClose, onResultChanged }) {
                                                     onChange={(event) => updateResult(item.id, event.target.value)}
                                                     className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
                                                 >
-                                                    <option value="pendiente">Esperando respuesta</option>
-                                                    <option value="respuesta_positiva">Respondió con interés</option>
-                                                    <option value="respuesta_neutral">Respondió</option>
-                                                    <option value="respuesta_negativa">Respondió negativamente</option>
-                                                    <option value="sin_respuesta">No respondió</option>
-                                                    <option value="fallido">Falló el envío</option>
+                                                    {RESULTADOS.map((resultado) => (
+                                                        <option
+                                                            key={resultado.value}
+                                                            value={resultado.value}
+                                                        >
+                                                            {resultado.label}
+                                                        </option>
+                                                    ))}
                                                 </select>
                                                 {updatingId === item.id ? <Loader2 className="animate-spin text-slate-400" size={16} /> : null}
                                             </div>
@@ -323,8 +430,14 @@ export default function DigitalesRendimiento() {
                             Resultado
                             <select value={filters.resultado} onChange={(e) => setFilter("resultado", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900">
                                 <option value="">Todos</option>
-                                {(data?.catalogos?.resultados || []).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                            </select>
+                                {RESULTADOS.map((item) => (
+                                    <option
+                                        key={item.value}
+                                        value={item.value}
+                                    >
+                                        {item.label}
+                                    </option>
+                                ))}                            </select>
                         </label>
                         <label className="text-sm text-slate-600">
                             Acción
@@ -475,7 +588,7 @@ export default function DigitalesRendimiento() {
                                                     <p className="truncate text-slate-700">{item.ultima_accion || "—"}</p>
                                                     <p className="mt-1 text-xs text-slate-500">{formatDate(item.ultima_actividad)}</p>
                                                 </td>
-                                                <td className="px-4 py-4"><ResultBadge value={item.ultimo_resultado} label={(data?.catalogos?.resultados || []).find((x) => x.value === item.ultimo_resultado)?.label} /></td>
+                                                <td className="px-4 py-4"><ResultBadge value={item.ultimo_resultado} label={item.ultimo_resultado_label || getResultadoConfig(item.ultimo_resultado,).label} grupo={item.ultimo_resultado_grupo} /></td>
                                                 <td className="px-5 py-4 text-right">
                                                     <button type="button" onClick={() => setSelectedClient(item)} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Ver bitácora</button>
                                                 </td>

@@ -803,13 +803,15 @@ export const api = {
       `/digitales/analitica/asesores/cliente/${encodeURIComponent(expedienteId)}/${buildQuery(params)}`,
     ),
 
-  digitalesAnaliticaActualizarResultado: (eventoId, resultado) =>
+  digitalesAnaliticaActualizarResultado: (eventoId, payload = {}) =>
     http(
       `/digitales/analitica/eventos/${encodeURIComponent(eventoId)}/resultado/`,
       {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resultado }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload || {}),
       },
     ),
 
