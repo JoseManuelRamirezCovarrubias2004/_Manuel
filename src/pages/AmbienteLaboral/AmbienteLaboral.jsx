@@ -60,6 +60,7 @@ export default function AmbienteLaboral() {
     const [anio, setAnio] = useState("2026");
     const [categoriaAbierta, setCategoriaAbierta] = useState("factores-actividad");
     const [valores, setValores] = useState(() => crearEstadoDominios(DATA_INICIAL));
+    const [evidencias, setEvidencias] = useState({});
 
     const actualizarDominio = (dominioId, campo, valor) => {
         setValores((prev) => ({
@@ -68,6 +69,14 @@ export default function AmbienteLaboral() {
                 ...prev[dominioId],
                 [campo]: valor,
             },
+        }));
+    };
+
+    const manejarEvidencia = (dominioId, archivo) => {
+        if (!archivo) return;
+        setEvidencias((prev) => ({
+            ...prev,
+            [dominioId]: archivo,
         }));
     };
 
@@ -205,13 +214,22 @@ export default function AmbienteLaboral() {
                                                 />
                                             </div>
 
-                                            <button
-                                                className="flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold"
-                                                style={{ borderColor: `${BRAND_BLUE}33`, color: BRAND_BLUE }}
-                                            >
-                                                <Paperclip className="h-3.5 w-3.5" />
-                                                Adjuntar evidencias
-                                            </button>
+                                           <div className="flex items-center gap-2">
+                                                <input
+                                                    type="file"
+                                                    id={`evidencia-${dom.id}`}
+                                                    className="hidden"
+                                                    onChange={(e) => manejarEvidencia(dom.id, e.target.files[0])}
+                                                />
+                                                <label
+                                                    htmlFor={`evidencia-${dom.id}`}
+                                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold"
+                                                    style={{ borderColor: `${BRAND_BLUE}33`, color: BRAND_BLUE }}
+                                                >
+                                                    <Paperclip className="h-3.5 w-3.5" />
+                                                    {evidencias[dom.id] ? evidencias[dom.id].name : "Adjuntar evidencias"}
+                                                </label>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
