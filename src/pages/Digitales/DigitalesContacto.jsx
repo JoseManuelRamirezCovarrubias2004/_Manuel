@@ -40,6 +40,7 @@ import {
     CalendarPlus,
     Mic,
     Square,
+    Download,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
@@ -577,6 +578,47 @@ function humanBytes(bytes) {
     return `${size >= 10 || index === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[index]}`;
 }
 
+// ─── Descarga de archivos (usado por el botón de descarga de audio) ────────
+const MIME_TO_EXT = {
+    "audio/ogg": "ogg",
+    "audio/mpeg": "mp3",
+    "audio/mp4": "m4a",
+    "audio/webm": "webm",
+    "audio/wav": "wav",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "video/mp4": "mp4",
+    "application/pdf": "pdf",
+};
+
+function extensionDesdeMime(mime) {
+    const clean = String(mime || "").split(";")[0].trim().toLowerCase();
+    return MIME_TO_EXT[clean] || clean.split("/")[1] || "bin";
+}
+
+async function downloadFileFromUrl(url, filenameBase) {
+    try {
+        const res = await fetch(url); // media_proxy_view es AllowAny, no requiere auth headers
+        if (!res.ok) throw new Error("No se pudo descargar el archivo");
+        const blob = await res.blob();
+        const ext = extensionDesdeMime(blob.type);
+        const filename = `${filenameBase || "archivo"}.${ext}`;
+
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+        console.error("Error al descargar:", err);
+        window.open(url, "_blank");
+    }
+}
+
 const MESSAGE_PLACEHOLDER_LABELS = {
     "[IMAGE]": "Imagen",
     "[VIDEO]": "Video",
@@ -942,20 +984,18 @@ function WhatsAppAudioPlayer({ src, mine }) {
     const [playing, setPlaying] = useState(false);
     const [duration, setDuration] = useState(0);
     const [current, setCurrent] = useState(0);
-
+    const [downloading, setDownloading] = useState(false); // <-- nuevo
+ 
     const progress = duration ? Math.min(1, current / duration) : 0;
-
+ 
     async function togglePlay() {
         const audio = audioRef.current;
-
         if (!audio) return;
-
         if (playing) {
             audio.pause();
             setPlaying(false);
             return;
         }
-
         try {
             await audio.play();
             setPlaying(true);
@@ -963,24 +1003,30 @@ function WhatsAppAudioPlayer({ src, mine }) {
             console.error("No se pudo reproducir audio:", error);
         }
     }
-
+ 
     function handleSeek(e) {
         const audio = audioRef.current;
-
         if (!audio || !duration) return;
-
         const rect = e.currentTarget.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const pct = Math.max(0, Math.min(1, x / rect.width));
-
         audio.currentTime = pct * duration;
         setCurrent(audio.currentTime);
     }
-
+ 
+    async function handleDownload() {
+        if (downloading || !src) return;
+        setDownloading(true);
+        // No pasamos extensión aquí: downloadFileFromUrl la calcula
+        // a partir del content-type real que regresa media_proxy_view.
+        await downloadFileFromUrl(src, `nota-voz-${Date.now()}`);
+        setDownloading(false);
+    }
+ 
     return (
         <div
             className={cls(
-                "flex min-w-[260px] max-w-[360px] items-center gap-3 rounded-2xl px-3 py-2",
+                "flex min-w-[260px] max-w-[360px] items-center gap-2 rounded-2xl px-3 py-2",
                 mine ? "bg-[#D9FDD3] text-[#111B21]" : "bg-white text-[#111B21]"
             )}
         >
@@ -996,7 +1042,7 @@ function WhatsAppAudioPlayer({ src, mine }) {
                 }}
                 className="hidden"
             />
-
+ 
             <button
                 type="button"
                 onClick={togglePlay}
@@ -1010,15 +1056,29 @@ function WhatsAppAudioPlayer({ src, mine }) {
             >
                 {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
             </button>
-
+ 
             <div className="min-w-0 flex-1">
                 <WhatsAppWaveform progress={progress} mine={mine} onSeek={handleSeek} />
-
                 <div className="mt-0.5 flex items-center justify-between text-[11px] font-semibold text-[#667781]">
                     <span>{formatAudioTime(current || duration || 0)}</span>
                     <span>audio</span>
                 </div>
             </div>
+ 
+            {/* Botón de descarga */}
+            <button
+                type="button"
+                onClick={handleDownload}
+                disabled={downloading}
+                className={cls(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition",
+                    mine ? "text-[#075E54] hover:bg-[#075E54]/10" : "text-[#128C7E] hover:bg-[#128C7E]/10",
+                    downloading ? "opacity-50" : ""
+                )}
+                title="Descargar audio"
+            >
+                <Download className="h-4 w-4" />
+            </button>
         </div>
     );
 }
