@@ -1014,14 +1014,22 @@ function WhatsAppAudioPlayer({ src, mine }) {
         setCurrent(audio.currentTime);
     }
  
-    async function handleDownload() {
-        if (downloading || !src) return;
-        setDownloading(true);
-        // No pasamos extensión aquí: downloadFileFromUrl la calcula
-        // a partir del content-type real que regresa media_proxy_view.
-        await downloadFileFromUrl(src, `nota-voz-${Date.now()}`);
-        setDownloading(false);
-    }
+    function handleDownload() {
+    if (!src) return;
+
+    // src apunta a /digitales/media/<media_id>/?numero_asesor=...
+    // Construimos la URL hermana .../descargar/ que regresa el MP3 real
+    // con Content-Disposition: attachment (el navegador lo descarga solo).
+    const [base, query] = src.split("?");
+    const downloadUrl = `${base.replace(/\/$/, "")}/descargar/${query ? `?${query}` : ""}`;
+
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+}
  
     return (
         <div
@@ -1064,21 +1072,20 @@ function WhatsAppAudioPlayer({ src, mine }) {
                     <span>audio</span>
                 </div>
             </div>
- 
-            {/* Botón de descarga */}
             <button
                 type="button"
                 onClick={handleDownload}
-                disabled={downloading}
                 className={cls(
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition",
-                    mine ? "text-[#075E54] hover:bg-[#075E54]/10" : "text-[#128C7E] hover:bg-[#128C7E]/10",
-                    downloading ? "opacity-50" : ""
+                    mine
+                        ? "text-[#075E54] hover:bg-[#075E54]/10"
+                        : "text-[#128C7E] hover:bg-[#128C7E]/10"
                 )}
-                title="Descargar audio"
+                title="Descargar audio (MP3)"
             >
                 <Download className="h-4 w-4" />
             </button>
+             
         </div>
     );
 }
