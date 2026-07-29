@@ -14,6 +14,7 @@ import {
     Car,
     ChartNoAxesColumn,
     ChartNoAxesCombined,
+    KanbanSquare,
 } from "lucide-react";
 
 import vwDark from "../../assets/vw_dark.png";
@@ -78,6 +79,12 @@ export default function ComercialTopNav() {
                 label: "Contacto",
                 href: "/comercial/prospectos/contacto",
                 icon: MessageCircle,
+                show: canSeeContacto && inProspectos,
+            },
+            {
+                label: "Bandeja",
+                href: "/comercial/prospectos/bandeja",
+                icon: KanbanSquare,
                 show: canSeeContacto && inProspectos,
             },
             {
