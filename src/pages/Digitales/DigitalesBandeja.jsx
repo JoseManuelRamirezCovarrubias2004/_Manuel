@@ -1,4 +1,3 @@
-// Volkswagen
 // src/pages/Digitaltes/DigitalesBandeja.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -32,18 +31,26 @@ const DEALERS = [
 const CANALES = ["VW-Concesionario", "WhatsApp", "Facebook", "Llamada Entrante"];
 
 const ESTADOS_BANDEJA = [
-    { key: "sin_respuesta", label: "Sin Respuesta", match: ["sin respuesta", "sin_respuesta", ""], color: "#EF4444" },
-    { key: "contactado", label: "Contactado", match: ["contactado"], color: "#F59E0B" },
-    { key: "pendiente_cotizacion", label: "Pendiente cotización", match: ["pendiente cotización", "pendiente de cotizacion", "pendiente cotizacion"], color: "#8B5CF6" },
-    { key: "seguimiento", label: "Seguimiento", match: ["seguimiento"], color: "#3B82F6" },
-    { key: "lead_calificado", label: "Lead calificado", match: ["lead calificado", "lead_calificado"], color: "#22C55E" },
+
+    { key: "generacion_leads", label: "Generación de Leads", match: ["generación de leads", "generacion de leads", "generacion_leads", ""], color: "#0EA5E9" },
+    { key: "seminuevos", label: "Seminuevos", match: ["seminuevos"], color: "#F97316" },
+    { key: "contactado", label: "Contactado", match: ["contactado", "sin respuesta", "sin_respuesta"], color: "#F59E0B" },
+    { key: "perfilado", label: "Perfilado", match: ["perfilado"], color: "#6366F1" },
+    { key: "cotizacion", label: "Cotización", match: ["cotización", "cotizacion"], color: "#8B5CF6" },
+    { key: "cita_programada", label: "Cita Programada", match: ["cita programada", "cita_programada"], color: "#0891B2" },
+    { key: "no_show", label: "No Show", match: ["no show", "no_show", "noshow"], color: "#DC2626" },
+    { key: "asistencia_cita", label: "Asistencia a la Cita", match: ["asistencia a la cita", "asistencia_cita"], color: "#059669" },
+    { key: "documentos_enviados", label: "Documentos Enviados", match: ["documentos enviados", "documentos_enviados"], color: "#0D9488" },
+    { key: "solicitud_credito", label: "Solicitud de Crédito", match: ["solicitud de crédito", "solicitud de credito", "solicitud_credito"], color: "#7C3AED" },
+    { key: "autorizado_no_formalizado", label: "Autorizado No Formalizado", match: ["autorizado no formalizado", "autorizado_no_formalizado"], color: "#CA8A04" },
+    { key: "cierre_venta", label: "Cierre de la Venta", match: ["cierre de la venta", "cierre_venta", "cierre de venta"], color: "#16A34A" },
     { key: "descalificado", label: "Descalificado", match: ["descalificado"], color: "#94A3B8" },
 ];
 
 function cls(...items) { return items.filter(Boolean).join(" "); }
 function safeLower(v) { return String(v || "").toLowerCase(); }
 
-// ── Paleta suave para las gráficas (misma familia de color, menos saturación) ──
+
 function hexToRgb(hex) {
     const clean = String(hex || "").replace("#", "");
     const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
@@ -104,7 +111,7 @@ function formatHoraCorta(iso) {
     return fecha.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/Mexico_City" });
 }
 
-// ── Adjuntos: helpers ────────────────────────────────────────────────────
+
 function fileKind(file) {
     const mime = String(file?.type || "");
     if (mime.startsWith("image/")) return "image";
@@ -163,12 +170,7 @@ function Avatar({ name = "?" }) {
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// ── Gráficas vivas de la bandeja (sin librerías externas, SVG a mano) ────
-// ═══════════════════════════════════════════════════════════════════════
 
-// Anillo de progreso: usado para tasas (conversión, atención, lectura).
-// El trazo hace una transición suave cada vez que cambian los números.
 function PulseRing({ value = 0, label, color = BRAND_BLUE, size = 60, stroke = 6 }) {
     const clamped = Math.max(0, Math.min(100, Math.round(value)));
     const radius = (size - stroke) / 2;
@@ -195,9 +197,7 @@ function PulseRing({ value = 0, label, color = BRAND_BLUE, size = 60, stroke = 6
     );
 }
 
-// Barra de "flujo": un único listón segmentado que muestra cómo se reparten
-// los chats entre los estados de la bandeja. Cada segmento anima su ancho
-// cuando la cantidad de chats cambia (arrastres, recargas, polling).
+
 function FlowStreamBar({ conteoPorEstado, total }) {
     return (
         <div className="min-w-[220px] flex-1">
@@ -273,9 +273,7 @@ function ChatCard({ chat, onOpen, draggable = true, onDragStart, onDragEnd, drag
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// ── Helpers de chat con paridad completa (copiados de DigitalesContacto) ──
-// ═══════════════════════════════════════════════════════════════════════
+
 
 function asObject(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -467,7 +465,7 @@ function normalizeMessage(message = {}) {
     };
 }
 
-// ── Plantillas: decodificar marcador [TEMPLATE:...] a texto legible ──────
+
 
 function getTemplateComponentType(c = {}) { return String(c.type || "").toLowerCase(); }
 
@@ -569,7 +567,6 @@ function buildDynamicTemplateComponents(template, draft) {
     })).filter(c => c.parameters.length > 0);
 }
 
-// ── Formato WhatsApp de texto (negritas, cursivas, código) ────────────────
 
 function parseWhatsAppFormat(texto) {
     let r = String(texto || "");
@@ -646,7 +643,7 @@ function getHostLabel(url) {
     try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "Meta Ads"; }
 }
 
-// ── Componentes visuales de mensaje (fotos, video, audio, sticker, doc) ───
+
 
 function WhatsAppWaveform({ progress = 0, mine = false, onSeek }) {
     const bars = [8, 14, 10, 18, 12, 22, 16, 26, 20, 16, 24, 14, 18, 10, 22, 12, 16, 8, 14, 20, 12, 18, 10, 15, 9, 13, 18, 11, 16, 10];
@@ -873,7 +870,7 @@ function isNearBottomDrawer(el, threshold = 150) {
     return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
 }
 
-// ── Drawer completo ────────────────────────────────────────────────────
+
 
 function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
     const [loading, setLoading] = useState(false);
@@ -883,7 +880,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
     const [sending, setSending] = useState(false);
     const [templatesDisponibles, setTemplatesDisponibles] = useState([]);
 
-    // Plantillas (dropdown en el composer del drawer)
+
     const [showTemplatesDropdown, setShowTemplatesDropdown] = useState(false);
     const [tplSelected, setTplSelected] = useState(null);
     const [tplDraft, setTplDraft] = useState({});
@@ -891,28 +888,27 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
     const [sendingTemplate, setSendingTemplate] = useState(false);
     const templatesDropdownRef = useRef(null);
 
-    // Mensajes rápidos (dropdown en el composer del drawer)
+
     const [showQuickBubblesDropdown, setShowQuickBubblesDropdown] = useState(false);
     const [quickBubbles, setQuickBubbles] = useState(() => {
         try { const s = localStorage.getItem(QUICK_BUBBLES_KEY); if (!s) return []; const p = JSON.parse(s); return Array.isArray(p) ? p : []; } catch { return []; }
     });
     const quickBubblesDropdownRef = useRef(null);
 
-    // Edición inline de un mensaje rápido (mostrado en hover)
+
     const [editingBubbleId, setEditingBubbleId] = useState(null);
     const [editBubbleTitle, setEditBubbleTitle] = useState("");
     const [editBubbleText, setEditBubbleText] = useState("");
 
-    // Adjuntos (clip)
     const [attachments, setAttachments] = useState([]);
     const fileInputRef = useRef(null);
 
-    // Emoji
+
     const [openEmoji, setOpenEmoji] = useState(false);
     const emojiRef = useRef(null);
     const inputRef = useRef(null);
 
-    // Nota de voz
+
     const [isRecording, setIsRecording] = useState(false);
     const [recordingSeconds, setRecordingSeconds] = useState(0);
     const [recordingError, setRecordingError] = useState("");
@@ -1048,7 +1044,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
 
         pollRef.current = window.setInterval(() => { cargar({ markRead: false }); }, DRAWER_POLL_MS);
         return () => { if (pollRef.current) window.clearInterval(pollRef.current); };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, [open, tel]);
 
     useEffect(() => {
@@ -1062,7 +1058,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
         return () => document.removeEventListener("keydown", onKeyDown);
     }, [open, onClose]);
 
-    // Cerrar dropdown de plantillas al hacer clic fuera
+
     useEffect(() => {
         if (!showTemplatesDropdown) return;
         const onDoc = (e) => {
@@ -1075,7 +1071,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
         return () => document.removeEventListener("mousedown", onDoc);
     }, [showTemplatesDropdown]);
 
-    // Cerrar dropdown de mensajes rápidos al hacer clic fuera
+
     useEffect(() => {
         if (!showQuickBubblesDropdown) return;
         const onDoc = (e) => {
@@ -1088,7 +1084,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
         return () => document.removeEventListener("mousedown", onDoc);
     }, [showQuickBubblesDropdown]);
 
-    // Cerrar el emoji picker al hacer clic fuera
+
     useEffect(() => {
         const onDoc = (e) => {
             if (!openEmoji) return;
@@ -1098,7 +1094,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
         return () => document.removeEventListener("mousedown", onDoc);
     }, [openEmoji]);
 
-    // Limpieza al desmontar: previews de adjuntos y grabación en curso
+
     useEffect(() => {
         return () => {
             cleanupPreviews(attachments);
@@ -1108,7 +1104,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
             if (recordingTimerRef.current) window.clearInterval(recordingTimerRef.current);
             mediaStreamRef.current?.getTracks?.().forEach((t) => t.stop());
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, []);
 
     function onScroll(e) { stickBottomRef.current = isNearBottomDrawer(e.currentTarget); }
@@ -1119,7 +1115,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
         }
     }
 
-    // ── Adjuntos ──────────────────────────────────────────────────────────
+
     function addFilesAsAttachments(files) {
         const arr = Array.from(files || []);
         if (!arr.length) return;
@@ -1148,7 +1144,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
         });
     }
 
-    // ── Emoji ─────────────────────────────────────────────────────────────
+
     function onPickEmoji(emojiObj) {
         const emoji = emojiObj?.emoji || "";
         if (!emoji) return;
@@ -1172,7 +1168,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
         if (files.length) { e.preventDefault(); addFilesAsAttachments(files); }
     }
 
-    // ── Nota de voz ───────────────────────────────────────────────────────
+
     function cleanupRecordingResources() {
         if (recordingTimerRef.current) { window.clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
         mediaStreamRef.current?.getTracks?.().forEach((track) => track.stop());
@@ -1256,7 +1252,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
         }
     }
 
-    // ── Enviar mensaje (texto y/o adjuntos) ────────────────────────────────
+
     async function enviar() {
         if (isRecording) { setRecordingError("Detén la grabación antes de enviar el mensaje."); return; }
         const text = draft.trim();
@@ -1298,7 +1294,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
         if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); }
     }
 
-    // ── Mensajes rápidos ────────────────────────────────────────────────
+
     function toggleQuickBubbles() {
         if (!showQuickBubblesDropdown) {
             try {
@@ -1364,7 +1360,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
         if (editingBubbleId === id) cancelEditQuickBubble();
     }
 
-    // ── Plantillas ──────────────────────────────────────────────────────
+
     async function abrirPlantillasDropdown() {
         if (!tel) return;
         if (showTemplatesDropdown) {
@@ -1479,7 +1475,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
             <div className="absolute inset-0 bg-black/20" onClick={onClose} />
 
             <div className="relative flex h-full w-full max-w-[560px] flex-col bg-white shadow-2xl">
-                {/* Header */}
+
                 <div className="flex shrink-0 items-center gap-3 border-b border-black/10 px-4 py-3">
                     <Avatar name={prospecto?.nombre} />
                     <div className="min-w-0 flex-1">
@@ -1498,7 +1494,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                     </button>
                 </div>
 
-                {/* Info rápida */}
+
                 <div className="grid shrink-0 grid-cols-2 gap-3 border-b border-black/10 bg-neutral-50 px-4 py-3">
                     <div className="rounded-xl border border-black/10 bg-white px-3 py-2">
                         <div className="text-[10px] font-extrabold uppercase tracking-wide text-[#131E5C]/50">Estado actual</div>
@@ -1510,7 +1506,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                     </div>
                 </div>
 
-                {/* Mensajes */}
+
                 <div
                     ref={scrollRef}
                     onScroll={onScroll}
@@ -1551,9 +1547,9 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                     )}
                 </div>
 
-                {/* Composer */}
+
                 <div className="shrink-0 border-t border-black/10 bg-white px-3 py-3">
-                    {/* Previews de adjuntos */}
+
                     {attachments.length ? (
                         <div className="mb-2 flex flex-wrap gap-2">
                             {attachments.map((a) => (
@@ -1586,7 +1582,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                         </div>
                     ) : null}
 
-                    {/* Error de grabación */}
+
                     {recordingError ? (
                         <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
                             <span>{recordingError}</span>
@@ -1597,7 +1593,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                         </div>
                     ) : null}
 
-                    {/* Barra de grabación en curso */}
+
                     {isRecording ? (
                         <div className="mb-2 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 shadow-sm">
                             <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
@@ -1620,7 +1616,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                         </div>
                     ) : null}
 
-                    {/* Barra de acciones: Emoji, Adjuntar, Audio, Plantillas y Rápidos */}
+
                     <div className="mb-2 flex flex-wrap items-center gap-1">
                         {/* Emoji */}
                         <div className="relative" ref={emojiRef}>
@@ -1648,7 +1644,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                             ) : null}
                         </div>
 
-                        {/* Adjuntar */}
+
                         <input
                             ref={fileInputRef}
                             type="file"
@@ -1669,7 +1665,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                             <Paperclip className="h-4 w-4" />
                         </button>
 
-                        {/* Nota de voz */}
+
                         <button
                             type="button"
                             onClick={isRecording ? detenerGrabacionAudio : iniciarGrabacionAudio}
@@ -1684,7 +1680,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                             {isRecording ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
                         </button>
 
-                        {/* Plantillas */}
+
                         <div className="relative" ref={templatesDropdownRef}>
                             <button
                                 type="button"
@@ -1816,7 +1812,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                             ) : null}
                         </div>
 
-                        {/* Mensajes rápidos */}
+
                         <div className="relative" ref={quickBubblesDropdownRef}>
                             <button
                                 type="button"
@@ -1929,9 +1925,7 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// ── Componente principal ──────────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════
+
 
 export default function DigitalesBandeja() {
     const navigate = useNavigate();
@@ -1993,19 +1987,11 @@ export default function DigitalesBandeja() {
                 agencia: chat?.agencia || "",
                 estado: chat?.estado || "",
                 unread: Number(chat?.unread || 0),
-                // Se agrega el último mensaje con timestamp para poder detectar
-                // qué chats son "nuevos" (llegaron hoy) y mostrar su hora.
-                //
-                // NOTA IMPORTANTE: "esMio" NO existe todavía en la respuesta del
-                // backend (api.digitalesChats). Si el backend llega a mandar un
-                // campo tipo `chat?.last_message_mine` (true = lo mandó el asesor,
-                // false = lo mandó el cliente), descomenta la línea de abajo y
-                // úsalo en chatsNuevosHoy para filtrar solo mensajes ENTRANTES.
                 last: {
                     text: chat?.last_text || "",
                     time: chat?.last_time || "",
                     timestamp: chat?.last_message_at || "",
-                    // esMio: Boolean(chat?.last_message_mine),
+
                 },
             })).filter((c) => c.telefono);
 
@@ -2018,7 +2004,7 @@ export default function DigitalesBandeja() {
         }
     }
 
-    useEffect(() => { cargarTodo(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [numeroAsesorActivo]);
+    useEffect(() => { cargarTodo(); }, [numeroAsesorActivo]);
 
     const prospectoIdPorTel = useMemo(() => {
         const map = new Map();
@@ -2029,8 +2015,7 @@ export default function DigitalesBandeja() {
         return map;
     }, [prospectosIndex]);
 
-    // Mapa completo de prospecto por teléfono, para leer su fecha de creación
-    // / primer contacto y así saber si es un prospecto nuevo de hoy.
+
     const prospectoPorTel = useMemo(() => {
         const map = new Map();
         for (const p of prospectosIndex) {
@@ -2059,19 +2044,11 @@ export default function DigitalesBandeja() {
         return map;
     }, [filteredChats]);
 
-    // Chats "nuevos" de hoy: llegó un mensaje hoy, o el expediente del
-    // prospecto se creó/tuvo su primer contacto hoy. Esta columna es
-    // informativa y no reemplaza a las demás bandejas por estado.
-    //
-    // NOTA: por ahora esto se dispara con CUALQUIER mensaje de hoy, sea que
-    // tú lo mandaste o que el cliente te escribió. Para que solo cuenten los
-    // mensajes que el cliente te mandó, el backend debe regresar quién mandó
-    // el último mensaje (ver comentario arriba en `cargarTodo`). En cuanto
-    // ese campo exista, descomenta el filtro `if (chat.last?.esMio) return false;`.
+
     const chatsNuevosHoy = useMemo(() => {
         return filteredChats
             .filter((chat) => {
-                // if (chat.last?.esMio) return false; // <- activar cuando el backend mande la dirección del último mensaje
+
                 const prospecto = prospectoPorTel.get(chat.telefono);
                 const fechaMensaje = chat.last?.timestamp;
                 const fechaCreacion = prospecto?.creado || prospecto?.primer_contacto_at;
@@ -2084,8 +2061,7 @@ export default function DigitalesBandeja() {
             });
     }, [filteredChats, prospectoPorTel]);
 
-    // Estadísticas en vivo de TODA la bandeja (no solo lo filtrado por búsqueda),
-    // para que las gráficas reflejen el estado real del número activo.
+
     const statsGenerales = useMemo(() => {
         const total = chats.length;
         const conteoPorEstado = new Map(ESTADOS_BANDEJA.map((b) => [b.key, 0]));
@@ -2096,7 +2072,7 @@ export default function DigitalesBandeja() {
             totalUnread += Number(chat.unread || 0);
         }
         const calificados = conteoPorEstado.get("lead_calificado") || 0;
-        const sinRespuesta = conteoPorEstado.get("sin_respuesta") || 0;
+        const sinRespuesta = conteoPorEstado.get("generacion_leads") || 0;
         const chatsConUnread = chats.filter((c) => Number(c.unread || 0) > 0).length;
         return {
             total,
@@ -2194,7 +2170,7 @@ export default function DigitalesBandeja() {
                     {loading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#131E5C]/50" /> : null}
                 </div>
 
-                {/* Pulso de la bandeja: gráficas en vivo, se recalculan solas con cada cambio */}
+
                 <div className="flex flex-wrap items-center gap-5 border-b border-black/10 bg-white px-4 py-3">
                     <FlowStreamBar conteoPorEstado={statsGenerales.conteoPorEstado} total={statsGenerales.total} />
                     <div className="flex items-center gap-4 border-l border-black/5 pl-5">
@@ -2204,7 +2180,7 @@ export default function DigitalesBandeja() {
                     </div>
                 </div>
 
-                {/* Body: lista + bandejas */}
+
                 <div className="grid h-[calc(90dvh-120px)] grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">
                     <aside className="min-h-0 overflow-y-auto border-r border-black/10 bg-neutral-50 p-3">
                         <div className="mb-2 px-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/50">
@@ -2229,8 +2205,7 @@ export default function DigitalesBandeja() {
 
                     <div className="min-h-0 overflow-x-auto overflow-y-hidden p-3">
                         <div className="grid h-full grid-flow-col auto-cols-[240px] gap-3">
-                            {/* Nuevos prospectos: columna informativa, no es un estado de kanban,
-                                por lo que no acepta drops; solo muestra qué llegó hoy. */}
+
                             <div className="flex h-full min-h-0 flex-col rounded-2xl border border-sky-200 bg-sky-50/40">
                                 <div className="flex shrink-0 flex-col gap-1.5 border-b border-sky-100 px-3 py-2.5">
                                     <div className="flex items-center gap-2">
