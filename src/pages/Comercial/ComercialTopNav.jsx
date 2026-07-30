@@ -54,6 +54,8 @@ export default function ComercialTopNav() {
 
     const canSeeRendimiento = hasAnyPermission([
         "USUARIOS_ADMIN",
+        "CRM_COORDINADOR_DIGITAL",
+        "CRM_DIGITALES",
     ]);
 
     const tabs = useMemo(() => {
