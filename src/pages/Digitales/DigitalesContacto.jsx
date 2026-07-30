@@ -985,9 +985,9 @@ function WhatsAppAudioPlayer({ src, mine }) {
     const [duration, setDuration] = useState(0);
     const [current, setCurrent] = useState(0);
     const [downloading, setDownloading] = useState(false); // <-- nuevo
- 
+
     const progress = duration ? Math.min(1, current / duration) : 0;
- 
+
     async function togglePlay() {
         const audio = audioRef.current;
         if (!audio) return;
@@ -1003,7 +1003,7 @@ function WhatsAppAudioPlayer({ src, mine }) {
             console.error("No se pudo reproducir audio:", error);
         }
     }
- 
+
     function handleSeek(e) {
         const audio = audioRef.current;
         if (!audio || !duration) return;
@@ -1013,24 +1013,24 @@ function WhatsAppAudioPlayer({ src, mine }) {
         audio.currentTime = pct * duration;
         setCurrent(audio.currentTime);
     }
- 
+
     function handleDownload() {
-    if (!src) return;
+        if (!src) return;
 
-    // src apunta a /digitales/media/<media_id>/?numero_asesor=...
-    // Construimos la URL hermana .../descargar/ que regresa el MP3 real
-    // con Content-Disposition: attachment (el navegador lo descarga solo).
-    const [base, query] = src.split("?");
-    const downloadUrl = `${base.replace(/\/$/, "")}/descargar/${query ? `?${query}` : ""}`;
+        // src apunta a /digitales/media/<media_id>/?numero_asesor=...
+        // Construimos la URL hermana .../descargar/ que regresa el MP3 real
+        // con Content-Disposition: attachment (el navegador lo descarga solo).
+        const [base, query] = src.split("?");
+        const downloadUrl = `${base.replace(/\/$/, "")}/descargar/${query ? `?${query}` : ""}`;
 
-    const a = document.createElement("a");
-    a.href = downloadUrl;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-}
- 
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
     return (
         <div
             className={cls(
@@ -1050,7 +1050,7 @@ function WhatsAppAudioPlayer({ src, mine }) {
                 }}
                 className="hidden"
             />
- 
+
             <button
                 type="button"
                 onClick={togglePlay}
@@ -1064,7 +1064,7 @@ function WhatsAppAudioPlayer({ src, mine }) {
             >
                 {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
             </button>
- 
+
             <div className="min-w-0 flex-1">
                 <WhatsAppWaveform progress={progress} mine={mine} onSeek={handleSeek} />
                 <div className="mt-0.5 flex items-center justify-between text-[11px] font-semibold text-[#667781]">
@@ -1085,7 +1085,7 @@ function WhatsAppAudioPlayer({ src, mine }) {
             >
                 <Download className="h-4 w-4" />
             </button>
-             
+
         </div>
     );
 }
@@ -3824,7 +3824,7 @@ export default function DigitalesContacto() {
 
     // ── Effects ───────────────────────────────────────────────────────────────
 
-    
+
     useEffect(() => {
         let mounted = true;
         (async () => {
@@ -3840,10 +3840,10 @@ export default function DigitalesContacto() {
 
     useEffect(() => { try { localStorage.setItem(QUICK_BUBBLES_KEY, JSON.stringify(quickBubbles)); } catch { } }, [quickBubbles]);
     useEffect(() => {
-    if (!numeroAsesorActivo) return;
-    cargarPlantillas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [numeroAsesorActivo]);
+        if (!numeroAsesorActivo) return;
+        cargarPlantillas();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [numeroAsesorActivo]);
     useEffect(() => { activeTelRef.current = activeTel; }, [activeTel]);
     useEffect(() => {
         numeroAsesorActivoRef.current =

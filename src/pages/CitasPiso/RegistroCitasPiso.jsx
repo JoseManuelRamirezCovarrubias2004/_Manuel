@@ -1,1154 +1,1341 @@
-import { useEffect, useMemo, useState } from "react";
+// src/pages/CitasPiso/RegistroCitasPiso.jsx
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
-    Activity,
-    AlertCircle,
-    ArrowLeft,
-    ArrowRight,
-    BarChart3,
-    CheckCircle2,
-    ChevronDown,
-    ChevronRight,
-    CircleDashed,
-    Clock3,
-    Filter,
-    Loader2,
-    MessageCircle,
+    Plus,
     Search,
-    Send,
-    Sparkles,
-    Target,
-    TrendingUp,
-    UserRound,
-    Users,
     X,
+    Save,
+    User,
+    CarFront,
+    CalendarDays,
+    ArrowUpDown,
+    ChevronDown,
+    ChevronUp,
+    Trash2,
+    Loader2,
+    Phone,
+    UserCheck,
+    UserSearch,
+    UserStar,
+    Building2,
+    MessageSquareText,
 } from "lucide-react";
-import { api } from "../../lib/apiPruebas";
+import { apiCitasPiso } from "../../lib/apiCitasPiso";
+import { createPortal } from "react-dom";
+import { useAuth } from "../../auth/AuthContext";
+import * as XLSX from "xlsx";
+import { FileDown } from "lucide-react";
 
-const RESULTADOS = [
-    { value: "pendiente", label: "Esperando respuesta", grupo: "pendiente" },
-    { value: "respuesta_positiva", label: "Respondió con interés", grupo: "positivo" },
-    { value: "respuesta_neutral", label: "Respondió", grupo: "neutral" },
-    { value: "respuesta_negativa", label: "Respondió negativamente", grupo: "negativo" },
-    { value: "sin_respuesta", label: "No respondió", grupo: "sin_respuesta" },
-    { value: "fallido", label: "Falló el envío", grupo: "fallido" },
-    { value: "no_aplica", label: "No aplica", grupo: "no_aplica" },
-    { value: "cita_agendada", label: "Cita agendada", grupo: "positivo" },
-];
+const BRAND_BLUE = "#131E5C";
 
-const RESULT_STYLES = {
-    positivo: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    neutral: "bg-sky-50 text-sky-700 border-sky-200",
-    negativo: "bg-rose-50 text-rose-700 border-rose-200",
-    sin_respuesta: "bg-amber-50 text-amber-700 border-amber-200",
-    pendiente: "bg-slate-50 text-slate-600 border-slate-200",
-    fallido: "bg-red-50 text-red-700 border-red-200",
-    no_aplica: "bg-violet-50 text-violet-700 border-violet-200",
-};
+function normalizeStr(v) {
+    return String(v ?? "").trim();
+}
 
-function getResultadoConfig(value) {
+function Skeleton({ className = "" }) {
+    return <div className={["animate-pulse rounded-md bg-black/10", className].join(" ")} />;
+}
+
+function SkeletonRow() {
     return (
-        RESULTADOS.find((item) => item.value === value) || {
-            value: value || "pendiente",
-            label: String(value || "Sin resultado")
-                .replaceAll("_", " ")
-                .replace(/\b\w/g, (letter) => letter.toUpperCase()),
-            grupo: "pendiente",
-        }
+        <tr className="animate-pulse">
+            <td className="px-4 py-3">
+                <div className="h-4 w-36 rounded bg-slate-200/60" />
+            </td>
+            <td className="px-4 py-3">
+                <div className="h-4 w-28 rounded bg-slate-200/60" />
+            </td>
+            <td className="px-4 py-3">
+                <div className="h-4 w-40 rounded bg-slate-200/60" />
+            </td>
+            <td className="px-4 py-3">
+                <div className="h-4 w-28 rounded bg-slate-200/60" />
+            </td>
+            <td className="px-4 py-3">
+                <div className="h-4 w-40 rounded bg-slate-200/60" />
+            </td>
+            <td className="px-4 py-3">
+                <div className="h-6 w-28 rounded bg-slate-200/60" />
+            </td>
+            <td className="px-4 py-3">
+                <div className="h-6 w-20 rounded-full bg-slate-200/60" />
+            </td>
+        </tr>
     );
 }
 
-function isoDate(daysAgo = 0) {
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    return date.toISOString().slice(0, 10);
-}
-
-function formatDate(value) {
-    if (!value) return "—";
-
-    try {
-        return new Intl.DateTimeFormat("es-MX", {
-            dateStyle: "medium",
-            timeStyle: "short",
-        }).format(new Date(value));
-    } catch {
-        return value;
-    }
-}
-
-function formatShortDate(value) {
-    if (!value) return "—";
-
-    try {
-        return new Intl.DateTimeFormat("es-MX", {
-            day: "2-digit",
-            month: "short",
-        }).format(new Date(value));
-    } catch {
-        return value;
-    }
-}
-
-function formatNumber(value) {
-    return new Intl.NumberFormat("es-MX").format(Number(value || 0));
-}
-
-function percent(numerator, denominator) {
-    const a = Number(numerator || 0);
-    const b = Number(denominator || 0);
-    if (!b) return 0;
-    return Math.round((a / b) * 1000) / 10;
-}
-
-function toneFromRate(value) {
-    if (value >= 65) return "text-emerald-600";
-    if (value >= 35) return "text-amber-600";
-    return "text-rose-600";
-}
-
-function buildAdvisorMetrics(item) {
-    const mensajes = Number(item?.mensajes || 0);
-    const respuestas = Number(item?.respuestas || 0);
-    const positivas = Number(item?.positivas || item?.respuestas_positivas || 0);
-    const sinRespuesta = Number(item?.sin_respuesta || 0);
-    const fallidos = Number(item?.fallidos || 0);
-    const plantillas = Number(item?.plantillas || 0);
-    const abiertas = Math.max(mensajes - respuestas - sinRespuesta - fallidos, 0);
-
-    return {
-        ...item,
-        mensajes,
-        respuestas,
-        positivas,
-        sin_respuesta: sinRespuesta,
-        fallidos,
-        plantillas,
-        abiertas,
-        tasa_respuesta_real: percent(respuestas, mensajes),
-        tasa_positiva_sobre_mensajes: percent(positivas, mensajes),
-        tasa_positiva_sobre_respuestas: percent(positivas, respuestas),
-    };
-}
-
-function ResultBadge({ value, label, grupo }) {
-    const config = getResultadoConfig(value);
-    const group = grupo || config.grupo || "pendiente";
-    const style = RESULT_STYLES[group] || RESULT_STYLES.pendiente;
-
+function ModalSkeleton() {
     return (
-        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${style}`}>
-            {label || config.label}
-        </span>
-    );
-}
-
-function EmptyState({ text }) {
-    return (
-        <div className="flex min-h-44 flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 text-center">
-            <Activity className="mb-3 text-slate-400" size={28} />
-            <p className="text-sm text-slate-600">{text}</p>
-        </div>
-    );
-}
-
-function MetricCard({ icon: Icon, label, value, detail, accent = "from-[#0f1e61] to-[#2238a7]" }) {
-    return (
-        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(15,30,97,0.07)]">
-            <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${accent}`} />
-            <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-500">{label}</p>
-                    <p className="mt-2 text-[28px] font-semibold leading-none text-slate-900">{value}</p>
-                    {detail ? <p className="mt-2 text-xs text-slate-500">{detail}</p> : null}
+        <div className="grid gap-3 md:grid-cols-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="rounded-lg border border-white/10 bg-neutral-200/50 p-4">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="mt-3 h-10 w-full rounded-lg" />
                 </div>
-                <div className="rounded-2xl bg-[#131E5C]/10 p-3 text-[#131E5C]">
-                    <Icon size={20} />
-                </div>
+            ))}
+            <div className="md:col-span-2 rounded-lg border border-white/10 bg-neutral-200/50 p-4">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="mt-3 h-24 w-full rounded-lg" />
             </div>
         </div>
     );
 }
 
-function SegmentedBar({ respuestas, positivas, sinRespuesta, abiertas }) {
-    const total = Math.max(1, Number(respuestas || 0) + Number(positivas || 0) + Number(sinRespuesta || 0) + Number(abiertas || 0));
-    const items = [
-        { key: "respuestas", value: Math.max(0, Number(respuestas || 0) - Number(positivas || 0)), color: "bg-sky-400" },
-        { key: "positivas", value: Number(positivas || 0), color: "bg-emerald-500" },
-        { key: "sinRespuesta", value: Number(sinRespuesta || 0), color: "bg-amber-400" },
-        { key: "abiertas", value: Number(abiertas || 0), color: "bg-slate-300" },
-    ].filter((item) => item.value > 0);
-
-    return (
-        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-            <div className="flex h-full w-full overflow-hidden rounded-full">
-                {items.map((item) => (
-                    <div
-                        key={item.key}
-                        className={item.color}
-                        style={{ width: `${(item.value / total) * 100}%` }}
-                    />
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function PerformanceChart({ advisors }) {
-    if (!advisors?.length) return <EmptyState text="No hay datos suficientes para construir la gráfica comparativa." />;
-
-    const items = advisors.slice(0, 6);
-    const maxMensajes = Math.max(1, ...items.map((item) => item.mensajes));
-    const chartHeight = 210;
-    const barWidth = 20;
-    const gap = 20;
-    const groupWidth = 88;
-    const leftPad = 32;
-    const bottomPad = 36;
-    const topPad = 20;
-    const width = leftPad + items.length * groupWidth + 12;
-    const height = chartHeight + topPad + bottomPad;
-
-    const linePoints = items
-        .map((item, index) => {
-            const x = leftPad + index * groupWidth + gap + barWidth * 1.5;
-            const y = topPad + chartHeight - (item.tasa_respuesta_real / 100) * chartHeight;
-            return `${x},${y}`;
-        })
-        .join(" ");
-
-    const yTicks = [0, 25, 50, 75, 100];
-
-    return (
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,30,97,0.06)]">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <h3 className="text-base font-semibold text-slate-900">Comparativo visual por asesor</h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Barras: mensajes, respuestas y positivas. Línea: tasa real de respuesta.
-                    </p>
-                </div>
-                <div className="rounded-2xl bg-[#131E5C]/10 p-2.5 text-[#131E5C]">
-                    <BarChart3 size={18} />
-                </div>
-            </div>
-
-            <div className="mt-5 overflow-x-auto">
-                <div className="min-w-[640px]">
-                    <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
-                        <defs>
-                            <linearGradient id="vwBarMain" x1="0" x2="0" y1="0" y2="1">
-                                <stop offset="0%" stopColor="#15236B" />
-                                <stop offset="100%" stopColor="#2E49D1" />
-                            </linearGradient>
-                            <linearGradient id="vwBarMid" x1="0" x2="0" y1="0" y2="1">
-                                <stop offset="0%" stopColor="#5EA8FF" />
-                                <stop offset="100%" stopColor="#2B7FFF" />
-                            </linearGradient>
-                            <linearGradient id="vwBarPos" x1="0" x2="0" y1="0" y2="1">
-                                <stop offset="0%" stopColor="#5AE0B7" />
-                                <stop offset="100%" stopColor="#0FA57C" />
-                            </linearGradient>
-                            <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
-                                <feGaussianBlur stdDeviation="3" result="blur" />
-                                <feMerge>
-                                    <feMergeNode in="blur" />
-                                    <feMergeNode in="SourceGraphic" />
-                                </feMerge>
-                            </filter>
-                        </defs>
-
-                        {yTicks.map((tick) => {
-                            const y = topPad + chartHeight - (tick / 100) * chartHeight;
-                            return (
-                                <g key={tick}>
-                                    <line x1={leftPad} y1={y} x2={width - 8} y2={y} stroke="#E2E8F0" strokeDasharray="4 5" />
-                                    <text x={2} y={y + 4} fontSize="10" fill="#64748B">{tick}%</text>
-                                </g>
-                            );
-                        })}
-
-                        {items.map((item, index) => {
-                            const x = leftPad + index * groupWidth + gap;
-                            const msgHeight = (item.mensajes / maxMensajes) * chartHeight;
-                            const resHeight = (item.respuestas / maxMensajes) * chartHeight;
-                            const posHeight = (item.positivas / maxMensajes) * chartHeight;
-                            return (
-                                <g key={item.numero_asesor}>
-                                    <rect x={x} y={topPad + chartHeight - msgHeight} width={barWidth} height={msgHeight} rx="7" fill="url(#vwBarMain)" opacity="0.95" />
-                                    <rect x={x + barWidth + 8} y={topPad + chartHeight - resHeight} width={barWidth} height={resHeight} rx="7" fill="url(#vwBarMid)" opacity="0.95" />
-                                    <rect x={x + (barWidth + 8) * 2} y={topPad + chartHeight - posHeight} width={barWidth} height={posHeight} rx="7" fill="url(#vwBarPos)" opacity="0.98" />
-
-                                    <text x={x + 30} y={height - 18} textAnchor="middle" fontSize="10" fill="#334155">
-                                        {(item.asesor_digital || item.numero_asesor || "—").split(" ")[0]}
-                                    </text>
-                                    <text x={x + 30} y={height - 6} textAnchor="middle" fontSize="9" fill="#64748B">
-                                        {item.tasa_respuesta_real}%
-                                    </text>
-                                </g>
-                            );
-                        })}
-
-                        <polyline
-                            points={linePoints}
-                            fill="none"
-                            stroke="#F59E0B"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            filter="url(#softGlow)"
-                        />
-                        {items.map((item, index) => {
-                            const cx = leftPad + index * groupWidth + gap + barWidth * 1.5;
-                            const cy = topPad + chartHeight - (item.tasa_respuesta_real / 100) * chartHeight;
-                            return (
-                                <g key={`${item.numero_asesor}-dot`}>
-                                    <circle cx={cx} cy={cy} r="5.5" fill="#FFF7ED" stroke="#F59E0B" strokeWidth="3" />
-                                </g>
-                            );
-                        })}
-                    </svg>
-                </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-600">
-                <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-[#1B2B86]" /> Mensajes</span>
-                <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-[#2B7FFF]" /> Respuestas</span>
-                <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-[#0FA57C]" /> Positivas</span>
-                <span className="inline-flex items-center gap-2"><span className="h-[3px] w-4 rounded-full bg-amber-500" /> Tasa real de respuesta</span>
-            </div>
-        </div>
-    );
-}
-
-function TrendChart({ series }) {
-    if (!series?.length) return <EmptyState text="No hay tendencia diaria para el periodo seleccionado." />;
-
-    const maxValue = Math.max(
-        1,
-        ...series.flatMap((item) => [Number(item.mensajes || 0), Number(item.respuestas || 0)]),
-    );
-
-    const width = 700;
-    const height = 260;
-    const left = 36;
-    const right = 20;
-    const top = 16;
-    const bottom = 38;
-    const innerWidth = width - left - right;
-    const innerHeight = height - top - bottom;
-    const count = Math.max(1, series.length - 1);
-
-    function pointX(index) {
-        return left + (index / count) * innerWidth;
-    }
-
-    function pointY(value) {
-        return top + innerHeight - (Number(value || 0) / maxValue) * innerHeight;
-    }
-
-    const msgPoints = series.map((item, index) => `${pointX(index)},${pointY(item.mensajes)}`).join(" ");
-    const respPoints = series.map((item, index) => `${pointX(index)},${pointY(item.respuestas)}`).join(" ");
-
-    const msgArea = `${left},${top + innerHeight} ${msgPoints} ${left + innerWidth},${top + innerHeight}`;
-
-    return (
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,30,97,0.06)]">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <h3 className="text-base font-semibold text-slate-900">Tendencia de actividad</h3>
-                    <p className="mt-1 text-sm text-slate-500">Evolución diaria de mensajes y respuestas durante el periodo filtrado.</p>
-                </div>
-                <div className="rounded-2xl bg-[#131E5C]/10 p-2.5 text-[#131E5C]">
-                    <TrendingUp size={18} />
-                </div>
-            </div>
-
-            <div className="mt-5 overflow-x-auto">
-                <div className="min-w-[720px]">
-                    <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
-                        <defs>
-                            <linearGradient id="msgArea" x1="0" x2="0" y1="0" y2="1">
-                                <stop offset="0%" stopColor="#2136A6" stopOpacity="0.32" />
-                                <stop offset="100%" stopColor="#2136A6" stopOpacity="0.02" />
-                            </linearGradient>
-                        </defs>
-
-                        {[0, 25, 50, 75, 100].map((tick) => {
-                            const value = (maxValue * tick) / 100;
-                            const y = pointY(value);
-                            return (
-                                <g key={tick}>
-                                    <line x1={left} y1={y} x2={width - right} y2={y} stroke="#E2E8F0" strokeDasharray="4 5" />
-                                    <text x={6} y={y + 4} fontSize="10" fill="#64748B">{Math.round(value)}</text>
-                                </g>
-                            );
-                        })}
-
-                        <polygon points={msgArea} fill="url(#msgArea)" />
-                        <polyline points={msgPoints} fill="none" stroke="#162A84" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                        <polyline points={respPoints} fill="none" stroke="#0FA57C" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-
-                        {series.map((item, index) => (
-                            <g key={`${item.fecha}-${index}`}>
-                                <circle cx={pointX(index)} cy={pointY(item.mensajes)} r="3.8" fill="#162A84" />
-                                <circle cx={pointX(index)} cy={pointY(item.respuestas)} r="3.8" fill="#0FA57C" />
-                                <text x={pointX(index)} y={height - 10} textAnchor="middle" fontSize="10" fill="#64748B">
-                                    {formatShortDate(item.fecha)}
-                                </text>
-                            </g>
-                        ))}
-                    </svg>
-                </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-600">
-                <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-[#162A84]" /> Mensajes</span>
-                <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-emerald-500" /> Respuestas</span>
-            </div>
-        </div>
-    );
-}
-
-function ClientDrawer({ open, client, onClose, onResultChanged }) {
-    const [loading, setLoading] = useState(false);
-    const [detail, setDetail] = useState(null);
-    const [error, setError] = useState("");
-    const [updatingId, setUpdatingId] = useState("");
-
-    useEffect(() => {
-        if (!open || !client?.expediente_id) return undefined;
-
-        let active = true;
-        setLoading(true);
-        setError("");
-        setDetail(null);
-
-        api
-            .digitalesAnaliticaCliente(client.expediente_id, { numero_asesor: client.numero_asesor })
-            .then((response) => {
-                if (active) setDetail(response);
-            })
-            .catch((err) => {
-                if (active) setError(err?.message || "No fue posible cargar la bitácora.");
-            })
-            .finally(() => {
-                if (active) setLoading(false);
-            });
-
-        return () => {
-            active = false;
-        };
-    }, [open, client?.expediente_id, client?.numero_asesor]);
-
-    async function updateResult(eventoId, resultado) {
-        const config = getResultadoConfig(resultado);
-        setUpdatingId(eventoId);
-        setError("");
-
-        try {
-            const response = await api.digitalesAnaliticaActualizarResultado(eventoId, {
-                resultado: config.value,
-                resultado_label: config.label,
-                grupo_resultado: config.grupo,
-            });
-
-            setDetail((current) => ({
-                ...current,
-                eventos: (current?.eventos || []).map((item) => (item.id === eventoId ? response.evento : item)),
-            }));
-
-            onResultChanged?.();
-        } catch (err) {
-            setError(err?.message || "No fue posible actualizar el resultado.");
-        } finally {
-            setUpdatingId("");
-        }
-    }
-
+function Modal({ open, title, onClose, children, footer }) {
     if (!open) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="dialog" aria-modal="true">
-            <button className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Cerrar panel" />
-            <aside className="relative h-full w-full max-w-2xl overflow-y-auto bg-white shadow-2xl">
-                <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#131E5C]">Bitácora analítica</p>
-                            <h2 className="mt-1 text-xl font-semibold text-slate-900">{client?.nombre || "Prospecto"}</h2>
-                            <p className="mt-1 text-sm text-slate-500">{client?.telefono}</p>
+        <div className="fixed inset-0 z-[60]">
+            <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" onClick={onClose} />
+            <div className="absolute inset-0 flex items-end justify-center p-3 sm:items-center">
+                <div className="w-full max-w-4xl overflow-hidden rounded-lg border border-[#131E5C] bg-neutral-100 shadow-2xl">
+                    <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ backgroundColor: BRAND_BLUE }}>
+                        <div className="min-w-0">
+                            <div className="truncate text-base font-extrabold text-white">{title}</div>
                         </div>
-                        <button className="rounded-2xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={onClose}>
-                            <X size={20} />
+
+                        <button
+                            onClick={onClose}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white hover:bg-white/15"
+                            aria-label="Cerrar"
+                        >
+                            <X className="h-5 w-5" />
                         </button>
                     </div>
-                </div>
 
-                <div className="space-y-5 p-5">
-                    {loading ? (
-                        <div className="flex min-h-52 items-center justify-center text-slate-500">
-                            <Loader2 className="mr-2 animate-spin" size={20} /> Cargando bitácora...
+                    <div className="max-h-[72vh] overflow-auto p-5">{children}</div>
+
+                    {footer ? (
+                        <div className="flex flex-col gap-2 border-t border-white/10 bg-white/[0.03] px-5 py-4 sm:flex-row sm:items-center sm:justify-end">
+                            {footer}
                         </div>
-                    ) : error ? (
-                        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
-                    ) : (
-                        <>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="rounded-2xl border border-slate-200 p-3">
-                                    <p className="text-xs text-slate-500">Estado actual</p>
-                                    <p className="mt-1 font-medium text-slate-900">{detail?.cliente?.estado || "Sin estado"}</p>
-                                </div>
-                                <div className="rounded-2xl border border-slate-200 p-3">
-                                    <p className="text-xs text-slate-500">Vehículo de interés</p>
-                                    <p className="mt-1 font-medium text-slate-900">{detail?.cliente?.auto_interes || "Sin definir"}</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                {(detail?.eventos || []).map((item) => (
-                                    <article key={item.id} className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-                                        <div className="flex flex-wrap items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{item.tipo_label}</span>
-                                                    <ResultBadge value={item.resultado} label={item.resultado_label} grupo={item.resultado_grupo} />
-                                                </div>
-                                                <h3 className="mt-2 font-medium text-slate-900">{item.accion}</h3>
-                                                {item.detalle ? <p className="mt-1 text-sm text-slate-600">{item.detalle}</p> : null}
-                                            </div>
-                                            <time className="text-xs text-slate-500">{formatDate(item.creado)}</time>
-                                        </div>
-
-                                        {item.respuesta_texto ? (
-                                            <div className="mt-3 rounded-2xl bg-slate-50 p-3">
-                                                <p className="text-xs font-medium text-slate-500">Respuesta del cliente</p>
-                                                <p className="mt-1 text-sm text-slate-700">{item.respuesta_texto}</p>
-                                                <p className="mt-2 text-xs text-slate-500">Tiempo: {item.tiempo_respuesta_label}</p>
-                                            </div>
-                                        ) : null}
-
-                                        {[
-                                            "mensaje",
-                                            "plantilla",
-                                            "media",
-                                        ].includes(item.tipo) ? (
-                                            <div className="mt-3 flex flex-wrap items-center gap-2">
-                                                <label className="text-xs text-slate-500" htmlFor={`resultado-${item.id}`}>
-                                                    Corregir clasificación:
-                                                </label>
-                                                <select
-                                                    id={`resultado-${item.id}`}
-                                                    value={item.resultado}
-                                                    disabled={updatingId === item.id}
-                                                    onChange={(event) => updateResult(item.id, event.target.value)}
-                                                    className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
-                                                >
-                                                    {RESULTADOS.map((resultado) => (
-                                                        <option key={resultado.value} value={resultado.value}>
-                                                            {resultado.label}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                {updatingId === item.id ? <Loader2 className="animate-spin text-slate-400" size={16} /> : null}
-                                            </div>
-                                        ) : null}
-                                    </article>
-                                ))}
-
-                                {!detail?.eventos?.length ? <EmptyState text="Todavía no hay acciones registradas para este cliente." /> : null}
-                            </div>
-                        </>
-                    )}
+                    ) : null}
                 </div>
-            </aside>
+            </div>
         </div>
     );
 }
 
-export default function DigitalesRendimiento() {
-    const [filters, setFilters] = useState({
-        fecha_desde: isoDate(29),
-        fecha_hasta: isoDate(0),
-        numero_asesor: "",
-        resultado: "",
-        tipo: "",
-        buscar: "",
-        page: 1,
-        page_size: 25,
-    });
-    const [searchDraft, setSearchDraft] = useState("");
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [selectedClient, setSelectedClient] = useState(null);
-    const [reloadKey, setReloadKey] = useState(0);
-    const [activeAdvisor, setActiveAdvisor] = useState("");
-    const [advisorDetail, setAdvisorDetail] = useState(null);
-    const [advisorDetailLoading, setAdvisorDetailLoading] = useState(false);
-    const [advisorDetailError, setAdvisorDetailError] = useState("");
+function Field({ label, icon: Icon, children }) {
+    return (
+        <div className="rounded-lg border border-white/10 bg-neutral-200/50 p-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-[#131E5C]">
+                {Icon ? <Icon className="h-4 w-4" /> : null}
+                <span>{label}</span>
+            </div>
+            {children}
+        </div>
+    );
+}
 
-    useEffect(() => {
-        let active = true;
-        setLoading(true);
-        setError("");
+// Bloque visual uniforme para filtros
+function FilterBlock({ label, children }) {
+    return (
+        <div className="rounded-lg">
+            <div className="mb-2 text-xs font-extrabold tracking-wide text-[#131E5C]">{label}</div>
+            {children}
+        </div>
+    );
+}
 
-        api
-            .digitalesAnaliticaAsesores(filters)
-            .then((response) => {
-                if (!active) return;
-                setData(response);
-            })
-            .catch((err) => {
-                if (active) setError(err?.message || "No fue posible cargar la analítica.");
-            })
-            .finally(() => {
-                if (active) setLoading(false);
-            });
+// fechas
+function toDTLocal(isoOrNull) {
+    if (!isoOrNull) return "";
+    const s = String(isoOrNull);
 
-        return () => {
-            active = false;
-        };
-    }, [filters, reloadKey]);
+    if (s.endsWith("Z")) {
+        const d = new Date(s);
+        if (Number.isNaN(d.getTime())) return "";
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return s.slice(0, 16);
+    return "";
+}
 
-    const advisors = useMemo(() => {
-        return (data?.asesores || []).map(buildAdvisorMetrics).sort((a, b) => {
-            if (b.tasa_respuesta_real !== a.tasa_respuesta_real) return b.tasa_respuesta_real - a.tasa_respuesta_real;
-            if (b.positivas !== a.positivas) return b.positivas - a.positivas;
-            return b.mensajes - a.mensajes;
+function fromDTLocalToISO(dtLocalOrEmpty) {
+    const v = String(dtLocalOrEmpty || "").trim();
+    return v ? v : null;
+}
+
+function toYMDLocal(dateLike) {
+    const d = new Date(dateLike);
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function ymdToInt(ymd) {
+    if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+    return Number(ymd.replaceAll("-", ""));
+}
+
+function ContextMenu({ ctxMenu, onDelete, onClose }) {
+    if (!ctxMenu.open || !ctxMenu.row) return null;
+
+    return createPortal(
+        <div className="fixed z-[9999]" style={{ left: ctxMenu.x, top: ctxMenu.y }} onClick={(e) => e.stopPropagation()}>
+            <div className="w-48 overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl">
+                <button
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+                    onClick={() => onDelete(ctxMenu.row)}
+                >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar
+                </button>
+
+                <button className="w-full px-4 py-2 text-left text-xs text-slate-500 hover:bg-slate-50" onClick={onClose}>
+                    Cerrar
+                </button>
+            </div>
+        </div>,
+        document.body
+    );
+}
+
+export default function RegistroCitasPiso() {
+    const { user } = useAuth();
+
+    const isAdmin = useMemo(() => {
+        const permisos = user?.permisos || [];
+        const rol = String(user?.rol || "").trim().toLowerCase();
+        return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
+    }, [user]);
+
+    // ── Multi-agencia (igual que RegistroCredito) ──────────────────────────────
+    const userAgencias = useMemo(() => {
+        return String(user?.agencia || "")
+            .split("|")
+            .map((agencia) => normalizeStr(agencia))
+            .filter(Boolean);
+    }, [user?.agencia]);
+
+    const userAgencia = userAgencias[0] || "";
+
+    const userTieneAgencia = useCallback(
+        (agenciaRegistro) => {
+            const agencia = normalizeStr(agenciaRegistro);
+            if (!agencia) return false;
+            return userAgencias.some(
+                (agenciaUsuario) =>
+                    agenciaUsuario.toLowerCase() === agencia.toLowerCase()
+            );
+        },
+        [userAgencias]
+    );
+    // ──────────────────────────────────────────────────────────────────────────
+
+    const [registros, setRegistros] = useState([]);
+
+    // NO TOCAR desplegables
+    const DEALERS = useMemo(
+        () => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"],
+        []
+    );
+
+    const ASESORES = [
+        "AURA MARLIZETH FERNANDEZ LOPEZ",
+        "Bianca Isabel Chavez Alarcon",
+        "ERENDIRA SANTOS COYOTZI",
+        "IRENE DEL CARMEN GUIZA LOPEZ",
+        "MARCOS RAUL DIAZ RAMOS",
+        "MARIO ALBERTO LOPEZ RAMOS",
+        "MARISOL LAGUNES GONZALEZ",
+        "NALLELY HERNANDEZ GARCIA",
+        "OCTAVIO BRUNO GONZALEZ",
+        "ROGELIO VAZQUEZ SANCHEZ",
+        "RUBEN ALBERTO TOSQUY ADRIANO",
+        "Saja Azzam Mohammad Jamous",
+        "SANDRA LUZ PRIETO PEREZ",
+        "YAMIL MISAEL RODRIGUEZ AGUILAR",
+        "LUIS ALFONSO CORIA MARROQUIN",
+        "CANDY DENISSE MARQUEZ CORTES",
+        "DELMAR JAVIER ILLESCAS DOMINGUEZ",
+        "EDGAR JESUS GOMEZ PEREZ",
+        "Valeria Zilli Durante",
+        "IDALMY JIMENEZ SANCHEZ",
+        "IVAN JUAREZ ORTEGA",
+        "JESSICA OLIVARES CAMPOS",
+        "JESUS XITLAMA GOMEZ",
+        "LIZBETH CANO CLARA",
+        "LUIS MANUEL PALOMARES OLAYO",
+        "MARIA DEL CARMEN ZAVALA VELAZQUEZ",
+        "OMAR VILLIERS MONDRAGON",
+        "RUBEN ROMERO VALDES",
+        "VERONICA CASTILLO FUENTES",
+        "Hector Rodriguez",
+        "GEOVANI NAVA DIAZ",
+        "ZEILA NAVARRO CONTRERAS",
+        "JOSE ALFREDO BARRANCA REYES",
+        "ADRIAN GALVEZ ROLDAN",
+        "MARIA DE GUADALUPE VANVOLLENHOVEN DIAZ",
+        "Marelly Tenorio Salinas",
+        "ELIA INES ARANO REYES",
+        "JORGE LUIS ALAMILLO RODRIGUEZ",
+        "Cesar Ivan Salazar Reyes",
+        "Cristian Fernando Rivera Godinez",
+        "DULCE ABIGAIL GARCIA OLIVARES",
+        "Felix Emmanuel Solis Angeles",
+        "GERMAN JARITH SALAZAR MIRANDA",
+        "Iris Yazmín Gómez Velázquez",
+        "Israel Garcia Juarez",
+        "JORGE ANTONIO RODRIGUEZ MARTINEZ",
+        "JOSE DE JESUS GARCIA ROMAN",
+        "JUAN MANUEL SOBREVILLA VICENCIO",
+        "Miguel Capitanachi Paredes",
+        "OLIMPIA VAZQUEZ MENDEZ",
+        "Roberto Ramses Luna Fajardo",
+        "Carlos Arturo Garces Vengas",
+        "Edgar Omar Noguera Solis",
+        "Javier Perez Meraz",
+        "Luis Armando Almora Perez",
+        "Mara Erubey Soto Villegas",
+        "Sergio Ivan Quintana Martinez",
+        "Sergio Rene Delgado Sarmiento",
+        "Yoseth Ruiz Castellanos",
+        "Luis Alfonso Coria Marroquín",
+        "Juan Jesús Márquez Aquino",
+        "Estefano Marlom De Azcue Aparicio",
+        "VANESSA JIMENEZ MEDINA",
+        "JOSE ALBERTO SEDAS FLORES",
+        "Luis Alberto Ramirez Santamaria",
+        "Paul Serrano Vera",
+        "Luis Manuel Alvarez Martinez",
+        "Blanca Patricia Hernández Hernández",
+        "Luis Manuel Hernández Espejo",
+        "JULIO RAMIREZ LOPEZ",
+    ];
+
+    const FUENTE = [
+        "Facebook",
+        "WhatsApp",
+        "VW-Concesionarios",
+        "Llamada Entrante",
+        "Prospeccion",
+        "Cartera",
+        "Eternizacion de credito",
+        "Remarketing",
+        "Base de Datos",
+        "Ubicacion",
+    ];
+
+    const VEHICULOS = [
+        "Virtus",
+        "Polo",
+        "Jetta",
+        "Jetta GLI",
+        "Golf GTI",
+        "Taos",
+        "Nivus",
+        "Taigun",
+        "Tiguan",
+        "Teramont",
+        "Crossport",
+        "Saveiro",
+        "Amarok",
+        "Seminuevos",
+        "Tera",
+        "Avaluo",
+    ];
+
+    const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
+    const [sort, setSort] = useState({ key: "fecha_hora_cita", dir: "desc" });
+
+    function toggleSort(key) {
+        setSort((prev) => {
+            if (prev.key !== key) return { key, dir: "asc" };
+            return { key, dir: prev.dir === "asc" ? "desc" : "asc" };
         });
-    }, [data?.asesores]);
+    }
 
-    const summary = useMemo(() => buildAdvisorMetrics(data?.resumen || {}), [data?.resumen]);
+    // filtros: q + agencia + rango fechas
+    const [filters, setFilters] = useState(() => ({
+        q: "",
+        agencia: "Todos",
+        rangoDesde: "",
+        rangoHasta: "",
+    }));
+
+    const [openModal, setOpenModal] = useState(false);
+    const [mode, setMode] = useState("create");
+    const [draft, setDraft] = useState(null);
+
+    const [loadingList, setLoadingList] = useState(false);
+    const [loadingDetail, setLoadingDetail] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    // Requeridos del modal
+    const REQUIRED = useMemo(
+        () => ({
+            cliente_telefono: "Teléfono",
+            fecha_hora_cita: "Fecha y hora",
+        }),
+        []
+    );
+
+    const [touchedSave, setTouchedSave] = useState(false);
+
+    const missing = useMemo(() => {
+        if (!draft) return [];
+        const m = [];
+        for (const key of Object.keys(REQUIRED)) {
+            const v = draft[key];
+            const isEmpty = v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+            if (isEmpty) m.push(key);
+        }
+        return m;
+    }, [draft, REQUIRED]);
+
+    const isInvalid = (key) => touchedSave && missing.includes(key);
+    // ✅ Validación teléfono (10 dígitos o 52 + 10 dígitos)
+    const telDigits = useMemo(
+        () => String(draft?.cliente_telefono || "").replace(/\D/g, ""),
+        [draft?.cliente_telefono]
+    );
+
+    const telIsOk = useMemo(() => /^(?:\d{10}|52\d{10})$/.test(telDigits), [telDigits]);
+    const telIsNormalized = useMemo(() => /^52\d{10}$/.test(telDigits), [telDigits]); // bandera visual
+
+    const telError = useMemo(() => {
+        if (!openModal) return "";
+        if (!draft) return "";
+        if (!telDigits) return ""; // required lo maneja missing
+
+        // válidos
+        if (/^\d{10}$/.test(telDigits)) return "";
+        if (/^52\d{10}$/.test(telDigits)) return "";
+
+        if (telDigits.length < 10) return "Número incompleto (mínimo 10 dígitos)";
+        if (telDigits.length === 11) return "Número incorrecto (11 dígitos no válido)";
+        if (telDigits.length === 12 && !telDigits.startsWith("52"))
+            return "Número inválido: si tiene 12 dígitos debe iniciar con 52";
+        if (telDigits.length > 12) return "Número incorrecto (máximo 12 dígitos)";
+        return "Número inválido";
+    }, [openModal, draft, telDigits]);
+
+    const telInvalid = !!telError;
+    const inputBase = "w-full rounded-lg border shadow-lg px-3 py-2 text-sm text-[#131E5C] font-semibold outline-none";
+    const inputOk = "border-black/10 bg-neutral-100";
+    const inputBad = "border-red-500 bg-red-50";
 
     useEffect(() => {
-        if (filters.numero_asesor) {
-            setActiveAdvisor(filters.numero_asesor);
-            return;
-        }
-
-        if (!advisors.length) {
-            setActiveAdvisor("");
-            return;
-        }
-
-        const exists = advisors.some((item) => item.numero_asesor === activeAdvisor);
-        if (!activeAdvisor || !exists) {
-            setActiveAdvisor(advisors[0].numero_asesor);
-        }
-    }, [filters.numero_asesor, advisors, activeAdvisor]);
-
-    useEffect(() => {
-        if (!activeAdvisor) {
-            setAdvisorDetail(null);
-            setAdvisorDetailError("");
-            return undefined;
-        }
-
-        let active = true;
-        setAdvisorDetailLoading(true);
-        setAdvisorDetailError("");
-
-        api
-            .digitalesAnaliticaAsesores({
-                ...filters,
-                numero_asesor: activeAdvisor,
-                page: 1,
-                page_size: 100,
-            })
-            .then((response) => {
-                if (active) setAdvisorDetail(response);
-            })
-            .catch((err) => {
-                if (active) setAdvisorDetailError(err?.message || "No fue posible cargar el detalle del asesor.");
-            })
-            .finally(() => {
-                if (active) setAdvisorDetailLoading(false);
-            });
-
+        const onGlobal = () => setCtxMenu((p) => ({ ...p, open: false, row: null }));
+        window.addEventListener("click", onGlobal);
+        window.addEventListener("scroll", onGlobal, true);
+        window.addEventListener("resize", onGlobal);
         return () => {
-            active = false;
+            window.removeEventListener("click", onGlobal);
+            window.removeEventListener("scroll", onGlobal, true);
+            window.removeEventListener("resize", onGlobal);
         };
-    }, [activeAdvisor, filters.fecha_desde, filters.fecha_hasta, filters.resultado, filters.tipo, filters.buscar, reloadKey]);
+    }, []);
 
-    const activeAdvisorRow = useMemo(() => {
-        return advisors.find((item) => item.numero_asesor === activeAdvisor) || null;
-    }, [advisors, activeAdvisor]);
+    const onRowContextMenu = (e, row) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setCtxMenu({ open: true, x: e.clientX, y: e.clientY, row });
+    };
 
-    const activeAdvisorSummary = useMemo(() => buildAdvisorMetrics(advisorDetail?.resumen || activeAdvisorRow || {}), [advisorDetail?.resumen, activeAdvisorRow]);
+    const refreshList = async () => {
+        setLoadingList(true);
+        try {
+            const data = await apiCitasPiso.list();
+            setRegistros(Array.isArray(data) ? data : []);
+        } catch (e) {
+            console.error(e);
+            setRegistros([]);
+        } finally {
+            setLoadingList(false);
+        }
+    };
 
-    function setFilter(name, value) {
-        setFilters((current) => ({ ...current, [name]: value, page: 1 }));
-    }
+    useEffect(() => {
+        refreshList();
+    }, []);
 
-    function applyPreset(days) {
-        setFilters((current) => ({
-            ...current,
-            fecha_desde: isoDate(days - 1),
-            fecha_hasta: isoDate(0),
-            page: 1,
-        }));
-    }
+    // ── Dealers: igual que RegistroCredito ────────────────────────────────────
+    const dealers = useMemo(() => {
+        const set = new Set((registros || []).map((r) => normalizeStr(r.agencia)).filter(Boolean));
+        const all = ["Todos", ...Array.from(set)];
+        if (!isAdmin && userAgencias.length > 0) {
+            return ["Todos", ...userAgencias];
+        }
+        return all;
+    }, [registros, isAdmin, userAgencias]);
+    // ──────────────────────────────────────────────────────────────────────────
 
-    function submitSearch(event) {
-        event.preventDefault();
-        setFilter("buscar", searchDraft.trim());
-    }
+    const filtered = useMemo(() => {
+        const q = filters.q.trim().toLowerCase();
 
-    const chartSeries = data?.actividad_diaria || [];
-    const clientsOfAdvisor = advisorDetail?.clientes || [];
-    const totalClientsSelectedAdvisor = advisorDetail?.paginacion?.total || clientsOfAdvisor.length || 0;
+        const desdeInt = ymdToInt(filters.rangoDesde);
+        const hastaInt = ymdToInt(filters.rangoHasta);
+        const minInt = desdeInt ?? null;
+        const maxInt = hastaInt ?? null;
+
+        return (registros || []).filter((r) => {
+            // ── Filtro por agencia del usuario (multi-agencia) ─────────────────
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(r.agencia)) return false;
+
+            const nombreCliente = normalizeStr(r?.cliente?.nombre);
+            const telCliente = normalizeStr(r?.cliente?.telefono);
+
+            const matchQ =
+                !q ||
+                normalizeStr(r.agencia).toLowerCase().includes(q) ||
+                nombreCliente.toLowerCase().includes(q) ||
+                telCliente.toLowerCase().includes(q) ||
+                normalizeStr(r.auto_interes).toLowerCase().includes(q) ||
+                normalizeStr(r.fuente_prospeccion).toLowerCase().includes(q) ||
+                normalizeStr(r.asesor_piso).toLowerCase().includes(q) ||
+                normalizeStr(r.comentarios_cliente).toLowerCase().includes(q);
+
+            const matchAgencia = filters.agencia === "Todos" || normalizeStr(r.agencia) === normalizeStr(filters.agencia);
+
+            let matchRango = true;
+            if (minInt !== null || maxInt !== null) {
+                const ymd = r.fecha_hora_cita ? toYMDLocal(r.fecha_hora_cita) : "";
+                const ymdInt = ymdToInt(ymd);
+                if (!ymdInt) return false;
+                if (minInt !== null && ymdInt < minInt) matchRango = false;
+                if (maxInt !== null && ymdInt > maxInt) matchRango = false;
+            }
+
+            return matchQ && matchAgencia && matchRango;
+        });
+    }, [registros, filters, isAdmin, userAgencias, userTieneAgencia]);
+
+    const sorted = useMemo(() => {
+        const data = [...filtered];
+        const { key, dir } = sort || {};
+        if (!key) return data;
+        const mult = dir === "asc" ? 1 : -1;
+
+        return data.sort((a, b) => {
+            if (key === "fecha_hora_cita") {
+                const ta = a.fecha_hora_cita ? new Date(a.fecha_hora_cita).getTime() : 0;
+                const tb = b.fecha_hora_cita ? new Date(b.fecha_hora_cita).getTime() : 0;
+                return (ta - tb) * mult;
+            }
+            const va = normalizeStr(a?.[key]).toLowerCase();
+            const vb = normalizeStr(b?.[key]).toLowerCase();
+            if (va < vb) return -1 * mult;
+            if (va > vb) return 1 * mult;
+            return 0;
+        });
+    }, [filtered, sort]);
+
+    const openCreate = () => {
+        setTouchedSave(false);
+        setMode("create");
+
+        const agenciaDefault = isAdmin ? "" : userAgencias[0] || "";
+
+        setDraft({
+            id: null,
+            cliente_id: null,
+
+            agencia: agenciaDefault,
+            cliente_nombre: "",
+            cliente_telefono: "",
+
+            auto_interes: "",
+            fecha_hora_cita: "",
+            folio: "",
+            fuente_prospeccion: "",
+            asesor_piso: "",
+            be_back: false,
+            comentarios_cliente: "",
+        });
+
+        setOpenModal(true);
+    };
+
+    const openEdit = async (row) => {
+        if (!row?.id) return;
+        try {
+            setTouchedSave(false);
+            setMode("edit");
+            setLoadingDetail(true);
+            setOpenModal(true);
+
+            const r = await apiCitasPiso.get(row.id);
+
+            // ── Validación multi-agencia ───────────────────────────────────────
+            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(r.agencia)) {
+                alert("No tienes permisos para ver registros de otra agencia.");
+                setOpenModal(false);
+                return;
+            }
+
+            setDraft({
+                id: r.id,
+                cliente_id: r?.cliente?.id_cliente ?? null,
+
+                agencia: r.agencia || (isAdmin ? "" : userAgencias[0] || ""),
+                cliente_nombre: r?.cliente?.nombre || "",
+                cliente_telefono: r?.cliente?.telefono || "",
+
+                auto_interes: r.auto_interes || "",
+                fecha_hora_cita: toDTLocal(r.fecha_hora_cita),
+                folio: r.folio || "",
+                fuente_prospeccion: r.fuente_prospeccion || "",
+                asesor_piso: r.asesor_piso || "",
+                be_back: !!r.be_back,
+                comentarios_cliente: r.comentarios_cliente || "",
+            });
+        } catch (e) {
+            console.error(e);
+            alert("No se pudo abrir el registro (revisa consola).");
+            setOpenModal(false);
+        } finally {
+            setLoadingDetail(false);
+        }
+    };
+
+    const closeModal = () => {
+        if (saving) return;
+        setOpenModal(false);
+        setDraft(null);
+    };
+
+    const eliminarRegistro = async (row) => {
+        if (!row?.id) return;
+
+        // ── Validación multi-agencia ───────────────────────────────────────────
+        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(row.agencia)) {
+            alert("No tienes permisos para eliminar registros de otra agencia.");
+            return;
+        }
+
+        const ok = confirm(`¿Eliminar el registro de ${row?.cliente?.nombre || row?.cliente?.telefono || "cliente"}?`);
+        if (!ok) return;
+
+        try {
+            await apiCitasPiso.remove(row.id);
+            setRegistros((prev) => prev.filter((r) => r.id !== row.id));
+            setCtxMenu({ open: false, x: 0, y: 0, row: null });
+        } catch (e) {
+            console.error(e);
+            alert("No se pudo eliminar (revisa consola / backend).");
+        }
+    };
+
+    // ===================== Inline updates (Fuente y BeBack) =====================
+    const [updatingInline, setUpdatingInline] = useState({});
+
+    const toggleBeBackInline = async (row) => {
+        const id = row?.id;
+        if (!id) return;
+
+        const prev = !!row.be_back;
+        const next = !prev;
+
+        // Optimista
+        setRegistros((p) => p.map((c) => (c.id === id ? { ...c, be_back: next } : c)));
+        setUpdatingInline((p) => ({ ...p, [id]: true }));
+
+        try {
+            await apiCitasPiso.patch(id, { be_back: next });
+        } catch (e) {
+            console.error(e);
+            // rollback
+            setRegistros((p) => p.map((c) => (c.id === id ? { ...c, be_back: prev } : c)));
+            alert("No se pudo actualizar Be Back (revisa backend).");
+        } finally {
+            setUpdatingInline((p) => {
+                const n = { ...p };
+                delete n[id];
+                return n;
+            });
+        }
+    };
+
+    const changeFuenteInline = async (row, nextValue) => {
+        const id = row?.id;
+        if (!id) return;
+
+        const prev = row.fuente_prospeccion || "";
+
+        // Optimista
+        setRegistros((p) => p.map((c) => (c.id === id ? { ...c, fuente_prospeccion: nextValue } : c)));
+        setUpdatingInline((p) => ({ ...p, [id]: true }));
+
+        try {
+            await apiCitasPiso.patch(id, { fuente_prospeccion: nextValue });
+        } catch (e) {
+            console.error(e);
+            // rollback
+            setRegistros((p) => p.map((c) => (c.id === id ? { ...c, fuente_prospeccion: prev } : c)));
+            alert("No se pudo actualizar la Fuente de prospección (revisa backend).");
+        } finally {
+            setUpdatingInline((p) => {
+                const n = { ...p };
+                delete n[id];
+                return n;
+            });
+        }
+    };
+
+    const updateFolioInline = async (row, nextValue) => {
+        const id = row?.id;
+        if (!id) return;
+
+        const next = String(nextValue ?? "");
+        const prev = row.folio || "";
+
+        // Optimista
+        setRegistros((p) => p.map((r) => (r.id === id ? { ...r, folio: next } : r)));
+        setUpdatingInline((p) => ({ ...p, [id]: true }));
+
+        try {
+            await apiCitasPiso.patch(id, { folio: next });
+        } catch (e) {
+            console.error(e);
+            // rollback
+            setRegistros((p) => p.map((r) => (r.id === id ? { ...r, folio: prev } : r)));
+            alert("No se pudo actualizar el folio (revisa backend).");
+        } finally {
+            setUpdatingInline((p) => {
+                const n = { ...p };
+                delete n[id];
+                return n;
+            });
+        }
+    };
+
+    const save = async () => {
+        if (!draft || saving) return;
+        if (!telIsOk) return;
+        setTouchedSave(true);
+        if (missing.length) return;
+
+        setSaving(true);
+        try {
+            const agenciaFinal = isAdmin
+                ? normalizeStr(draft.agencia || "")
+                : normalizeStr(draft.agencia || userAgencias[0] || "");
+
+            const payload = {
+                agencia: agenciaFinal,
+
+                ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}),
+
+                // cliente
+                nombre: draft.cliente_nombre || "",
+                telefono: normalizeStr(draft.cliente_telefono),
+
+                auto_interes: draft.auto_interes || "",
+                fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita),
+                folio: draft.folio || "",
+                fuente_prospeccion: draft.fuente_prospeccion || "",
+                asesor_piso: draft.asesor_piso || "",
+                be_back: !!draft.be_back,
+
+                comentarios_cliente: draft.comentarios_cliente || "",
+            };
+
+            if (mode === "create") await apiCitasPiso.create(payload);
+            else await apiCitasPiso.update(draft.id, payload);
+
+            await refreshList();
+            closeModal();
+        } catch (e) {
+            console.error(e);
+            alert("Error guardando (revisa consola).");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const resetFilters = () => setFilters({ q: "", agencia: "Todos", rangoDesde: "", rangoHasta: "" });
+
+    const setHoy = () => {
+        const hoy = toYMDLocal(new Date());
+        setFilters((p) => ({ ...p, rangoDesde: hoy, rangoHasta: hoy }));
+    };
+    const exportarExcel = () => {
+        const titulo = [["REPORTE CONTROL DE PISO — GRUPO AUTOMOTRIZ R&R"]];
+        const fechaGen = [[`Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`]];
+        const filtrosActivos = [];
+        if (filters.agencia !== "Todos") filtrosActivos.push(`Dealer: ${filters.agencia}`);
+        if (filters.rangoDesde) filtrosActivos.push(`Desde: ${filters.rangoDesde}`);
+        if (filters.rangoHasta) filtrosActivos.push(`Hasta: ${filters.rangoHasta}`);
+        if (filters.q) filtrosActivos.push(`Búsqueda: "${filters.q}"`);
+        const filtroFila = [[filtrosActivos.length ? `Filtros activos: ${filtrosActivos.join("  |  ")}` : "Sin filtros activos"]];
+        const totalFila = [[`Total de registros: ${sorted.length}`]];
+
+        const encabezados = [["N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono", "Auto Interés", "Asesor Piso", "Folio", "Fuente Prospección", "Be Back", "Comentarios"]];
+
+        const filas = sorted.map((row, i) => ([
+            i + 1,
+            row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
+            row.agencia || "—",
+            row?.cliente?.nombre || "—",
+            row?.cliente?.telefono || "—",
+            row.auto_interes || "—",
+            row.asesor_piso || "—",
+            row.folio || "—",
+            row.fuente_prospeccion || "—",
+            row.be_back ? "Sí" : "No",
+            row.comentarios_cliente || "—",
+        ]));
+
+        const ws = XLSX.utils.aoa_to_sheet([...titulo, ...fechaGen, ...filtroFila, ...totalFila, [[]], ...encabezados, ...filas]);
+        ws["!cols"] = [
+            { wch: 5 }, { wch: 20 }, { wch: 16 }, { wch: 28 }, { wch: 16 },
+            { wch: 16 }, { wch: 36 }, { wch: 14 }, { wch: 22 }, { wch: 8 }, { wch: 40 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Control de piso");
+        XLSX.writeFile(wb, `control_piso_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
 
     return (
-        <div className="min-h-full bg-[#F3F6FB] p-4 md:p-6">
-            <div className="mx-auto max-w-[1600px] space-y-6">
-                <section className="relative overflow-hidden rounded-[30px] border border-[#D6DDEC] bg-white shadow-[0_20px_50px_rgba(19,30,92,0.08)]">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(28,66,200,0.12),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(0,128,255,0.08),transparent_28%)]" />
-                    <div className="relative p-5 md:p-6">
-                        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                            <div className="max-w-3xl">
-                                <div className="inline-flex items-center gap-2 rounded-full border border-[#D8DFF0] bg-[#EEF2FF] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#131E5C]">
-                                    <Sparkles size={14} /> Analítica comercial de WhatsApp
-                                </div>
-                                <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
-                                    Rendimiento digital con métricas reales por asesor
-                                </h1>
-                                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                                    La tasa de respuesta se calcula sobre mensajes enviados y ya no sobre casos cerrados.
-                                    Además, el flujo se reorganiza por asesor para que primero evalúes desempeño y después
-                                    profundices en la cartera de clientes atendidos.
-                                </p>
-                            </div>
+        <div className="w-full">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                    <h2 className="font-vw-header truncate text-lg font-extrabold text-[#131E5C]">Control de piso</h2>
+                    <p className="text-sm text-slate-400">Doble clic para editar.</p>
+                    {!isAdmin && userAgencia ? (
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                            Agencia asignada: <span className="text-[#131E5C]">{userAgencias.join(", ")}</span>
+                        </p>
+                    ) : null}
+                </div>
+                <div>
+                    <button
+                        type="button"
+                        onClick={exportarExcel}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-xs font-black text-[#131E5C] hover:bg-[#131E5C] hover:text-white transition"
+                        title="Exportar a Excel"
+                    >
+                        <FileDown className="h-4 w-4" />
+                        Exportar Excel
+                    </button>
+                    <button
+                        onClick={openCreate}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm bg-[#131E5C] hover:bg-[#131E5C]/80 text-white shadow-sm"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Nuevo ingreso
+                    </button>
+                </div>
 
-                            <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[470px]">
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs uppercase tracking-wide text-slate-500">Periodo</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-900">{filters.fecha_desde} → {filters.fecha_hasta}</p>
-                                </div>
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs uppercase tracking-wide text-slate-500">Mensajes</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatNumber(summary.mensajes)}</p>
-                                </div>
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs uppercase tracking-wide text-slate-500">Tasa real</p>
-                                    <p className={`mt-1 text-sm font-semibold ${toneFromRate(summary.tasa_respuesta_real)}`}>{summary.tasa_respuesta_real}%</p>
-                                </div>
-                            </div>
-                        </div>
+            </div>
 
-                        <div className="mt-5 rounded-[26px] border border-[#DCE3F1] bg-[#F8FAFE] p-4 md:p-5">
-                            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                                <Filter size={16} /> Filtros de análisis
-                            </div>
-                            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-                                <label className="text-sm text-slate-600">
-                                    Desde
-                                    <input
-                                        type="date"
-                                        value={filters.fecha_desde}
-                                        onChange={(e) => setFilter("fecha_desde", e.target.value)}
-                                        className="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
-                                    />
-                                </label>
-                                <label className="text-sm text-slate-600">
-                                    Hasta
-                                    <input
-                                        type="date"
-                                        value={filters.fecha_hasta}
-                                        onChange={(e) => setFilter("fecha_hasta", e.target.value)}
-                                        className="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
-                                    />
-                                </label>
-                                <label className="text-sm text-slate-600">
-                                    Asesor / línea
-                                    <select
-                                        value={filters.numero_asesor}
-                                        onChange={(e) => setFilter("numero_asesor", e.target.value)}
-                                        className="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
-                                    >
-                                        <option value="">Todas mis líneas</option>
-                                        {(data?.lineas || []).map((item) => (
-                                            <option key={item.numero} value={item.numero}>
-                                                {item.asesor_digital} · {item.agencia}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-                                <label className="text-sm text-slate-600">
-                                    Resultado
-                                    <select
-                                        value={filters.resultado}
-                                        onChange={(e) => setFilter("resultado", e.target.value)}
-                                        className="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
-                                    >
-                                        <option value="">Todos</option>
-                                        {RESULTADOS.map((item) => (
-                                            <option key={item.value} value={item.value}>{item.label}</option>
-                                        ))}
-                                    </select>
-                                </label>
-                                <label className="text-sm text-slate-600">
-                                    Acción
-                                    <select
-                                        value={filters.tipo}
-                                        onChange={(e) => setFilter("tipo", e.target.value)}
-                                        className="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
-                                    >
-                                        <option value="">Todas</option>
-                                        {(data?.catalogos?.tipos || []).map((item) => (
-                                            <option key={item.value} value={item.value}>{item.label}</option>
-                                        ))}
-                                    </select>
-                                </label>
-                                <form onSubmit={submitSearch} className="text-sm text-slate-600">
-                                    Buscar cliente
-                                    <div className="mt-1 flex gap-2">
-                                        <input
-                                            value={searchDraft}
-                                            onChange={(e) => setSearchDraft(e.target.value)}
-                                            placeholder="Nombre o teléfono"
-                                            className="min-w-0 flex-1 rounded-2xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
-                                        />
-                                        <button className="rounded-2xl bg-[#131E5C] px-3 text-white" aria-label="Buscar">
-                                            <Search size={18} />
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                {[7, 30, 90].map((days) => (
+            <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <div className="grid gap-3 md:grid-cols-12">
+                    <div className="md:col-span-6">
+                        <FilterBlock label="Búsqueda">
+                            <div className="flex items-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2">
+                                <Search className="h-4 w-4 text-[#131E5C]" />
+                                <input
+                                    value={filters.q}
+                                    onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
+                                    placeholder="Buscar por dealer, cliente, teléfono, asesor, fuente…"
+                                    className="w-full text-sm text-[#131E5C] outline-none placeholder:text-[#131E5C]"
+                                />
+                                {filters.q ? (
                                     <button
-                                        key={days}
-                                        type="button"
-                                        onClick={() => applyPreset(days)}
-                                        className="rounded-full border border-[#D7DDEB] bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                                        onClick={() => setFilters((p) => ({ ...p, q: "" }))}
+                                        className="rounded-lg p-1 bg-white text-[#131E5C] hover:bg-white/80 hover:text-red-500"
+                                        aria-label="Limpiar búsqueda"
                                     >
-                                        Últimos {days} días
+                                        <X className="h-4 w-4" />
                                     </button>
-                                ))}
+                                ) : null}
                             </div>
+                        </FilterBlock>
+                    </div>
+
+                    <div className="md:col-span-3">
+                        <FilterBlock label="Dealer">
+                            <select
+                                value={filters.agencia}
+                                onChange={(e) => setFilters((p) => ({ ...p, agencia: e.target.value }))}
+                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+                            >
+                                {dealers.map((d) => (
+                                    <option key={d} value={d} className="bg-neutral-100 text-[#131E5C]">
+                                        {d}
+                                    </option>
+                                ))}
+                            </select>
+                        </FilterBlock>
+                    </div>
+
+                    <div className="md:col-span-3">
+                        <FilterBlock label="Acciones">
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    onClick={setHoy}
+                                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700"
+                                    title="Mostrar solo registros del día de hoy"
+                                >
+                                    <CalendarDays className="h-4 w-4" />
+                                    Hoy
+                                </button>
+                                <button
+                                    onClick={resetFilters}
+                                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#131E5C] px-3 py-2 text-sm font-semibold bg-white text-[#131E5C] hover:text-white hover:bg-[#131E5C]"
+                                >
+                                    <X className="h-4 w-4" />
+                                    Limpiar
+                                </button>
+                            </div>
+                        </FilterBlock>
+                    </div>
+
+                    <div className="md:col-span-6">
+                        <FilterBlock label="Desde">
+                            <input
+                                type="date"
+                                value={filters.rangoDesde}
+                                onChange={(e) => setFilters((p) => ({ ...p, rangoDesde: e.target.value }))}
+                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+                                title="Desde"
+                            />
+                        </FilterBlock>
+                    </div>
+
+                    <div className="md:col-span-6">
+                        <FilterBlock label="Hasta">
+                            <input
+                                type="date"
+                                value={filters.rangoHasta}
+                                onChange={(e) => setFilters((p) => ({ ...p, rangoHasta: e.target.value }))}
+                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm text-[#131E5C] outline-none"
+                                title="Hasta"
+                            />
+                        </FilterBlock>
+                    </div>
+                </div>
+            </div>
+
+            {/* Desktop */}
+            <div className="hidden overflow-hidden rounded-lg shadow-lg bg-white/[0.03] lg:block">
+                <div className="overflow-auto">
+                    <table className="min-w-full text-left text-sm">
+                        <thead className="font-vw-header text-xs bg-[#131E5C] text-white border border-black">
+                            <tr>
+                                <th className="px-4 py-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleSort("fecha_hora_cita")}
+                                        className="inline-flex items-center gap-1 text-xs font-bold"
+                                    >
+                                        Fecha y Hora
+                                        <span className="opacity-60">
+                                            {sort.key === "fecha_hora_cita" ? (
+                                                sort.dir === "asc" ? (
+                                                    <ChevronUp className="h-4" />
+                                                ) : (
+                                                    <ChevronDown className="h-4" />
+                                                )
+                                            ) : (
+                                                <ArrowUpDown className="h-4" />
+                                            )}
+                                        </span>
+                                    </button>
+                                </th>
+                                <th className="px-4 py-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleSort("agencia")}
+                                        className="inline-flex items-center gap-1 text-xs font-bold"
+                                    >
+                                        Dealer
+                                        <span className="opacity-60">
+                                            {sort.key === "agencia" ? (
+                                                sort.dir === "asc" ? (
+                                                    <ChevronUp className="h-4" />
+                                                ) : (
+                                                    <ChevronDown className="h-4" />
+                                                )
+                                            ) : (
+                                                <ArrowUpDown className="h-4" />
+                                            )}
+                                        </span>
+                                    </button>
+                                </th>
+                                <th className="px-4 py-3">Cliente</th>
+                                <th className="px-4 py-3">Auto interés</th>
+                                <th className="px-4 py-3">Asesor piso</th>
+                                <th className="px-4 py-3">Folio</th>
+                                <th className="px-4 py-3">Fuente prospección</th>
+                                <th className="px-4 py-3">Be Back</th>
+                            </tr>
+                        </thead>
+
+                        <tbody className="divide-y divide-black/30">
+                            {loadingList ? (
+                                <>
+                                    {Array.from({ length: 8 }).map((_, i) => (
+                                        <SkeletonRow key={i} />
+                                    ))}
+                                </>
+                            ) : (
+                                <>
+                                    {sorted.map((row) => {
+                                        const isUpdating = !!updatingInline[row.id];
+                                        const nombreCliente = row?.cliente?.nombre || "—";
+                                        const telCliente = row?.cliente?.telefono || "—";
+
+                                        return (
+                                            <tr
+                                                key={row.id}
+                                                onDoubleClick={() => openEdit(row)}
+                                                onContextMenu={(e) => onRowContextMenu(e, row)}
+                                                className="cursor-pointer hover:bg-white/[0.04]"
+                                                title="Doble clic para editar"
+                                            >
+                                                <td className="px-4 py-3 text-[#131E5C]">
+                                                    {row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—"}
+                                                </td>
+                                                <td className="px-4 py-3 font-semibold text-[#131E5C]">{row.agencia || "—"}</td>
+                                                <td className="px-4 py-3 text-[#131E5C]">
+                                                    <div className="font-bold">{nombreCliente}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-[#131E5C]">{row.auto_interes || "—"}</td>
+                                                <td className="px-4 py-3 text-[#131E5C]">{row.asesor_piso || "—"}</td>
+                                                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                                    <input
+                                                        defaultValue={row.folio || ""}
+                                                        disabled={!!updatingInline[row.id]}
+                                                        placeholder="—"
+                                                        className={[
+                                                            "w-full max-w-[160px] rounded-lg border border-black/10 bg-white px-2 py-1 text-xs font-bold text-[#131E5C] outline-none",
+                                                            !!updatingInline[row.id] ? "opacity-70 cursor-not-allowed" : "focus:ring-2 focus:ring-[#131E5C]/25",
+                                                        ].join(" ")}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === "Enter") e.currentTarget.blur();
+                                                            if (e.key === "Escape") {
+                                                                e.currentTarget.value = row.folio || "";
+                                                                e.currentTarget.blur();
+                                                            }
+                                                        }}
+                                                        onBlur={(e) => {
+                                                            const value = e.currentTarget.value;
+                                                            if ((value || "") !== (row.folio || "")) updateFolioInline(row, value);
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3 text-[#131E5C]">
+                                                    <select
+                                                        value={row.fuente_prospeccion || ""}
+                                                        disabled={isUpdating}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        onChange={(e) => changeFuenteInline(row, e.target.value)}
+                                                        className={[
+                                                            "w-full max-w-[220px] rounded-lg border px-2 py-1 text-xs font-bold",
+                                                            isUpdating ? "opacity-70 cursor-not-allowed" : "",
+                                                        ].join(" ")}
+                                                        title="Cambiar Fuente de prospección"
+                                                    >
+                                                        <option value="">—</option>
+                                                        {FUENTE.map((s) => (
+                                                            <option key={s} value={s}>
+                                                                {s}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </td>
+
+                                                <td className="px-4 py-3 text-[#131E5C]">
+                                                    <button
+                                                        disabled={isUpdating}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleBeBackInline(row);
+                                                        }}
+                                                        className={[
+                                                            "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold",
+                                                            row.be_back
+                                                                ? "bg-emerald-200 text-emerald-800 border-emerald-300"
+                                                                : "bg-red-200 text-red-800 border-red-300",
+                                                            isUpdating ? "opacity-70 cursor-not-allowed" : "hover:opacity-90",
+                                                        ].join(" ")}
+                                                        title="Click para cambiar Be Back"
+                                                    >
+                                                        {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                                                        {row.be_back ? "Sí" : "No"}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+
+                                    {sorted.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={8} className="px-4 py-10 text-center text-[#131E5C]">
+                                                No hay resultados con esos filtros.
+                                            </td>
+                                        </tr>
+                                    ) : null}
+                                </>
+                            )}
+                        </tbody>
+                    </table>
+
+                    <ContextMenu
+                        ctxMenu={ctxMenu}
+                        onDelete={async (row) => {
+                            await eliminarRegistro(row);
+                            setCtxMenu({ open: false, x: 0, y: 0, row: null });
+                        }}
+                        onClose={() => setCtxMenu({ open: false, x: 0, y: 0, row: null })}
+                    />
+                </div>
+            </div>
+
+            {/* Mobile */}
+            <div className="grid gap-3 lg:hidden">
+                {loadingList ? (
+                    <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+                        <div className="flex items-center gap-2 text-[#131E5C] font-bold">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            Cargando...
                         </div>
-                    </div>
-                </section>
-
-                {error ? (
-                    <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                        <AlertCircle size={20} /> {error}
-                    </div>
-                ) : null}
-
-                {loading && !data ? (
-                    <div className="flex min-h-72 items-center justify-center rounded-3xl border border-slate-200 bg-white text-slate-500 shadow-sm">
-                        <Loader2 className="mr-2 animate-spin" size={22} /> Calculando indicadores...
                     </div>
                 ) : (
                     <>
-                        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-                            <MetricCard
-                                icon={Users}
-                                label="Clientes atendidos"
-                                value={formatNumber(summary.clientes)}
-                                detail={`${formatNumber(summary.acciones)} acciones registradas`}
-                                accent="from-[#0F1E61] to-[#3048D8]"
-                            />
-                            <MetricCard
-                                icon={Send}
-                                label="Mensajes enviados"
-                                value={formatNumber(summary.mensajes)}
-                                detail={`${formatNumber(summary.plantillas)} plantillas · ${formatNumber(summary.fallidos)} fallidos`}
-                                accent="from-[#1B2B86] to-[#4662F3]"
-                            />
-                            <MetricCard
-                                icon={MessageCircle}
-                                label="Tasa real de respuesta"
-                                value={`${summary.tasa_respuesta_real}%`}
-                                detail={`${formatNumber(summary.respuestas)} respuestas de ${formatNumber(summary.mensajes)} mensajes`}
-                                accent="from-[#0C5FC4] to-[#34A0FF]"
-                            />
-                            <MetricCard
-                                icon={Target}
-                                label="Conversión positiva"
-                                value={`${summary.tasa_positiva_sobre_mensajes}%`}
-                                detail={`${formatNumber(summary.positivas)} positivas · ${summary.tasa_positiva_sobre_respuestas}% sobre respuestas`}
-                                accent="from-[#0B8B64] to-[#34D399]"
-                            />
-                            <MetricCard
-                                icon={Clock3}
-                                label="Tiempo promedio"
-                                value={summary.promedio_respuesta_label || "—"}
-                                detail={`Ventana sin respuesta: ${data?.horas_sin_respuesta || 48} h`}
-                                accent="from-[#6D28D9] to-[#8B5CF6]"
-                            />
-                            <MetricCard
-                                icon={CircleDashed}
-                                label="Conversaciones abiertas"
-                                value={formatNumber(summary.abiertas)}
-                                detail={`${formatNumber(summary.sin_respuesta)} sin respuesta cerrada`}
-                                accent="from-[#9A6700] to-[#F59E0B]"
-                            />
-                        </section>
+                        {sorted.map((row) => {
+                            const nombreCliente = row?.cliente?.nombre || "—";
+                            const telCliente = row?.cliente?.telefono || "—";
+                            const folio = (row?.folio || "").trim();
+                            return (
+                                <button
+                                    key={row.id}
+                                    onClick={() => openEdit(row)}
+                                    className="text-left rounded-3xl border border-black/10 bg-white p-4 shadow-sm hover:bg-slate-50"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="truncate text-sm font-extrabold text-[#131E5C]">{nombreCliente}</div>
+                                            <div className="mt-1 text-xs text-slate-600">
+                                                {row.agencia || "—"} • {telCliente}
+                                            </div>
+                                            <div className="mt-1 text-xs text-slate-600">
+                                                {row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—"}
+                                            </div>
+                                            <div className="mt-1 text-xs text-slate-600">Fuente: {row.fuente_prospeccion || "—"}</div>
+                                            {folio ? (
+                                                <div className="mt-1 text-xs text-slate-600">
+                                                    Folio: <span className="font-bold text-[#131E5C]">{folio}</span>
+                                                </div>
+                                            ) : null}
+                                        </div>
 
-                        <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-                            <PerformanceChart advisors={advisors} />
-                            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,30,97,0.06)]">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <h3 className="text-base font-semibold text-slate-900">Plantillas con mejor respuesta</h3>
-                                        <p className="mt-1 text-sm text-slate-500">La tasa se calcula como respuestas / envíos de plantilla.</p>
+                                        <span
+                                            className={[
+                                                "inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold",
+                                                row.be_back ? "bg-emerald-200 text-emerald-800 border-emerald-300" : "bg-red-200 text-red-800 border-red-300",
+                                            ].join(" ")}
+                                        >
+                                            {row.be_back ? "Regresó" : "No regresó"}
+                                        </span>
                                     </div>
-                                    <div className="rounded-2xl bg-[#131E5C]/10 p-2.5 text-[#131E5C]">
-                                        <Sparkles size={18} />
-                                    </div>
-                                </div>
-                                <div className="mt-5 space-y-3">
-                                    {(data?.plantillas || []).map((item) => {
-                                        const tasaReal = percent(item.respuestas, item.envios);
-                                        const positivaSobreEnvios = percent(item.positivas, item.envios);
-                                        return (
-                                            <article key={item.plantilla_nombre} className="rounded-2xl border border-slate-200 p-4">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <p className="truncate text-sm font-semibold text-slate-900">{item.plantilla_nombre}</p>
-                                                        <p className="mt-1 text-xs text-slate-500">
-                                                            {item.envios} envíos · {item.respuestas} respuestas · {item.positivas} positivas
-                                                        </p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className={`text-sm font-semibold ${toneFromRate(tasaReal)}`}>{tasaReal}%</p>
-                                                        <p className="text-[11px] text-slate-500">respuesta real</p>
-                                                    </div>
-                                                </div>
-                                                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
-                                                    <div className="h-full rounded-full bg-gradient-to-r from-[#1B2B86] via-[#2B7FFF] to-[#0FA57C]" style={{ width: `${Math.max(4, tasaReal)}%` }} />
-                                                </div>
-                                                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-                                                    <span>Positivas sobre envíos: {positivaSobreEnvios}%</span>
-                                                    <span>Sin respuesta: {item.sin_respuesta || 0}</span>
-                                                </div>
-                                            </article>
-                                        );
-                                    })}
-                                    {!data?.plantillas?.length ? <EmptyState text="No hay plantillas registradas en este periodo." /> : null}
-                                </div>
+
+                                    <div className="mt-3 text-sm text-slate-700 line-clamp-3">{row.comentarios_cliente || "—"}</div>
+                                    <div className="mt-3 text-xs text-slate-500">Toca para editar</div>
+                                </button>
+                            );
+                        })}
+
+                        {sorted.length === 0 ? (
+                            <div className="rounded-3xl border border-black/10 bg-white p-10 text-center text-slate-600">
+                                No hay resultados con esos filtros.
                             </div>
-                        </section>
-
-                        <TrendChart series={chartSeries} />
-
-                        <section className="grid gap-5 xl:grid-cols-[0.95fr_1.25fr]">
-                            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,30,97,0.06)]">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <h2 className="text-base font-semibold text-slate-900">Desempeño por asesor</h2>
-                                        <p className="mt-1 text-sm text-slate-500">Selecciona un asesor para desplegar su cartera y abrir la bitácora de cada cliente.</p>
-                                    </div>
-                                    <div className="rounded-2xl bg-[#131E5C]/10 p-2.5 text-[#131E5C]">
-                                        <Users size={18} />
-                                    </div>
-                                </div>
-
-                                <div className="mt-5 space-y-4">
-                                    {advisors.map((item, index) => {
-                                        const active = activeAdvisor === item.numero_asesor;
-                                        return (
-                                            <button
-                                                key={item.numero_asesor}
-                                                type="button"
-                                                onClick={() => setActiveAdvisor(item.numero_asesor)}
-                                                className={`w-full rounded-[26px] border p-4 text-left transition ${active ? "border-[#2037AB] bg-[#F6F8FF] shadow-[0_14px_30px_rgba(19,30,92,0.10)]" : "border-slate-200 bg-white hover:border-slate-300"}`}
-                                            >
-                                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                                    <div className="flex items-start gap-3">
-                                                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#131E5C] text-sm font-semibold text-white">
-                                                            {index + 1}
-                                                        </div>
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <h3 className="font-semibold text-slate-900">{item.asesor_digital || item.numero_asesor}</h3>
-                                                                {active ? <span className="rounded-full bg-[#131E5C] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Activo</span> : null}
-                                                            </div>
-                                                            <p className="mt-1 text-xs text-slate-500">{item.agencia || "Sin agencia"} · {item.clientes} clientes · {item.promedio_respuesta_label || "—"} promedio</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className={`text-xl font-semibold ${toneFromRate(item.tasa_respuesta_real)}`}>{item.tasa_respuesta_real}%</p>
-                                                        <p className="text-xs text-slate-500">tasa real de respuesta</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-4">
-                                                    <SegmentedBar
-                                                        respuestas={item.respuestas}
-                                                        positivas={item.positivas}
-                                                        sinRespuesta={item.sin_respuesta}
-                                                        abiertas={item.abiertas}
-                                                    />
-                                                </div>
-
-                                                <div className="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
-                                                    <div>
-                                                        <p className="font-semibold text-slate-900">{item.mensajes}</p>
-                                                        <p className="text-slate-500">Mensajes</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-sky-700">{item.respuestas}</p>
-                                                        <p className="text-slate-500">Respuestas</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-emerald-700">{item.positivas}</p>
-                                                        <p className="text-slate-500">Positivas</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-amber-700">{item.sin_respuesta}</p>
-                                                        <p className="text-slate-500">Sin respuesta</p>
-                                                    </div>
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-
-                                    {!advisors.length ? <EmptyState text="No hay actividad para los filtros seleccionados." /> : null}
-                                </div>
-                            </div>
-
-                            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,30,97,0.06)]">
-                                <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 md:flex-row md:items-end md:justify-between">
-                                    <div>
-                                        <h2 className="text-base font-semibold text-slate-900">Cartera del asesor seleccionado</h2>
-                                        <p className="mt-1 text-sm text-slate-500">Primero seleccionas un asesor y luego profundizas en sus clientes atendidos o registrados.</p>
-                                    </div>
-                                    {activeAdvisorRow ? (
-                                        <div className="rounded-2xl bg-[#F6F8FF] px-4 py-3 text-sm text-slate-700">
-                                            <p className="font-semibold text-slate-900">{activeAdvisorRow.asesor_digital || activeAdvisorRow.numero_asesor}</p>
-                                            <p className="mt-1 text-xs text-slate-500">{activeAdvisorRow.agencia || "Sin agencia"} · {totalClientsSelectedAdvisor} clientes según filtros</p>
-                                        </div>
-                                    ) : null}
-                                </div>
-
-                                {activeAdvisorRow ? (
-                                    <div className="mt-4 grid gap-3 md:grid-cols-4">
-                                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                                            <p className="text-xs text-slate-500">Tasa real</p>
-                                            <p className={`mt-1 text-lg font-semibold ${toneFromRate(activeAdvisorSummary.tasa_respuesta_real)}`}>{activeAdvisorSummary.tasa_respuesta_real}%</p>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                                            <p className="text-xs text-slate-500">Positivas / mensajes</p>
-                                            <p className="mt-1 text-lg font-semibold text-emerald-700">{activeAdvisorSummary.tasa_positiva_sobre_mensajes}%</p>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                                            <p className="text-xs text-slate-500">Tiempo promedio</p>
-                                            <p className="mt-1 text-lg font-semibold text-slate-900">{activeAdvisorSummary.promedio_respuesta_label || "—"}</p>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                                            <p className="text-xs text-slate-500">Conversaciones abiertas</p>
-                                            <p className="mt-1 text-lg font-semibold text-amber-700">{activeAdvisorSummary.abiertas}</p>
-                                        </div>
-                                    </div>
-                                ) : null}
-
-                                {advisorDetailError ? (
-                                    <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{advisorDetailError}</div>
-                                ) : null}
-
-                                <div className="mt-5 space-y-3">
-                                    {advisorDetailLoading ? (
-                                        <div className="flex min-h-48 items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 text-slate-500">
-                                            <Loader2 className="mr-2 animate-spin" size={20} /> Cargando clientes del asesor...
-                                        </div>
-                                    ) : clientsOfAdvisor.length ? (
-                                        clientsOfAdvisor.map((item) => {
-                                            const responseRate = percent(item.respuestas, item.mensajes);
-                                            const positiveRate = percent(item.positivas, item.mensajes);
-                                            return (
-                                                <article key={`${item.expediente_id}-${item.numero_asesor}`} className="rounded-[24px] border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50/60">
-                                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-start gap-3">
-                                                                <div className="rounded-2xl bg-slate-100 p-2.5 text-slate-600"><UserRound size={18} /></div>
-                                                                <div className="min-w-0">
-                                                                    <div className="flex flex-wrap items-center gap-2">
-                                                                        <h3 className="truncate font-semibold text-slate-900">{item.nombre}</h3>
-                                                                        <ResultBadge value={item.ultimo_resultado} label={item.ultimo_resultado_label} grupo={item.ultimo_resultado_grupo} />
-                                                                    </div>
-                                                                    <p className="mt-1 text-sm text-slate-500">{item.telefono} · {item.estado || "Sin estado"} · {item.auto_interes || "Sin vehículo"}</p>
-                                                                    <p className="mt-2 text-sm text-slate-700">{item.ultima_accion || "—"}</p>
-                                                                    <p className="mt-1 text-xs text-slate-500">Última actividad: {formatDate(item.ultima_actividad)}</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="grid min-w-[340px] gap-3 sm:grid-cols-3 lg:min-w-[400px]">
-                                                            <div className="rounded-2xl border border-slate-200 bg-white p-3 text-center">
-                                                                <p className="text-xs text-slate-500">Volumen</p>
-                                                                <p className="mt-1 text-lg font-semibold text-slate-900">{item.mensajes}</p>
-                                                                <p className="text-[11px] text-slate-500">mensajes / {item.plantillas} plantillas</p>
-                                                            </div>
-                                                            <div className="rounded-2xl border border-slate-200 bg-white p-3 text-center">
-                                                                <p className="text-xs text-slate-500">Tasa real</p>
-                                                                <p className={`mt-1 text-lg font-semibold ${toneFromRate(responseRate)}`}>{responseRate}%</p>
-                                                                <p className="text-[11px] text-slate-500">{item.respuestas} respuestas</p>
-                                                            </div>
-                                                            <div className="rounded-2xl border border-slate-200 bg-white p-3 text-center">
-                                                                <p className="text-xs text-slate-500">Positivas</p>
-                                                                <p className="mt-1 text-lg font-semibold text-emerald-700">{positiveRate}%</p>
-                                                                <p className="text-[11px] text-slate-500">{item.positivas} interacciones</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                                        <div className="min-w-0 flex-1">
-                                                            <SegmentedBar
-                                                                respuestas={item.respuestas}
-                                                                positivas={item.positivas}
-                                                                sinRespuesta={item.sin_respuesta}
-                                                                abiertas={Math.max(Number(item.mensajes || 0) - Number(item.respuestas || 0) - Number(item.sin_respuesta || 0), 0)}
-                                                            />
-                                                            <div className="mt-2 flex flex-wrap gap-4 text-[11px] text-slate-500">
-                                                                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> Respondió</span>
-                                                                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Positiva</span>
-                                                                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Sin respuesta</span>
-                                                                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-slate-300" /> Abierta</span>
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setSelectedClient(item)}
-                                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                                                        >
-                                                            <ChevronRight size={16} /> Ver bitácora
-                                                        </button>
-                                                    </div>
-                                                </article>
-                                            );
-                                        })
-                                    ) : (
-                                        <EmptyState text="No hay clientes para el asesor seleccionado con los filtros actuales." />
-                                    )}
-                                </div>
-
-                                {(advisorDetail?.paginacion?.pages || 1) > 1 ? (
-                                    <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-4">
-                                        <button type="button" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 opacity-40" disabled>
-                                            <ArrowLeft size={16} /> Anterior
-                                        </button>
-                                        <span className="text-sm text-slate-500">Mostrando hasta {advisorDetail?.paginacion?.page_size || 100} registros del asesor</span>
-                                        <button type="button" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 opacity-40" disabled>
-                                            Siguiente <ArrowRight size={16} />
-                                        </button>
-                                    </div>
-                                ) : null}
-                            </div>
-                        </section>
+                        ) : null}
                     </>
                 )}
             </div>
 
-            <ClientDrawer
-                open={Boolean(selectedClient)}
-                client={selectedClient}
-                onClose={() => setSelectedClient(null)}
-                onResultChanged={() => setReloadKey((value) => value + 1)}
-            />
+            {/* MODAL */}
+            <Modal
+                open={openModal}
+                title={mode === "create" ? "Nuevo ingreso a piso" : `Editar • ${draft?.id}`}
+                onClose={closeModal}
+                footer={
+                    <>
+                        <button
+                            onClick={closeModal}
+                            disabled={saving}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-red-400 px-4 py-2 text-sm font-semibold text-white/90 hover:text-white hover:bg-red-600 disabled:opacity-60"
+                        >
+                            <X className="h-4 w-4" />
+                            Cancelar
+                        </button>
+
+                        <button
+                            onClick={save}
+                            disabled={saving || loadingDetail || telInvalid || (draft?.cliente_telefono ? !telIsOk : false)}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg px-4 bg-[#131E5C]/85 py-2 text-sm font-bold text-white/90 hover:bg-[#131E5C] hover:text-white disabled:opacity-60"
+                        >
+                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            {saving ? "Guardando..." : "Guardar cambios"}
+                        </button>
+                    </>
+                }
+            >
+                {loadingDetail ? (
+                    <ModalSkeleton />
+                ) : !draft ? null : (
+                    <div className="grid gap-3 md:grid-cols-3">
+                        <Field label="Dealer" icon={Building2}>
+                            <select
+                                value={draft.agencia || ""}
+                                onChange={(e) => setDraft((p) => ({ ...p, agencia: e.target.value }))}
+                                disabled={!isAdmin && userAgencias.length <= 1}
+                                className={[
+                                    inputBase,
+                                    inputOk,
+                                    !isAdmin && userAgencias.length <= 1 ? "opacity-75 cursor-not-allowed" : "",
+                                ].join(" ")}
+                            >
+                                <option value="" disabled>
+                                    Selecciona un dealer...
+                                </option>
+                                {(isAdmin ? DEALERS : userAgencias).map((d) => (
+                                    <option key={d} value={d}>
+                                        {d}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+
+                        <Field label="Prospecto" icon={User}>
+                            <input
+                                value={draft.cliente_nombre}
+                                onChange={(e) => setDraft((p) => ({ ...p, cliente_nombre: e.target.value }))}
+                                className={[inputBase, inputOk].join(" ")}
+                                placeholder="Nombre completo"
+                            />
+                        </Field>
+
+                        <Field label="Teléfono" icon={Phone}>
+                            <input
+                                maxLength={12}
+                                value={draft.cliente_telefono}
+                                onChange={(e) =>
+                                    setDraft((p) => ({
+                                        ...p,
+                                        cliente_telefono: e.target.value.replace(/\D/g, "").slice(0, 12),
+                                    }))
+                                }
+                                disabled={mode === "edit" || telIsNormalized}
+                                className={[
+                                    inputBase,
+                                    (isInvalid("cliente_telefono") || telInvalid) ? inputBad : inputOk,
+                                    (mode === "edit" || telIsNormalized) ? "opacity-75 cursor-not-allowed" : "",
+                                ].join(" ")}
+                            />
+
+                            {isInvalid("cliente_telefono") ? (
+                                <div className="mt-2 text-xs font-bold text-red-600">Teléfono es requerido.</div>
+                            ) : null}
+
+                            {!isInvalid("cliente_telefono") && telError ? (
+                                <div className="mt-2 text-xs font-bold text-red-600">{telError}</div>
+                            ) : null}
+                        </Field>
+
+                        <Field label="VW de Sus Sueños" icon={CarFront}>
+                            <select
+                                value={draft.auto_interes || ""}
+                                onChange={(e) => setDraft((p) => ({ ...p, auto_interes: e.target.value }))}
+                                className={[inputBase, inputOk].join(" ")}
+                            >
+                                <option value="" disabled>
+                                    Selecciona un modelo...
+                                </option>
+                                {VEHICULOS.map((d) => (
+                                    <option key={d} value={d}>
+                                        {d}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+
+                        <Field label="Fecha y Hora" icon={CalendarDays}>
+                            <input
+                                type="datetime-local"
+                                value={draft.fecha_hora_cita}
+                                onChange={(e) => setDraft((p) => ({ ...p, fecha_hora_cita: e.target.value }))}
+                                className={[inputBase, isInvalid("fecha_hora_cita") ? inputBad : inputOk].join(" ")}
+                            />
+                            {isInvalid("fecha_hora_cita") ? (
+                                <div className="mt-2 text-xs font-bold text-red-600">Fecha y hora es requerido.</div>
+                            ) : null}
+                        </Field>
+
+                        <Field label="Fuente de prospección" icon={UserSearch}>
+                            <select
+                                value={draft.fuente_prospeccion || ""}
+                                onChange={(e) => setDraft((p) => ({ ...p, fuente_prospeccion: e.target.value }))}
+                                className={[inputBase, inputOk].join(" ")}
+                            >
+                                <option value="" disabled>
+                                    Selecciona una fuente ...
+                                </option>
+                                {FUENTE.map((d) => (
+                                    <option key={d} value={d}>
+                                        {d}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+
+                        <Field label="Asesor piso" icon={UserStar}>
+                            <select
+                                value={draft.asesor_piso || ""}
+                                onChange={(e) => setDraft((p) => ({ ...p, asesor_piso: e.target.value }))}
+                                className={[inputBase, inputOk].join(" ")}
+                            >
+                                <option value="" disabled>
+                                    Selecciona un asesor...
+                                </option>
+                                {ASESORES.map((d) => (
+                                    <option key={d} value={d}>
+                                        {d}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+
+                        <Field label="Folio" icon={UserSearch}>
+                            <input
+                                value={draft.folio || ""}
+                                onChange={(e) => setDraft((p) => ({ ...p, folio: e.target.value }))}
+                                className={[inputBase, inputOk].join(" ")}
+                                placeholder="A12B9981"
+                            />
+                        </Field>
+
+                        <Field label="Be Back" icon={UserCheck}>
+                            <label className="flex items-center gap-3 text-sm font-semibold text-[#131E5C]">
+                                <input
+                                    type="checkbox"
+                                    checked={!!draft.be_back}
+                                    onChange={(e) => setDraft((p) => ({ ...p, be_back: e.target.checked }))}
+                                    className="h-4 w-4"
+                                />
+                                ¿Regresó?
+                            </label>
+                        </Field>
+
+                        <div className="md:col-span-3">
+                            <Field label="Comentarios del cliente" icon={MessageSquareText}>
+                                <textarea
+                                    value={draft.comentarios_cliente}
+                                    onChange={(e) => setDraft((p) => ({ ...p, comentarios_cliente: e.target.value }))}
+                                    className={[inputBase, inputOk, "min-h-[110px]"].join(" ")}
+                                    placeholder="Notas / comentarios del cliente..."
+                                />
+                            </Field>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 }

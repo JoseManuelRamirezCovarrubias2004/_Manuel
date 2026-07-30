@@ -726,7 +726,7 @@ export default function RegistroPruebaManejo() {
     const [vistaActiva, setVistaActiva] = useState("tabla");
     const [currentWeekDate, setCurrentWeekDate] = useState(new Date());
 
-    const DEALERS = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"];
+    const DEALERS = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"];
     const ASESORES = [
         "AURA MARLIZETH FERNANDEZ LOPEZ",
         "Bianca Isabel Chavez Alarcon",
@@ -792,6 +792,7 @@ export default function RegistroPruebaManejo() {
         "Luis Manuel Alvarez Martinez",
         "Blanca Patricia Hernández Hernández",
         "Luis Manuel Hernández Espejo",
+        "JULIO RAMIREZ LOPEZ",
     ];
 
     const VEHICULOS = [

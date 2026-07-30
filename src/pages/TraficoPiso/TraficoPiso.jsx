@@ -174,6 +174,7 @@ const ASESORES = [
     "Luis Manuel Alvarez Martinez",
     "Blanca Patricia Hernández Hernández",
     "Luis Manuel Hernández Espejo",
+    "JULIO RAMIREZ LOPEZ",
 ];
 
 const PASATIEMPOS = [

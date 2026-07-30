@@ -783,7 +783,7 @@ export default function RegistroEntregas() {
     const [entregas, setEntregas] = useState([]);
 
     const DEALERS = useMemo(
-        () => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"],
+        () => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"],
         []
     );
 
@@ -886,6 +886,7 @@ export default function RegistroEntregas() {
         "Luis Manuel Alvarez Martinez",
         "Blanca Patricia Hernández Hernández",
         "Luis Manuel Hernández Espejo",
+        "JULIO RAMIREZ LOPEZ",
     ];
 
     const MODELOS = [
@@ -1216,9 +1217,9 @@ export default function RegistroEntregas() {
 
                 fecha_hora_entrega: toDTLocal(item.fecha_hora_entrega),
                 entrega_reportada: entregaFisicaActiva(item.entrega_reportada),
-asesor_ventas: ASESORES.find(
-    (a) => a.trim().toLowerCase() === String(item.asesor_ventas || "").trim().toLowerCase()
-) || item.asesor_ventas || "",                preparada_por: item.preparada_por || "",
+                asesor_ventas: ASESORES.find(
+                    (a) => a.trim().toLowerCase() === String(item.asesor_ventas || "").trim().toLowerCase()
+                ) || item.asesor_ventas || "", preparada_por: item.preparada_por || "",
                 id_cliente_sf_nadin: item.id_cliente_sf_nadin || "",
                 id_cliente_sf_dms: item.id_cliente_sf_dms || "",
                 comentarios: item.comentarios || "",
