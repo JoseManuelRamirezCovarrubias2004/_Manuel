@@ -1091,7 +1091,7 @@ export default function RegistroCitas() {
     const [vista, setVista] = useState("calendario");
 
     const DEALERS = useMemo(() => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"], []);
-    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Candy Denisse Marquez Cortes"];
+    const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Isabel Chávez Alarcón", "Candy Denisse Marquez Cortes", "JULIO RAMIREZ LOPEZ",];
     const ASESORES = [
         "ADRIAN GALVEZ ROLDAN",
         "AURA MARLIZETH FERNANDEZ LOPEZ",
@@ -1161,11 +1161,24 @@ export default function RegistroCitas() {
         "YAMIL MISAEL RODRIGUEZ AGUILAR",
         "Yoseth Ruiz Castellanos",
         "ZEILA NAVARRO CONTRERAS",
+        "JULIO RAMIREZ LOPEZ",
     ];
 
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
     const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter", "CRAFTER ELITE", "CRAFTER URBAN", "CRAFTER ELEMENTAL", "CRAFTER INSPIRE"];
     const TIPO_CITA = ["Tradicional", "Digital", "Evento", "Remarketing"];
+    const MOTIVOS_CITA = [
+        "Prueba de Manejo",
+        "Avalúo de auto usado",
+        "Cotización de financiamiento",
+        "Solicitud de Crédito",
+        "Anticipo /enganche",
+        "Documentos para facturación",
+        "Firma de contrato",
+        "Lanzamiento",
+        "Open Day",
+        "Información Post-venta",
+    ];
 
     const [ctxMenu, setCtxMenu] = useState({ open: false, x: 0, y: 0, row: null });
     const [sort, setSort] = useState({ key: "fecha_hora_cita", dir: "desc" });
@@ -1189,7 +1202,7 @@ export default function RegistroCitas() {
         setSort((prev) => prev.key !== key ? { key, dir: "asc" } : { key, dir: prev.dir === "asc" ? "desc" : "asc" });
     }
 
-    const REQUIRED = useMemo(() => ({ cliente_telefono: "Teléfono", fecha_hora_cita: "Fecha y hora" }), []);
+    const REQUIRED = useMemo(() => ({ cliente_telefono: "Teléfono", fecha_hora_cita: "Fecha y hora", motivo_cita: "Motivo de cita", }), []);
     const [touchedSave, setTouchedSave] = useState(false);
 
     const missing = useMemo(() => {
@@ -1269,7 +1282,22 @@ export default function RegistroCitas() {
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) return false;
             const nombreCliente = normalizeStr(c?.cliente?.nombre);
             const telCliente = normalizeStr(c?.cliente?.telefono);
-            const matchQ = !q || [c.agencia, nombreCliente, telCliente, c.auto_interes, c.tipo_cita, c.fuente_prospeccion, c.asesor_digital, c.asesor_piso, c.comentarios].some((v) => normalizeStr(v).toLowerCase().includes(q));
+            const matchQ =
+                !q ||
+                [
+                    c.agencia,
+                    nombreCliente,
+                    telCliente,
+                    c.auto_interes,
+                    c.tipo_cita,
+                    c.motivo_cita,
+                    c.fuente_prospeccion,
+                    c.asesor_digital,
+                    c.asesor_piso,
+                    c.comentarios,
+                ].some((value) =>
+                    normalizeStr(value).toLowerCase().includes(q)
+                );
             const matchAgencia = filters.agencia === "Todos" || normalizeStr(c.agencia) === normalizeStr(filters.agencia);
             const matchAsesorDigital = filters.asesorDigital === "Todos" || normalizeStr(c.asesor_digital) === normalizeStr(filters.asesorDigital);
             const matchAsesorPiso = filters.asesorPiso === "Todos" || normalizeStr(c.asesor_piso) === normalizeStr(filters.asesorPiso);
@@ -1314,7 +1342,22 @@ export default function RegistroCitas() {
             fechaDefault = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
         }
 
-        setDraft({ id: null, cliente_id: null, agencia: agenciaDefault, cliente_nombre: "", cliente_telefono: "", auto_interes: "", fecha_hora_cita: fechaDefault, asistencia: false, tipo_cita: "", fuente_prospeccion: "", asesor_digital: "", asesor_piso: "", comentarios: "" });
+        setDraft({
+            id: null,
+            cliente_id: null,
+            agencia: agenciaDefault,
+            cliente_nombre: "",
+            cliente_telefono: "",
+            auto_interes: "",
+            fecha_hora_cita: fechaDefault,
+            asistencia: false,
+            tipo_cita: "",
+            motivo_cita: "",
+            fuente_prospeccion: "",
+            asesor_digital: "",
+            asesor_piso: "",
+            comentarios: "",
+        });
         setOpenModal(true);
     };
 
@@ -1326,7 +1369,22 @@ export default function RegistroCitas() {
             if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) {
                 alert("No tienes permisos para ver registros de otra agencia."); setOpenModal(false); return;
             }
-            setDraft({ id: c.id, cliente_id: c?.cliente?.id_cliente ?? null, agencia: c.agencia || (isAdmin ? "" : userAgencia), cliente_nombre: c?.cliente?.nombre || "", cliente_telefono: c?.cliente?.telefono || "", auto_interes: c.auto_interes || "", fecha_hora_cita: toDTLocal(c.fecha_hora_cita), asistencia: !!c.asistencia, tipo_cita: c.tipo_cita || "", fuente_prospeccion: c.fuente_prospeccion || "", asesor_digital: c.asesor_digital || "", asesor_piso: c.asesor_piso || "", comentarios: c.comentarios || "" });
+            setDraft({
+                id: c.id,
+                cliente_id: c?.cliente?.id_cliente ?? null,
+                agencia: c.agencia || (isAdmin ? "" : userAgencia),
+                cliente_nombre: c?.cliente?.nombre || "",
+                cliente_telefono: c?.cliente?.telefono || "",
+                auto_interes: c.auto_interes || "",
+                fecha_hora_cita: toDTLocal(c.fecha_hora_cita),
+                asistencia: !!c.asistencia,
+                tipo_cita: c.tipo_cita || "",
+                motivo_cita: c.motivo_cita || "",
+                fuente_prospeccion: c.fuente_prospeccion || "",
+                asesor_digital: c.asesor_digital || "",
+                asesor_piso: c.asesor_piso || "",
+                comentarios: c.comentarios || "",
+            });
         } catch (e) { console.error(e); alert("No se pudo abrir la cita (revisa consola)."); setOpenModal(false); }
         finally { setLoadingDetail(false); }
     };
@@ -1356,7 +1414,23 @@ export default function RegistroCitas() {
         try {
             const agenciaFinal = isAdmin ? normalizeStr(draft.agencia || "") : normalizeStr(draft.agencia || userAgencia);
             const payload = {
-                agencia: agenciaFinal, ...(draft.cliente_id ? { cliente_id: draft.cliente_id } : {}), nombre: draft.cliente_nombre || "", telefono: normalizeStr(draft.cliente_telefono), auto_interes: draft.auto_interes || "", fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita), asistencia: !!draft.asistencia, tipo_cita: draft.tipo_cita || "", fuente_prospeccion: draft.fuente_prospeccion || "", asesor_digital: draft.asesor_digital || "", asesor_piso: draft.asesor_piso || "", comentarios: draft.comentarios || ""
+                agencia: agenciaFinal,
+
+                ...(draft.cliente_id
+                    ? { cliente_id: draft.cliente_id }
+                    : {}),
+
+                nombre: draft.cliente_nombre || "",
+                telefono: normalizeStr(draft.cliente_telefono),
+                auto_interes: draft.auto_interes || "",
+                fecha_hora_cita: fromDTLocalToISO(draft.fecha_hora_cita),
+                asistencia: !!draft.asistencia,
+                tipo_cita: draft.tipo_cita || "",
+                motivo_cita: draft.motivo_cita || "",
+                fuente_prospeccion: draft.fuente_prospeccion || "",
+                asesor_digital: draft.asesor_digital || "",
+                asesor_piso: draft.asesor_piso || "",
+                comentarios: draft.comentarios || "",
             };
             if (mode === "create") {
                 await apiCitas.create(payload);
@@ -1412,19 +1486,32 @@ export default function RegistroCitas() {
         const espaciado = [[]];
 
         const encabezados = [[
-            "N°", "Fecha y Hora", "Dealer", "Cliente", "Teléfono",
-            "Auto Interés", "Tipo Cita", "Fuente Prospección",
-            "Asesor Digital", "Asesor Piso", "¿Asistió?", "Comentarios",
+            "N°",
+            "Fecha y Hora",
+            "Dealer",
+            "Cliente",
+            "Teléfono",
+            "Auto Interés",
+            "Tipo Cita",
+            "Motivo de cita",
+            "Fuente Prospección",
+            "Asesor Digital",
+            "Asesor Piso",
+            "¿Asistió?",
+            "Comentarios",
         ]];
 
         const filas = sorted.map((row, i) => ([
             i + 1,
-            row.fecha_hora_cita ? toDTLocal(row.fecha_hora_cita).replace("T", " ") : "—",
+            row.fecha_hora_cita
+                ? toDTLocal(row.fecha_hora_cita).replace("T", " ")
+                : "—",
             row.agencia || "—",
             row?.cliente?.nombre || "—",
             row?.cliente?.telefono || "—",
             row.auto_interes || "—",
             row.tipo_cita || "—",
+            row.motivo_cita || "—",
             row.fuente_prospeccion || "—",
             row.asesor_digital || "—",
             row.asesor_piso || "—",
@@ -1452,6 +1539,7 @@ export default function RegistroCitas() {
             { wch: 16 },
             { wch: 16 },
             { wch: 14 },
+            { wch: 28 },
             { wch: 22 },
             { wch: 30 },
             { wch: 36 },
@@ -1707,7 +1795,40 @@ export default function RegistroCitas() {
                                 {ASESORES.map((d) => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </Field>
-                        <div className="md:col-span-3">
+                        <div className="md:col-span-1">
+                            <Field label="Motivo de cita" icon={CalendarCheck}>
+                                <select
+                                    value={draft.motivo_cita || ""}
+                                    onChange={(e) =>
+                                        setDraft((prev) => ({
+                                            ...prev,
+                                            motivo_cita: e.target.value,
+                                        }))
+                                    }
+                                    className={[
+                                        inputBase,
+                                        isInvalid("motivo_cita") ? inputBad : inputOk,
+                                    ].join(" ")}
+                                >
+                                    <option value="" disabled>
+                                        Selecciona un motivo de cita...
+                                    </option>
+
+                                    {MOTIVOS_CITA.map((motivo) => (
+                                        <option key={motivo} value={motivo}>
+                                            {motivo}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                {isInvalid("motivo_cita") ? (
+                                    <div className="mt-2 text-xs font-bold text-red-600">
+                                        Motivo de cita es requerido.
+                                    </div>
+                                ) : null}
+                            </Field>
+                        </div>
+                        <div className="md:col-span-2">
                             <Field label="Comentarios" icon={MessageSquareText}>
                                 <textarea value={draft.comentarios} onChange={(e) => setDraft((p) => ({ ...p, comentarios: e.target.value }))} className={[inputBase, inputOk, "min-h-[110px]"].join(" ")} placeholder="Notas internas..." />
                             </Field>
