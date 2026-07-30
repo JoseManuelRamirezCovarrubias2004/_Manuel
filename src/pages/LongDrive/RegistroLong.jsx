@@ -285,7 +285,7 @@ export default function RegistroLong() {
     const isAdmin = useMemo(() => {
         const permisos = user?.permisos || [];
         const rol = String(user?.rol || "").trim().toLowerCase();
-        return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("CRM_VENTAS") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
+        return rol === "administrador" || permisos.includes("CRM_DIGITALES") || permisos.includes("CRM_VENTAS") || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN") || permisos.includes("CRM_CALIDAD");
     }, [user]);
 
     const userAgencia = String(user?.agencia || "").trim();
@@ -293,7 +293,7 @@ export default function RegistroLong() {
     const [longs, setLongs] = useState([]);
 
     const DEALERS = useMemo(
-        () => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Chirey", "JAECOO R&R"],
+        () => ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan",],
         []
     );
 

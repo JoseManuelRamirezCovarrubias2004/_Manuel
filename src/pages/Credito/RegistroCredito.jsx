@@ -350,7 +350,7 @@ export default function RegistroCredito() {
     }, [rol, permisos]);
 
     const canAccessCredito = useMemo(() => {
-        return isAdmin || permisos.includes("CRM_FINANCIEROS") || permisos.includes("CRM_VENTAS");
+        return isAdmin || permisos.includes("CRM_FINANCIEROS") || permisos.includes("CRM_VENTAS") || permisos.includes("CRM_CALIDAD");
     }, [isAdmin, permisos]);
 
     const userAgencias = useMemo(() => {
