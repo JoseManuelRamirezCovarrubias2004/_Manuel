@@ -1127,6 +1127,7 @@ export default function RegistroCitas() {
         "JOSE DE JESUS GARCIA ROMAN",
         "JUAN JESUS MARQUEZ AQUINO",
         "JUAN MANUEL SOBREVILLA VICENCIO",
+        "JULIO RAMIREZ LOPEZ",
         "LIZBETH CANO CLARA",
         "Luis Alberto Ramirez Santamaria",
         "LUIS ALFONSO CORIA MARROQUIN",
@@ -1161,7 +1162,6 @@ export default function RegistroCitas() {
         "YAMIL MISAEL RODRIGUEZ AGUILAR",
         "Yoseth Ruiz Castellanos",
         "ZEILA NAVARRO CONTRERAS",
-        "JULIO RAMIREZ LOPEZ",
     ];
 
     const FUENTE = ["Facebook", "WhatsApp", "VW-Concesionarios", "Llamada Entrante", "Prospeccion", "Cartera", "Eternizacion de credito", "Remarketing", "Base de Datos", "Ubicacion"];
