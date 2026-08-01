@@ -1,6 +1,6 @@
 // src/pages/Taller/Taller.jsx
 // VERSION V3: agenda + paneles laterales/inferior + tarjetas arrastrables.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Plus,
     Search,
@@ -42,18 +42,27 @@ const DEALERS = [
     "VW Tuxpan",
 ];
 
-const TECNICOS = [
-    "CIRO AUGUSTO PEREZ",
-    "DIEGO EMETERIO",
-    "ANGEL SORIANO",
-    "MISSAEL HERNANDEZ",
-    "BLADIMIR CASTILLO",
-    "VICTOR VAZQUEZ",
-    "JOSE IGNACIO FIGUEROA",
-    "CARLOS URIEL ORTEGA",
-    "SALVADOR MARTINEZ",
-    "TOMAS SANCHEZ",
-];
+const TECNICOS_POR_DEALER = {
+    "VW Cordoba": [
+        "CIRO AUGUSTO PEREZ",
+        "DIEGO EMETERIO",
+        "ANGEL SORIANO",
+        "MISSAEL HERNANDEZ",
+        "BLADIMIR CASTILLO",
+        "VICTOR VAZQUEZ",
+    ],
+    "VW Orizaba": [
+        "JOSE IGNACIO FIGUEROA",
+        "CARLOS URIEL ORTEGA",
+        "SALVADOR MARTINEZ",
+        "TOMAS SANCHEZ",
+    ],
+    "VW Poza Rica": [],
+    "VW Tuxtepec": [],
+    "VW Tuxpan": [],
+};
+
+const TODOS_TECNICOS_OFICIALES = Object.values(TECNICOS_POR_DEALER).flat();
 
 const TIPOS_SERVICIO = [
     "Mtto. 15 km",
@@ -100,13 +109,18 @@ const TIPOS_BLOQUE = [
     { value: "capacitacion", label: "Capacitación", icon: GraduationCap },
 ];
 
-const HORA_INICIO_AGENDA = 7;
+const HORA_INICIO_AGENDA = 8;
+const MINUTO_INICIO_AGENDA = 30;
 const HORA_FIN_AGENDA = 20;
-const MINUTOS_INICIO_AGENDA = HORA_INICIO_AGENDA * 60;
+const MINUTOS_INICIO_AGENDA =
+    HORA_INICIO_AGENDA * 60 + MINUTO_INICIO_AGENDA;
 const MINUTOS_FIN_AGENDA = HORA_FIN_AGENDA * 60;
-const MINUTOS_TOTALES_AGENDA = MINUTOS_FIN_AGENDA - MINUTOS_INICIO_AGENDA;
+const MINUTOS_TOTALES_AGENDA =
+    MINUTOS_FIN_AGENDA - MINUTOS_INICIO_AGENDA;
 const INTERVALO_MINUTOS = 15;
-const TOTAL_INTERVALOS = MINUTOS_TOTALES_AGENDA / INTERVALO_MINUTOS;
+const TOTAL_INTERVALOS =
+    MINUTOS_TOTALES_AGENDA / INTERVALO_MINUTOS;
+const HORA_INICIO_TEXTO = "08:30";
 
 const ANCHO_TECNICO = 230;
 const ANCHO_MINIMO_LINEA = 2600;
@@ -250,6 +264,33 @@ function normalizeKey(value) {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase();
+}
+
+function uniqueStrings(values) {
+    const seen = new Set();
+
+    return values.filter((value) => {
+        const normalized = normalizeKey(value);
+        if (!normalized || seen.has(normalized)) return false;
+
+        seen.add(normalized);
+        return true;
+    });
+}
+
+function getOfficialTechniciansByDealer(dealer) {
+    if (!dealer || dealer === "Todos") {
+        return TODOS_TECNICOS_OFICIALES;
+    }
+
+    const matchingDealer = Object.keys(TECNICOS_POR_DEALER).find(
+        (configuredDealer) =>
+            normalizeKey(configuredDealer) === normalizeKey(dealer),
+    );
+
+    return matchingDealer
+        ? TECNICOS_POR_DEALER[matchingDealer]
+        : [];
 }
 
 function pad2(value) {
@@ -445,7 +486,12 @@ function saveJSONStorage(key, value) {
 
 function canonicalTechnician(value) {
     const key = normalizeKey(value);
-    return TECNICOS.find((technician) => normalizeKey(technician) === key) || normalizeStr(value);
+
+    return (
+        TODOS_TECNICOS_OFICIALES.find(
+            (technician) => normalizeKey(technician) === key,
+        ) || normalizeStr(value)
+    );
 }
 
 function inferBlockType(row, saved) {
@@ -483,7 +529,7 @@ function inferStartTime(row, saved) {
         row?.hora_cita ||
         toHHMM(row?.fecha_cita) ||
         toHHMM(row?.fecha_ingreso) ||
-        "07:00";
+        HORA_INICIO_TEXTO;
 
     return clampAgendaStart(raw);
 }
@@ -539,6 +585,61 @@ function getActivityLabel(order) {
         .join(" · ");
 }
 
+const WORK_TYPE_META = {
+    reparacion: {
+        label: "Reparación",
+        backgroundColor: "#FEE2E2",
+        borderColor: "#DC2626",
+        color: "#991B1B",
+    },
+    diagnostico: {
+        label: "Diagnóstico",
+        backgroundColor: "#E5E7EB",
+        borderColor: "#6B7280",
+        color: "#111827",
+    },
+    campana: {
+        label: "Campaña",
+        backgroundColor: "#171717",
+        borderColor: "#000000",
+        color: "#FFFFFF",
+    },
+    mantenimiento: {
+        label: "Mantenimiento",
+        backgroundColor: "#DCFCE7",
+        borderColor: "#16A34A",
+        color: "#14532D",
+    },
+};
+
+function getWorkTypeKey(order) {
+    const searchable = normalizeKey(
+        [
+            order?.tipo_servicio,
+            ...(order?.subtrabajos || []).map((work) => work?.nombre),
+        ]
+            .filter(Boolean)
+            .join(" "),
+    );
+
+    if (searchable.includes("campana")) return "campana";
+    if (searchable.includes("diagnost")) return "diagnostico";
+
+    if (
+        searchable.includes("mtto") ||
+        searchable.includes("mantenimiento") ||
+        searchable.includes("servicio preventivo")
+    ) {
+        return "mantenimiento";
+    }
+
+    return "reparacion";
+}
+
+function getWorkTypeMeta(order) {
+    return WORK_TYPE_META[getWorkTypeKey(order)];
+}
+
 function getActivityStyles(order) {
     if (order.tipo_bloque === "comida") {
         return {
@@ -556,18 +657,12 @@ function getActivityStyles(order) {
         };
     }
 
-    if (order.estatus_agenda === "Terminado") {
-        return {
-            backgroundColor: "#334155",
-            borderColor: "#0F172A",
-            color: "#FFFFFF",
-        };
-    }
+    const workType = getWorkTypeMeta(order);
 
     return {
-        backgroundColor: "#F0FDF4",
-        borderColor: "#16A34A",
-        color: "#14532D",
+        backgroundColor: workType.backgroundColor,
+        borderColor: workType.borderColor,
+        color: workType.color,
     };
 }
 
@@ -629,6 +724,11 @@ function orderBelongsToContainer(order, container) {
 }
 
 function DraggableOrderCard({ order, onEdit }) {
+    const workType =
+        order.tipo_bloque === "trabajo"
+            ? getWorkTypeMeta(order)
+            : null;
+
     function handleDragStart(event) {
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("application/x-taller-order-id", order.id);
@@ -662,11 +762,29 @@ function DraggableOrderCard({ order, onEdit }) {
                     </div>
 
                     <div className="mt-1 flex flex-wrap gap-1 text-[10px] font-semibold text-slate-500">
+                        {workType ? (
+                            <span
+                                className="rounded border px-1.5 py-0.5 font-black"
+                                style={{
+                                    backgroundColor: workType.backgroundColor,
+                                    borderColor: workType.borderColor,
+                                    color: workType.color,
+                                }}
+                            >
+                                {workType.label}
+                            </span>
+                        ) : null}
+
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-black text-slate-600">
+                            {order.estatus_agenda || "Programado"}
+                        </span>
+
                         {order.modelo ? (
                             <span className="rounded bg-slate-100 px-1.5 py-0.5">
                                 {order.modelo}
                             </span>
                         ) : null}
+
                         {order.tecnico ? (
                             <span className="max-w-full truncate rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">
                                 {order.tecnico}
@@ -904,7 +1022,20 @@ function BottomContainerPanel({
     );
 }
 
-function WorkshopBoardLayout({ agendaOrders, containerOrders, technicians, selectedDate, onEdit, onMoveOrder, onScheduleOrder, onUnassignOrder, panelState, onTogglePanel, onToggleContainer, }) {
+function WorkshopBoardLayout({
+    agendaOrders,
+    containerOrders,
+    technicians,
+    selectedDate,
+    onEdit,
+    onMoveOrder,
+    onScheduleOrder,
+    onUnassignOrder,
+    onResizeOrder,
+    panelState,
+    onTogglePanel,
+    onToggleContainer,
+}) {
     return (
         <div>
 
@@ -929,6 +1060,7 @@ function WorkshopBoardLayout({ agendaOrders, containerOrders, technicians, selec
                         onEdit={onEdit}
                         onScheduleOrder={onScheduleOrder}
                         onUnassignOrder={onUnassignOrder}
+                        onResizeOrder={onResizeOrder}
                     />
                 </div>
 
@@ -1050,7 +1182,10 @@ function TimelineLines({ showCurrentTime = false }) {
     return (
         <div className="pointer-events-none absolute inset-0 z-0">
             {Array.from({ length: TOTAL_INTERVALOS + 1 }, (_, index) => {
-                const isHour = index % 4 === 0;
+                const markMinutes =
+                    MINUTOS_INICIO_AGENDA +
+                    index * INTERVALO_MINUTOS;
+                const isHour = markMinutes % 60 === 0;
                 return (
                     <div
                         key={index}
@@ -1079,51 +1214,101 @@ function TimelineLines({ showCurrentTime = false }) {
 }
 
 function TimeHeader() {
+    const marks = Array.from(
+        { length: TOTAL_INTERVALOS + 1 },
+        (_, index) => {
+            const minutes =
+                MINUTOS_INICIO_AGENDA +
+                index * INTERVALO_MINUTOS;
+
+            return {
+                index,
+                minutes,
+                hour: Math.floor(minutes / 60),
+                minute: minutes % 60,
+                left: (index / TOTAL_INTERVALOS) * 100,
+            };
+        },
+    );
+
     return (
         <div className="relative h-[62px] border-l border-slate-400 bg-slate-200">
             <TimelineLines />
 
-            <div
-                className="absolute inset-0 z-10 grid"
-                style={{
-                    gridTemplateColumns: `repeat(${HORA_FIN_AGENDA - HORA_INICIO_AGENDA}, minmax(0, 1fr))`,
-                }}
-            >
-                {Array.from({ length: HORA_FIN_AGENDA - HORA_INICIO_AGENDA }, (_, index) => {
-                    const hour = HORA_INICIO_AGENDA + index;
-                    return (
-                        <div key={hour} className="relative border-r border-slate-400/40">
-                            <div className="px-1 pt-1 text-center text-[14px] font-black text-slate-700">
-                                {hour}:00
-                            </div>
-                            <div className="absolute inset-x-0 bottom-1 grid grid-cols-4 text-center text-[12px] font-bold text-slate-500">
-                                <span>00</span>
-                                <span>15</span>
-                                <span>30</span>
-                                <span>45</span>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+            {marks.map((mark) => {
+                const isFirst = mark.index === 0;
+                const isLast = mark.index === TOTAL_INTERVALOS;
+                const showMainLabel =
+                    isFirst ||
+                    isLast ||
+                    mark.minute === 0;
 
-            <div className="absolute right-0 top-1 z-20 translate-x-1/2 text-[12px] font-black text-slate-700">
-                20:00
-            </div>
+                return (
+                    <div
+                        key={mark.minutes}
+                        className="absolute inset-y-0 z-10"
+                        style={{ left: `${mark.left}%` }}
+                    >
+                        {showMainLabel ? (
+                            <div
+                                className={[
+                                    "absolute top-1 whitespace-nowrap text-[12px] font-black text-slate-700",
+                                    isFirst
+                                        ? "left-1"
+                                        : isLast
+                                            ? "right-1"
+                                            : "-translate-x-1/2",
+                                ].join(" ")}
+                            >
+                                {pad2(mark.hour)}:{pad2(mark.minute)}
+                            </div>
+                        ) : null}
+
+                        {!isLast ? (
+                            <div className="absolute bottom-1 -translate-x-1/2 text-[10px] font-bold text-slate-500">
+                                {pad2(mark.minute)}
+                            </div>
+                        ) : null}
+                    </div>
+                );
+            })}
         </div>
     );
 }
+
 
 function ActivityBar({
     order,
     onEdit,
     onUnassignOrder,
+    onResizeOrder,
 }) {
-    const position = getActivityPosition(order);
+    const [resizePreview, setResizePreview] = useState(null);
+    const resizingRef = useRef(false);
+    const suppressClickRef = useRef(false);
+
+    const visibleOrder = resizePreview
+        ? {
+            ...order,
+            hora_inicio: resizePreview.hora_inicio,
+            hora_fin: resizePreview.hora_fin,
+        }
+        : order;
+
+    const position = getActivityPosition(visibleOrder);
     const styles = getActivityStyles(order);
     const label = getActivityLabel(order);
+    const workType =
+        order.tipo_bloque === "trabajo"
+            ? getWorkTypeMeta(order)
+            : null;
 
     function handleDragStart(event) {
+        if (resizingRef.current) {
+            event.preventDefault();
+            return;
+        }
+
         event.dataTransfer.effectAllowed = "move";
 
         event.dataTransfer.setData(
@@ -1137,6 +1322,11 @@ function ActivityBar({
         );
     }
 
+    function handleOpen() {
+        if (suppressClickRef.current) return;
+        onEdit(order);
+    }
+
     function handleRemove(event) {
         event.preventDefault();
         event.stopPropagation();
@@ -1144,36 +1334,146 @@ function ActivityBar({
         onUnassignOrder(order.id);
     }
 
+    function beginResize(event, edge) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const timelineRow = event.currentTarget.closest(
+            '[data-timeline-row="true"]',
+        );
+        const rowRectangle = timelineRow?.getBoundingClientRect();
+
+        if (!rowRectangle?.width) return;
+
+        const originalStart =
+            timeToMinutes(order.hora_inicio) ??
+            MINUTOS_INICIO_AGENDA;
+        const originalEnd =
+            timeToMinutes(order.hora_fin) ??
+            originalStart + INTERVALO_MINUTOS;
+        const pointerStartX = event.clientX;
+
+        let latestStart = originalStart;
+        let latestEnd = originalEnd;
+
+        resizingRef.current = true;
+        suppressClickRef.current = true;
+
+        function handlePointerMove(pointerEvent) {
+            const deltaPixels =
+                pointerEvent.clientX - pointerStartX;
+            const deltaMinutes = roundToQuarter(
+                (deltaPixels / rowRectangle.width) *
+                MINUTOS_TOTALES_AGENDA,
+            );
+
+            if (edge === "start") {
+                latestStart = Math.max(
+                    MINUTOS_INICIO_AGENDA,
+                    Math.min(
+                        originalEnd - INTERVALO_MINUTOS,
+                        originalStart + deltaMinutes,
+                    ),
+                );
+                latestEnd = originalEnd;
+            } else {
+                latestStart = originalStart;
+                latestEnd = Math.max(
+                    originalStart + INTERVALO_MINUTOS,
+                    Math.min(
+                        MINUTOS_FIN_AGENDA,
+                        originalEnd + deltaMinutes,
+                    ),
+                );
+            }
+
+            setResizePreview({
+                hora_inicio: minutesToTime(latestStart),
+                hora_fin: minutesToTime(latestEnd),
+            });
+        }
+
+        function finishResize() {
+            window.removeEventListener(
+                "pointermove",
+                handlePointerMove,
+            );
+            window.removeEventListener(
+                "pointerup",
+                finishResize,
+            );
+            window.removeEventListener(
+                "pointercancel",
+                finishResize,
+            );
+
+            resizingRef.current = false;
+            setResizePreview(null);
+
+            const changed =
+                latestStart !== originalStart ||
+                latestEnd !== originalEnd;
+
+            if (changed) {
+                onResizeOrder(
+                    order.id,
+                    minutesToTime(latestStart),
+                    minutesToTime(latestEnd),
+                );
+            }
+
+            window.setTimeout(() => {
+                suppressClickRef.current = false;
+            }, 120);
+        }
+
+        window.addEventListener(
+            "pointermove",
+            handlePointerMove,
+        );
+        window.addEventListener(
+            "pointerup",
+            finishResize,
+            { once: true },
+        );
+        window.addEventListener(
+            "pointercancel",
+            finishResize,
+            { once: true },
+        );
+    }
+
     return (
         <div
             role="button"
             tabIndex={0}
-            draggable
+            draggable={!resizingRef.current}
             onDragStart={handleDragStart}
-            onDoubleClick={() => onEdit(order)}
-            onClick={() => onEdit(order)}
+            onDoubleClick={handleOpen}
+            onClick={handleOpen}
             onKeyDown={(event) => {
                 if (
                     event.key === "Enter" ||
                     event.key === " "
                 ) {
                     event.preventDefault();
-                    onEdit(order);
+                    handleOpen();
                 }
             }}
             className="
                 absolute
                 z-10
                 flex
-                h-[50px]
+                h-[60px]
                 cursor-grab
-                items-center
+                flex-col
+                justify-center
                 overflow-hidden
                 rounded
                 border
                 py-1
-                pl-2
-                pr-7
+                pl-3
+                pr-8
                 text-left
                 text-[10px]
                 font-extrabold
@@ -1191,10 +1491,41 @@ function ActivityBar({
                 ...styles,
                 top: `${order.lane * ALTURA_CARRIL + 8}px`,
             }}
-            title={`${label}\n${order.hora_inicio} - ${order.hora_fin}`}
+            title={`${label}\n${visibleOrder.hora_inicio} - ${visibleOrder.hora_fin}\nArrastra los extremos para modificar el horario`}
         >
-            <span className="w-full">
+            <button
+                type="button"
+                draggable={false}
+                onPointerDown={(event) =>
+                    beginResize(event, "start")
+                }
+                onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }}
+                className="absolute inset-y-0 left-0 z-40 w-2 cursor-ew-resize border-r border-black/10 bg-black/5 transition hover:bg-black/20"
+                title="Modificar hora de inicio"
+                aria-label="Modificar hora de inicio"
+            />
+
+            <span className="w-full truncate pr-1">
                 {label}
+            </span>
+
+            <span className="mt-1 flex w-full min-w-0 items-center gap-1 overflow-hidden text-[9px]">
+                {workType ? (
+                    <span className="shrink-0 rounded bg-black/10 px-1.5 py-0.5 font-black">
+                        {workType.label}
+                    </span>
+                ) : null}
+
+                <span className="shrink-0 rounded bg-black/10 px-1.5 py-0.5 font-black">
+                    {order.estatus_agenda || "Programado"}
+                </span>
+
+                <span className="truncate font-black">
+                    {visibleOrder.hora_inicio} - {visibleOrder.hora_fin}
+                </span>
             </span>
 
             <button
@@ -1206,8 +1537,9 @@ function ActivityBar({
                 onClick={handleRemove}
                 className="
                     absolute
-                    right-1
+                    right-2.5
                     top-1/2
+                    z-50
                     flex
                     h-5
                     w-5
@@ -1225,11 +1557,34 @@ function ActivityBar({
             >
                 <X className="h-3.5 w-3.5" />
             </button>
+
+            <button
+                type="button"
+                draggable={false}
+                onPointerDown={(event) =>
+                    beginResize(event, "end")
+                }
+                onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }}
+                className="absolute inset-y-0 right-0 z-40 w-2 cursor-ew-resize border-l border-black/10 bg-black/5 transition hover:bg-black/20"
+                title="Modificar hora de fin"
+                aria-label="Modificar hora de fin"
+            />
         </div>
     );
 }
 
-function TimelineRow({ orders, technician, selectedDate, onEdit, onScheduleOrder, onUnassignOrder, }) {
+function TimelineRow({
+    orders,
+    technician,
+    selectedDate,
+    onEdit,
+    onScheduleOrder,
+    onUnassignOrder,
+    onResizeOrder,
+}) {
     const [dragOver, setDragOver] = useState(false);
     const [dropMinutes, setDropMinutes] = useState(null);
 
@@ -1323,17 +1678,17 @@ function TimelineRow({ orders, technician, selectedDate, onEdit, onScheduleOrder
 
     return (
         <div
+            data-timeline-row="true"
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={[
-                "relative border-b border-slate-400/60 bg-white transition",
+                "relative h-full border-b border-slate-400 bg-white transition",
                 dragOver
                     ? "bg-blue-50 ring-2 ring-inset ring-[#131E5C]/30"
                     : "",
             ].join(" ")}
             style={{
-                height: `${rowHeight}px`,
                 minHeight: `${ALTURA_CARRIL}px`,
             }}
         >
@@ -1386,13 +1741,22 @@ function TimelineRow({ orders, technician, selectedDate, onEdit, onScheduleOrder
                     order={order}
                     onEdit={onEdit}
                     onUnassignOrder={onUnassignOrder}
+                    onResizeOrder={onResizeOrder}
                 />
             ))}
         </div>
     );
 }
 
-function AgendaBoard({ orders, technicians, selectedDate, onEdit, onScheduleOrder, onUnassignOrder, }) {
+function AgendaBoard({
+    orders,
+    technicians,
+    selectedDate,
+    onEdit,
+    onScheduleOrder,
+    onUnassignOrder,
+    onResizeOrder,
+}) {
     const rowsByTechnician = useMemo(() => {
         const grouped = new Map();
 
@@ -1461,20 +1825,15 @@ function AgendaBoard({ orders, technicians, selectedDate, onEdit, onScheduleOrde
                         return (
                             <div
                                 key={technician}
-                                className="grid border-b border-slate-500"
+                                className="grid"
                                 style={{
                                     gridTemplateColumns: `${ANCHO_TECNICO}px minmax(${ANCHO_MINIMO_LINEA}px, 1fr)`,
+                                    height: `${rowHeight}px`,
+                                    minHeight: `${ALTURA_CARRIL}px`,
                                 }}
                             >
                                 {/* Información del técnico */}
-                                <div
-                                    className="sticky left-0 z-30 flex items-center gap-3 border-r border-slate-400 bg-white px-3"
-                                    style={{
-                                        width: `${ANCHO_TECNICO}px`,
-                                        height: `${rowHeight}px`,
-                                        minHeight: `${ALTURA_CARRIL}px`,
-                                    }}
-                                >
+                                <div className="sticky left-0 z-30 flex h-full items-center gap-3 border-b border-r border-slate-400 bg-white px-3" style={{ width: `${ANCHO_TECNICO}px`, }}>
                                     <div className="min-w-0">
                                         <div className="text-[10px] font-black text-slate-400">
                                             {pad2(technicianIndex + 1)}
@@ -1494,6 +1853,7 @@ function AgendaBoard({ orders, technicians, selectedDate, onEdit, onScheduleOrde
                                     onEdit={onEdit}
                                     onScheduleOrder={onScheduleOrder}
                                     onUnassignOrder={onUnassignOrder}
+                                    onResizeOrder={onResizeOrder}
                                 />
                             </div>
                         );
@@ -1730,18 +2090,26 @@ export default function Taller() {
     }, [ordenes, isAdmin, userAgencias]);
 
     const techniciansFilter = useMemo(() => {
-        const extras = ordenes
+        const officialTechnicians =
+            getOfficialTechniciansByDealer(filters.agencia);
+        if (filters.agencia !== "Todos") {
+            return [
+                "Todos",
+                ...uniqueStrings(officialTechnicians),
+            ];
+        }
+        const extraTechnicians = ordenes
             .map((order) => canonicalTechnician(order.tecnico))
-            .filter(Boolean)
-            .filter(
-                (technician) =>
-                    !TECNICOS.some(
-                        (official) => normalizeKey(official) === normalizeKey(technician),
-                    ),
-            );
+            .filter(Boolean);
 
-        return ["Todos", ...TECNICOS, ...Array.from(new Set(extras))];
-    }, [ordenes]);
+        return [
+            "Todos",
+            ...uniqueStrings([
+                ...TODOS_TECNICOS_OFICIALES,
+                ...extraTechnicians,
+            ]),
+        ];
+    }, [ordenes, filters.agencia]);
 
     const filtered = useMemo(() => {
         const query = normalizeKey(filters.q);
@@ -1820,19 +2188,14 @@ export default function Taller() {
     }, [ordenes, filters.q, filters.agencia, filters.tecnico]);
 
     const techniciansInAgenda = useMemo(() => {
-        if (filters.tecnico !== "Todos") return [filters.tecnico];
+        if (filters.tecnico !== "Todos") {
+            return [filters.tecnico];
+        }
 
-        const extras = filtered
-            .map((order) => canonicalTechnician(order.tecnico) || "SIN TÉCNICO")
-            .filter(
-                (technician) =>
-                    !TECNICOS.some(
-                        (official) => normalizeKey(official) === normalizeKey(technician),
-                    ),
-            );
-
-        return [...TECNICOS, ...Array.from(new Set(extras))];
-    }, [filtered, filters.tecnico]);
+        return techniciansFilter.filter(
+            (technician) => technician !== "Todos",
+        );
+    }, [filters.tecnico, techniciansFilter]);
 
     const stats = useMemo(() => {
         const programmed = filtered.filter(
@@ -1856,6 +2219,25 @@ export default function Taller() {
             hours,
         };
     }, [filtered]);
+
+    const techniciansForDraft = useMemo(() => {
+        const draftDealer =
+            draft?.agencia ||
+            (filters.agencia !== "Todos"
+                ? filters.agencia
+                : "");
+
+        if (!draftDealer) {
+            return uniqueStrings(TODOS_TECNICOS_OFICIALES);
+        }
+
+        return uniqueStrings(
+            getOfficialTechniciansByDealer(draftDealer),
+        );
+    }, [
+        draft?.agencia,
+        filters.agencia,
+    ]);
 
     async function unassignOrder(orderId) {
         const order = ordenes.find(
@@ -2058,6 +2440,85 @@ export default function Taller() {
         }
     }
 
+    async function resizeOrder(
+        orderId,
+        startTime,
+        endTime,
+    ) {
+        const order = ordenes.find(
+            (item) => String(item.id) === String(orderId),
+        );
+
+        if (!order) {
+            alert("No se encontró la actividad seleccionada.");
+            return;
+        }
+
+        const startMinutes = timeToMinutes(startTime);
+        const endMinutes = timeToMinutes(endTime);
+
+        if (
+            startMinutes === null ||
+            endMinutes === null ||
+            startMinutes < MINUTOS_INICIO_AGENDA ||
+            endMinutes > MINUTOS_FIN_AGENDA ||
+            endMinutes - startMinutes < INTERVALO_MINUTOS
+        ) {
+            alert(
+                "El horario debe permanecer entre las 08:30 y las 20:00 horas, con una duración mínima de 15 minutos.",
+            );
+            return;
+        }
+
+        const previousRows = remoteRows;
+        const payload = {
+            hora_inicio: minutesToTime(
+                roundToQuarter(startMinutes),
+            ),
+            hora_fin: minutesToTime(
+                roundToQuarter(endMinutes),
+            ),
+        };
+
+        setRemoteRows((previous) =>
+            previous.map((row) =>
+                String(row.id) === String(orderId)
+                    ? {
+                        ...row,
+                        ...payload,
+                    }
+                    : row,
+            ),
+        );
+
+        try {
+            const updated = await apiHojaIngresos.patch(
+                orderId,
+                payload,
+            );
+
+            setRemoteRows((previous) =>
+                previous.map((row) =>
+                    String(row.id) === String(orderId)
+                        ? {
+                            ...row,
+                            ...(updated || {}),
+                            ...payload,
+                        }
+                        : row,
+                ),
+            );
+        } catch (error) {
+            console.error(error);
+            setRemoteRows(previousRows);
+
+            alert(
+                error?.message ||
+                "No se pudo actualizar la duración de la actividad.",
+            );
+        }
+    }
+
     async function moveOrderToStage(
         orderId,
         targetStage,
@@ -2138,8 +2599,8 @@ export default function Taller() {
             comentarios_taller: order.comentarios_taller || "",
             tipo_bloque: order.tipo_bloque || "trabajo",
             fecha_programada: order.fecha_programada || filters.fecha,
-            hora_inicio: order.hora_inicio || "07:00",
-            hora_fin: order.hora_fin || "08:00",
+            hora_inicio: order.hora_inicio || HORA_INICIO_TEXTO,
+            hora_fin: order.hora_fin || "09:30",
             estatus_agenda: order.estatus_agenda || "Programado",
             subtrabajos: order.subtrabajos.map((item, index) => ({
                 id: item.id || `${order.id}-${index}`,
@@ -2153,7 +2614,12 @@ export default function Taller() {
     function openCreateManual() {
         setEditingOrden(null);
         setDraft({
-            agencia: isAdmin ? "" : userAgencia,
+            agencia:
+                filters.agencia !== "Todos"
+                    ? filters.agencia
+                    : isAdmin
+                        ? ""
+                        : userAgencia,
             no_orden: "",
             cliente: "",
             telefono: "",
@@ -2165,8 +2631,8 @@ export default function Taller() {
             comentarios_taller: "",
             tipo_bloque: "trabajo",
             fecha_programada: filters.fecha,
-            hora_inicio: "07:00",
-            hora_fin: "08:00",
+            hora_inicio: HORA_INICIO_TEXTO,
+            hora_fin: "09:30",
             estatus_agenda: "Programado",
             subtrabajos: [
                 {
@@ -2201,7 +2667,7 @@ export default function Taller() {
         }
 
         if (start < MINUTOS_INICIO_AGENDA || end > MINUTOS_FIN_AGENDA) {
-            alert("El horario debe estar dentro de las 07:00 y las 20:00 horas.");
+            alert("El horario debe estar dentro de las 08:30 y las 20:00 horas.");
             return false;
         }
 
@@ -2530,7 +2996,7 @@ export default function Taller() {
 
             <div className="mb-4 rounded-xl border border-black/10 bg-white p-3 shadow-sm">
                 <div className="grid gap-3 xl:grid-cols-12">
-                    <div className="xl:col-span-4">
+                    <div className="xl:col-span-5">
                         <FilterBlock label="Búsqueda">
                             <div className="flex items-center gap-2 rounded-lg border border-[#131E5C] bg-white px-3 py-2">
                                 <Search className="h-4 w-4 text-[#131E5C]" />
@@ -2563,28 +3029,7 @@ export default function Taller() {
                         </FilterBlock>
                     </div>
 
-                    <div className="xl:col-span-2">
-                        <FilterBlock label="Dealer">
-                            <select
-                                value={filters.agencia}
-                                onChange={(event) =>
-                                    setFilters((previous) => ({
-                                        ...previous,
-                                        agencia: event.target.value,
-                                    }))
-                                }
-                                className="w-full rounded-lg border border-[#131E5C] bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none"
-                            >
-                                {dealers.map((dealer) => (
-                                    <option key={dealer} value={dealer}>
-                                        {dealer}
-                                    </option>
-                                ))}
-                            </select>
-                        </FilterBlock>
-                    </div>
-
-                    <div className="xl:col-span-2">
+                    <div className="xl:col-span-3">
                         <FilterBlock label="Técnico">
                             <select
                                 value={filters.tecnico}
@@ -2642,7 +3087,40 @@ export default function Taller() {
                     </div>
 
                     <div className="xl:col-span-12">
-                        <div className="flex flex-wrap items-center gap-2">
+                        <FilterBlock label="Dealer">
+                            <div className="flex flex-wrap gap-2">
+                                {dealers.map((dealer) => {
+                                    const active =
+                                        filters.agencia === dealer;
+
+                                    return (
+                                        <button
+                                            key={dealer}
+                                            type="button"
+                                            onClick={() =>
+                                                setFilters((previous) => ({
+                                                    ...previous,
+                                                    agencia: dealer,
+                                                    tecnico: "Todos",
+                                                }))
+                                            }
+                                            className={[
+                                                "rounded-lg border px-4 py-2 text-xs font-extrabold transition sm:text-sm",
+                                                active
+                                                    ? "border-[#131E5C] bg-[#131E5C] text-white shadow-sm"
+                                                    : "border-[#131E5C] bg-white text-[#131E5C] hover:bg-[#131E5C]/10",
+                                            ].join(" ")}
+                                        >
+                                            {dealer}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </FilterBlock>
+                    </div>
+
+                    <div className="xl:col-span-12">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-200 pt-3 text-xs font-bold text-slate-600">
                             <button
                                 type="button"
                                 onClick={goToToday}
@@ -2650,6 +3128,7 @@ export default function Taller() {
                             >
                                 <CalendarDays className="h-4 w-4" /> Hoy
                             </button>
+
                             <button
                                 type="button"
                                 onClick={resetFilters}
@@ -2658,18 +3137,31 @@ export default function Taller() {
                                 <X className="h-4 w-4" /> Limpiar
                             </button>
 
-                            <div className="flex items-center gap-2 ml-5">
-                                <span className="h-3 w-6 rounded border border-green-600 bg-green-50" />
-                                Trabajo programado
-                            </div>
                             <div className="flex items-center gap-2">
-                                <span className="h-3 w-6 rounded border border-slate-900 bg-slate-700" />
-                                Trabajo terminado
+                                <span className="h-3 w-6 rounded border border-red-600 bg-red-100" />
+                                Reparación
                             </div>
+
+                            <div className="flex items-center gap-2">
+                                <span className="h-3 w-6 rounded border border-gray-500 bg-gray-200" />
+                                Diagnóstico
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <span className="h-3 w-6 rounded border border-black bg-black" />
+                                Campaña
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <span className="h-3 w-6 rounded border border-green-600 bg-green-100" />
+                                Mantenimiento
+                            </div>
+
                             <div className="flex items-center gap-2">
                                 <span className="h-3 w-6 rounded border border-cyan-800 bg-cyan-700" />
                                 Comida
                             </div>
+
                             <div className="flex items-center gap-2">
                                 <span className="h-3 w-6 rounded border border-orange-700 bg-orange-600" />
                                 Capacitación
@@ -2678,6 +3170,9 @@ export default function Taller() {
                             <div className="ml-auto hidden text-right lg:block">
                                 <div className="text-sm font-extrabold capitalize text-[#131E5C]">
                                     {formatLongDate(filters.fecha)}
+                                </div>
+                                <div className="mt-0.5 text-[10px] font-semibold text-slate-400">
+                                    El estatus se muestra dentro de cada tarjeta.
                                 </div>
                             </div>
                         </div>
@@ -2700,6 +3195,7 @@ export default function Taller() {
                     onMoveOrder={moveOrderToStage}
                     onScheduleOrder={scheduleOrder}
                     onUnassignOrder={unassignOrder}
+                    onResizeOrder={resizeOrder}
                     panelState={panelState}
                     onTogglePanel={togglePanel}
                     onToggleContainer={toggleContainer}
@@ -2780,9 +3276,11 @@ export default function Taller() {
                                                     <StatusBadge status={order.estatus_agenda} />
                                                 </td>
                                                 <td className="whitespace-nowrap px-4 py-3 font-bold capitalize text-[#131E5C]">
-                                                    {order.tipo_bloque === "capacitacion"
-                                                        ? "Capacitación"
-                                                        : order.tipo_bloque}
+                                                    {order.tipo_bloque === "trabajo"
+                                                        ? getWorkTypeMeta(order).label
+                                                        : order.tipo_bloque === "capacitacion"
+                                                            ? "Capacitación"
+                                                            : order.tipo_bloque}
                                                 </td>
                                                 <td className="px-4 py-3 text-[#131E5C]">
                                                     {order.subtrabajos
@@ -2870,7 +3368,7 @@ export default function Taller() {
                                 <option value="" disabled>
                                     Selecciona un técnico...
                                 </option>
-                                {TECNICOS.map((technician) => (
+                                {techniciansForDraft.map((technician) => (
                                     <option key={technician} value={technician}>
                                         {technician}
                                     </option>
@@ -2914,10 +3412,10 @@ export default function Taller() {
                         <Field label="Hora de inicio" icon={Clock3}>
                             <input
                                 type="time"
-                                min="07:00"
+                                min="08:30"
                                 max="19:45"
                                 step="900"
-                                value={draft.hora_inicio || "07:00"}
+                                value={draft.hora_inicio || HORA_INICIO_TEXTO}
                                 onChange={(event) => {
                                     const start = event.target.value;
                                     const currentEnd = timeToMinutes(draft.hora_fin);
@@ -2942,10 +3440,10 @@ export default function Taller() {
                         <Field label="Hora de fin" icon={Clock3}>
                             <input
                                 type="time"
-                                min="07:15"
+                                min="08:45"
                                 max="20:00"
                                 step="900"
-                                value={draft.hora_fin || "08:00"}
+                                value={draft.hora_fin || "09:30"}
                                 onChange={(event) =>
                                     setDraft((previous) => ({
                                         ...previous,
@@ -2959,12 +3457,50 @@ export default function Taller() {
                         <Field label="Dealer" icon={Building2}>
                             <select
                                 value={draft.agencia || ""}
-                                onChange={(event) =>
+                                onChange={(event) => {
+                                    const nextDealer =
+                                        event.target.value;
+
+                                    const allowedTechnicians =
+                                        uniqueStrings([
+                                            ...getOfficialTechniciansByDealer(
+                                                nextDealer,
+                                            ),
+                                            ...ordenes
+                                                .filter(
+                                                    (order) =>
+                                                        normalizeKey(
+                                                            order.agencia,
+                                                        ) ===
+                                                        normalizeKey(
+                                                            nextDealer,
+                                                        ),
+                                                )
+                                                .map((order) =>
+                                                    canonicalTechnician(
+                                                        order.tecnico,
+                                                    ),
+                                                )
+                                                .filter(Boolean),
+                                        ]);
+
                                     setDraft((previous) => ({
                                         ...previous,
-                                        agencia: event.target.value,
-                                    }))
-                                }
+                                        agencia: nextDealer,
+                                        tecnico:
+                                            allowedTechnicians.some(
+                                                (technician) =>
+                                                    normalizeKey(
+                                                        technician,
+                                                    ) ===
+                                                    normalizeKey(
+                                                        previous.tecnico,
+                                                    ),
+                                            )
+                                                ? previous.tecnico
+                                                : "",
+                                    }));
+                                }}
                                 disabled={
                                     Boolean(editingOrden && !editingOrden.isManual) ||
                                     (!isAdmin && userAgencias.length <= 1)
@@ -2972,7 +3508,12 @@ export default function Taller() {
                                 className={[inputBase, inputOk].join(" ")}
                             >
                                 <option value="">Sin dealer</option>
-                                {(isAdmin ? DEALERS : userAgencias).map((dealer) => (
+                                {(isAdmin
+                                    ? dealers.filter(
+                                        (dealer) => dealer !== "Todos",
+                                    )
+                                    : userAgencias
+                                ).map((dealer) => (
                                     <option key={dealer} value={dealer}>
                                         {dealer}
                                     </option>
