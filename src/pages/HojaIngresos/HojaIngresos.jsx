@@ -1191,33 +1191,6 @@ export default function HojaRegistros() {
                         </div>
                     </div>
                 </div>
-
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <MetricCard
-                        icon={Clock3}
-                        label="Citas del día"
-                        value={metricasDia.total}
-                        hint={`${metricasDia.tasaAsistencia}% tasa de asistencia`}
-                    />
-                    <MetricCard
-                        icon={User}
-                        label="Citados"
-                        value={metricasDia.citados}
-                        hint={`${metricasDia.noCitados} no citados`}
-                    />
-                    <MetricCard
-                        icon={CheckCircle2}
-                        label="Asistencias"
-                        value={metricasDia.asistencias}
-                        hint={`${metricasDia.tasaAsistencia}% sobre citados`}
-                    />
-                    <MetricCard
-                        icon={User}
-                        label="Clientes únicos"
-                        value={metricasDia.clientes}
-                        hint="Calculado por teléfono"
-                    />
-                </div>
             </section>
 
             {/* Filtros — solo vista tabla */}
