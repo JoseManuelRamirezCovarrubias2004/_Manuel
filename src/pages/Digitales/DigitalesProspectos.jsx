@@ -31,7 +31,7 @@ const origenMeta = {
     "Llamada Entrante": { Icon: ImgIcon(PHONE, "Llamada Entrante"), label: "Llamada Entrante" },
 };
 
-const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Chavez Alarcon", "Candy Denisse Marquez", "JULIO RAMIREZ LOPEZ",];
+const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Chavez Alarcon", "Candy Denisse Marquez", "Julio Ramirez Lopez",];
 
 const ESTADOS_PROSPECTO = ["Contactado", "Calificado", "Pendiente de Cotización", "Requiere Asesor", "Financiamiento", "Sin Respuesta", "Descalificado"];
 const MOTIVOS_DESCALIFICACION = ["", "Busca trabajo", "No contesto", "Poco presupuesto", "Datos Incorrectos", "Compro en otra marca"];
@@ -86,17 +86,22 @@ const INITIAL_FILTERS = {
     fechaRegistroHasta: "",
 };
 
-const ASESOR_DIGITAL_POR_NUMERO = {
-    522712638803: { asesor_digital: "IA Vagen", agencia: "VW Cordoba" },
-    522721111244: { asesor_digital: "Lizbeth Cano Clara", agencia: "VW Orizaba" },
-    522713133332: { asesor_digital: "Erendira Santos Coyotzi", agencia: "VW Cordoba" },
-    522871232641: { asesor_digital: "Marelly Tenorio Salinas", agencia: "VW Tuxtepec" },
-    527831263814: { asesor_digital: "Edgar Omar Noguera Solis", agencia: "VW Tuxpan" },
-    527821820706: { asesor_digital: "Dulce Abigail Garcia Olivares", agencia: "VW Poza Rica" },
-    522712837999: { asesor_digital: "Bianca Chavez Alarcon", agencia: "VW Cordoba Usados" },
-    522721986539: { asesor_digital: "Candy Denisse Marquez", agencia: "VW Orizaba Usados" },
-    522871232641: { asesor_digital: "JULIO RAMIREZ LOPEZ", agencia: "VW Tuxtepec" },
+const NUMERO_TUXTEPEC = "522871232641";
 
+const ASESOR_TUXTEPEC_POR_USUARIO = {
+    adtuxte: "Marelly Tenorio Salinas",
+    juliorl: "Julio Ramirez Lopez",
+};
+
+const ASESOR_DIGITAL_POR_NUMERO = {
+    "522712638803": { asesor_digital: "IA Vagen", agencia: "VW Cordoba", etiqueta: "IA Vagen", },
+    "522721111244": { asesor_digital: "Lizbeth Cano Clara", agencia: "VW Orizaba", etiqueta: "Lizbeth Cano Clara", },
+    "522713133332": { asesor_digital: "Erendira Santos Coyotzi", agencia: "VW Cordoba", etiqueta: "Erendira Santos Coyotzi", },
+    "522871232641": { asesor_digital: "", agencia: "VW Tuxtepec", etiqueta: "Equipo Digital Tuxtepec", },
+    "527831263814": { asesor_digital: "Edgar Omar Noguera Solis", agencia: "VW Tuxpan", etiqueta: "Edgar Omar Noguera Solis", },
+    "527821820706": { asesor_digital: "Dulce Abigail Garcia Olivares", agencia: "VW Poza Rica", etiqueta: "Dulce Abigail Garcia Olivares", },
+    "522712837999": { asesor_digital: "Bianca Chavez Alarcon", agencia: "VW Cordoba Usados", etiqueta: "Bianca Chavez Alarcon", },
+    "522721986539": { asesor_digital: "Candy Denisse Marquez", agencia: "VW Orizaba Usados", etiqueta: "Candy Denisse Marquez", },
 };
 
 const ASESORES = [
@@ -300,12 +305,42 @@ function getNumerosUsuarioSesion(user) {
     return [];
 }
 
-function getAsesorDigitalPorNumero(numero) {
-    return ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(numero)]?.asesor_digital || "";
+function getUsuarioCrm(user) {
+    return normalizeText(user?.usuario || user?.username || user?.user || user?.nombre_usuario || "");
 }
 
-function getContextoDigitalPorNumero(numero) {
-    return ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(numero)] || null;
+function getAsesorDigitalPorNumero(numero, user = null) {
+    const numeroNormalizado = normalizaTelefonoMx(numero);
+
+    if (numeroNormalizado === NUMERO_TUXTEPEC) {
+        const usuario = getUsuarioCrm(user);
+
+        return (ASESOR_TUXTEPEC_POR_USUARIO[usuario] || "");
+    }
+
+    return (ASESOR_DIGITAL_POR_NUMERO[numeroNormalizado]?.asesor_digital || "");
+}
+
+function getEtiquetaDigitalPorNumero(numero) {
+    const numeroNormalizado = normalizaTelefonoMx(numero);
+
+    const configuracion = ASESOR_DIGITAL_POR_NUMERO[numeroNormalizado];
+
+    return (configuracion?.etiqueta || configuracion?.asesor_digital || "");
+}
+
+function getContextoDigitalPorNumero(numero, user = null) {
+    const numeroNormalizado = normalizaTelefonoMx(numero);
+
+    const configuracion = ASESOR_DIGITAL_POR_NUMERO[numeroNormalizado];
+
+    if (!configuracion) {
+        return null;
+    }
+
+    return {
+        ...configuracion, asesor_digital: getAsesorDigitalPorNumero(numeroNormalizado, user),
+    };
 }
 
 function toDTLocal(isoOrNull) {
@@ -513,17 +548,14 @@ function normalizeProspecto(p) {
         resumen_fuente: p.resumen_fuente || "",
         cliente_interes: p.auto_interes || "",
         asesor_digital: p.asesor_digital || "",
+        usuario_crm_asignado: p.usuario_crm_asignado || "",
+        asignado_automaticamente_at: p.asignado_automaticamente_at || null,
+
         asesor_solicita: p.asesor_ventas || "",
 
-        primer_contacto_at:
-            p.primer_mensaje_cliente ||
-            p.primer_contacto_at ||
-            null,
+        primer_contacto_at: p.primer_contacto_at || null,
 
-        ultimo_contacto_at:
-            p.ultimo_contacto_asesor ||
-            p.ultimo_contacto_at ||
-            null,
+        ultimo_contacto_at: p.ultimo_contacto_asesor || p.ultimo_contacto_at || null,
 
         // Conserva la fecha original.
         creado: fechaCreacionRaw,
@@ -1561,12 +1593,15 @@ export default function DigitalesProspectos() {
             numeroUsuarioSesion;
 
         return getContextoDigitalPorNumero(
-            numeroContexto
+            numeroContexto,
+            user
         );
     }, [
         numeroAsesorActivo,
         numeroUsuarioSesion,
+        user,
     ]);
+
     const deferredQ = useDeferredValue(filters.q);
     const [page, setPage] = useState(1);
     const [openModal, setOpenModal] = useState(false);
@@ -1875,11 +1910,27 @@ export default function DigitalesProspectos() {
         const q = deferredQ.trim().toLowerCase();
         return cases.filter((c) => {
             const nombre = `${c.cliente_nombre || ""} ${c.cliente_apellidos || ""}`.trim();
-            if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia)) return false;
-            if (filtroNumeroActivo) {
-                if (normalizeText(c.asesor_digital) !== normalizeText(filtroNumeroActivo.asesor_digital)) return false;
-                if (normalizeText(c.agencia) !== normalizeText(filtroNumeroActivo.agencia)) return false;
-            } else if (!isAdmin) {
+            if (
+                !isAdmin &&
+                userAgencias.length > 0 &&
+                !userTieneAgencia(c.agencia)
+            ) {
+                return false;
+            }
+            if (
+                filtroNumeroActivo &&
+                normalizeText(c.agencia) !==
+                normalizeText(
+                    filtroNumeroActivo.agencia
+                )
+            ) {
+                return false;
+            }
+
+            if (
+                !filtroNumeroActivo &&
+                !isAdmin
+            ) {
                 return false;
             }
             const matchQ =
@@ -2254,10 +2305,11 @@ export default function DigitalesProspectos() {
     };
     function buildProspectoPayload() {
         const agenciaFinal = !isAdmin && contextoDigitalSesion?.agencia ? contextoDigitalSesion.agencia : draft.agencia || "";
-        const asesorDigitalFinal = !isAdmin && contextoDigitalSesion?.asesor_digital ? contextoDigitalSesion.asesor_digital : draft.asesor_digital || "";
+        const asesorDigitalFinal = mode === "edit" ? draft.asesor_digital || "" : !isAdmin && contextoDigitalSesion?.asesor_digital ? contextoDigitalSesion.asesor_digital : draft.asesor_digital || "";
         const nombreCapturado = getNombreCompletoDraft(draft);
         const nombreFinal = draft.tiene_nombre && nombreCapturado ? nombreCapturado : "SIN NOMBRE";
         return {
+            numero_asesor: numeroAsesorActivo || numeroUsuarioSesion || "",
             nombre: nombreFinal,
             telefono: normalizaTelefonoMx(draft.telefono),
             correo: draft.correo || "",
@@ -2918,7 +2970,7 @@ export default function DigitalesProspectos() {
                                                         : `${formatTelefonoMx(
                                                             numero
                                                         )
-                                                        } • ${getAsesorDigitalPorNumero(
+                                                        } • ${getEtiquetaDigitalPorNumero(
                                                             numero
                                                         )
                                                         }`}
@@ -3358,7 +3410,17 @@ export default function DigitalesProspectos() {
                             </Field>
 
                             <Field label="Asesor Digital" icon={User}>
-                                <select value={draft.asesor_digital || ""} onChange={(e) => setDraft((p) => ({ ...p, asesor_digital: e.target.value }))} className={cls(inputBase, inputOk)}>
+                                <select value={draft.asesor_digital || ""}
+                                    onChange={(e) =>
+                                        setDraft((previous) => ({
+                                            ...previous,
+                                            asesor_digital:
+                                                e.target.value,
+                                        }))
+                                    }
+                                    disabled={!isAdmin}
+                                    className={cls(inputBase, inputOk, !isAdmin ? "cursor-not-allowed opacity-70" : "")}
+                                >
                                     <option value="">— Selecciona —</option>
                                     {ASESORES_DIGITALES.map((n) => (
                                         <option key={n} value={n}>

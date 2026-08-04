@@ -732,22 +732,28 @@ export const api = {
   digitalesCreateProspecto: (payload) =>
     http("/digitales/api/prospectos/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(withRequestContext(payload || {})),
     }),
 
   digitalesUpdateProspecto: (id, payload) =>
     http(`/digitales/api/prospectos/${id}/`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(withRequestContext(payload || {})),
     }),
 
   digitalesPatchProspecto: (id, payload) =>
     http(`/digitales/api/prospectos/${id}/`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(withRequestContext(payload || {})),
     }),
 
   digitalesDeleteProspecto: (id) =>
