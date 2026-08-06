@@ -831,7 +831,6 @@ export default function RegistroEntregas() {
         "Cesar Ivan Salazar Reyes",
         "Cristian Fernando Rivera Godinez",
         "David Uriel García Navarro",
-        "DELMAR JAVIER ILLESCAS DOMINGUEZ",
         "DULCE ABIGAIL GARCIA OLIVARES",
         "EDGAR JESUS GOMEZ PEREZ",
         "Edgar Omar Noguera Solis",
