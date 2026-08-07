@@ -7,7 +7,7 @@ import {
     obtenerEtiquetaLinea,
 } from "../../config/lineasWhatsApp";
 import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
-import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation, } from "react-router-dom";
 import {
     ArrowLeft,
     Send,
@@ -41,6 +41,7 @@ import {
     Mic,
     Square,
     Download,
+    UserRound,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
@@ -169,6 +170,80 @@ function getStatusDotColor(estado) {
     return "#22C55E";
 }
 
+const ASESORES_VISUALES = {
+    "marelly tenorio salinas": {
+        nombreCorto: "Marelly",
+        color: "#7C3AED",
+        className: "border-violet-200 bg-violet-50 text-violet-700",
+    },
+    "julio ramirez lopez": {
+        nombreCorto: "Julio",
+        color: "#0891B2",
+        className: "border-cyan-200 bg-cyan-50 text-cyan-700",
+    },
+};
+
+function getAsesorVisual(nombre, usuario = "") {
+    const nombreLimpio = String(nombre || "").trim();
+    const usuarioLimpio = String(usuario || "").trim();
+
+    if (!nombreLimpio && !usuarioLimpio) {
+        return {
+            nombreCorto: "Sin asignar",
+            color: "#94A3B8",
+            className: "border-slate-200 bg-slate-50 text-slate-600",
+        };
+    }
+
+    const configuracion = ASESORES_VISUALES[normalizeText(nombreLimpio)];
+
+    if (configuracion) {
+        return configuracion;
+    }
+
+    return {
+        nombreCorto:
+            nombreLimpio.split(/\s+/)[0] ||
+            usuarioLimpio ||
+            "Asignado",
+        color: "#131E5C",
+        className:
+            "border-[#131E5C]/20 bg-[#131E5C]/5 text-[#131E5C]",
+    };
+}
+
+function obtenerRolUsuario(user) {
+    const rol = user?.rol;
+
+    if (typeof rol === "string") {
+        return rol;
+    }
+
+    return (
+        rol?.nombre ||
+        rol?.name ||
+        rol?.descripcion ||
+        ""
+    );
+}
+
+function obtenerPermisosUsuario(user) {
+    const permisos = Array.isArray(user?.permisos)
+        ? user.permisos
+        : [];
+
+    return permisos.map((permiso) =>
+        normalizeText(
+            typeof permiso === "string"
+                ? permiso
+                : permiso?.codigo ||
+                permiso?.nombre ||
+                permiso?.name ||
+                ""
+        )
+    );
+}
+
 function cls(...items) { return items.filter(Boolean).join(" "); }
 function safeLower(v) { return String(v || "").toLowerCase(); }
 
@@ -283,8 +358,13 @@ function normalizeProspectoToChat(p) {
         agencia: p.agencia || "",
         linea: p.business || "",
         estado: p.estado || "",
+        asesor_digital: p.asesor_digital || "",
+        usuario_crm_asignado: p.usuario_crm_asignado || "",
         unread: 0,
-        last: { text: p.comentarios || "Sin historial reciente", time: "" },
+        last: {
+            text: p.comentarios || "Sin historial reciente",
+            time: "",
+        },
         isOnlyProspecto: true,
     };
 }
@@ -1705,16 +1785,36 @@ export default function DigitalesContacto() {
     const [params] = useSearchParams();
     const { user, ready } = useAuth();
 
+    const rolUsuario = useMemo(
+        () => normalizeText(obtenerRolUsuario(user)),
+        [user]
+    );
+
+    const permisosUsuario = useMemo(
+        () => obtenerPermisosUsuario(user),
+        [user]
+    );
+
     const isAdmin = useMemo(() => {
-        const permisos = user?.permisos || [];
-        const rol = normalizeText(user?.rol);
+        return (
+            rolUsuario === "administrador" ||
+            rolUsuario === "admin" ||
+            permisosUsuario.includes("all") ||
+            permisosUsuario.includes("usuarios_admin")
+        );
+    }, [rolUsuario, permisosUsuario]);
+
+    const puedeVerAsignacion = useMemo(() => {
+        const esCoordinadorDigital =
+            rolUsuario.includes("coordinador") &&
+            rolUsuario.includes("digital");
 
         return (
-            rol === "administrador" ||
-            permisos.includes("ALL") ||
-            permisos.includes("USUARIOS_ADMIN")
+            isAdmin ||
+            esCoordinadorDigital ||
+            permisosUsuario.includes("crm_coordinador_digital")
         );
-    }, [user]);
+    }, [isAdmin, rolUsuario, permisosUsuario]);
 
     const numerosAsignados = useMemo(
         () => obtenerNumerosWhatsAppUsuario(user),
@@ -2126,11 +2226,6 @@ export default function DigitalesContacto() {
     } = {}) {
         const numeroLinea =
             normalizaTelefonoMx(numeroAsesor);
-
-        /*
-         * No vaciamos la lista cuando todavía
-         * no se ha inicializado la línea.
-         */
         if (!numeroLinea) {
             return;
         }
@@ -2220,7 +2315,11 @@ export default function DigitalesContacto() {
 
                     estado:
                         chat?.estado || "",
+                    asesor_digital:
+                        chat?.asesor_digital || "",
 
+                    usuario_crm_asignado:
+                        chat?.usuario_crm_asignado || "",
                     ia_estado:
                         chat?.ia_estado || null,
 
@@ -4299,17 +4398,32 @@ export default function DigitalesContacto() {
                                     {loadingList ? <ChatListSkeleton rows={9} /> : filteredChats.length ? (
                                         filteredChats.map((chat) => {
                                             const isActive = chat.telefono === activeTel;
+                                            const asesorVisual = getAsesorVisual(
+                                                chat.asesor_digital,
+                                                chat.usuario_crm_asignado
+                                            );
                                             return (
-                                                <button key={chat.id}
+                                                <button
+                                                    key={chat.id}
                                                     onMouseEnter={() => prefetchChat(chat.telefono)}
                                                     onFocus={() => prefetchChat(chat.telefono)}
                                                     onClick={() => openChatByTel(chat.telefono)}
                                                     onContextMenu={(e) => abrirMenuChat(e, chat)}
                                                     className={cls(
                                                         "w-full border-b border-black/5 px-4 py-3 text-left transition",
-                                                        isActive ? "bg-white" : "bg-neutral-50 hover:bg-white",
+                                                        isActive
+                                                            ? "bg-white"
+                                                            : "bg-neutral-50 hover:bg-white"
                                                     )}
-                                                    type="button">
+                                                    style={
+                                                        puedeVerAsignacion
+                                                            ? {
+                                                                borderLeft: `3px solid ${asesorVisual.color}`,
+                                                            }
+                                                            : undefined
+                                                    }
+                                                    type="button"
+                                                >
                                                     <div className="flex items-center gap-3">
                                                         {/* Avatar con dot de estado */}
                                                         <div className="relative shrink-0">
@@ -4327,8 +4441,26 @@ export default function DigitalesContacto() {
                                                                 <div className="truncate text-sm font-extrabold text-[#131E5C] leading-tight">{chat.nombre}</div>
                                                                 <div className="shrink-0 text-[11px] font-semibold text-slate-400 leading-tight">
                                                                     {chat.last?.timestamp ? formatearFechaConDia(chat.last.timestamp) : chat.last?.time || ""}
-                                                                </div>                                                            </div>
+                                                                </div>
+                                                            </div>
 
+                                                            {puedeVerAsignacion ? (
+                                                                <span
+                                                                    className={cls(
+                                                                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-extrabold leading-tight",
+                                                                        asesorVisual.className
+                                                                    )}
+                                                                    title={
+                                                                        chat.asesor_digital
+                                                                            ? `Prospecto asignado a ${chat.asesor_digital}`
+                                                                            : "Prospecto todavía sin asesor asignado"
+                                                                    }
+                                                                >
+                                                                    <UserRound className="h-2.5 w-2.5" />
+
+                                                                    {asesorVisual.nombreCorto}
+                                                                </span>
+                                                            ) : null}
                                                             {/* Fila 2: último mensaje + badge unread */}
                                                             <div className="mt-0.5 flex items-center justify-between gap-2">
                                                                 <div className="truncate text-xs font-medium text-slate-500">{chat.last?.text || formateaTelUi(chat.telefono)}</div>
