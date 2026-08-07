@@ -41,6 +41,7 @@ import {
     Mic,
     Square,
     Download,
+    UserRound,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
@@ -166,7 +167,91 @@ function getStatusDotColor(estado) {
     const v = String(estado || "").toLowerCase();
     if (v === "descalificado") return "#3B82F6";
     if (v === "sin respuesta" || v === "sin_respuesta" || v === "") return "#EF4444";
-    return "#22C55E";
+    return "#22C55E"; 
+}
+
+const ASESORES_VISUALES = {
+    "marelly tenorio salinas": {
+        nombreCorto: "Marelly",
+        color: "#7C3AED",
+        className: "border-violet-200 bg-violet-50 text-violet-700",
+    },
+    "julio ramirez lopez": {
+        nombreCorto: "Julio",
+        color: "#0891B2",
+        className: "border-cyan-200 bg-cyan-50 text-cyan-700",
+    },
+};
+
+
+function getAsesorVisual(nombre, usuario = "") {
+    const nombreLimpio = String(nombre || "").trim();
+    const usuarioLimpio = String(usuario || "").trim();
+
+
+    if (!nombreLimpio && !usuarioLimpio) {
+        return {
+            nombreCorto: "Sin asignar",
+            color: "#94A3B8",
+            className: "border-slate-200 bg-slate-50 text-slate-600",
+        };
+    }
+
+
+    const configuracion = ASESORES_VISUALES[normalizeText(nombreLimpio)];
+
+
+    if (configuracion) {
+        return configuracion;
+    }
+
+
+    return {
+        nombreCorto:
+            nombreLimpio.split(/\s+/)[0] ||
+            usuarioLimpio ||
+            "Asignado",
+        color: "#131E5C",
+        className:
+            "border-[#131E5C]/20 bg-[#131E5C]/5 text-[#131E5C]",
+    };
+}
+
+
+function obtenerRolUsuario(user) {
+    const rol = user?.rol;
+
+
+    if (typeof rol === "string") {
+        return rol;
+    }
+
+
+    return (
+        rol?.nombre ||
+        rol?.name ||
+        rol?.descripcion ||
+        ""
+    );
+}
+
+
+function obtenerPermisosUsuario(user) {
+    const permisos = Array.isArray(user?.permisos)
+        ? user.permisos
+        : [];
+
+
+    return permisos.map((permiso) =>
+        normalizeText(
+            typeof permiso === "string"
+                ? permiso
+                : permiso?.codigo ||
+                  permiso?.nombre ||
+                  permiso?.name ||
+                  ""
+        )
+    );
 }
 
 function cls(...items) { return items.filter(Boolean).join(" "); }
@@ -176,7 +261,6 @@ function normalizeText(value) {
     return String(value || "").normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 }
-
 
 function asObject(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -283,6 +367,8 @@ function normalizeProspectoToChat(p) {
         agencia: p.agencia || "",
         linea: p.business || "",
         estado: p.estado || "",
+        asesor_digital: p.asesor_digital || "",
+        usuario_crm_asignado: p.usuario_crm_asignado || "",
         unread: 0,
         last: { text: p.comentarios || "Sin historial reciente", time: "" },
         isOnlyProspecto: true,
@@ -449,11 +535,26 @@ function getReplyToId(message = {}) {
     );
 }
 
-function Avatar({ name = "?" }) {
+const AVATAR_GRADIENTS = [
+    ["#131E5C", "#1746D1"],
+    ["#1746D1", "#4F6EF2"],
+    ["#075E54", "#128C7E"],
+    ["#1E3A8A", "#3B6BF2"],
+    ["#0F172A", "#1D4ED8"],
+];
+
+function Avatar({ name = "?", size = "md" }) {
     const initials = String(name || "?").split(" ").filter(Boolean).slice(0, 2).map(i => i[0]?.toUpperCase()).join("");
+    const hash = [...String(name || "?")].reduce((acc, ch) => acc + (ch.codePointAt(0) || 0), 0);
+    const [from, to] = AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+    const box = size === "lg" ? "h-12 w-12" : "h-10 w-10";
+    const txt = size === "lg" ? "text-base" : "text-sm";
     return (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm">
-            <span className="text-sm font-extrabold text-[#131E5C]">{initials || "?"}</span>
+        <div
+            className={cls("flex shrink-0 items-center justify-center rounded-full shadow-sm ring-1 ring-black/5", box)}
+            style={{ background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` }}
+        >
+            <span className={cls("font-extrabold text-white", txt)}>{initials || "?"}</span>
         </div>
     );
 }
@@ -464,8 +565,8 @@ function ChatListSkeleton({ rows = 8 }) {
     return (
         <div>
             {Array.from({ length: rows }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
-                    <Sk className="h-10 w-10 rounded-full shrink-0" />
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                    <Sk className="h-12 w-12 rounded-full shrink-0" />
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                             <Sk className="h-3.5 w-32 rounded" />
@@ -1254,7 +1355,7 @@ function DateSeparator({ date }) {
     if (!date) return null;
     return (
         <div className="sticky top-2 z-10 flex justify-center my-4 pointer-events-none">
-            <div className="pointer-events-auto rounded-full border border-black/10 bg-white/90 backdrop-blur-sm px-4 py-1.5 text-xs font-extrabold text-[#131E5C] shadow-sm">
+            <div className="pointer-events-auto rounded-full border border-slate-200 bg-white/90 backdrop-blur-sm px-4 py-1.5 text-xs font-extrabold text-[#131E5C] shadow-sm">
                 {formatWhatsAppDate(date)}
             </div>
         </div>
@@ -1433,7 +1534,7 @@ function MessageBubble({
         <div
             id={domId}
             className={cls(
-                "flex w-full rounded-2xl transition-colors duration-700 my-4",
+                "flex w-full rounded-2xl transition-colors duration-700 my-1",
                 mine ? "justify-end" : "justify-start",
                 highlighted ? "bg-amber-100/60" : ""
             )}
@@ -1450,10 +1551,10 @@ function MessageBubble({
                         stickerOnly
                             ? "bg-transparent p-0 shadow-none"
                             : cls(
-                                "rounded-2xl",
+                                "rounded-xl",
                                 mine
-                                    ? "rounded-br-md bg-[#D9FDD3] text-[#111B21]"
-                                    : "rounded-bl-md bg-white text-[#111B21] ring-1 ring-black/10",
+                                    ? "rounded-br-sm bg-[#E1EBFF] text-[#111B21] ring-1 ring-[#1746D1]/15"
+                                    : "rounded-bl-sm bg-white text-[#111B21] ring-1 ring-black/5",
                                 visualOnly ? "p-1.5" : audioOnly ? "p-1.5" : "px-3 py-2"
                             )
                     )}
@@ -1469,12 +1570,12 @@ function MessageBubble({
                             className={cls(
                                 "mb-2 flex w-full min-w-[220px] items-start gap-2 rounded-lg border-l-4 px-2.5 py-1.5 text-left transition",
                                 mine
-                                    ? "border-[#128C7E] bg-[#128C7E]/10 hover:bg-[#128C7E]/15"
-                                    : "border-[#128C7E] bg-[#128C7E]/5 hover:bg-[#128C7E]/10"
+                                    ? "border-[#1746D1] bg-[#1746D1]/10 hover:bg-[#1746D1]/15"
+                                    : "border-[#1746D1] bg-[#1746D1]/5 hover:bg-[#1746D1]/10"
                             )}
                         >
                             <div className="min-w-0 flex-1">
-                                <div className="text-[11px] font-extrabold text-[#128C7E]">
+                                <div className="text-[11px] font-extrabold text-[#1746D1]">
                                     {replyPreview.author}
                                 </div>
                                 <div className="truncate text-[12px] font-medium text-[#667781]">
@@ -1548,8 +1649,8 @@ function MessageBubble({
                                 className={cls(
                                     "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition",
                                     mine
-                                        ? "bg-[#075E54]/10 text-[#075E54] hover:bg-[#075E54]/15"
-                                        : "bg-[#128C7E]/10 text-[#128C7E] hover:bg-[#128C7E]/15"
+                                        ? "bg-[#1746D1]/10 text-[#1746D1] hover:bg-[#1746D1]/15"
+                                        : "bg-[#1746D1]/10 text-[#1746D1] hover:bg-[#1746D1]/15"
                                 )}
                                 title="Responder a este mensaje"
                             >
@@ -1705,16 +1806,40 @@ export default function DigitalesContacto() {
     const [params] = useSearchParams();
     const { user, ready } = useAuth();
 
+    const rolUsuario = useMemo(
+        () => normalizeText(obtenerRolUsuario(user)),
+        [user]
+    );
+
+
+    const permisosUsuario = useMemo(
+        () => obtenerPermisosUsuario(user),
+        [user]
+    );
+
+
     const isAdmin = useMemo(() => {
-        const permisos = user?.permisos || [];
-        const rol = normalizeText(user?.rol);
+        return (
+            rolUsuario === "administrador" ||
+            rolUsuario === "admin" ||
+            permisosUsuario.includes("all") ||
+            permisosUsuario.includes("usuarios_admin")
+        );
+    }, [rolUsuario, permisosUsuario]);
+
+
+    const puedeVerAsignacion = useMemo(() => {
+        const esCoordinadorDigital =
+            rolUsuario.includes("coordinador") &&
+            rolUsuario.includes("digital");
+
 
         return (
-            rol === "administrador" ||
-            permisos.includes("ALL") ||
-            permisos.includes("USUARIOS_ADMIN")
+            isAdmin ||
+            esCoordinadorDigital ||
+            permisosUsuario.includes("crm_coordinador_digital")
         );
-    }, [user]);
+    }, [isAdmin, rolUsuario, permisosUsuario]);
 
     const numerosAsignados = useMemo(
         () => obtenerNumerosWhatsAppUsuario(user),
@@ -2220,6 +2345,12 @@ export default function DigitalesContacto() {
 
                     estado:
                         chat?.estado || "",
+
+                    asesor_digital:
+                        chat?.asesor_digital || "",
+
+                    usuario_crm_asignado:
+                        chat?.usuario_crm_asignado || "",
 
                     ia_estado:
                         chat?.ia_estado || null,
@@ -3092,7 +3223,8 @@ export default function DigitalesContacto() {
     function getReplyAuthor(message) {
         if (!message) return "";
         if (message.mine) return (message.is_ai || message?.raw?.ia_provider || message?.raw?.ia_model) ? "IA" : "Asesor";
-        return "Cliente";
+        const nombre = activeChat?.nombre || prospecto?.nombre || "Cliente";
+        return activeTel ? `${nombre} · ${formateaTelUi(activeTel)}` : nombre;
     }
 
     async function enviarMensaje() {
@@ -4205,50 +4337,99 @@ export default function DigitalesContacto() {
         window.open(`https://wa.me/${activeTel}`, "_blank");
     };
 
-    // ── RENDER ────────────────────────────────────────────────────────────────
+    const perfilProspectoCampos = [
+        quickEditDraft.auto_interes,
+        quickEditDraft.estado,
+        quickEditDraft.canal_contacto,
+        quickEditDraft.enganche_monto,
+        quickEditDraft.presupuesto_mensual,
+        quickEditDraft.buro_estado,
+        quickEditDraft.forma_pago,
+        quickEditDraft.tipo_cliente,
+        quickEditDraft.plazo_compra,
+        quickEditDraft.uso_vehiculo,
+        quickEditDraft.comprobacion_ingresos,
+        quickEditDraft.comentarios,
+    ];
 
+    const perfilProspectoCompletados = perfilProspectoCampos.filter(
+        (value) => String(value ?? "").trim() !== ""
+    ).length;
+
+    const perfilProspectoPorcentaje = Math.round(
+        (perfilProspectoCompletados / perfilProspectoCampos.length) * 100
+    );
+
+    const perfilProspectoPendientes =
+        perfilProspectoCampos.length - perfilProspectoCompletados;
+
+    const perfilComplementarioPendientes = [
+        quickEditDraft.forma_pago,
+        quickEditDraft.tipo_cliente,
+        quickEditDraft.uso_vehiculo,
+        quickEditDraft.comprobacion_ingresos,
+        quickEditDraft.comentarios,
+    ].filter((value) => String(value ?? "").trim() === "").length;
+
+    // ── RENDER ────────────────────────────────────────────────────────────────
     return (
         <div className="w-full min-w-0">
-            <div className="relative overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
+            <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
 
                 <div className={cls(
                     "grid min-h-0 h-[calc(90dvh-64px)] overflow-hidden transition-[grid-template-columns] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                    isDirectChatMode ? "grid-cols-1" : chatSidebarCollapsed ? "grid-cols-1 lg:grid-cols-[58px_minmax(0,1fr)]" : "grid-cols-1 lg:grid-cols-[310px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]"
+                    isDirectChatMode
+                        ? (activeTel
+                            ? (showProspectoPanel
+                                ? "grid-cols-1 xl:grid-cols-[minmax(0,1fr)_390px]"
+                                : "grid-cols-1 xl:grid-cols-[minmax(0,1fr)_48px]")
+                            : "grid-cols-1")
+                        : chatSidebarCollapsed
+                            ? (activeTel
+                                ? (showProspectoPanel
+                                    ? "grid-cols-1 lg:grid-cols-[58px_minmax(0,1fr)] xl:grid-cols-[58px_minmax(0,1fr)_390px]"
+                                    : "grid-cols-1 lg:grid-cols-[58px_minmax(0,1fr)] xl:grid-cols-[58px_minmax(0,1fr)_48px]")
+                                : "grid-cols-1 lg:grid-cols-[58px_minmax(0,1fr)]")
+                            : (activeTel
+                                ? (showProspectoPanel
+                                    ? "grid-cols-1 lg:grid-cols-[310px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)_390px]"
+                                    : "grid-cols-1 lg:grid-cols-[310px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)_48px]")
+                                : "grid-cols-1 lg:grid-cols-[310px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]")
                 )}>
 
                     {/* ── SIDEBAR DE CHATS ──────────────────────────────────── */}
                     <aside className={cls(
-                        "min-h-0 border-r border-black/10 bg-neutral-50 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        "min-h-0 border-r border-slate-200 bg-[#F6F8FC] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
                         isDirectChatMode ? "hidden" : mobileView === "chat" ? "hidden lg:flex lg:flex-col" : "flex flex-col lg:flex lg:flex-col",
                     )}>
                         {chatSidebarCollapsed ? (
                             <div className="hidden h-full flex-col items-center gap-3 bg-white py-3 lg:flex">
                                 <button onClick={() => setChatSidebarCollapsed(false)}
-                                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-white text-[#131E5C] shadow-sm transition hover:scale-105 hover:bg-neutral-50"
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#131E5C] shadow-sm transition hover:scale-105 hover:border-[#1746D1]/40 hover:text-[#1746D1]"
                                     title="Expandir chats" type="button">
                                     <ChevronRight className="h-4 w-4" />
                                 </button>
-                                <div className="h-px w-8 bg-black/10" />
+                                <div className="h-px w-8 bg-slate-200" />
                                 <div className="rotate-90 whitespace-nowrap text-[11px] font-extrabold uppercase tracking-wider text-[#131E5C]/60">Chats</div>
                             </div>
                         ) : (
                             <>
                                 {/* Barra superior del sidebar */}
-                                <div className="border-b border-black/10 bg-white px-3 pt-3 pb-2 shrink-0">
+                                <div className="border-b border-slate-200 bg-white px-3 pt-3 pb-2 shrink-0">
                                     <div className="mb-2.5 flex items-center justify-between gap-2">
                                         <button onClick={() => navigate("/comercial/prospectos")}
-                                            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-extrabold text-[#131E5C] hover:bg-neutral-100 transition"
+                                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-extrabold text-[#131E5C] shadow-sm transition hover:border-[#1746D1]/40 hover:text-[#1746D1]"
                                             title="Volver" type="button">
                                             <ArrowLeft className="h-4 w-4" />Volver
                                         </button>
                                         <button onClick={() => setChatSidebarCollapsed(true)}
-                                            className="hidden h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-[#131E5C] transition hover:bg-neutral-50 lg:inline-flex"
+                                            className="hidden h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#131E5C] shadow-sm transition hover:border-[#1746D1]/40 hover:text-[#1746D1] lg:inline-flex"
                                             title="Contraer" type="button">
                                             <ChevronLeft className="h-4 w-4" />
                                         </button>
                                     </div>
                                     {/* Búsqueda */}
-                                    <div className="flex items-center gap-2 rounded-2xl bg-neutral-100 px-3 py-2">
+                                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition focus-within:border-[#1746D1]/50 focus-within:ring-2 focus-within:ring-[#1746D1]/10">
                                         <Search className="h-4 w-4 shrink-0 text-slate-400" />
                                         <input value={q} onChange={(e) => setQ(e.target.value)}
                                             placeholder="Buscar prospecto…"
@@ -4264,7 +4445,7 @@ export default function DigitalesContacto() {
                                                     cambiarNumeroAsesor(event.target.value)
                                                 }
                                                 disabled={!ready || numerosDisponibles.length === 0}
-                                                className="h-9 w-full rounded-lg border border-[#131E5C]/20 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none focus:ring-2 focus:ring-[#131E5C]/15"
+                                                className="h-9 w-full rounded-xl border border-[#131E5C]/15 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
                                             >
                                                 {numerosDisponibles.map((numero) => (
                                                     <option key={numero} value={numero}>
@@ -4284,8 +4465,10 @@ export default function DigitalesContacto() {
                                         {CHAT_FILTERS.map((f) => (
                                             <button key={f.key} onClick={() => setChatFilter(f.key)}
                                                 className={cls(
-                                                    "shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold transition whitespace-nowrap",
-                                                    chatFilter === f.key ? "bg-[#131E5C] text-white" : "text-slate-500 hover:bg-neutral-200"
+                                                    "shrink-0 rounded-full border px-3 py-1.5 text-xs font-extrabold transition whitespace-nowrap",
+                                                    chatFilter === f.key
+                                                        ? "border-[#131E5C] bg-[#131E5C] text-white shadow-sm"
+                                                        : "border-slate-200 bg-white text-slate-500 hover:border-[#1746D1]/40 hover:text-[#1746D1]"
                                                 )}
                                                 type="button">
                                                 {f.label}
@@ -4299,6 +4482,12 @@ export default function DigitalesContacto() {
                                     {loadingList ? <ChatListSkeleton rows={9} /> : filteredChats.length ? (
                                         filteredChats.map((chat) => {
                                             const isActive = chat.telefono === activeTel;
+
+                                            const asesorVisual = getAsesorVisual(
+                                                chat.asesor_digital,
+                                                chat.usuario_crm_asignado
+                                            );
+
                                             return (
                                                 <button key={chat.id}
                                                     onMouseEnter={() => prefetchChat(chat.telefono)}
@@ -4306,14 +4495,16 @@ export default function DigitalesContacto() {
                                                     onClick={() => openChatByTel(chat.telefono)}
                                                     onContextMenu={(e) => abrirMenuChat(e, chat)}
                                                     className={cls(
-                                                        "w-full border-b border-black/5 px-4 py-3 text-left transition",
-                                                        isActive ? "bg-white" : "bg-neutral-50 hover:bg-white",
+                                                        "group relative w-full px-4 py-3 text-left transition",
+                                                        isActive
+                                                            ? "bg-[#1746D1]/10 shadow-[inset_3px_0_0_0_#1746D1]"
+                                                            : "bg-neutral-50 hover:bg-white",
                                                     )}
                                                     type="button">
                                                     <div className="flex items-center gap-3">
                                                         {/* Avatar con dot de estado */}
                                                         <div className="relative shrink-0">
-                                                            <Avatar name={chat.nombre} />
+                                                            <Avatar name={chat.nombre} size="lg" />
                                                             <span
                                                                 className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white"
                                                                 style={{ backgroundColor: getStatusDotColor(chat.estado) }}
@@ -4324,16 +4515,35 @@ export default function DigitalesContacto() {
                                                         <div className="min-w-0 flex-1">
                                                             {/* Fila 1: nombre + hora */}
                                                             <div className="flex items-start justify-between gap-2">
-                                                                <div className="truncate text-sm font-extrabold text-[#131E5C] leading-tight">{chat.nombre}</div>
+                                                                <div className="flex min-w-0 items-center gap-1.5">
+                                                                    <div className="truncate text-sm font-extrabold text-[#131E5C] leading-tight">{chat.nombre}</div>
+                                                                    {puedeVerAsignacion ? (
+                                                                        <span
+                                                                            className={cls(
+                                                                                "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-extrabold leading-tight",
+                                                                                asesorVisual.className
+                                                                            )}
+                                                                            title={
+                                                                                chat.asesor_digital
+                                                                                    ? `Prospecto asignado a ${chat.asesor_digital}`
+                                                                                    : "Prospecto todavía sin asesor asignado"
+                                                                            }
+                                                                        >
+                                                                            <UserRound className="h-2.5 w-2.5" />
+
+                                                                            {asesorVisual.nombreCorto}
+                                                                        </span>
+                                                                    ) : null}
+                                                                </div>
                                                                 <div className="shrink-0 text-[11px] font-semibold text-slate-400 leading-tight">
                                                                     {chat.last?.timestamp ? formatearFechaConDia(chat.last.timestamp) : chat.last?.time || ""}
                                                                 </div>                                                            </div>
 
                                                             {/* Fila 2: último mensaje + badge unread */}
                                                             <div className="mt-0.5 flex items-center justify-between gap-2">
-                                                                <div className="truncate text-xs font-medium text-slate-500">{chat.last?.text || formateaTelUi(chat.telefono)}</div>
+                                                                <div className={cls("truncate text-xs font-medium", isActive ? "text-[#131E5C]/80" : "text-slate-500")}>{chat.last?.text || formateaTelUi(chat.telefono)}</div>
                                                                 {chat.unread > 0 ? (
-                                                                    <span className="ml-1 shrink-0 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-extrabold text-white">
+                                                                    <span className="ml-1 shrink-0 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#1746D1] px-1.5 text-[11px] font-extrabold text-white shadow-sm">
                                                                         {chat.unread}
                                                                     </span>
                                                                 ) : null}
@@ -4342,8 +4552,8 @@ export default function DigitalesContacto() {
                                                             {/* Fila 3: badges */}
                                                             <div className="mt-1.5 flex flex-wrap items-center gap-1">
                                                                 <span className={cls(
-                                                                    "inline-flex items-center rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-bold leading-tight",
-                                                                    chat.estado ? "text-slate-600" : "text-slate-400",
+                                                                    "inline-flex items-center rounded-full border bg-white px-2 py-0.5 text-[10px] font-bold leading-tight",
+                                                                    chat.estado ? "border-[#131E5C]/15 text-[#131E5C]/70" : "border-slate-200 text-slate-400",
                                                                 )}>
                                                                     {chat.estado || "Sin estado"}
                                                                 </span>
@@ -4385,63 +4595,90 @@ export default function DigitalesContacto() {
                     )}>
 
                         {/* ── HEADER COMPACTO ─────────────────────────────────── */}
-                        <div className="shrink-0 border-b border-black/10 bg-white px-3 py-2 sm:px-4">
-                            <div className="flex flex-wrap items-center gap-2">
+                        <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-1.5 shadow-[0_1px_3px_rgba(19,30,92,0.04)] sm:px-4">
+                            <div
+                                onClick={activeTel ? () => setShowProspectoPanel((prev) => !prev) : undefined}
+                                role={activeTel ? "button" : undefined}
+                                tabIndex={activeTel ? 0 : undefined}
+                                onKeyDown={activeTel ? (e) => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                        e.preventDefault();
+                                        setShowProspectoPanel((prev) => !prev);
+                                    }
+                                } : undefined}
+                                aria-expanded={activeTel ? showProspectoPanel : undefined}
+                                aria-label="Perfil del prospecto"
+                                className={cls(
+                                    "flex flex-nowrap items-center gap-2 rounded-xl px-1 -mx-1 py-0.5 transition select-none",
+                                    activeTel ? "cursor-pointer hover:bg-[#131E5C]/[0.04]" : ""
+                                )}
+                                title={activeTel ? (showProspectoPanel ? "Ocultar perfil del prospecto" : "Ver perfil del prospecto") : undefined}
+                            >
                                 {/* Botón volver mobile */}
                                 {!isDirectChatMode ? (
-                                    <button onClick={() => setMobileView("list")}
-                                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-[#131E5C] hover:bg-neutral-50 lg:hidden"
+                                    <button onClick={(e) => { e.stopPropagation(); setMobileView("list"); }}
+                                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#131E5C] shadow-sm hover:border-[#1746D1]/40 hover:text-[#1746D1] lg:hidden"
                                         type="button" title="Ver chats">
                                         <ChevronLeft className="h-4 w-4" />
                                     </button>
                                 ) : null}
 
-                                <Avatar name={activeChat?.nombre || "Prospecto"} />
+                                <Avatar name={activeChat?.nombre || "Prospecto"} size="lg" />
 
                                 {/* Centro: nombre + teléfono + estado + pauta en una sola fila, fechas debajo */}
-                                <div className="min-w-[220px] flex-1 basis-[420px]">
-                                    {/* Fila 1: nombre + teléfono + estado + pauta (todo en línea, overflow hidden) */}
-                                    <div className="flex flex-wrap items-center gap-1.5">
+                                <div className="min-w-0 flex-1">
+                                    {/* Fila 1: nombre + teléfono + estado (todo en línea, overflow hidden) */}
+                                    <div className="flex flex-nowrap items-center gap-1">
                                         {editingNombre ? (
                                             <input
                                                 ref={nombreInputRef}
                                                 value={nombreDraft}
                                                 onChange={(e) => setNombreDraft(e.target.value)}
-                                                onKeyDown={onNombreKeyDown}
+                                                onKeyDown={(e) => { e.stopPropagation(); onNombreKeyDown(e); }}
                                                 onBlur={guardarNombre}
                                                 disabled={savingNombre}
+                                                onClick={(e) => e.stopPropagation()}
                                                 className="h-7 w-[140px] shrink-0 rounded-md border border-[#131E5C]/30 bg-white px-2 text-sm font-extrabold text-[#131E5C] outline-none focus:border-[#131E5C]/60 sm:w-[180px]"
                                             />
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={iniciarEdicionNombre}
+                                                onClick={(e) => { e.stopPropagation(); iniciarEdicionNombre(); }}
                                                 disabled={!activeTel}
                                                 title="Editar nombre del cliente"
-                                                className="group shrink-0 inline-flex items-center gap-1 rounded px-0.5 py-0.5 text-left hover:bg-neutral-100 disabled:cursor-default disabled:hover:bg-transparent"
+                                                className="group inline-flex min-w-0 items-center gap-1 rounded px-0.5 py-0.5 text-left hover:bg-neutral-100 disabled:cursor-default disabled:hover:bg-transparent"
                                             >
-                                                <span className="text-sm font-extrabold text-[#131E5C] truncate max-w-[120px] sm:max-w-[180px]">
+                                                <span className="truncate text-sm font-extrabold text-[#131E5C]">
                                                     {activeChat?.nombre || "Selecciona un chat"}
                                                 </span>
                                                 {activeTel ? (
-                                                    <Pencil className="h-3 w-3 shrink-0 text-slate-300 group-hover:text-[#131E5C]/60 transition" />
+                                                    <Pencil className="h-2.5 w-2.5 shrink-0 text-slate-300 group-hover:text-[#131E5C]/60 transition" />
                                                 ) : null}
                                             </button>
                                         )}
-                                        <button type="button" onClick={copyTel}
-                                            className="shrink-0 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-semibold text-slate-400 hover:bg-neutral-100 transition"
-                                            title="Copiar número">
-                                            {copiedTel ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                                            <span className={copiedTel ? "text-emerald-500 font-bold" : ""}>{activeTel ? formateaTelUi(activeTel) : "—"}</span>
-                                        </button>
-                                        {/* Estado prospecto */}
-                                        {activeTel ? (
-                                            <select value={headerEstado} onChange={(e) => saveHeaderEstado(e.target.value)}
-                                                className="h-6 min-w-0 max-w-[150px] rounded-md border border-black/10 bg-white px-1.5 text-[11px] font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                title="Estado del prospecto">
-                                                {renderOptionsConValorActual(ESTADOS_HEADER, headerEstado, "Sin estado")}
-                                            </select>
-                                        ) : null}
+                                        <span
+                                            className={cls(
+                                                "inline-flex h-7 shrink-0 select-none items-center gap-1.5 rounded-full border px-3 py-0.5 text-[11px] font-bold shadow-sm",
+                                                showProspectoPanel
+                                                    ? "border-[#1746D1]/50 bg-[#1746D1]/10 text-[#1746D1]"
+                                                    : "border-slate-200 bg-white text-[#131E5C]"
+                                            )}
+                                            title={showProspectoPanel ? "Perfil del prospecto abierto" : "Número de teléfono"}
+                                        >
+                                            <span className="truncate">{activeTel ? formateaTelUi(activeTel) : "—"}</span>
+                                            {copiedTel ? (
+                                                <Check className="h-3 w-3 shrink-0 text-emerald-500" title="Copiado" />
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); copyTel(); }}
+                                                    className="shrink-0 text-slate-400 transition group-hover:text-[#1746D1]"
+                                                    title="Copiar número"
+                                                >
+                                                    <Copy className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </span>
                                         {/* Estado prospecto */}
                                         {activeTel &&
                                             String(headerEstado || "").toLowerCase() === "descalificado" ? (
@@ -4452,6 +4689,7 @@ export default function DigitalesContacto() {
                                                 onChange={(e) =>
                                                     saveHeaderMotivo(e.target.value)
                                                 }
+                                                onClick={(e) => e.stopPropagation()}
                                                 className="h-6 min-w-0 max-w-[180px] rounded-md border border-red-200 bg-red-50 px-1.5 text-[11px] font-semibold text-red-700 outline-none focus:border-red-400"
                                                 title="Motivo de descalificación"
                                             >
@@ -4462,212 +4700,17 @@ export default function DigitalesContacto() {
                                                 )}
                                             </select>
                                         ) : null}
-                                        {/* Pauta */}
-                                        {activeTel ? (
-                                            <select value={quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || ""}
-                                                onChange={(e) => setQuickEditDraft(p => ({ ...p, pauta: e.target.value }))}
-                                                className="h-6 min-w-0 max-w-[190px] rounded-md border border-black/10 bg-white px-1.5 text-[11px] font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40"
-                                                title="Pauta / campaña">
-                                                {renderOptionsConValorActual(pautasOptions, quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || "", "Sin campaña")}
-                                            </select>
-                                        ) : null}
                                     </div>
 
                                     {/* Fila 2: fechas */}
                                     {activeTel && !isDirectChatMode ? (
-                                        <div className="mt-0.5 text-[10px] font-semibold text-slate-400 truncate">
+                                        <div className="mt-px truncate text-[9px] font-semibold text-slate-400">
                                             Reg: {fmtDT(prospecto?.creado)} · 1er: {fmtDT(prospecto?.primer_contacto_at)} · Últ: {fmtDT(prospecto?.ultimo_contacto_at)}
                                         </div>
                                     ) : null}
                                 </div>
-
-                                {/* Derecha: botones de acción — siempre en la misma fila */}
-                                <div className="flex w-full flex-wrap items-center justify-end gap-1 border-t border-black/5 pt-2 sm:w-auto sm:shrink-0 sm:border-0 sm:pt-0">
-                                    {/* Marcar no leído */}
-                                    {!isDirectChatMode ? (
-                                        <button type="button" onClick={() => marcarChatComoNoLeido(activeTel)}
-                                            disabled={!activeTel || markingUnreadTel === activeTel}
-                                            className="inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 bg-blue-50 px-2 text-[11px] font-semibold text-blue-500 hover:bg-blue-50 disabled:opacity-50 transition"
-                                            title="Marcar como no leído">
-                                            <MailOpen className="h-3.5 w-3.5" />
-                                            <span className="hidden xl:inline">{markingUnreadTel === activeTel ? "..." : "No leído"}</span>
-                                        </button>
-                                    ) : null}
-
-                                    {/* Agendar cita */}
-                                    <button type="button" onClick={() => setShowCitaModal(true)}
-                                        disabled={!activeTel}
-                                        className="inline-flex h-7 items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 text-[11px] font-extrabold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 transition"
-                                        title="Agendar cita">
-                                        <CalendarPlus className="h-3.5 w-3.5" />
-                                        <span className="hidden xl:inline">Agendar cita</span>
-                                    </button>
-
-                                    {/* Pausar / Reactivar IA */}
-                                    {activeTel ? (
-                                        iaEstado?.puede_responder ? (
-                                            <button type="button" onClick={pausarIaActiva} disabled={loadingIaAction}
-                                                className="inline-flex h-7 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 text-[11px] font-extrabold text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition"
-                                                title="Pausar IA">
-                                                <ZapOff className="h-3.5 w-3.5" />
-                                                <span className="hidden xl:inline">Pausar IA</span>
-                                            </button>
-                                        ) : (
-                                            <button type="button" onClick={reactivarIaActiva} disabled={loadingIaAction}
-                                                className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-[11px] font-extrabold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition"
-                                                title="Reactivar IA">
-                                                <Zap className="h-3.5 w-3.5" />
-                                                <span className="hidden xl:inline">Reactivar IA</span>
-                                            </button>
-                                        )
-                                    ) : null}
-
-                                    {activeTel ? (
-                                        <button
-                                            type="button"
-                                            onClick={clienteBloqueado ? desbloquearContactoActivo : bloquearContactoActivo}
-                                            disabled={blockingTel === activeTel}
-                                            className={cls(
-                                                "inline-flex h-7 items-center gap-1 rounded-lg border px-2 text-[11px] font-extrabold transition disabled:opacity-50",
-                                                clienteBloqueado
-                                                    ? "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
-                                                    : "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                                            )}
-                                            title={clienteBloqueado ? "Desbloquear contacto" : "Bloquear contacto"}
-                                        >
-                                            <Ban className="h-3.5 w-3.5" />
-                                            <span className="hidden xl:inline">
-                                                {blockingTel === activeTel
-                                                    ? "..."
-                                                    : clienteBloqueado
-                                                        ? "Desbloquear"
-                                                        : "Bloquear"}
-                                            </span>
-                                        </button>
-                                    ) : null}
-
-                                    {/* Llamar por WhatsApp */}
-                                    <button onClick={llamarProspecto} disabled={!activeTel}
-                                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50 transition"
-                                        type="button" title="Llamar por WhatsApp">
-                                        <Phone className="h-3.5 w-3.5" />
-                                    </button>
-                                </div>
                             </div>
                         </div>
-
-                        {/* ── BANNER DATOS DEL PROSPECTO (desplegable) ─────────── */}
-                        {activeTel ? (
-                            <section className="shrink-0 border-b border-[#131E5C]/10 bg-[#131E5C]/[0.03]">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowProspectoPanel(prev => !prev)}
-                                    aria-expanded={showProspectoPanel}
-                                    className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left"
-                                >
-                                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                                        <Pencil className="h-3.5 w-3.5 shrink-0 text-[#131E5C]/60" />
-                                        <span className="text-xs font-extrabold text-[#131E5C]">Datos del prospecto</span>
-                                        <span className="hidden truncate text-[11px] font-semibold text-[#131E5C]/60 sm:inline">
-                                            — {[quickEditDraft.auto_interes || prospecto?.auto_interes, quickEditDraft.estado || prospecto?.estado].filter(Boolean).join(" · ") || "Sin datos aún"}
-                                        </span>
-                                    </div>
-                                    <div className="flex shrink-0 items-center gap-2">
-                                        {showProspectoPanel ? (
-                                            <span className="hidden text-[11px] font-extrabold text-[#131E5C]/60 sm:inline">Cerrar</span>
-                                        ) : null}
-                                        {showProspectoPanel ? (
-                                            <X className="h-4 w-4 text-[#131E5C]/50" />
-                                        ) : (
-                                            <ChevronDown className="h-4 w-4 text-[#131E5C]/40" />
-                                        )}
-                                    </div>
-                                </button>
-
-                                {showProspectoPanel ? (
-                                    <div className="max-h-[min(62dvh,640px)] overflow-y-auto overscroll-contain border-t border-[#131E5C]/10 px-3 py-4 sm:px-4">
-                                        <div className="mx-auto max-w-6xl">
-                                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Vehículo</div>
-                                                    <select value={quickEditDraft.auto_interes || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, auto_interes: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}</select>
-                                                </div>
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Estado</div>
-                                                    <select value={quickEditDraft.estado || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, estado: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(ESTADOS_PROSPECTO, quickEditDraft.estado)}</select>
-                                                </div>
-                                                {String(quickEditDraft.estado || "")
-                                                    .toLowerCase() === "descalificado" ? (
-                                                    <div>
-                                                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-red-600">
-                                                            Motivo de descalificación *
-                                                        </div>
-
-                                                        <select
-                                                            value={
-                                                                quickEditDraft.motivo_descalificacion || ""
-                                                            }
-                                                            onChange={(e) =>
-                                                                setQuickEditDraft((current) => ({
-                                                                    ...current,
-                                                                    motivo_descalificacion:
-                                                                        e.target.value,
-                                                                }))
-                                                            }
-                                                            className={cls(
-                                                                "h-9 w-full rounded-lg border bg-white px-3 text-sm font-semibold outline-none focus:ring-1",
-                                                                quickEditDraft.motivo_descalificacion
-                                                                    ? "border-black/10 text-[#131E5C]"
-                                                                    : "border-red-300 text-red-700"
-                                                            )}
-                                                        >
-                                                            {renderOptionsConValorActual(
-                                                                MOTIVOS_DESCALIFICACION,
-                                                                quickEditDraft.motivo_descalificacion,
-                                                                "Selecciona el motivo…"
-                                                            )}
-                                                        </select>
-                                                    </div>
-                                                ) : null}
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Canal</div>
-                                                    <select value={quickEditDraft.canal_contacto || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, canal_contacto: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}</select>
-                                                </div>
-                                                <div>
-                                                    <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Comentarios</div>
-                                                    <textarea value={quickEditDraft.comentarios || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, comentarios: e.target.value }))} rows={2} className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" />
-                                                </div>
-                                            </div>
-
-                                            <div className="mt-4 rounded-xl border border-[#131E5C]/10 bg-white p-4">
-                                                <div className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-[#131E5C]/60">
-                                                    <Activity className="h-3.5 w-3.5" />Perfil comercial y financiero
-                                                </div>
-                                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Enganche</div><input type="number" min="0" inputMode="numeric" value={quickEditDraft.enganche_monto || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, enganche_monto: e.target.value.replace(/\D/g, "") }))} placeholder="Ej. 80000" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
-                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Presupuesto mensual</div><input type="number" min="0" inputMode="numeric" value={quickEditDraft.presupuesto_mensual || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, presupuesto_mensual: e.target.value.replace(/\D/g, "") }))} placeholder="Ej. 9000" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
-                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Buró</div><select value={quickEditDraft.buro_estado || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, buro_estado: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{BURO_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
-                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Forma de pago</div><select value={quickEditDraft.forma_pago || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, forma_pago: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{FORMA_PAGO_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
-                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Tipo cliente</div><select value={quickEditDraft.tipo_cliente || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, tipo_cliente: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{TIPO_CLIENTE_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
-                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Plazo de compra</div><select value={quickEditDraft.plazo_compra || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, plazo_compra: e.target.value }))} className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">{PLAZO_COMPRA_OPTIONS.map(i => <option key={i || "empty"} value={i}>{i || "— Selecciona —"}</option>)}</select></div>
-                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Uso del vehículo</div><input value={quickEditDraft.uso_vehiculo || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, uso_vehiculo: e.target.value }))} placeholder="Personal, familiar…" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
-                                                    <div><div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Comprobación ingresos</div><input value={quickEditDraft.comprobacion_ingresos || ""} onChange={(e) => setQuickEditDraft(p => ({ ...p, comprobacion_ingresos: e.target.value }))} placeholder="Nómina, estados…" className="h-9 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" /></div>
-                                                </div>
-                                            </div>
-
-                                            <div className="mt-4 flex justify-end">
-                                                <button onClick={saveQuickEdit} disabled={savingQuickEdit || !prospecto?.id}
-                                                    className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                                                    style={{ backgroundColor: BRAND_BLUE }} type="button">
-                                                    <Save className="h-4 w-4" />
-                                                    {savingQuickEdit ? "Guardando..." : "Guardar cambios"}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : null}
-                            </section>
-                        ) : null}
 
                         {/* ── ÁREA DE MENSAJES ──────────────────────────────────── */}
                         <div
@@ -4688,13 +4731,13 @@ export default function DigitalesContacto() {
                                 {activeTel && !loadingChat ? (
                                     <div className="mb-3 flex justify-center">
                                         {loadingOlder ? (
-                                            <div className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-extrabold text-slate-500 shadow-sm">Cargando mensajes anteriores...</div>
+                                            <div className="rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs font-extrabold text-slate-500 shadow-sm">Cargando mensajes anteriores...</div>
                                         ) : chatHasMore ? (
                                             <button onClick={cargarMensajesAnteriores}
-                                                className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-extrabold text-[#131E5C] shadow-sm hover:bg-neutral-50"
+                                                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-extrabold text-[#131E5C] shadow-sm transition hover:border-[#1746D1]/40 hover:text-[#1746D1]"
                                                 type="button">Cargar mensajes anteriores</button>
                                         ) : mensajes.length > 0 ? (
-                                            <div className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-bold text-slate-400 shadow-sm">Inicio de la conversación</div>
+                                            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-400 shadow-sm">Inicio de la conversación</div>
                                         ) : null}
                                     </div>
                                 ) : null}
@@ -4758,14 +4801,14 @@ export default function DigitalesContacto() {
 
                         {/* ── REPLY PREVIEW ─────────────────────────────────────── */}
                         {replyToMsg ? (
-                            <div className="shrink-0 border-t border-black/10 bg-[#131E5C]/5 px-4 py-2">
-                                <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-xl border border-[#131E5C]/15 bg-white px-3 py-2 shadow-sm">
+                            <div className="shrink-0 border-t border-slate-200 bg-[#131E5C]/5 px-4 py-2">
+                                <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-xl border border-[#1746D1]/20 bg-white px-3 py-2 shadow-sm">
                                     <div className="min-w-0 flex-1">
-                                        <div className="text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Respondiendo a {getReplyAuthor(replyToMsg)}</div>
+                                        <div className="text-[11px] font-extrabold uppercase tracking-wide text-[#1746D1]">Respondiendo a {getReplyAuthor(replyToMsg)}</div>
                                         <div className="truncate text-xs font-semibold text-[#131E5C]">{getReplyPreview(replyToMsg)}</div>
                                     </div>
                                     <button type="button" onClick={() => setReplyToMsg(null)}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-slate-500 hover:bg-neutral-50"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                                         title="Cancelar respuesta">
                                         <X className="h-4 w-4" />
                                     </button>
@@ -5295,6 +5338,611 @@ export default function DigitalesContacto() {
                             </div>
                         </div>
                     </section>
+
+                        {activeTel && showProspectoPanel ? (
+                            <button
+                                type="button"
+                                aria-label="Cerrar perfil del prospecto"
+                                onClick={() => setShowProspectoPanel(false)}
+                                className="fixed inset-0 z-[80] bg-black/25 backdrop-blur-[1px] xl:hidden"
+                            />
+                        ) : null}
+
+                        {/* ── PERFIL DEL PROSPECTO (solo rediseño visual) ─────── */}
+                        {activeTel ? (
+                            <aside className={cls(
+                                "min-h-0 flex-col border-l border-slate-200 bg-[#F6F8FC]",
+                                showProspectoPanel
+                                    ? "fixed inset-y-0 right-0 z-[85] flex w-full max-w-[420px] shadow-[-12px_0_30px_rgba(15,23,42,0.04)] xl:static xl:z-auto xl:w-auto xl:max-w-none xl:shadow-none"
+                                    : "hidden xl:flex"
+                            )}>
+                                {showProspectoPanel ? (
+                                    <>
+                                <div className="flex w-full shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 text-left">
+                                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#131E5C]/[0.08] text-[#131E5C]">
+                                            <Activity className="h-3.5 w-3.5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="text-xs font-black text-[#131E5C]">Perfil del prospecto</span>
+                                                <span className="rounded-full bg-[#131E5C]/[0.07] px-2 py-0.5 text-[10px] font-extrabold text-[#131E5C]/70">
+                                                    {perfilProspectoPorcentaje}% completo
+                                                </span>
+                                            </div>
+                                            <div className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">
+                                                {[quickEditDraft.auto_interes || prospecto?.auto_interes, quickEditDraft.canal_contacto || prospecto?.canal_contacto, quickEditDraft.estado || prospecto?.estado]
+                                                    .filter(Boolean)
+                                                    .join(" · ") || "Completa los datos principales del cliente"}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        {perfilProspectoPendientes > 0 ? (
+                                            <span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-extrabold text-amber-700">
+                                                {perfilProspectoPendientes} pendiente{perfilProspectoPendientes === 1 ? "" : "s"}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-extrabold text-emerald-700">
+                                                <Check className="h-3 w-3" /> Completo
+                                            </span>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowProspectoPanel(false)}
+                                            title="Ocultar perfil del prospecto"
+                                            aria-label="Ocultar perfil del prospecto"
+                                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#131E5C]/[0.08] text-[#131E5C] transition hover:bg-[#131E5C]/15"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4">
+                                    <div className="space-y-4">
+
+                                            {/* Tarjeta del cliente: movida desde la zona de conversaciones */}
+                                            <div className="rounded-2xl border border-[#131E5C]/10 bg-white p-4 shadow-sm">
+                                                <div className="mb-4 flex items-center gap-3">
+                                                    <Avatar name={activeChat?.nombre || prospecto?.nombre || "Prospecto"} size="lg" />
+                                                    <div className="min-w-0 flex-1">
+                                                        {editingNombre ? (
+                                                            <input
+                                                                ref={nombreInputRef}
+                                                                value={nombreDraft}
+                                                                onChange={(e) => setNombreDraft(e.target.value)}
+                                                                onKeyDown={onNombreKeyDown}
+                                                                onBlur={guardarNombre}
+                                                                disabled={savingNombre}
+                                                                className="h-8 w-full max-w-[220px] rounded-md border border-[#131E5C]/30 bg-white px-2 text-sm font-black text-[#131E5C] outline-none focus:border-[#131E5C]/60"
+                                                            />
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={iniciarEdicionNombre}
+                                                                title="Editar nombre del cliente"
+                                                                className="group inline-flex max-w-full items-center gap-1 rounded px-0.5 py-0.5 text-left transition hover:bg-neutral-100"
+                                                            >
+                                                                <span className="truncate text-sm font-black text-[#131E5C]">
+                                                                    {activeChat?.nombre || prospecto?.nombre || "Prospecto"}
+                                                                </span>
+                                                                <Pencil className="h-3 w-3 shrink-0 text-slate-300 transition group-hover:text-[#131E5C]/60" />
+                                                            </button>
+                                                        )}
+                                                        <div className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">
+                                                            Número
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={copyTel}
+                                                            className="mt-0.5 inline-flex max-w-full items-center gap-1.5 rounded-lg text-left text-xs font-bold text-[#131E5C] transition hover:text-[#1746D1]"
+                                                            title="Copiar número"
+                                                        >
+                                                            {copiedTel ? (
+                                                                <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                                                            ) : (
+                                                                <Copy className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                                                            )}
+                                                            <span className="truncate">{formateaTelUi(activeTel)}</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    <label className="block">
+                                                        <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">
+                                                            Estado
+                                                        </span>
+                                                        <select
+                                                            value={headerEstado}
+                                                            onChange={(e) => saveHeaderEstado(e.target.value)}
+                                                            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
+                                                        >
+                                                            {renderOptionsConValorActual(ESTADOS_HEADER, headerEstado, "Sin estado")}
+                                                        </select>
+                                                    </label>
+
+                                                    {String(headerEstado || "").toLowerCase() === "descalificado" ? (
+                                                        <label className="block">
+                                                            <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-red-600">
+                                                                Motivo de descalificación
+                                                            </span>
+                                                            <select
+                                                                value={quickEditDraft.motivo_descalificacion || ""}
+                                                                onChange={(e) => saveHeaderMotivo(e.target.value)}
+                                                                className="h-10 w-full rounded-xl border border-red-200 bg-red-50 px-3 text-sm font-bold text-red-700 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                                                            >
+                                                                {renderOptionsConValorActual(
+                                                                    MOTIVOS_DESCALIFICACION,
+                                                                    quickEditDraft.motivo_descalificacion,
+                                                                    "Selecciona el motivo…"
+                                                                )}
+                                                            </select>
+                                                        </label>
+                                                    ) : null}
+
+                                                    <label className="block">
+                                                        <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">
+                                                            Campaña
+                                                        </span>
+                                                        <select
+                                                            value={quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || ""}
+                                                            onChange={(e) => setQuickEditDraft((current) => ({ ...current, pauta: e.target.value }))}
+                                                            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
+                                                        >
+                                                            {renderOptionsConValorActual(
+                                                                pautasOptions,
+                                                                quickEditDraft.pauta || prospecto?.pauta || prospecto?.pauta_origen || "",
+                                                                "Sin campaña"
+                                                            )}
+                                                        </select>
+                                                    </label>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowCitaModal(true)}
+                                                    disabled={!activeTel}
+                                                    className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#131E5C] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#0f184d] disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <CalendarPlus className="h-4 w-4" />
+                                                    Agendar cita
+                                                </button>
+
+                                                <div className="mt-3 grid grid-cols-4 gap-2">
+                                                    {!isDirectChatMode ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => marcarChatComoNoLeido(activeTel)}
+                                                            disabled={!activeTel || markingUnreadTel === activeTel}
+                                                            className="inline-flex h-9 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 transition hover:bg-blue-100 disabled:opacity-50"
+                                                            title="Marcar como no leído"
+                                                        >
+                                                            <MailOpen className="h-4 w-4" />
+                                                        </button>
+                                                    ) : (
+                                                        <div />
+                                                    )}
+
+                                                    {iaEstado?.puede_responder ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={pausarIaActiva}
+                                                            disabled={loadingIaAction}
+                                                            className="inline-flex h-9 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
+                                                            title="Pausar IA"
+                                                        >
+                                                            <ZapOff className="h-4 w-4" />
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={reactivarIaActiva}
+                                                            disabled={loadingIaAction}
+                                                            className="inline-flex h-9 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+                                                            title="Reactivar IA"
+                                                        >
+                                                            <Zap className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={clienteBloqueado ? desbloquearContactoActivo : bloquearContactoActivo}
+                                                        disabled={blockingTel === activeTel}
+                                                        className={cls(
+                                                            "inline-flex h-9 items-center justify-center rounded-xl border transition disabled:opacity-50",
+                                                            clienteBloqueado
+                                                                ? "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                                                                : "border-red-100 bg-red-50 text-red-700 hover:bg-red-100"
+                                                        )}
+                                                        title={clienteBloqueado ? "Desbloquear contacto" : "Bloquear contacto"}
+                                                    >
+                                                        <Ban className="h-4 w-4" />
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={llamarProspecto}
+                                                        disabled={!activeTel}
+                                                        className="inline-flex h-9 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 transition hover:bg-emerald-100 disabled:opacity-50"
+                                                        title="Llamar por WhatsApp"
+                                                    >
+                                                        <Phone className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+
+
+                                            {/* Datos principales */}
+                                            <div className="rounded-2xl border border-[#131E5C]/10 bg-white p-4 shadow-sm">
+                                                <div className="mb-3 flex items-center justify-between gap-3">
+                                                    <div>
+                                                        <div className="text-xs font-black uppercase tracking-[0.08em] text-[#131E5C]">Datos principales</div>
+                                                        <div className="mt-0.5 text-[11px] font-semibold text-slate-400">Lo necesario para identificar y clasificar al prospecto.</div>
+                                                    </div>
+                                                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-extrabold text-blue-700">Paso 1</span>
+                                                </div>
+
+                                                <div className="grid gap-3">
+                                                    <label className="block">
+                                                        <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Vehículo</span>
+                                                        <select
+                                                            value={quickEditDraft.auto_interes || ""}
+                                                            onChange={(e) => setQuickEditDraft(p => ({ ...p, auto_interes: e.target.value }))}
+                                                            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
+                                                        >
+                                                            {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
+                                                        </select>
+                                                    </label>
+
+                                                    <div>
+                                                        <div className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Estado</div>
+                                                        <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-1">
+                                                            {ESTADOS_PROSPECTO.map((estado) => {
+                                                                const selected = String(quickEditDraft.estado || "").toLowerCase() === estado.toLowerCase();
+                                                                return (
+                                                                    <button
+                                                                        key={estado}
+                                                                        type="button"
+                                                                        onClick={() => setQuickEditDraft(p => ({
+                                                                            ...p,
+                                                                            estado,
+                                                                            motivo_descalificacion: estado.toLowerCase() === "descalificado" ? p.motivo_descalificacion : "",
+                                                                        }))}
+                                                                        className={cls(
+                                                                            "min-h-8 rounded-lg px-2 py-1 text-[11px] font-extrabold transition",
+                                                                            selected
+                                                                                ? "bg-white text-[#131E5C] shadow-sm ring-1 ring-[#131E5C]/10"
+                                                                                : "text-slate-400 hover:text-[#131E5C]"
+                                                                        )}
+                                                                    >
+                                                                        {estado}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    <label className="block">
+                                                        <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Canal</span>
+                                                        <select
+                                                            value={quickEditDraft.canal_contacto || ""}
+                                                            onChange={(e) => setQuickEditDraft(p => ({ ...p, canal_contacto: e.target.value }))}
+                                                            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
+                                                        >
+                                                            {renderOptionsConValorActual(CANALES, quickEditDraft.canal_contacto)}
+                                                        </select>
+                                                    </label>
+                                                </div>
+
+                                                {String(quickEditDraft.estado || "").toLowerCase() === "descalificado" ? (
+                                                    <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3">
+                                                        <div className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wide text-red-700">
+                                                            Motivo de descalificación *
+                                                        </div>
+                                                        <select
+                                                            value={quickEditDraft.motivo_descalificacion || ""}
+                                                            onChange={(e) => setQuickEditDraft(current => ({
+                                                                ...current,
+                                                                motivo_descalificacion: e.target.value,
+                                                            }))}
+                                                            className={cls(
+                                                                "h-10 w-full rounded-xl border bg-white px-3 text-sm font-bold outline-none transition focus:ring-2 focus:ring-red-100",
+                                                                quickEditDraft.motivo_descalificacion
+                                                                    ? "border-red-200 text-[#131E5C]"
+                                                                    : "border-red-300 text-red-700"
+                                                            )}
+                                                        >
+                                                            {renderOptionsConValorActual(
+                                                                MOTIVOS_DESCALIFICACION,
+                                                                quickEditDraft.motivo_descalificacion,
+                                                                "Selecciona el motivo…"
+                                                            )}
+                                                        </select>
+                                                    </div>
+                                                ) : null}
+                                            </div>
+
+                                            {/* Calificación rápida */}
+                                            <div className="rounded-2xl border border-[#131E5C]/10 bg-white p-4 shadow-sm">
+                                                <div className="mb-4 flex items-start justify-between gap-3">
+                                                    <div className="flex items-start gap-2.5">
+                                                        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#1746D1]/10 text-[#1746D1]">
+                                                            <Zap className="h-4 w-4" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-black text-[#131E5C]">Calificación rápida</div>
+                                                            <div className="mt-0.5 text-[11px] font-semibold text-slate-400">Cuatro datos para conocer rápidamente la viabilidad del prospecto.</div>
+                                                        </div>
+                                                    </div>
+                                                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-extrabold text-blue-700">Paso 2</span>
+                                                </div>
+
+                                                <div className="grid gap-4">
+                                                    {/* Enganche */}
+                                                    <div>
+                                                        <div className="mb-2 text-xs font-extrabold text-[#131E5C]">¿Cuánto puede dar de enganche?</div>
+                                                        <div className="mb-2 flex flex-wrap gap-1.5">
+                                                            {[30000, 50000, 60000, 80000].map((monto) => {
+                                                                const selected = Number(quickEditDraft.enganche_monto || 0) === monto;
+                                                                return (
+                                                                    <button
+                                                                        key={monto}
+                                                                        type="button"
+                                                                        onClick={() => setQuickEditDraft(p => ({ ...p, enganche_monto: String(monto) }))}
+                                                                        className={cls(
+                                                                            "rounded-full border px-3 py-1.5 text-[11px] font-extrabold transition",
+                                                                            selected
+                                                                                ? "border-[#131E5C] bg-[#131E5C] text-white shadow-sm"
+                                                                                : "border-slate-200 bg-white text-[#131E5C] hover:border-[#131E5C]/30 hover:bg-slate-50"
+                                                                        )}
+                                                                    >
+                                                                        ${monto.toLocaleString("es-MX")}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <div className="relative">
+                                                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">$</span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                inputMode="numeric"
+                                                                value={quickEditDraft.enganche_monto || ""}
+                                                                onChange={(e) => setQuickEditDraft(p => ({ ...p, enganche_monto: e.target.value.replace(/\D/g, "") }))}
+                                                                placeholder="Otro monto"
+                                                                className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Presupuesto mensual */}
+                                                    <div>
+                                                        <div className="mb-2 text-xs font-extrabold text-[#131E5C]">Mensualidad aproximada</div>
+                                                        <div className="mb-2 flex flex-wrap gap-1.5">
+                                                            {[5000, 8000, 10000, 15000].map((monto) => {
+                                                                const selected = Number(quickEditDraft.presupuesto_mensual || 0) === monto;
+                                                                return (
+                                                                    <button
+                                                                        key={monto}
+                                                                        type="button"
+                                                                        onClick={() => setQuickEditDraft(p => ({ ...p, presupuesto_mensual: String(monto) }))}
+                                                                        className={cls(
+                                                                            "rounded-full border px-3 py-1.5 text-[11px] font-extrabold transition",
+                                                                            selected
+                                                                                ? "border-[#131E5C] bg-[#131E5C] text-white shadow-sm"
+                                                                                : "border-slate-200 bg-white text-[#131E5C] hover:border-[#131E5C]/30 hover:bg-slate-50"
+                                                                        )}
+                                                                    >
+                                                                        ${monto.toLocaleString("es-MX")}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <div className="relative">
+                                                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">$</span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                inputMode="numeric"
+                                                                value={quickEditDraft.presupuesto_mensual || ""}
+                                                                onChange={(e) => setQuickEditDraft(p => ({ ...p, presupuesto_mensual: e.target.value.replace(/\D/g, "") }))}
+                                                                placeholder="Otro presupuesto"
+                                                                className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Buró */}
+                                                    <div>
+                                                        <div className="mb-2 text-xs font-extrabold text-[#131E5C]">Buró</div>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {BURO_OPTIONS.filter(i => i.value).map((item) => {
+                                                                const selected = quickEditDraft.buro_estado === item.value;
+                                                                return (
+                                                                    <button
+                                                                        key={item.value}
+                                                                        type="button"
+                                                                        onClick={() => setQuickEditDraft(p => ({ ...p, buro_estado: item.value }))}
+                                                                        className={cls(
+                                                                            "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-extrabold transition",
+                                                                            selected
+                                                                                ? "border-[#1746D1] bg-blue-50 text-[#1746D1]"
+                                                                                : "border-slate-200 bg-white text-slate-500 hover:border-[#131E5C]/25 hover:text-[#131E5C]"
+                                                                        )}
+                                                                    >
+                                                                        {selected ? <Check className="h-3 w-3" /> : null}
+                                                                        {item.label}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Plazo */}
+                                                    <div>
+                                                        <div className="mb-2 text-xs font-extrabold text-[#131E5C]">¿Cuándo quiere comprar?</div>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {PLAZO_COMPRA_OPTIONS.filter(Boolean).map((plazo) => {
+                                                                const selected = quickEditDraft.plazo_compra === plazo;
+                                                                return (
+                                                                    <button
+                                                                        key={plazo}
+                                                                        type="button"
+                                                                        onClick={() => setQuickEditDraft(p => ({ ...p, plazo_compra: plazo }))}
+                                                                        className={cls(
+                                                                            "rounded-full border px-3 py-1.5 text-[11px] font-extrabold transition",
+                                                                            selected
+                                                                                ? "border-[#131E5C] bg-[#131E5C] text-white"
+                                                                                : "border-slate-200 bg-white text-slate-500 hover:border-[#131E5C]/25 hover:text-[#131E5C]"
+                                                                        )}
+                                                                    >
+                                                                        {plazo}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Información complementaria: existe, pero no abruma */}
+                                            <details className="group overflow-hidden rounded-2xl border border-[#131E5C]/10 bg-white shadow-sm">
+                                                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 transition hover:bg-slate-50/70 [&::-webkit-details-marker]:hidden">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-[#131E5C]">
+                                                            <FileText className="h-4 w-4" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-black text-[#131E5C]">Completar perfil</div>
+                                                            <div className="text-[11px] font-semibold text-slate-400">Forma de pago, tipo de cliente, uso, ingresos y comentarios.</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {perfilComplementarioPendientes > 0 ? (
+                                                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-extrabold text-amber-700">
+                                                                {perfilComplementarioPendientes} pendiente{perfilComplementarioPendientes === 1 ? "" : "s"}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700">
+                                                                <Check className="h-3 w-3" /> Completo
+                                                            </span>
+                                                        )}
+                                                        <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+                                                    </div>
+                                                </summary>
+
+                                                <div className="border-t border-slate-100 px-4 py-4">
+                                                    <div className="grid gap-3">
+                                                        <label className="block">
+                                                            <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Forma de pago</span>
+                                                            <select
+                                                                value={quickEditDraft.forma_pago || ""}
+                                                                onChange={(e) => setQuickEditDraft(p => ({ ...p, forma_pago: e.target.value }))}
+                                                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
+                                                            >
+                                                                {FORMA_PAGO_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
+                                                            </select>
+                                                        </label>
+
+                                                        <div className="block">
+                                                            <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Tipo de cliente</span>
+                                                            <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1">
+                                                                {[{ value: "persona_fisica", label: "Persona física" }, { value: "persona_moral", label: "Persona moral" }].map(opt => (
+                                                                    <button
+                                                                        key={opt.value}
+                                                                        type="button"
+                                                                        onClick={() => setQuickEditDraft(p => ({ ...p, tipo_cliente: quickEditDraft.tipo_cliente === opt.value ? "" : opt.value }))}
+                                                                        className={cls(
+                                                                            "h-9 rounded-lg text-xs font-extrabold transition",
+                                                                            quickEditDraft.tipo_cliente === opt.value
+                                                                                ? "bg-[#131E5C] text-white shadow-sm"
+                                                                                : "bg-transparent text-slate-500 hover:bg-[#131E5C]/[0.06] hover:text-[#131E5C]"
+                                                                        )}
+                                                                    >
+                                                                        {opt.label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+
+                                                        <label className="block">
+                                                            <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Uso del vehículo</span>
+                                                            <input
+                                                                value={quickEditDraft.uso_vehiculo || ""}
+                                                                onChange={(e) => setQuickEditDraft(p => ({ ...p, uso_vehiculo: e.target.value }))}
+                                                                placeholder="Personal, familiar, trabajo…"
+                                                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition placeholder:font-semibold placeholder:text-slate-300 focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
+                                                            />
+                                                        </label>
+
+                                                        <label className="block">
+                                                            <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Comprobación de ingresos</span>
+                                                            <input
+                                                                value={quickEditDraft.comprobacion_ingresos || ""}
+                                                                onChange={(e) => setQuickEditDraft(p => ({ ...p, comprobacion_ingresos: e.target.value }))}
+                                                                placeholder="Nómina, estados de cuenta…"
+                                                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition placeholder:font-semibold placeholder:text-slate-300 focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
+                                                            />
+                                                        </label>
+                                                    </div>
+
+                                                    <label className="mt-3 block">
+                                                        <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Comentarios</span>
+                                                        <textarea
+                                                            value={quickEditDraft.comentarios || ""}
+                                                            onChange={(e) => setQuickEditDraft(p => ({ ...p, comentarios: e.target.value }))}
+                                                            rows={3}
+                                                            placeholder="Notas relevantes del cliente…"
+                                                            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-[#131E5C] outline-none transition placeholder:text-slate-300 focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
+                                                        />
+                                                    </label>
+                                                </div>
+                                            </details>
+
+                                            {/* Guardado: misma función original */}
+                                            <div className="sticky bottom-0 z-10 -mx-1 flex flex-col gap-2 rounded-2xl border border-[#131E5C]/10 bg-white/95 p-3 shadow-[0_-8px_30px_rgba(15,23,42,0.06)] backdrop-blur">
+                                                <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-400">
+                                                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                                    Revisa los datos antes de guardar los cambios.
+                                                </div>
+                                                <button
+                                                    onClick={saveQuickEdit}
+                                                    disabled={savingQuickEdit || !prospecto?.id}
+                                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-5 text-sm font-extrabold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    style={{ backgroundColor: BRAND_BLUE }}
+                                                    type="button"
+                                                >
+                                                    <Save className="h-4 w-4" />
+                                                    {savingQuickEdit ? "Guardando..." : "Guardar cambios"}
+                                                </button>
+                                            </div>
+                                    </div>
+                                </div>
+                                </>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowProspectoPanel(true)}
+                                    title="Desplegar perfil del prospecto"
+                                    aria-label="Desplegar perfil del prospecto"
+                                    className="hidden h-full w-full flex-col items-center justify-start gap-3 bg-white py-4 transition hover:bg-[#131E5C]/[0.04] xl:flex"
+                                >
+                                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#131E5C]/[0.08] text-[#131E5C]">
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </span>
+                                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[#131E5C]/70 [writing-mode:vertical-rl]">
+                                        Perfil
+                                    </span>
+                                </button>
+                            )}
+                            </aside>
+                        ) : null}
+
                 </div>
             </div>
 
