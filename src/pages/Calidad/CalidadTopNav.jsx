@@ -20,12 +20,6 @@ export default function CalidadTopNav() {
                 show: hasAnyPermission(["CRM_RECLAMACIONES", "USUARIOS_ADMIN", "CRM_CALIDAD"]),
             },
             {
-                label: "Safety Culture",
-                href: "/calidad/safety",
-                icon: ShieldCheck,
-                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_CALIDAD"]),
-            },
-            {
                 label: "Experiencia de Entrega",
                 href: "/calidad/enc_satisfaccion",
                 icon: ThumbsUp,

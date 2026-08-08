@@ -5,7 +5,6 @@ const API =
 // import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const LOGIN_PATH = "/login";
-
 const ACCESS_REFRESH_MARGIN_SECONDS = 60;
 
 let refreshTokenPromise = null;
@@ -22,6 +21,28 @@ function createAuthError(
   error.cause = cause;
 
   return error;
+}
+
+function cleanToken(value) {
+  const token = String(value || "").trim();
+
+  if (!token || token === "undefined" || token === "null") {
+    return "";
+  }
+
+  return token;
+}
+
+function isJwt(token) {
+  return cleanToken(token).split(".").length === 3;
+}
+
+function tryParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 function decodeJwtPayload(token) {
@@ -65,42 +86,21 @@ function isLoginEndpoint(path) {
   return String(path || "").includes("/api/auth/login/");
 }
 
-function isFormData(x) {
-  return typeof FormData !== "undefined" && x instanceof FormData;
-}
-
-function cleanToken(value) {
-  const token = String(value || "").trim();
-
-  if (!token) return "";
-  if (token === "undefined") return "";
-  if (token === "null") return "";
-
-  return token;
-}
-
-function isJwt(token) {
-  const value = cleanToken(token);
-  return value.split(".").length === 3;
-}
-
-function tryParseJson(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
+function isFormData(value) {
+  return typeof FormData !== "undefined" && value instanceof FormData;
 }
 
 function getAuthObject() {
   try {
     const raw = localStorage.getItem("auth");
-    if (!raw) return null;
+
+    if (!raw) {
+      return null;
+    }
 
     const parsed = tryParseJson(raw);
-    if (!parsed || typeof parsed !== "object") return null;
 
-    return parsed;
+    return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
     return null;
   }
@@ -126,10 +126,16 @@ function getStoredUserObject() {
   for (const key of candidateKeys) {
     try {
       const raw = localStorage.getItem(key);
-      if (!raw) continue;
+
+      if (!raw) {
+        continue;
+      }
 
       const parsed = tryParseJson(raw);
-      if (!parsed || typeof parsed !== "object") continue;
+
+      if (!parsed || typeof parsed !== "object") {
+        continue;
+      }
 
       if (parsed.user && typeof parsed.user === "object") {
         return parsed.user;
@@ -137,7 +143,7 @@ function getStoredUserObject() {
 
       return parsed;
     } catch {
-      // Seguir buscando.
+      // Continúa buscando.
     }
   }
 
@@ -154,7 +160,10 @@ function getAccessToken() {
 
   for (const candidate of directCandidates) {
     const token = cleanToken(candidate);
-    if (isJwt(token)) return token;
+
+    if (isJwt(token)) {
+      return token;
+    }
   }
 
   const auth = getAuthObject();
@@ -168,7 +177,10 @@ function getAccessToken() {
 
   for (const candidate of authCandidates) {
     const token = cleanToken(candidate);
-    if (isJwt(token)) return token;
+
+    if (isJwt(token)) {
+      return token;
+    }
   }
 
   return "";
@@ -183,7 +195,10 @@ function getRefreshToken() {
 
   for (const candidate of directCandidates) {
     const token = cleanToken(candidate);
-    if (isJwt(token)) return token;
+
+    if (isJwt(token)) {
+      return token;
+    }
   }
 
   const auth = getAuthObject();
@@ -192,7 +207,10 @@ function getRefreshToken() {
 
   for (const candidate of authCandidates) {
     const token = cleanToken(candidate);
-    if (isJwt(token)) return token;
+
+    if (isJwt(token)) {
+      return token;
+    }
   }
 
   return "";
@@ -201,18 +219,20 @@ function getRefreshToken() {
 function getAuthHeader() {
   const token = getAccessToken();
 
-  if (!token) return {};
-
-  return {
-    Authorization: `Bearer ${token}`,
-  };
+  return token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : {};
 }
 
 function saveJwtTokens({ access, refresh } = {}) {
   const accessToken = cleanToken(access);
+
   const refreshToken = cleanToken(refresh);
 
   const auth = getAuthObject() || {};
+
   const user = getStoredUserObject() || auth.user || null;
 
   const nextAuth = {
@@ -222,6 +242,7 @@ function saveJwtTokens({ access, refresh } = {}) {
 
   if (isJwt(accessToken)) {
     localStorage.setItem("@token_access_jwt", accessToken);
+
     localStorage.setItem("auth.access", accessToken);
 
     nextAuth.access = accessToken;
@@ -230,6 +251,7 @@ function saveJwtTokens({ access, refresh } = {}) {
 
   if (isJwt(refreshToken)) {
     localStorage.setItem("@token_refresh_jwt", refreshToken);
+
     localStorage.setItem("auth.refresh", refreshToken);
 
     nextAuth.refresh = refreshToken;
@@ -298,10 +320,10 @@ async function executeRefreshAccessToken() {
     });
   }
 
-  let res;
+  let response;
 
   try {
-    res = await fetch(`${API}/conformidad/api/auth/token/refresh/`, {
+    response = await fetch(`${API}/conformidad/api/auth/token/refresh/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -311,10 +333,6 @@ async function executeRefreshAccessToken() {
       }),
     });
   } catch (cause) {
-    /*
-     * No eliminamos la sesión por un fallo
-     * temporal de red.
-     */
     throw createAuthError(
       "No se pudo conectar con el servidor para renovar la sesión.",
       {
@@ -324,27 +342,21 @@ async function executeRefreshAccessToken() {
     );
   }
 
-  const data = await res.json().catch(() => ({}));
+  const data = await response.json().catch(() => ({}));
 
-  if (!res.ok || !data?.access) {
-    const rejected = res.status === 401 || res.status === 403;
+  if (!response.ok || !data?.access) {
+    const rejected = response.status === 401 || response.status === 403;
 
     throw createAuthError(
       data?.detail || data?.error || "No se pudo renovar la sesión.",
       {
         code: rejected ? "REFRESH_TOKEN_REJECTED" : "REFRESH_REQUEST_FAILED",
-        status: res.status,
+        status: response.status,
         rejected,
       },
     );
   }
 
-  /*
-   * Si SimpleJWT está configurado para rotar
-   * refresh tokens, usamos el nuevo.
-   *
-   * En caso contrario conservamos el anterior.
-   */
   saveJwtTokens({
     access: data.access,
     refresh: data.refresh || refresh,
@@ -354,10 +366,6 @@ async function executeRefreshAccessToken() {
 }
 
 function refreshAccessToken() {
-  /*
-   * Todas las peticiones que reciban 401
-   * compartirán la misma renovación.
-   */
   if (!refreshTokenPromise) {
     refreshTokenPromise = executeRefreshAccessToken().finally(() => {
       refreshTokenPromise = null;
@@ -371,24 +379,14 @@ async function ensureFreshAccessToken() {
   const access = getAccessToken();
   const refresh = getRefreshToken();
 
-  /*
-   * No hay sesión que renovar.
-   */
   if (!access && !refresh) {
     return "";
   }
 
-  /*
-   * Si tenemos access vigente, continuamos.
-   */
   if (access && !jwtExpiresSoon(access)) {
     return access;
   }
 
-  /*
-   * Si el access está vencido o próximo
-   * a vencer, renovamos automáticamente.
-   */
   if (refresh) {
     return refreshAccessToken();
   }
@@ -407,10 +405,12 @@ function closeExpiredSession() {
   redirectToLogin();
 }
 
-function normalizaTelefonoMx(tel) {
-  const digits = String(tel || "").replace(/\D/g, "");
+function normalizaTelefonoMx(value) {
+  const digits = String(value || "").replace(/\D/g, "");
 
-  if (!digits) return "";
+  if (!digits) {
+    return "";
+  }
 
   if (digits.startsWith("521") && digits.length === 13) {
     return `52${digits.slice(3)}`;
@@ -430,7 +430,9 @@ function normalizaTelefonoMx(tel) {
 function getCrmUsername() {
   const user = getStoredUserObject();
 
-  if (!user) return "";
+  if (!user) {
+    return "";
+  }
 
   return String(
     user.usuario ||
@@ -446,84 +448,140 @@ function getCrmUsername() {
 function getWhatsAppNumbersFromSources() {
   const user = getStoredUserObject();
 
-  if (!user) return [];
+  if (!user) {
+    return [];
+  }
 
   const raw =
-    user.telefono ||
-    user.numero_asesor ||
-    user.whatsapp_number ||
-    user.phone ||
+    user.telefonos_whatsapp ??
+    user.telefonos ??
+    user.telefono ??
+    user.numero_asesor ??
+    user.whatsapp_number ??
+    user.phone ??
     "";
 
-  const partes = Array.isArray(raw) ? raw : String(raw || "").split(/[|,;\n]+/);
+  const parts = Array.isArray(raw) ? raw : String(raw || "").split(/[|,;\n]+/);
 
   return [
     ...new Set(
-      partes
+      parts
         .map(normalizaTelefonoMx)
         .filter((numero) => /^52\d{10}$/.test(numero)),
     ),
   ];
 }
 
-function getWhatsAppNumberFromSources(numeroPreferido = "") {
-  const numeroExplicito = normalizaTelefonoMx(numeroPreferido);
+function getWhatsAppNumberFromSources(preferredNumber = "") {
+  const explicitNumber = normalizaTelefonoMx(preferredNumber);
 
-  if (/^52\d{10}$/.test(numeroExplicito)) {
-    return numeroExplicito;
+  if (/^52\d{10}$/.test(explicitNumber)) {
+    return explicitNumber;
   }
 
   return getWhatsAppNumbersFromSources()[0] || "";
 }
 
 function withRequestContext(payload = {}) {
-  const numero = getWhatsAppNumberFromSources(payload?.numero_asesor || "");
+  const source = payload && typeof payload === "object" ? payload : {};
 
-  const usuario = String(payload?.usuario || "").trim() || getCrmUsername();
+  const numero = getWhatsAppNumberFromSources(source.numero_asesor || "");
+
+  const usuario = String(source.usuario || "").trim() || getCrmUsername();
 
   return {
-    ...payload,
-    ...(numero ? { numero_asesor: numero } : {}),
-    ...(usuario ? { usuario } : {}),
+    ...source,
+    ...(numero
+      ? {
+          numero_asesor: numero,
+        }
+      : {}),
+    ...(usuario
+      ? {
+          usuario,
+        }
+      : {}),
   };
 }
 
-function buildQuery(params) {
-  const qs = new URLSearchParams();
+function buildQuery(params = {}) {
+  const queryParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === "") return;
-    qs.set(key, String(value));
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    queryParams.set(key, String(value));
   });
 
-  const query = qs.toString();
+  const query = queryParams.toString();
+
   return query ? `?${query}` : "";
 }
 
-function appendContextToFormData(fd, numeroAsesor = "") {
+function appendContextToFormData(formData, numeroAsesor = "") {
+  if (!(formData instanceof FormData)) {
+    throw new Error("Se esperaba una instancia de FormData.");
+  }
+
   const numero = getWhatsAppNumberFromSources(numeroAsesor);
 
   const usuario = getCrmUsername();
 
   if (numero) {
-    fd.append("numero_asesor", numero);
+    formData.set("numero_asesor", numero);
   }
 
   if (usuario) {
-    fd.append("usuario", usuario);
+    formData.set("usuario", usuario);
   }
+
+  return formData;
 }
 
-async function parseErrorResponse(res) {
-  const text = await res.text().catch(() => "");
+function normalizeTelInput(input = {}) {
+  if (typeof input === "string" || typeof input === "number") {
+    return {
+      tel: String(input),
+    };
+  }
 
-  if (!text) return `HTTP ${res.status}`;
+  return input || {};
+}
+
+async function parseErrorResponse(response) {
+  const text = await response.text().catch(() => "");
+
+  if (!text) {
+    return `HTTP ${response.status}`;
+  }
 
   const json = tryParseJson(text);
 
-  if (json?.detail) return json.detail;
-  if (json?.error) return json.error;
-  if (json?.message) return json.message;
+  if (json?.detail) {
+    return json.detail;
+  }
+
+  if (json?.error) {
+    return json.error;
+  }
+
+  if (json?.message) {
+    return json.message;
+  }
+
+  if (json && typeof json === "object") {
+    const firstEntry = Object.entries(json)[0];
+
+    if (firstEntry) {
+      const [field, value] = firstEntry;
+
+      const detail = Array.isArray(value) ? value.join(" ") : String(value);
+
+      return `${field}: ${detail}`;
+    }
+  }
 
   return text;
 }
@@ -542,19 +600,10 @@ async function http(
 
   const loginRequest = isLoginEndpoint(path);
 
-  /*
-   * Renovación preventiva:
-   * se ejecuta antes de enviar la petición.
-   */
   if (!_skipProactiveRefresh && !refreshRequest && !loginRequest) {
     try {
       await ensureFreshAccessToken();
     } catch (error) {
-      /*
-       * Solo cerramos la sesión cuando el
-       * servidor confirmó que el refresh
-       * ya no es válido.
-       */
       if (error?.authRejected) {
         closeExpiredSession();
 
@@ -566,10 +615,6 @@ async function http(
         });
       }
 
-      /*
-       * Un fallo de conexión no debe borrar
-       * el usuario ni las conversaciones.
-       */
       throw error;
     }
   }
@@ -581,13 +626,14 @@ async function http(
 
   if (isFormData(body)) {
     delete finalHeaders["Content-Type"];
+
     delete finalHeaders["content-type"];
   }
 
-  let res;
+  let response;
 
   try {
-    res = await fetch(`${API}${path}`, {
+    response = await fetch(`${API}${path}`, {
       method,
       headers: finalHeaders,
       body,
@@ -599,12 +645,12 @@ async function http(
     });
   }
 
-  /*
-   * El access pudo vencer entre la validación
-   * previa y la petición. Renovamos y repetimos
-   * solamente una vez.
-   */
-  if (res.status === 401 && _retryRefresh && !refreshRequest && !loginRequest) {
+  if (
+    response.status === 401 &&
+    _retryRefresh &&
+    !refreshRequest &&
+    !loginRequest
+  ) {
     try {
       await refreshAccessToken();
     } catch (error) {
@@ -619,10 +665,6 @@ async function http(
         });
       }
 
-      /*
-       * Conservamos localStorage cuando se trata
-       * de un problema temporal del servidor o red.
-       */
       throw error;
     }
 
@@ -635,12 +677,7 @@ async function http(
     });
   }
 
-  /*
-   * Si después de renovar el access la API
-   * todavía responde 401, la sesión ya no
-   * es utilizable.
-   */
-  if (res.status === 401 && !refreshRequest && !loginRequest) {
+  if (response.status === 401 && !refreshRequest && !loginRequest) {
     closeExpiredSession();
 
     throw createAuthError("Tu sesión expiró. Inicia sesión nuevamente.", {
@@ -650,26 +687,26 @@ async function http(
     });
   }
 
-  if (!res.ok) {
-    const message = await parseErrorResponse(res);
+  if (!response.ok) {
+    const message = await parseErrorResponse(response);
 
-    throw createAuthError(message || `HTTP ${res.status}`, {
+    throw createAuthError(message || `HTTP ${response.status}`, {
       code: "HTTP_ERROR",
-      status: res.status,
+      status: response.status,
     });
   }
 
-  if (res.status === 204) {
+  if (response.status === 204) {
     return null;
   }
 
-  const contentType = res.headers.get("content-type") || "";
+  const contentType = response.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
-    return res.json();
+    return response.json();
   }
 
-  return res.text();
+  return response.text();
 }
 
 function getNumeroAsesorIA(numeroAsesor) {
@@ -694,6 +731,10 @@ function getNumeroAsesorIA(numeroAsesor) {
   return numero;
 }
 
+function rejectMissingId(message = "Falta el ID solicitado.") {
+  return Promise.reject(new Error(message));
+}
+
 export const api = {
   // Helpers genéricos
   get: (path) => http(path),
@@ -701,21 +742,27 @@ export const api = {
   post: (path, payload) =>
     http(path, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload || {}),
     }),
 
   patch: (path, payload) =>
     http(path, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload || {}),
     }),
 
   put: (path, payload) =>
     http(path, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload || {}),
     }),
 
@@ -727,86 +774,134 @@ export const api = {
   // Prospectos digitales
   digitalesListProspectos: (params = {}) =>
     http(`/digitales/api/prospectos/${buildQuery(withRequestContext(params))}`),
-  digitalesGetProspecto: (id) => http(`/digitales/api/prospectos/${id}/`),
 
-  digitalesCreateProspecto: (payload) =>
+  digitalesGetProspecto: (id, params = {}) =>
+    id
+      ? http(
+          `/digitales/api/prospectos/${encodeURIComponent(id)}/${buildQuery(
+            withRequestContext(params),
+          )}`,
+        )
+      : rejectMissingId("Falta el ID del prospecto."),
+
+  digitalesCreateProspecto: (payload = {}) =>
     http("/digitales/api/prospectos/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(withRequestContext(payload || {})),
+      body: JSON.stringify(withRequestContext(payload)),
     }),
 
-  digitalesUpdateProspecto: (id, payload) =>
-    http(`/digitales/api/prospectos/${id}/`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(withRequestContext(payload || {})),
-    }),
+  digitalesUpdateProspecto: (id, payload = {}) =>
+    id
+      ? http(`/digitales/api/prospectos/${encodeURIComponent(id)}/`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(withRequestContext(payload)),
+        })
+      : rejectMissingId("Falta el ID del prospecto."),
 
-  digitalesPatchProspecto: (id, payload) =>
-    http(`/digitales/api/prospectos/${id}/`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(withRequestContext(payload || {})),
-    }),
+  digitalesPatchProspecto: (id, payload = {}) =>
+    id
+      ? http(`/digitales/api/prospectos/${encodeURIComponent(id)}/`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(withRequestContext(payload)),
+        })
+      : rejectMissingId("Falta el ID del prospecto."),
 
-  digitalesDeleteProspecto: (id) =>
-    http(`/digitales/api/prospectos/${id}/`, {
-      method: "DELETE",
-    }),
+  digitalesDeleteProspecto: (id, params = {}) =>
+    id
+      ? http(
+          `/digitales/api/prospectos/${encodeURIComponent(id)}/${buildQuery(
+            withRequestContext(params),
+          )}`,
+          {
+            method: "DELETE",
+          },
+        )
+      : rejectMissingId("Falta el ID del prospecto."),
 
-  digitalesGenerarResumen: (id) => {
-    if (!id) {
+  digitalesGenerarResumen: (id, payload = {}) =>
+    id
+      ? http(
+          `/digitales/api/prospectos/${encodeURIComponent(
+            id,
+          )}/generar-resumen/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(withRequestContext(payload)),
+          },
+        )
+      : rejectMissingId("Falta el ID del prospecto para generar el resumen."),
+
+  digitalesListEvidencias: (idProspecto, params = {}) =>
+    idProspecto
+      ? http(
+          `/digitales/api/prospectos/${encodeURIComponent(
+            idProspecto,
+          )}/evidencias/${buildQuery(withRequestContext(params))}`,
+        )
+      : rejectMissingId("Falta el ID del prospecto."),
+
+  digitalesUploadEvidencias: (idProspecto, formData, numeroAsesor = "") => {
+    if (!idProspecto) {
+      return rejectMissingId("Falta el ID del prospecto.");
+    }
+
+    if (!(formData instanceof FormData)) {
       return Promise.reject(
-        new Error("Falta el ID del prospecto para generar el resumen."),
+        new Error("Las evidencias deben enviarse mediante FormData."),
       );
     }
 
+    appendContextToFormData(formData, numeroAsesor);
+
     return http(
-      `/digitales/api/prospectos/${encodeURIComponent(id)}/generar-resumen/`,
+      `/digitales/api/prospectos/${encodeURIComponent(
+        idProspecto,
+      )}/evidencias/`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
+        body: formData,
       },
     );
   },
 
-  digitalesListEvidencias: (idProspecto) =>
-    http(`/digitales/api/prospectos/${idProspecto}/evidencias/`),
-
-  digitalesUploadEvidencias: (idProspecto, formData) =>
-    http(`/digitales/api/prospectos/${idProspecto}/evidencias/`, {
-      method: "POST",
-      body: formData,
-    }),
-
-  digitalesDeleteEvidencia: (idProspecto, idEvidencia) =>
-    http(
-      `/digitales/api/prospectos/${idProspecto}/evidencias/${idEvidencia}/`,
-      {
-        method: "DELETE",
-      },
-    ),
+  digitalesDeleteEvidencia: (idProspecto, idEvidencia, params = {}) =>
+    idProspecto && idEvidencia
+      ? http(
+          `/digitales/api/prospectos/${encodeURIComponent(
+            idProspecto,
+          )}/evidencias/${encodeURIComponent(idEvidencia)}/${buildQuery(
+            withRequestContext(params),
+          )}`,
+          {
+            method: "DELETE",
+          },
+        )
+      : rejectMissingId("Falta el ID del prospecto o de la evidencia."),
 
   digitalesCampanasMeta: (days = 30) =>
     http(`/digitales/api/campanas-meta/?days=${encodeURIComponent(days)}`),
 
-  // Analítica y bitácora de asesores digitales
+  // Analítica y bitácora
   digitalesAnaliticaAsesores: (params = {}) =>
     http(`/digitales/analitica/asesores/${buildQuery(params)}`),
 
   digitalesAnaliticaCliente: (expedienteId, params = {}) =>
     http(
-      `/digitales/analitica/asesores/cliente/${encodeURIComponent(expedienteId)}/${buildQuery(params)}`,
+      `/digitales/analitica/asesores/cliente/${encodeURIComponent(
+        expedienteId,
+      )}/${buildQuery(params)}`,
     ),
 
   digitalesAnaliticaActualizarResultado: (eventoId, payload = {}) =>
@@ -825,15 +920,32 @@ export const api = {
   digitalesChats: (params = {}) =>
     http(`/digitales/chats/${buildQuery(withRequestContext(params))}`),
 
-  digitalesMarkRead: (tel) =>
-    http("/digitales/chats/mark-read/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({ tel })),
-    }),
+  digitalesMarkRead: (input = {}) => {
+    const payload = normalizeTelInput(input);
 
-  digitalesMarkUnread: (payload = {}) =>
-    http("/digitales/chats/mark-unread/", {
+    return http("/digitales/chats/mark-read/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(withRequestContext(payload)),
+    });
+  },
+
+  digitalesMarkUnread: (input = {}) => {
+    const payload = normalizeTelInput(input);
+
+    return http("/digitales/chats/mark-unread/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(withRequestContext(payload)),
+    });
+  },
+
+  digitalesBloquearContacto: (payload = {}) =>
+    http("/digitales/chats/bloquear/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -841,8 +953,8 @@ export const api = {
       body: JSON.stringify(withRequestContext(payload)),
     }),
 
-  digitalesBloquearContacto: (payload = {}) =>
-    http("/digitales/chats/bloquear/", {
+  digitalesDesbloquearContacto: (payload = {}) =>
+    http("/digitales/chats/desbloquear/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -859,41 +971,37 @@ export const api = {
       numero_asesor = "",
       mark_read = 1,
     } = {},
-  ) => {
-    const numero = numero_asesor || getWhatsAppNumberFromSources();
-    const user = usuario || getCrmUsername();
-
-    return http(
-      `/digitales/contacto/${buildQuery({
-        tel,
-        limit,
-        before_id,
-        mark_read,
-        numero_asesor: numero,
-        usuario: user,
-      })}`,
-    );
-  },
+  ) =>
+    http(
+      `/digitales/contacto/${buildQuery(
+        withRequestContext({
+          tel,
+          limit,
+          before_id,
+          mark_read,
+          usuario,
+          numero_asesor,
+        }),
+      )}`,
+    ),
 
   digitalesContactoUpdates: (
     tel,
     after = "",
     { limit = 50, usuario = "", numero_asesor = "", after_id = "" } = {},
-  ) => {
-    const numero = numero_asesor || getWhatsAppNumberFromSources();
-    const user = usuario || getCrmUsername();
-
-    return http(
-      `/digitales/contacto/updates/${buildQuery({
-        tel,
-        after,
-        after_id,
-        limit,
-        numero_asesor: numero,
-        usuario: user,
-      })}`,
-    );
-  },
+  ) =>
+    http(
+      `/digitales/contacto/updates/${buildQuery(
+        withRequestContext({
+          tel,
+          after,
+          after_id,
+          limit,
+          usuario,
+          numero_asesor,
+        }),
+      )}`,
+    ),
 
   // Envío de mensajes
   digitalesEnviarMensaje: (payload = {}) =>
@@ -905,10 +1013,12 @@ export const api = {
       body: JSON.stringify(withRequestContext(payload)),
     }),
 
-  digitalesEnviarPlantilla: (payload) =>
+  digitalesEnviarPlantilla: (payload = {}) =>
     http("/digitales/mensajes/enviar-plantilla/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(withRequestContext(payload)),
     }),
 
@@ -918,32 +1028,35 @@ export const api = {
     files = [],
     reply_to_message_id = "",
     numero_asesor = "",
-  }) => {
-    const fd = new FormData();
+  } = {}) => {
+    const formData = new FormData();
 
-    fd.append("to", String(to || "").trim());
+    formData.set("to", String(to || "").trim());
 
     if (text) {
-      fd.append("text", String(text));
+      formData.set("text", String(text));
     }
 
     if (reply_to_message_id) {
-      fd.append("reply_to_message_id", String(reply_to_message_id));
+      formData.set("reply_to_message_id", String(reply_to_message_id));
     }
 
-    appendContextToFormData(fd, numero_asesor);
+    appendContextToFormData(formData, numero_asesor);
 
-    const arr = Array.isArray(files) ? files : Array.from(files || []);
+    const fileArray = Array.isArray(files) ? files : Array.from(files || []);
 
-    arr.forEach((file) => {
-      if (file) fd.append("files", file);
+    fileArray.forEach((file) => {
+      if (file) {
+        formData.append("files", file);
+      }
     });
 
     return http("/digitales/mensajes/enviar-media/", {
       method: "POST",
-      body: fd,
+      body: formData,
     });
   },
+
   digitalesEditarMensaje: (payload = {}) =>
     http("/digitales/mensajes/editar/", {
       method: "PATCH",
@@ -960,95 +1073,119 @@ export const api = {
       )}`,
     ),
 
-  // Administración de plantillas directamente en Meta.
+  // Administración de plantillas Meta
   digitalesPlantillasAdmin: (numeroAsesor = "") => {
-    const numero = normalizaTelefonoMx(
-      numeroAsesor || getWhatsAppNumberFromSources(),
-    );
-    const usuario = getCrmUsername();
+    const numero = getWhatsAppNumberFromSources(numeroAsesor);
 
     return http(
-      `/digitales/mensajes/plantillas/admin/${buildQuery({
-        numero_asesor: numero,
-        usuario,
-      })}`,
+      `/digitales/mensajes/plantillas/admin/${buildQuery(
+        withRequestContext({
+          numero_asesor: numero,
+        }),
+      )}`,
     );
   },
 
-  digitalesPlantillaCrear: (numeroAsesor, payload) => {
-    const numero = normalizaTelefonoMx(
-      numeroAsesor || getWhatsAppNumberFromSources(),
-    );
-    const usuario = getCrmUsername();
+  digitalesPlantillaCrear: (numeroAsesor, payload = {}) => {
+    const numero = getWhatsAppNumberFromSources(numeroAsesor);
+
+    const contexto = withRequestContext({
+      ...payload,
+      numero_asesor: numero,
+    });
 
     return http(
-      `/digitales/mensajes/plantillas/admin/${buildQuery({ numero_asesor: numero, usuario })}`,
+      `/digitales/mensajes/plantillas/admin/${buildQuery(contexto)}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(withRequestContext(payload || {})),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(contexto),
       },
     );
   },
 
-  digitalesPlantillaAnalizar: (numeroAsesor, payload) => {
-    const numero = normalizaTelefonoMx(
-      numeroAsesor || getWhatsAppNumberFromSources(),
-    );
-    const usuario = getCrmUsername();
+  digitalesPlantillaAnalizar: (numeroAsesor, payload = {}) => {
+    const numero = getWhatsAppNumberFromSources(numeroAsesor);
+
+    const contexto = withRequestContext({
+      ...payload,
+      numero_asesor: numero,
+    });
 
     return http(
-      `/digitales/mensajes/plantillas/admin/analizar/${buildQuery({ numero_asesor: numero, usuario })}`,
+      `/digitales/mensajes/plantillas/admin/analizar/${buildQuery(contexto)}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(withRequestContext(payload || {})),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(contexto),
       },
     );
   },
 
-  digitalesPlantillaEditar: (numeroAsesor, templateId, payload) => {
-    const numero = normalizaTelefonoMx(
-      numeroAsesor || getWhatsAppNumberFromSources(),
-    );
-    const usuario = getCrmUsername();
+  digitalesPlantillaEditar: (numeroAsesor, templateId, payload = {}) => {
+    const numero = getWhatsAppNumberFromSources(numeroAsesor);
+
+    const contexto = withRequestContext({
+      ...payload,
+      numero_asesor: numero,
+    });
 
     return http(
-      `/digitales/mensajes/plantillas/admin/${encodeURIComponent(templateId)}/${buildQuery({ numero_asesor: numero, usuario })}`,
+      `/digitales/mensajes/plantillas/admin/${encodeURIComponent(
+        templateId,
+      )}/${buildQuery(contexto)}`,
       {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(withRequestContext(payload || {})),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(contexto),
       },
     );
   },
 
-  digitalesPlantillaEliminar: (numeroAsesor, templateId, name) => {
-    const numero = normalizaTelefonoMx(
-      numeroAsesor || getWhatsAppNumberFromSources(),
-    );
-    const usuario = getCrmUsername();
+  digitalesPlantillaEliminar: (numeroAsesor, templateId, name = "") => {
+    const numero = getWhatsAppNumberFromSources(numeroAsesor);
 
     return http(
-      `/digitales/mensajes/plantillas/admin/${encodeURIComponent(templateId)}/${buildQuery(
-        {
+      `/digitales/mensajes/plantillas/admin/${encodeURIComponent(
+        templateId,
+      )}/${buildQuery(
+        withRequestContext({
           numero_asesor: numero,
-          usuario,
           name,
-        },
+        }),
       )}`,
-      { method: "DELETE" },
+      {
+        method: "DELETE",
+      },
     );
   },
 
-  digitalesLlamarWhatsapp: ({ telefono, sdp_offer = "" }) =>
+  digitalesLlamarWhatsapp: ({
+    telefono,
+    sdp_offer = "",
+    numero_asesor = "",
+  } = {}) =>
     http("/digitales/llamar-whatsapp/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(withRequestContext({ telefono, sdp_offer })),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        withRequestContext({
+          telefono,
+          sdp_offer,
+          numero_asesor,
+        }),
+      ),
     }),
 
-  // Control de IA por conversación
+  // Control IA por conversación
   iaPausarConversacion: (payload = {}) =>
     http("/digitales/ia/conversacion/pausar/", {
       method: "POST",
@@ -1087,15 +1224,17 @@ export const api = {
     return http(`/digitales/ia/config/${encodeURIComponent(numero)}/`);
   },
 
-  iaConfigPatch: (numeroAsesor, payload) => {
+  iaConfigPatch: (numeroAsesor, payload = {}) => {
     const numero = getNumeroAsesorIA(numeroAsesor);
 
     return http(`/digitales/ia/config/${encodeURIComponent(numero)}/`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(
         withRequestContext({
-          ...(payload || {}),
+          ...payload,
           numero_asesor: numero,
         }),
       ),
@@ -1109,7 +1248,9 @@ export const api = {
       `/digitales/ia/config/${encodeURIComponent(numero)}/publicar/`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(
           withRequestContext({
             numero_asesor: numero,
@@ -1118,6 +1259,7 @@ export const api = {
       },
     );
   },
+
   // Catálogo IA
   catalogoVehiculos: ({
     activo = "true",
@@ -1134,76 +1276,101 @@ export const api = {
       })}`,
     ),
 
-  catalogoVehiculoCreate: (payload) =>
+  catalogoVehiculoCreate: (payload = {}) =>
     http("/digitales/catalogo/vehiculos/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(withRequestContext(payload)),
     }),
 
-  catalogoVehiculoPatch: (id, payload) =>
-    http(`/digitales/catalogo/vehiculos/${id}/`, {
+  catalogoVehiculoPatch: (id, payload = {}) =>
+    http(`/digitales/catalogo/vehiculos/${encodeURIComponent(id)}/`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(withRequestContext(payload)),
     }),
 
   catalogoVehiculoDelete: (id) =>
-    http(`/digitales/catalogo/vehiculos/${id}/`, {
+    http(`/digitales/catalogo/vehiculos/${encodeURIComponent(id)}/`, {
       method: "DELETE",
     }),
+
   catalogoVehiculoSubirMedia: (id, tipo, files) => {
-    const fd = new FormData();
-    fd.append("tipo", tipo);
+    const formData = new FormData();
 
-    const arr = Array.isArray(files) ? files : Array.from(files || []);
-    arr.forEach((file) => {
-      if (file) fd.append("files", file);
+    formData.set("tipo", String(tipo || ""));
+
+    const fileArray = Array.isArray(files) ? files : Array.from(files || []);
+
+    fileArray.forEach((file) => {
+      if (file) {
+        formData.append("files", file);
+      }
     });
 
-    return http(`/digitales/catalogo/vehiculos/${id}/upload/`, {
-      method: "POST",
-      body: fd,
-    });
+    return http(
+      `/digitales/catalogo/vehiculos/${encodeURIComponent(id)}/upload/`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
   },
 
   catalogoVehiculoEliminarMedia: (id, tipo, ruta) =>
     http(
-      `/digitales/catalogo/vehiculos/${id}/media/${buildQuery({ tipo, ruta })}`,
-      { method: "DELETE" },
+      `/digitales/catalogo/vehiculos/${encodeURIComponent(
+        id,
+      )}/media/${buildQuery({
+        tipo,
+        ruta,
+      })}`,
+      {
+        method: "DELETE",
+      },
     ),
 
-  // Vehículos usados (catálogo tipo WhatsApp Business)
+  // Vehículos usados
   digitalesListAutosUsados: () => http("/digitales/catalogo/usados/"),
 
-  digitalesGetAutoUsado: (id) => http(`/digitales/catalogo/usados/${id}/`),
+  digitalesGetAutoUsado: (id) =>
+    http(`/digitales/catalogo/usados/${encodeURIComponent(id)}/`),
 
-  digitalesCreateAutoUsado: (payload) =>
+  digitalesCreateAutoUsado: (payload = {}) =>
     http("/digitales/catalogo/usados/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload),
     }),
 
-  digitalesUpdateAutoUsado: (id, payload) =>
-    http(`/digitales/catalogo/usados/${id}/`, {
+  digitalesUpdateAutoUsado: (id, payload = {}) =>
+    http(`/digitales/catalogo/usados/${encodeURIComponent(id)}/`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload),
     }),
 
   digitalesDeleteAutoUsado: (id) =>
-    http(`/digitales/catalogo/usados/${id}/`, {
+    http(`/digitales/catalogo/usados/${encodeURIComponent(id)}/`, {
       method: "DELETE",
     }),
 
   digitalesSubirImagenAutoUsado: (file) => {
-    const fd = new FormData();
-    fd.append("imagen", file);
+    const formData = new FormData();
+
+    formData.set("imagen", file);
 
     return http("/digitales/catalogo/usados/subir-imagen/", {
       method: "POST",
-      body: fd,
+      body: formData,
     });
   },
 };

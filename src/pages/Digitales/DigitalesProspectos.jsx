@@ -141,7 +141,7 @@ const ASESORES = [
     "JOSE DE JESUS GARCIA ROMAN",
     "JUAN JESUS MARQUEZ AQUINO",
     "JUAN MANUEL SOBREVILLA VICENCIO",
-    "JULIO RAMIREZ LOPEZ",
+    "Julio Ramirez Lopez",
     "LIZBETH CANO CLARA",
     "Luis Alberto Ramirez Santamaria",
     "LUIS ALFONSO CORIA MARROQUIN",
@@ -179,7 +179,7 @@ const ASESORES = [
     "ZEILA NAVARRO CONTRERAS",
 ];
 
-const DEALERS = ["VW Cordoba", "VW Cordoba Usados", "VW Orizaba", "VW Orizaba Usados", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"];
+const DEALERS = ["VW Cordoba", "VW Cordoba Usados", "VW Orizaba", "VW Orizaba Usados", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan", "Automotriz R&R"];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -1523,20 +1523,41 @@ export default function DigitalesProspectos() {
         { key: "tabla", label: "Tabla", Icon: Table2 },
         { key: "graficos", label: "Gráficos", Icon: BarChart3 },
     ];
+    const rolUsuario = useMemo(
+        () =>
+            normalizeText(
+                user?.rol?.nombre ||
+                user?.rol?.name ||
+                user?.rol ||
+                ""
+            ),
+        [user]
+    );
+
     const isAdmin = useMemo(() => {
-        const permisos = user?.permisos || [];
-        const rol = String(user?.rol || "")
-            .trim()
-            .toLowerCase();
-        return rol === "administrador" || permisos.includes("ALL") || permisos.includes("USUARIOS_ADMIN");
-    }, [user]);
+        const permisos = Array.isArray(user?.permisos)
+            ? user.permisos
+            : [];
+
+        return (
+            rolUsuario === "administrador" ||
+            rolUsuario === "admin" ||
+            permisos.includes("ALL") ||
+            permisos.includes("USUARIOS_ADMIN")
+        );
+    }, [rolUsuario, user?.permisos]);
+
     const isCoordinador = useMemo(() => {
-        const permisos = user?.permisos || [];
-        const rol = String(user?.rol || "")
-            .trim()
-            .toLowerCase();
-        return rol === "coordinador digital" || permisos.includes("CRM_COORDINADOR_DIGITAL") || permisos.includes("USUARIOS_ADMIN");
-    }, [user]);
+        const permisos = Array.isArray(user?.permisos)
+            ? user.permisos
+            : [];
+
+        return (
+            rolUsuario === "coordinador digital" ||
+            permisos.includes("CRM_COORDINADOR_DIGITAL") ||
+            permisos.includes("USUARIOS_ADMIN")
+        );
+    }, [rolUsuario, user?.permisos]);
     const userAgencias = useMemo(
         () =>
             String(user?.agencia || "")
@@ -1637,7 +1658,15 @@ export default function DigitalesProspectos() {
         if (!row?.id_exp) return;
         if (!confirm(`¿Eliminar el prospecto ${row.id_exp}? Esta acción no se puede deshacer.`)) return;
         try {
-            await api.digitalesDeleteProspecto(row.id_exp);
+            await api.digitalesDeleteProspecto(
+                row.id_exp,
+                {
+                    numero_asesor:
+                        numeroAsesorActivo ||
+                        numeroUsuarioSesion ||
+                        "",
+                }
+            );
             setCases((prev) => prev.filter((c) => c.id_exp !== row.id_exp));
             setCtxMenu({ open: false, x: 0, y: 0, row: null });
         } catch (e) {
@@ -1658,20 +1687,49 @@ export default function DigitalesProspectos() {
     const telIsOk = useMemo(() => /^(?:\d{10}|52\d{10})$/.test(telDigits), [telDigits]);
     const telIsNormalized = useMemo(() => /^52\d{10}$/.test(telDigits), [telDigits]);
     const cargarTelefonosConChat = useCallback(async () => {
-        if (!numeroUsuarioSesion) {
+        const numeroLinea =
+            numeroAsesorActivo ||
+            numeroUsuarioSesion ||
+            "";
+
+        if (!numeroLinea) {
             setTelefonosConChat(new Set());
             return;
         }
+
         try {
-            const response = await api.digitalesChats();
-            const chats = Array.isArray(response) ? response : Array.isArray(response?.results) ? response.results : [];
-            const telefonos = new Set(chats.map((chat) => normalizaTelefonoMx(chat?.telefono)).filter(Boolean));
+            const response = await api.digitalesChats({
+                numero_asesor: numeroLinea,
+            });
+
+            const chats = Array.isArray(response)
+                ? response
+                : Array.isArray(response?.results)
+                    ? response.results
+                    : [];
+
+            const telefonos = new Set(
+                chats
+                    .map((chat) =>
+                        normalizaTelefonoMx(
+                            chat?.telefono
+                        )
+                    )
+                    .filter(Boolean)
+            );
+
             setTelefonosConChat(telefonos);
         } catch (error) {
-            console.error("No se pudieron cargar los teléfonos con chat:", error);
+            console.error(
+                "No se pudieron cargar los teléfonos con chat:",
+                error
+            );
             setTelefonosConChat(new Set());
         }
-    }, [numeroUsuarioSesion]);
+    }, [
+        numeroAsesorActivo,
+        numeroUsuarioSesion,
+    ]);
     const telError = useMemo(() => {
         if (!openModal || !draft || !telDigits) return "";
         if (/^\d{10}$/.test(telDigits) || /^52\d{10}$/.test(telDigits)) return "";
@@ -1697,10 +1755,6 @@ export default function DigitalesProspectos() {
                 return;
             }
 
-            /*
-             * Para usuarios que no son administradores,
-             * esperamos hasta tener una línea válida.
-             */
             if (
                 !isAdmin &&
                 !numeroAsesorActivo
@@ -1709,10 +1763,6 @@ export default function DigitalesProspectos() {
                 return;
             }
 
-            /*
-             * Evita que el coordinador modifique
-             * manualmente el número desde DevTools.
-             */
             if (
                 !isAdmin &&
                 !numerosUsuarioSesion.includes(
@@ -1726,31 +1776,79 @@ export default function DigitalesProspectos() {
             setLoadingCases(true);
 
             try {
-                const params =
-                    numeroAsesorActivo
-                        ? {
-                            numero_asesor:
-                                numeroAsesorActivo,
+                /*
+                 * El backend trabaja por línea.
+                 * Cuando el administrador selecciona "Todos",
+                 * consultamos cada línea y unificamos por expediente.
+                 */
+                const numerosAConsultar =
+                    isAdmin &&
+                        selectedNumeroAsesor === "Todos"
+                        ? Object.keys(
+                            ASESOR_DIGITAL_POR_NUMERO
+                        )
+                        : [
+                            numeroAsesorActivo ||
+                            numeroUsuarioSesion,
+                        ].filter(Boolean);
+
+                const respuestas =
+                    await Promise.allSettled(
+                        numerosAConsultar.map(
+                            (numero) =>
+                                api.digitalesListProspectos({
+                                    numero_asesor:
+                                        numero,
+                                })
+                        )
+                    );
+
+                const registrosPorId = new Map();
+
+                respuestas.forEach(
+                    (resultado, index) => {
+                        if (
+                            resultado.status !==
+                            "fulfilled"
+                        ) {
+                            console.error(
+                                "No se pudo cargar la línea:",
+                                numerosAConsultar[index],
+                                resultado.reason
+                            );
+                            return;
                         }
-                        : {};
 
-                const data =
-                    await api
-                        .digitalesListProspectos(
-                            params
-                        );
+                        getListItems(
+                            resultado.value
+                        )
+                            .map(normalizeProspecto)
+                            .forEach((registro) => {
+                                if (
+                                    registro?.id_exp !==
+                                    null &&
+                                    registro?.id_exp !==
+                                    undefined
+                                ) {
+                                    registrosPorId.set(
+                                        registro.id_exp,
+                                        registro
+                                    );
+                                }
+                            });
+                    }
+                );
 
-                const registros =
-                    getListItems(data)
-                        .map(normalizeProspecto);
-
-                setCases(registros);
+                setCases(
+                    Array.from(
+                        registrosPorId.values()
+                    )
+                );
                 setPage(1);
 
             } catch (error) {
                 console.error(
-                    "Error cargando prospectos " +
-                    "por línea:",
+                    "Error cargando prospectos por línea:",
                     error
                 );
 
@@ -1761,7 +1859,9 @@ export default function DigitalesProspectos() {
         }, [
             ready,
             isAdmin,
+            selectedNumeroAsesor,
             numeroAsesorActivo,
+            numeroUsuarioSesion,
             numerosUsuarioSesion,
         ]);
 
@@ -1823,26 +1923,112 @@ export default function DigitalesProspectos() {
         numerosUsuarioSesion,
     ]);
     useEffect(() => {
-        if (!ready || !numeroUsuarioSesion) return;
-        cargarTelefonosConChat();
-    }, [ready, numeroUsuarioSesion, cargarTelefonosConChat]);
-    const filtroNumeroActivo = useMemo(() => {
-        if (isAdmin) {
-            if (selectedNumeroAsesor === "Todos") return null;
-            return ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(selectedNumeroAsesor)] || null;
+        if (
+            !ready ||
+            !(
+                numeroAsesorActivo ||
+                numeroUsuarioSesion
+            )
+        ) {
+            return;
         }
-        return ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(numeroUsuarioSesion)] || null;
-    }, [isAdmin, isCoordinador, selectedNumeroAsesor, numeroUsuarioSesion]);
+
+        cargarTelefonosConChat();
+    }, [
+        ready,
+        numeroAsesorActivo,
+        numeroUsuarioSesion,
+        cargarTelefonosConChat,
+    ]);
+    const filtroNumeroActivo = useMemo(() => {
+        if (
+            isAdmin &&
+            selectedNumeroAsesor === "Todos"
+        ) {
+            return null;
+        }
+
+        const numeroFiltro =
+            numeroAsesorActivo ||
+            numeroUsuarioSesion;
+
+        return (
+            ASESOR_DIGITAL_POR_NUMERO[
+            normalizaTelefonoMx(
+                numeroFiltro
+            )
+            ] ||
+            null
+        );
+    }, [
+        isAdmin,
+        selectedNumeroAsesor,
+        numeroAsesorActivo,
+        numeroUsuarioSesion,
+    ]);
+
     const dealers = useMemo(() => {
-        const ordenDealers = ["VW Cordoba", "VW Orizaba", "VW Poza Rica", "VW Tuxtepec", "VW Tuxpan"];
-        const source = !isAdmin && userAgencias.length > 0 ? userAgencias : cases.map((c) => c.agencia);
-        const grupos = new Set(source.map((agencia) => normalizeDealerGrupo(agencia)).filter(Boolean));
-        const ordenados = ordenDealers.filter((dealer) => grupos.has(dealer));
+        const ordenDealers = [
+            "VW Cordoba",
+            "VW Orizaba",
+            "VW Poza Rica",
+            "VW Tuxtepec",
+            "VW Tuxpan",
+        ];
+
+        const agenciasPorNumero =
+            numerosUsuarioSesion
+                .map(
+                    (numero) =>
+                        ASESOR_DIGITAL_POR_NUMERO[
+                            normalizaTelefonoMx(
+                                numero
+                            )
+                        ]?.agencia ||
+                        ""
+                )
+                .filter(Boolean);
+
+        const source = isAdmin
+            ? DEALERS
+            : [
+                ...userAgencias,
+                ...agenciasPorNumero,
+            ];
+
+        const grupos = new Set(
+            source
+                .map(normalizeDealerGrupo)
+                .filter(Boolean)
+        );
+
+        const ordenados =
+            ordenDealers.filter(
+                (dealer) =>
+                    grupos.has(dealer)
+            );
+
         const extras = Array.from(grupos)
-            .filter((dealer) => !ordenDealers.includes(dealer))
-            .sort((a, b) => a.localeCompare(b, "es"));
-        return ["Todos", ...ordenados, ...extras];
-    }, [cases, isAdmin, userAgencias]);
+            .filter(
+                (dealer) =>
+                    !ordenDealers.includes(
+                        dealer
+                    )
+            )
+            .sort((a, b) =>
+                a.localeCompare(b, "es")
+            );
+
+        return [
+            "Todos",
+            ...ordenados,
+            ...extras,
+        ];
+    }, [
+        isAdmin,
+        userAgencias,
+        numerosUsuarioSesion,
+    ]);
     const estados = useMemo(() => {
         const s = new Set(cases.map((c) => c.estado).filter(Boolean));
         return ["Todos", ...Array.from(s)];
@@ -2031,15 +2217,28 @@ export default function DigitalesProspectos() {
         }));
     }
     async function cargarPlantillas() {
-        if (!numeroUsuarioSesion) {
+        const numeroLinea =
+            numeroAsesorActivo ||
+            numeroUsuarioSesion ||
+            "";
+
+        if (!numeroLinea) {
             setTemplatesDisponibles([]);
-            setTemplatesError("Tu usuario no tiene un número de WhatsApp asignado.");
+            setTemplatesError(
+                "Tu usuario no tiene un número de WhatsApp asignado."
+            );
             return;
         }
+
         try {
             setLoadingTemplates(true);
             setTemplatesError("");
-            const response = await api.digitalesPlantillas();
+
+            const response =
+                await api.digitalesPlantillas({
+                    numero_asesor:
+                        numeroLinea,
+                });
             const items = Array.isArray(response?.items) ? response.items : Array.isArray(response) ? response : [];
             setTemplatesDisponibles(items);
         } catch (error) {
@@ -2231,63 +2430,187 @@ export default function DigitalesProspectos() {
         setAgendaInfo({ id_exp: row.id_exp, cliente_id: row.cliente_id, nombre, telefono: row.telefono || "", correo: row.correo || "", auto_interes: row.cliente_interes || "", agencia: row.agencia || "", fuente_prospeccion: row.origen || "", fecha_cita: "", asesor_digital: row.asesor_digital, asesor_solicita: row.asesor_solicita, tipo_cita: "" });
         setOpenAgendaModal(true);
     };
-    const openEdit = async (row, estadoInicial = "") => {
+    const openEdit = async (
+        row,
+        estadoInicial = ""
+    ) => {
         resetPlantillasModal();
         resetCacheProspectoGuardado();
+
+        const numeroLinea =
+            numeroAsesorActivo ||
+            numeroUsuarioSesion ||
+            "";
+
         try {
             setTouchedSave(false);
             setMode("edit");
             setLoadingDetail(true);
             setOpenModal(true);
-            const [p, evidenciasData] = await Promise.all([api.digitalesGetProspecto(row.id_exp), api.digitalesListEvidencias(row.id_exp).catch(() => [])]);
-            const nombreCompleto = String(p.nombre || "").trim();
-            const tieneNombre = tieneNombreReal(nombreCompleto);
+
+            const contextoPeticion =
+                isAdmin &&
+                    selectedNumeroAsesor === "Todos"
+                    ? {
+                        todos: 1,
+                    }
+                    : numeroLinea
+                        ? {
+                            numero_asesor:
+                                numeroLinea,
+                        }
+                        : {};
+
+            const [
+                p,
+                evidenciasData,
+            ] = await Promise.all([
+                api.digitalesGetProspecto(
+                    row.id_exp,
+                    contextoPeticion
+                ),
+                api.digitalesListEvidencias(
+                    row.id_exp,
+                    contextoPeticion
+                ).catch((error) => {
+                    console.warn(
+                        "No se pudieron cargar las evidencias:",
+                        error
+                    );
+                    return [];
+                }),
+            ]);
+
+            const nombreCompleto = String(
+                p.nombre || ""
+            ).trim();
+
+            const tieneNombre =
+                tieneNombreReal(
+                    nombreCompleto
+                );
+
             setDraft({
                 id_exp: p.id,
                 agencia: p.agencia || "",
                 anio_auto: p.anio_auto || "",
                 tiene_nombre: tieneNombre,
-                nombre_cliente: tieneNombre ? nombreCompleto : "",
-                telefono: String(p.telefono || ""),
+                nombre_cliente: tieneNombre
+                    ? nombreCompleto
+                    : "",
+                telefono: String(
+                    p.telefono || ""
+                ),
                 correo: p.correo || "",
                 linea: p.business || "",
-                origen: p.canal_contacto || "",
+                origen:
+                    p.canal_contacto || "",
                 pauta: p.pauta || "",
-                estado: estadoInicial || p.estado || "",
+                estado:
+                    estadoInicial ||
+                    p.estado ||
+                    "",
                 motivo_descalificacion:
-                    normalizeText(estadoInicial || p.estado) === "descalificado"
-                        ? p.motivo_descalificacion || ""
+                    normalizeText(
+                        estadoInicial ||
+                        p.estado
+                    ) === "descalificado"
+                        ? p.motivo_descalificacion ||
+                        ""
                         : "",
-                cliente_interes: p.auto_interes || "",
-                comentarios: p.comentarios || "",
+                cliente_interes:
+                    p.auto_interes || "",
+                comentarios:
+                    p.comentarios || "",
                 resumen: p.resumen || "",
-                resumen_actualizado_at: toDTLocal(p.resumen_actualizado_at),
-                resumen_fuente: p.resumen_fuente || "",
-                asesor_digital: p.asesor_digital || "",
-                asesor_solicita: p.asesor_ventas || "",
-                creado: toDTLocalInput(p.creado),
-                primer_contacto_at: p.primer_mensaje_cliente || null,
-                ultimo_contacto_at: p.ultimo_contacto_asesor || null,
-                enganche_monto: p.enganche_monto || "",
-                presupuesto_mensual: p.presupuesto_mensual || "",
-                buro_estado: p.buro_estado || "",
-                forma_pago: p.forma_pago || "",
-                tipo_cliente: p.tipo_cliente || "",
-                uso_vehiculo: p.uso_vehiculo || "",
-                plazo_compra: p.plazo_compra || "",
-                comprobacion_ingresos: p.comprobacion_ingresos || "",
-                id_cotizacion: p.id_cotizacion || "",
-                folio_solicitud_credito: p.folio_solicitud_credito || "",
-                solicitud_credito_estado: p.solicitud_credito_estado || "",
-                vin_facturado: p.vin_facturado || "",
-                vin_estatus_entrega: p.vin_estatus_entrega || "",
-                evidencias_existentes: Array.isArray(evidenciasData) ? evidenciasData : Array.isArray(evidenciasData?.results) ? evidenciasData.results : [],
+                resumen_actualizado_at:
+                    toDTLocal(
+                        p.resumen_actualizado_at
+                    ),
+                resumen_fuente:
+                    p.resumen_fuente || "",
+                asesor_digital:
+                    p.asesor_digital || "",
+                usuario_crm_asignado:
+                    p.usuario_crm_asignado ||
+                    "",
+                asignado_automaticamente_at:
+                    p.asignado_automaticamente_at ||
+                    null,
+                asesor_solicita:
+                    p.asesor_ventas || "",
+                creado:
+                    toDTLocalInput(
+                        p.creado
+                    ),
+                primer_contacto_at:
+                    p.primer_mensaje_cliente ||
+                    null,
+                ultimo_contacto_at:
+                    p.ultimo_contacto_asesor ||
+                    null,
+                enganche_monto:
+                    p.enganche_monto || "",
+                presupuesto_mensual:
+                    p.presupuesto_mensual ||
+                    "",
+                buro_estado:
+                    p.buro_estado || "",
+                forma_pago:
+                    p.forma_pago || "",
+                tipo_cliente:
+                    p.tipo_cliente || "",
+                uso_vehiculo:
+                    p.uso_vehiculo || "",
+                plazo_compra:
+                    p.plazo_compra || "",
+                comprobacion_ingresos:
+                    p.comprobacion_ingresos ||
+                    "",
+                id_cotizacion:
+                    p.id_cotizacion || "",
+                folio_solicitud_credito:
+                    p.folio_solicitud_credito ||
+                    "",
+                solicitud_credito_estado:
+                    p.solicitud_credito_estado ||
+                    "",
+                vin_facturado:
+                    p.vin_facturado || "",
+                vin_estatus_entrega:
+                    p.vin_estatus_entrega ||
+                    "",
+                evidencias_existentes:
+                    Array.isArray(
+                        evidenciasData
+                    )
+                        ? evidenciasData
+                        : Array.isArray(
+                            evidenciasData?.results
+                        )
+                            ? evidenciasData.results
+                            : [],
                 evidencias_nuevas: [],
                 delete_evidencia_ids: [],
             });
-        } catch (e) {
-            console.error(e);
-            alert("No se pudo abrir el prospecto para editar.");
+        } catch (error) {
+            console.error(
+                "Error abriendo prospecto:",
+                {
+                    prospectoId:
+                        row?.id_exp,
+                    numeroLinea,
+                    error,
+                }
+            );
+
+            alert(
+                `No se pudo abrir el prospecto para editar.${error?.message
+                    ? `\n\n${error.message}`
+                    : ""
+                }`
+            );
+
             setOpenModal(false);
         } finally {
             setLoadingDetail(false);
@@ -2411,11 +2734,31 @@ export default function DigitalesProspectos() {
                             formData.append("archivos", evidencia.file);
                         }
                     });
-                    await api.digitalesUploadEvidencias(idFinal, formData);
+                    await api.digitalesUploadEvidencias(
+                        idFinal,
+                        formData,
+                        numeroAsesorActivo ||
+                        numeroUsuarioSesion ||
+                        ""
+                    );
                 }
                 const idsEliminar = draft.delete_evidencia_ids || [];
                 if (idsEliminar.length > 0) {
-                    await Promise.allSettled(idsEliminar.map((idEvidencia) => api.digitalesDeleteEvidencia(idFinal, idEvidencia)));
+                    await Promise.allSettled(
+                        idsEliminar.map(
+                            (idEvidencia) =>
+                                api.digitalesDeleteEvidencia(
+                                    idFinal,
+                                    idEvidencia,
+                                    {
+                                        numero_asesor:
+                                            numeroAsesorActivo ||
+                                            numeroUsuarioSesion ||
+                                            "",
+                                    }
+                                )
+                        )
+                    );
                 }
             }
             await refreshList();
@@ -2547,6 +2890,10 @@ export default function DigitalesProspectos() {
         setUpdatingEstado((p) => ({ ...p, [id]: true }));
         try {
             await api.digitalesPatchProspecto(id, {
+                numero_asesor:
+                    numeroAsesorActivo ||
+                    numeroUsuarioSesion ||
+                    "",
                 estado: newEstado,
                 motivo_descalificacion: "",
                 primer_mensaje_cliente: primerContactoNuevo,
@@ -2575,7 +2922,16 @@ export default function DigitalesProspectos() {
             [id]: true,
         }));
         try {
-            const res = await api.digitalesGenerarResumen(id);
+            const res =
+                await api.digitalesGenerarResumen(
+                    id,
+                    {
+                        numero_asesor:
+                            numeroAsesorActivo ||
+                            numeroUsuarioSesion ||
+                            "",
+                    }
+                );
             if (!res?.ok) {
                 throw new Error(res?.error || "El backend no pudo generar el resumen.");
             }

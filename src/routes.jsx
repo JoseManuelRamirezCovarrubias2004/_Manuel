@@ -281,19 +281,6 @@ export const router = createBrowserRouter(
                                     ],
                                 },
                                 {
-                                    path: "safety",
-                                    element: (
-                                        <RequirePermission
-                                            anyOf={[
-                                                "USUARIOS_ADMIN",
-                                                "CRM_CALIDAD",
-                                            ]}
-                                        >
-                                            <Safety />
-                                        </RequirePermission>
-                                    ),
-                                },
-                                {
                                     path: "enc_servicio",
                                     element: (
                                         <RequirePermission
@@ -820,6 +807,20 @@ export const router = createBrowserRouter(
                                             ]}
                                         >
                                             <Retencion />
+                                        </RequirePermission>
+                                    ),
+                                },
+                                {
+                                    path: "safety",
+                                    element: (
+                                        <RequirePermission
+                                            anyOf={[
+                                                "USUARIOS_ADMIN",
+                                                "CRM_CALIDAD",
+                                                "CRM_POSTVENTA",
+                                            ]}
+                                        >
+                                            <Safety />
                                         </RequirePermission>
                                     ),
                                 },

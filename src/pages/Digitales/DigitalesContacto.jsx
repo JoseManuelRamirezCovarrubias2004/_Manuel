@@ -4495,11 +4495,18 @@ export default function DigitalesContacto() {
                                                     onClick={() => openChatByTel(chat.telefono)}
                                                     onContextMenu={(e) => abrirMenuChat(e, chat)}
                                                     className={cls(
-                                                        "group relative w-full px-4 py-3 text-left transition",
+                                                        "group relative w-full border-b border-black/5 px-4 py-3 text-left transition",
                                                         isActive
                                                             ? "bg-[#1746D1]/10 shadow-[inset_3px_0_0_0_#1746D1]"
                                                             : "bg-neutral-50 hover:bg-white",
                                                     )}
+                                                    style={
+                                                        puedeVerAsignacion
+                                                            ? {
+                                                                borderLeft: `3px solid ${asesorVisual.color}`,
+                                                            }
+                                                            : undefined
+                                                    }
                                                     type="button">
                                                     <div className="flex items-center gap-3">
                                                         {/* Avatar con dot de estado */}
@@ -4537,7 +4544,8 @@ export default function DigitalesContacto() {
                                                                 </div>
                                                                 <div className="shrink-0 text-[11px] font-semibold text-slate-400 leading-tight">
                                                                     {chat.last?.timestamp ? formatearFechaConDia(chat.last.timestamp) : chat.last?.time || ""}
-                                                                </div>                                                            </div>
+                                                                </div>
+                                                            </div>
 
                                                             {/* Fila 2: último mensaje + badge unread */}
                                                             <div className="mt-0.5 flex items-center justify-between gap-2">

@@ -6,6 +6,7 @@ import {
     Package,
     Wrench,
     Repeat,
+    ShieldCheck
 } from "lucide-react";
 
 import vwDark from "../../assets/vw_dark.png";
@@ -39,42 +40,31 @@ export default function Topbar({
                 label: "Pedidos de Piezas",
                 href: "/postventa/pedidos_piezas",
                 icon: Package,
-                show: hasAnyPermission([
-                    "USUARIOS_ADMIN",
-                    "CRM_POSTVENTA",
-                    "CRM_CALIDAD",
-                ]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD",]),
             },
             {
                 label: "Hoja de Ingresos",
                 href: "/postventa/hoja_ingresos",
                 icon: DoorOpen,
-                show: hasAnyPermission([
-                    "USUARIOS_ADMIN",
-                    "CRM_POSTVENTA",
-                    "CRM_CALIDAD",
-                    "CRM_CALL_CENTER",
-                ]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD", "CRM_CALL_CENTER",]),
             },
             {
                 label: "Panel Taller",
                 href: "/postventa/taller",
                 icon: Wrench,
-                show: hasAnyPermission([
-                    "USUARIOS_ADMIN",
-                    "CRM_POSTVENTA",
-                    "CRM_CALIDAD",
-                ]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD",]),
             },
             {
                 label: "Retención",
                 href: "/postventa/retencion",
                 icon: Repeat,
-                show: hasAnyPermission([
-                    "USUARIOS_ADMIN",
-                    "CRM_POSTVENTA",
-                    "CRM_CALIDAD",
-                ]),
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD",]),
+            },
+            {
+                label: "Safety Culture",
+                href: "/postventa/safety",
+                icon: ShieldCheck,
+                show: hasAnyPermission(["USUARIOS_ADMIN", "CRM_POSTVENTA", "CRM_CALIDAD",]),
             },
         ];
 
