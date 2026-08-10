@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { apiCitas } from "../../lib/apiCitas";
 import { useAuth } from "../../auth/AuthContext";
 import * as XLSX from "xlsx";
+import MotivoDescalificacionPicker from "./MotivoDescalificacionPicker";
 
 const BRAND_BLUE = "#131E5C";
 const PAGE_SIZE = 200;
@@ -34,7 +35,6 @@ const origenMeta = {
 const ASESORES_DIGITALES = ["Lizbeth Cano Clara", "Erendira Santos Coyotzi", "Marelly Tenorio Salinas", "IA Vagen", "Edgar Omar Noguera Solis", "Dulce Abigail Garcia Olivares", "Bianca Chavez Alarcon", "Candy Denisse Marquez", "Julio Ramirez Lopez",];
 
 const ESTADOS_PROSPECTO = ["Contactado", "Calificado", "Pendiente de Cotización", "Requiere Asesor", "Financiamiento", "Sin Respuesta", "Descalificado"];
-const MOTIVOS_DESCALIFICACION = ["", "Busca trabajo", "No contesto", "Poco presupuesto", "Datos Incorrectos", "Compro en otra marca"];
 
 const VEHICULOS = ["Virtus", "Polo", "Jetta", "Jetta GLI", "Golf GTI", "Taos", "Nivus", "Taigun", "Tiguan", "Teramont", "Crossport", "Saveiro", "Amarok", "Seminuevos", "Tera", "Avaluo", "Transporter", "Caddy", "Crafter"];
 
@@ -3862,33 +3862,16 @@ export default function DigitalesProspectos() {
                                                 Motivo de descalificación *
                                             </div>
 
-                                            <select
+                                            <MotivoDescalificacionPicker
                                                 value={draft.motivo_descalificacion || ""}
-                                                onChange={(e) =>
+                                                onChange={(motivo) =>
                                                     setDraft((current) => ({
                                                         ...current,
-                                                        motivo_descalificacion: e.target.value,
+                                                        motivo_descalificacion: motivo,
                                                     }))
                                                 }
-                                                className={cls(
-                                                    inputBase,
-                                                    draft.motivo_descalificacion
-                                                        ? inputOk
-                                                        : "border-red-400 bg-red-50"
-                                                )}
-                                            >
-                                                <option value="">
-                                                    — Selecciona el motivo —
-                                                </option>
-
-                                                {MOTIVOS_DESCALIFICACION
-                                                    .filter(Boolean)
-                                                    .map((motivo) => (
-                                                        <option key={motivo} value={motivo}>
-                                                            {motivo}
-                                                        </option>
-                                                    ))}
-                                            </select>
+                                                invalid={!draft.motivo_descalificacion}
+                                            />
 
                                             {!draft.motivo_descalificacion ? (
                                                 <div className="mt-1 text-xs font-bold text-red-600">
