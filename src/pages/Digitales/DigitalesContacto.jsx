@@ -42,10 +42,13 @@ import {
     Square,
     Download,
     UserRound,
+    UserRoundPlus,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
 import { apiCitas } from "../../lib/apiCitas";
+import { ASESORES_PISO, AGENCIAS_DIGITALES } from "./asesoresPiso";
+import MotivoDescalificacionPicker from "./MotivoDescalificacionPicker";
 
 const BRAND_BLUE = "#131E5C";
 const QUICK_BUBBLES_KEY = "digitales_quick_bubbles_global";
@@ -72,7 +75,7 @@ const VEHICULOS = [
 const CANALES = ["VW-Concesionario", "WhatsApp", "Facebook", "Llamada Entrante"];
 
 const ESTADOS_PROSPECTO = ["Descalificado", "Contactado", "Sin Respuesta"];
-const MOTIVOS_DESCALIFICACION = ["Busca trabajo", "No contesto", "Poco presupuesto", "Datos Incorrectos", "Compro en otra marca"];
+const MOTIVOS_DESCALIFICACION = ["Sin respuesta", "Sin interés", "Documentacion no enviada", "Sin continuidad", "No Viable",""];
 
 const BURO_OPTIONS = [
     { value: "", label: "— Selecciona —" },
@@ -1704,10 +1707,12 @@ function ComposerDropdown({ open, onClose, dropdownRef, children, title, headerR
 
 // ─── Modal para agendar cita desde el chat ──────────────────────────────────
 
-function AgendarCitaModal({ open, onClose, nombreCliente, telefono, onGuardar, saving }) {
+function AgendarCitaModal({ open, onClose, nombreCliente, telefono, onGuardar, saving, agenciaInicial = "", asesorInicial = "" }) {
     const [fecha, setFecha] = useState("");
     const [hora, setHora] = useState("10:00");
     const [nota, setNota] = useState("");
+    const [agencia, setAgencia] = useState("");
+    const [asesor, setAsesor] = useState("");
 
     useEffect(() => {
         if (open) {
@@ -1718,7 +1723,10 @@ function AgendarCitaModal({ open, onClose, nombreCliente, telefono, onGuardar, s
             setFecha(`${yyyy}-${mm}-${dd}`);
             setHora("10:00");
             setNota("");
+            setAgencia(agenciaInicial || "");
+            setAsesor(asesorInicial || "");
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
     if (!open) return null;
@@ -1728,7 +1736,15 @@ function AgendarCitaModal({ open, onClose, nombreCliente, telefono, onGuardar, s
     function handleSubmit(e) {
         e.preventDefault();
         if (!fecha || !hora) return;
-        onGuardar({ fecha, hora, nota });
+        onGuardar({ fecha, hora, nota, agencia, asesor });
+    }
+
+    function opcionesConActual(opciones, actual) {
+        const lista = [...opciones];
+        if (actual && !lista.some((o) => String(o).trim().toLowerCase() === String(actual).trim().toLowerCase())) {
+            lista.unshift(actual);
+        }
+        return lista;
     }
 
     return (
@@ -1758,6 +1774,29 @@ function AgendarCitaModal({ open, onClose, nombreCliente, telefono, onGuardar, s
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
+                            <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Agencia</div>
+                            <select value={agencia} onChange={(e) => setAgencia(e.target.value)}
+                                className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">
+                                <option value="">— Selecciona —</option>
+                                {opcionesConActual(AGENCIAS_DIGITALES, agencia).map((o) => (
+                                    <option key={o} value={o}>{o}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Asesor que atenderá</div>
+                            <select value={asesor} onChange={(e) => setAsesor(e.target.value)}
+                                className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">
+                                <option value="">— Selecciona —</option>
+                                {opcionesConActual(ASESORES_PISO, asesor).map((o) => (
+                                    <option key={o} value={o}>{o}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
                             <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Fecha</div>
                             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required
                                 className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" />
@@ -1770,7 +1809,7 @@ function AgendarCitaModal({ open, onClose, nombreCliente, telefono, onGuardar, s
                     </div>
 
                     <div className="rounded-lg border border-[#131E5C]/10 bg-[#131E5C]/[0.04] px-3 py-2 text-xs font-bold text-[#131E5C]">
-                        {fechaLegible} {hora ? `· ${hora}` : ""}
+                        {fechaLegible} {hora ? `· ${hora}` : ""}{agencia ? ` · ${agencia}` : ""}{asesor ? ` · ${asesor}` : ""}
                     </div>
 
                     <div>
@@ -1790,6 +1829,101 @@ function AgendarCitaModal({ open, onClose, nombreCliente, telefono, onGuardar, s
                             style={{ backgroundColor: BRAND_BLUE }}>
                             <CalendarPlus className="h-3.5 w-3.5" />
                             {saving ? "Guardando..." : "Agendar cita"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ─── Modal para asignar asesor de piso ───────────────────────────────────────
+
+function AsignarAsesorModal({ open, onClose, nombreCliente, telefono, agenciaInicial = "", asesorInicial = "", onGuardar, saving }) {
+    const [agencia, setAgencia] = useState("");
+    const [asesor, setAsesor] = useState("");
+
+    useEffect(() => {
+        if (open) {
+            setAgencia(agenciaInicial || "");
+            setAsesor(asesorInicial || "");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
+
+    if (!open) return null;
+
+    function handleSubmit(e) {
+        e.preventDefault();
+        if (!agencia || !asesor) return;
+        onGuardar({ agencia, asesor });
+    }
+
+    function opcionesConActual(opciones, actual) {
+        const lista = [...opciones];
+        if (actual && !lista.some((o) => String(o).trim().toLowerCase() === String(actual).trim().toLowerCase())) {
+            lista.unshift(actual);
+        }
+        return lista;
+    }
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4" onMouseDown={onClose}>
+            <div
+                className="w-full max-w-md overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
+                onMouseDown={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between border-b border-black/5 px-5 py-3.5">
+                    <div className="flex items-center gap-2">
+                        <UserRoundPlus className="h-4 w-4 text-[#131E5C]" />
+                        <span className="text-sm font-extrabold text-[#131E5C]">Asignar asesor</span>
+                    </div>
+                    <button type="button" onClick={onClose}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-neutral-100 transition">
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
+                    <div>
+                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Cliente</div>
+                        <div className="rounded-lg border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-bold text-[#131E5C]">
+                            {nombreCliente || "Prospecto"}{telefono ? ` · ${formateaTelUi(telefono)}` : ""}
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Agencia *</div>
+                        <select value={agencia} onChange={(e) => setAgencia(e.target.value)} required
+                            className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">
+                            <option value="">— Selecciona la agencia —</option>
+                            {opcionesConActual(AGENCIAS_DIGITALES, agencia).map((o) => (
+                                <option key={o} value={o}>{o}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Asesor de piso asignado *</div>
+                        <select value={asesor} onChange={(e) => setAsesor(e.target.value)} required
+                            className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">
+                            <option value="">— Selecciona el asesor —</option>
+                            {opcionesConActual(ASESORES_PISO, asesor).map((o) => (
+                                <option key={o} value={o}>{o}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button type="button" onClick={onClose}
+                            className="rounded-lg border border-black/10 bg-white px-4 py-2 text-xs font-extrabold text-slate-600 hover:bg-neutral-50">
+                            Cancelar
+                        </button>
+                        <button type="submit" disabled={saving || !agencia || !asesor}
+                            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-extrabold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                            style={{ backgroundColor: BRAND_BLUE }}>
+                            <UserRoundPlus className="h-3.5 w-3.5" />
+                            {saving ? "Guardando..." : "Guardar"}
                         </button>
                     </div>
                 </form>
@@ -1930,6 +2064,10 @@ export default function DigitalesContacto() {
     // Modal de agendar cita
     const [showCitaModal, setShowCitaModal] = useState(false);
     const [savingCita, setSavingCita] = useState(false);
+
+    // Modal de asignar asesor de piso
+    const [showAsignarAsesorModal, setShowAsignarAsesorModal] = useState(false);
+    const [savingAsignacion, setSavingAsignacion] = useState(false);
 
     // Resaltado temporal al saltar a un mensaje citado
     const [highlightedMsgId, setHighlightedMsgId] = useState("");
@@ -3675,13 +3813,14 @@ export default function DigitalesContacto() {
         throw new Error("Falta agregar api.digitalesCrearCita en src/lib/apiPruebas.js");
     }
 
-    async function guardarCita({ fecha, hora, nota }) {
+    async function guardarCita({ fecha, hora, nota, agencia, asesor }) {
         if (!activeTel || savingCita) return;
         setSavingCita(true);
         try {
             const fechaHoraIso = `${fecha}T${hora}:00`;
+            const asesorPiso = String(asesor || prospecto?.asesor_ventas || "").trim();
             await llamarCrearCita({
-                agencia: prospecto?.agencia || activeChat?.agencia || "",
+                agencia: agencia || prospecto?.agencia || activeChat?.agencia || "",
                 nombre: activeChat?.nombre || prospecto?.nombre || "Prospecto",
                 telefono: activeTel,
                 auto_interes: prospecto?.auto_interes || "",
@@ -3690,15 +3829,82 @@ export default function DigitalesContacto() {
                 tipo_cita: "Digital",
                 fuente_prospeccion: prospecto?.pauta || prospecto?.pauta_origen || "",
                 asesor_digital: prospecto?.asesor_digital || "",
-                asesor_piso: "",
+                asesor_piso: asesorPiso,
+                asesor_asignado: asesorPiso,
                 comentarios: nota || "",
             });
+
+            // Mover el prospecto a la bandeja "Cita Programada" automáticamente
+            if (prospecto?.id) {
+                try {
+                    await api.digitalesPatchProspecto(prospecto.id, {
+                        estado: "Cita Programada",
+                        asesor_piso: asesorPiso,
+                        agencia: agencia || prospecto?.agencia || activeChat?.agencia || "",
+                    });
+                } catch (patchErr) {
+                    console.error("No se pudo mover el prospecto a Cita Programada:", patchErr);
+                }
+                setProspecto((prev) =>
+                    prev
+                        ? { ...prev, estado: "Cita Programada", asesor_piso: asesorPiso || prev.asesor_piso || "" }
+                        : prev
+                );
+                setChats((prev) =>
+                    prev.map((c) =>
+                        c.telefono === activeTel ? { ...c, estado: "Cita Programada" } : c
+                    )
+                );
+            }
+
             setShowCitaModal(false);
             alert(`Cita agendada para ${formatearFechaConDia(`${fecha}T00:00:00`)} a las ${hora}.`);
         } catch (error) {
             alert(`No se pudo agendar la cita: ${error.message}`);
         } finally {
             setSavingCita(false);
+        }
+    }
+
+    async function guardarAsignacionAsesor({ agencia, asesor }) {
+        if (!activeTel || savingAsignacion) return;
+
+        if (!prospecto?.id) {
+            alert("Este contacto aún no tiene un expediente de prospecto para asignar asesor.");
+            return;
+        }
+
+        setSavingAsignacion(true);
+        try {
+            await api.digitalesPatchProspecto(prospecto.id, {
+                agencia: agencia || "",
+                asesor_ventas: asesor || "",
+            });
+
+            setProspecto((prev) =>
+                prev
+                    ? {
+                        ...prev,
+                        agencia: agencia || prev.agencia || "",
+                        asesor_ventas: asesor || prev.asesor_ventas || "",
+                    }
+                    : prev
+            );
+
+            setChats((prev) =>
+                prev.map((c) =>
+                    c.telefono === activeTel ? { ...c, agencia: agencia || c.agencia || "" } : c
+                )
+            );
+
+            await refreshActiveChat(activeTel).catch(() => { });
+
+            setShowAsignarAsesorModal(false);
+            alert(`Asesor asignado: ${asesor}${agencia ? ` · ${agencia}` : ""}.`);
+        } catch (error) {
+            alert(`No se pudo asignar el asesor: ${error.message}`);
+        } finally {
+            setSavingAsignacion(false);
         }
     }
 
@@ -4495,18 +4701,11 @@ export default function DigitalesContacto() {
                                                     onClick={() => openChatByTel(chat.telefono)}
                                                     onContextMenu={(e) => abrirMenuChat(e, chat)}
                                                     className={cls(
-                                                        "group relative w-full border-b border-black/5 px-4 py-3 text-left transition",
+                                                        "group relative w-full px-4 py-3 text-left transition",
                                                         isActive
                                                             ? "bg-[#1746D1]/10 shadow-[inset_3px_0_0_0_#1746D1]"
                                                             : "bg-neutral-50 hover:bg-white",
                                                     )}
-                                                    style={
-                                                        puedeVerAsignacion
-                                                            ? {
-                                                                borderLeft: `3px solid ${asesorVisual.color}`,
-                                                            }
-                                                            : undefined
-                                                    }
                                                     type="button">
                                                     <div className="flex items-center gap-3">
                                                         {/* Avatar con dot de estado */}
@@ -4544,8 +4743,7 @@ export default function DigitalesContacto() {
                                                                 </div>
                                                                 <div className="shrink-0 text-[11px] font-semibold text-slate-400 leading-tight">
                                                                     {chat.last?.timestamp ? formatearFechaConDia(chat.last.timestamp) : chat.last?.time || ""}
-                                                                </div>
-                                                            </div>
+                                                                </div>                                                            </div>
 
                                                             {/* Fila 2: último mensaje + badge unread */}
                                                             <div className="mt-0.5 flex items-center justify-between gap-2">
@@ -4708,6 +4906,30 @@ export default function DigitalesContacto() {
                                                 )}
                                             </select>
                                         ) : null}
+
+                                        {/* Botones de acción: asignar asesor + agendar cita */}
+                                        <div className="ml-auto flex shrink-0 items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setShowAsignarAsesorModal(true); }}
+                                                disabled={!activeTel}
+                                                title="Asignar asesor"
+                                                aria-label="Asignar asesor"
+                                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#131E5C] text-white shadow-sm transition hover:bg-[#0f184d] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                                            >
+                                                <UserRoundPlus className="h-4.5 w-4.5" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setShowCitaModal(true); }}
+                                                disabled={!activeTel}
+                                                title="Agendar cita"
+                                                aria-label="Agendar cita"
+                                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#DBE7FF] text-[#1746D1] shadow-sm transition hover:bg-[#c9dcff] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                                            >
+                                                <CalendarPlus className="h-4.5 w-4.5" />
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {/* Fila 2: fechas */}
@@ -5477,17 +5699,11 @@ export default function DigitalesContacto() {
                                                             <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-red-600">
                                                                 Motivo de descalificación
                                                             </span>
-                                                            <select
+                                                            <MotivoDescalificacionPicker
                                                                 value={quickEditDraft.motivo_descalificacion || ""}
-                                                                onChange={(e) => saveHeaderMotivo(e.target.value)}
-                                                                className="h-10 w-full rounded-xl border border-red-200 bg-red-50 px-3 text-sm font-bold text-red-700 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
-                                                            >
-                                                                {renderOptionsConValorActual(
-                                                                    MOTIVOS_DESCALIFICACION,
-                                                                    quickEditDraft.motivo_descalificacion,
-                                                                    "Selecciona el motivo…"
-                                                                )}
-                                                            </select>
+                                                                onChange={(motivo) => saveHeaderMotivo(motivo)}
+                                                                invalid={!quickEditDraft.motivo_descalificacion}
+                                                            />
                                                         </label>
                                                     ) : null}
 
@@ -5511,9 +5727,19 @@ export default function DigitalesContacto() {
 
                                                 <button
                                                     type="button"
+                                                    onClick={() => setShowAsignarAsesorModal(true)}
+                                                    disabled={!activeTel}
+                                                    className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#131E5C]/20 bg-white px-4 text-sm font-black text-[#131E5C] shadow-sm transition hover:border-[#1746D1]/40 hover:text-[#1746D1] disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <UserRoundPlus className="h-4 w-4" />
+                                                    Asignar asesor
+                                                </button>
+
+                                                <button
+                                                    type="button"
                                                     onClick={() => setShowCitaModal(true)}
                                                     disabled={!activeTel}
-                                                    className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#131E5C] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#0f184d] disabled:cursor-not-allowed disabled:opacity-50"
+                                                    className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#131E5C] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#0f184d] disabled:cursor-not-allowed disabled:opacity-50"
                                                 >
                                                     <CalendarPlus className="h-4 w-4" />
                                                     Agendar cita
@@ -5607,34 +5833,6 @@ export default function DigitalesContacto() {
                                                         </select>
                                                     </label>
 
-                                                    <div>
-                                                        <div className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Estado</div>
-                                                        <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-1">
-                                                            {ESTADOS_PROSPECTO.map((estado) => {
-                                                                const selected = String(quickEditDraft.estado || "").toLowerCase() === estado.toLowerCase();
-                                                                return (
-                                                                    <button
-                                                                        key={estado}
-                                                                        type="button"
-                                                                        onClick={() => setQuickEditDraft(p => ({
-                                                                            ...p,
-                                                                            estado,
-                                                                            motivo_descalificacion: estado.toLowerCase() === "descalificado" ? p.motivo_descalificacion : "",
-                                                                        }))}
-                                                                        className={cls(
-                                                                            "min-h-8 rounded-lg px-2 py-1 text-[11px] font-extrabold transition",
-                                                                            selected
-                                                                                ? "bg-white text-[#131E5C] shadow-sm ring-1 ring-[#131E5C]/10"
-                                                                                : "text-slate-400 hover:text-[#131E5C]"
-                                                                        )}
-                                                                    >
-                                                                        {estado}
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-
                                                     <label className="block">
                                                         <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Canal</span>
                                                         <select
@@ -5646,33 +5844,6 @@ export default function DigitalesContacto() {
                                                         </select>
                                                     </label>
                                                 </div>
-
-                                                {String(quickEditDraft.estado || "").toLowerCase() === "descalificado" ? (
-                                                    <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3">
-                                                        <div className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wide text-red-700">
-                                                            Motivo de descalificación *
-                                                        </div>
-                                                        <select
-                                                            value={quickEditDraft.motivo_descalificacion || ""}
-                                                            onChange={(e) => setQuickEditDraft(current => ({
-                                                                ...current,
-                                                                motivo_descalificacion: e.target.value,
-                                                            }))}
-                                                            className={cls(
-                                                                "h-10 w-full rounded-xl border bg-white px-3 text-sm font-bold outline-none transition focus:ring-2 focus:ring-red-100",
-                                                                quickEditDraft.motivo_descalificacion
-                                                                    ? "border-red-200 text-[#131E5C]"
-                                                                    : "border-red-300 text-red-700"
-                                                            )}
-                                                        >
-                                                            {renderOptionsConValorActual(
-                                                                MOTIVOS_DESCALIFICACION,
-                                                                quickEditDraft.motivo_descalificacion,
-                                                                "Selecciona el motivo…"
-                                                            )}
-                                                        </select>
-                                                    </div>
-                                                ) : null}
                                             </div>
 
                                             {/* Calificación rápida */}
@@ -5973,8 +6144,22 @@ export default function DigitalesContacto() {
                 onClose={() => setShowCitaModal(false)}
                 nombreCliente={activeChat?.nombre || prospecto?.nombre}
                 telefono={activeTel}
+                agenciaInicial={prospecto?.agencia || activeChat?.agencia || ""}
+                asesorInicial={prospecto?.asesor_ventas || ""}
                 onGuardar={guardarCita}
                 saving={savingCita}
+            />
+
+            {/* ── MODAL ASIGNAR ASESOR ──────────────────────────────────────── */}
+            <AsignarAsesorModal
+                open={showAsignarAsesorModal}
+                onClose={() => setShowAsignarAsesorModal(false)}
+                nombreCliente={activeChat?.nombre || prospecto?.nombre}
+                telefono={activeTel}
+                agenciaInicial={prospecto?.agencia || activeChat?.agencia || ""}
+                asesorInicial={prospecto?.asesor_ventas || ""}
+                onGuardar={guardarAsignacionAsesor}
+                saving={savingAsignacion}
             />
         </div>
     );
