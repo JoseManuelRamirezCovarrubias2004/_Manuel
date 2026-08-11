@@ -872,7 +872,7 @@ function isNearBottomDrawer(el, threshold = 150) {
 
 
 
-export function ChatDrawer({ open, telefono, numeroAsesor, onClose, clienteRetencion = null, }) {
+export function ChatDrawer({ open, telefono, numeroAsesor, onClose, clienteRetencion = null, onTelefonoChange, }) {
     const [loading, setLoading] = useState(false);
     const [prospecto, setProspecto] = useState(null);
     const [mensajes, setMensajes] = useState([]);
@@ -922,6 +922,19 @@ export function ChatDrawer({ open, telefono, numeroAsesor, onClose, clienteReten
     const stickBottomRef = useRef(true);
     const pollRef = useRef(null);
     const tel = normalizaTelefonoMx(telefono);
+
+    const telefonosRetencion = useMemo(() => {
+    if (!clienteRetencion) return [];
+
+    return [
+        clienteRetencion?.telefono_cliente,
+        clienteRetencion?.telefono_cliente2,
+        clienteRetencion?.telefono_cliente3,
+    ]
+        .map((telefono) => normalizaTelefonoMx(telefono))
+        .filter(Boolean)
+        .filter((telefono, index, lista) => lista.indexOf(telefono) === index);
+}, [clienteRetencion]);
 
     const templateMap = useMemo(() => {
         const map = new Map();
@@ -1495,7 +1508,24 @@ export function ChatDrawer({ open, telefono, numeroAsesor, onClose, clienteReten
                     <Avatar name={nombreMostrar} />
                     <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-extrabold text-[#131E5C]">{nombreMostrar} </div>
-                        <div className="text-xs font-semibold text-slate-400">{formateaTelUi(tel)}</div>
+                       
+                        {telefonosRetencion.length > 1 ? (
+                            <select
+                                value={tel}
+                                onChange={(e) => onTelefonoChange?.(e.target.value)}
+                                className="mt-0.5 max-w-[220px] cursor-pointer rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-500 outline-none transition hover:border-slate-300 focus:border-[#131E5C]/40"
+                            >
+                                {telefonosRetencion.map((numero) => (
+                                    <option key={numero} value={numero}>
+                                        {formateaTelUi(numero)}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            <div className="text-xs font-semibold text-slate-400">
+                                {formateaTelUi(tel)}
+                            </div>
+                        )}
                     </div>
                     <a href={`https://wa.me/${tel}`} target="_blank" rel="noreferrer"
                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"

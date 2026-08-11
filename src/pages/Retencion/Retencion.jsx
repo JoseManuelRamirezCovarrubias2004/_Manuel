@@ -38,6 +38,8 @@ import {
 const NAVY = "#131E5C";
 const ACCENT = "#378ADD";
 
+const DEALERS_RETENCION = ["VW Cordoba", "VW Orizaba"];
+
 const SEGMENTO_COLORS = ["#378ADD", "#1D9E75", "#D85A30", "#7F77DD", "#D4537E", "#F0A500"];
 const ESTADO_COLORS = { activo: "#1D9E75", inactivo: "#D85A30" };
 
@@ -1419,9 +1421,7 @@ export default function Retencion() {
     const [vista, setVista] = useState("tabla");
     const navigate = useNavigate();
 
-    const [selectorTelefonoOpen, setSelectorTelefonoOpen] = useState(false);
     const [clienteChat, setClienteChat] = useState(null);
-    const [telefonosChat, setTelefonosChat] = useState([]);
     const [drawerTel, setDrawerTel] = useState("");
 
     const [anio, setAnio] = useState("Todos");
@@ -1551,8 +1551,12 @@ export default function Retencion() {
         return [...new Set(datosRaw.map((item) => item.mes))].filter(Boolean).sort((a, b) => a - b);
     }, [anio, opciones.anio_mes, datosRaw]);
 
-    const datosFiltrados = useMemo(() => {
-        let datos = [...datosRaw];
+        const datosFiltrados = useMemo(() => {
+            let datos = datosRaw.filter((item) =>
+                DEALERS_RETENCION.some(
+                    (dealer) => normalizarTexto(item.agencia) === normalizarTexto(dealer)
+                )
+            );
 
         if (semana !== "Todas") {
             const semanaNumero = Number(semana);
@@ -1702,6 +1706,7 @@ export default function Retencion() {
             setErrorTareas(err.message || "No se pudo eliminar la tarea.");
         }
     }
+
         function abrirChatCliente(cliente) {
     const telefonos = obtenerTelefonosCliente(cliente);
 
@@ -1710,21 +1715,11 @@ export default function Retencion() {
         return;
     }
 
-    if (telefonos.length === 1) {
-        setClienteChat(cliente);
-        setDrawerTel(telefonos[0]);
-        return;
-    }
-
     setClienteChat(cliente);
-    setTelefonosChat(telefonos);
-    setSelectorTelefonoOpen(true);
-    }
+    setDrawerTel(telefonos[0]);
 
-    function seleccionarTelefonoChat(telefono) {
-    setSelectorTelefonoOpen(false);
-    setDrawerTel(telefono);
-    }
+}
+
 
     if (loadingGeneral) {
         return (
@@ -1841,9 +1836,17 @@ export default function Retencion() {
 
                 <PillSelect value={agencia} onChange={setAgencia}>
                     <option value="Todos">Todos los Dealers</option>
-                    {opciones.agencias.map((item) => (
-                        <option key={item} value={item}>{item}</option>
-                    ))}
+                    {opciones.agencias
+                        .filter((item) =>
+                            DEALERS_RETENCION.some(
+                                (dealer) => normalizarTexto(item) === normalizarTexto(dealer)
+                            )
+                        )
+                        .map((item) => (
+                            <option key={item} value={item}>
+                                {item}
+                            </option>
+                        ))}
                 </PillSelect>
 
                 <PillSelect value={semana} onChange={setSemana}>
@@ -1914,76 +1917,12 @@ export default function Retencion() {
                 onClose={cerrarDetalle}
             />
 
-            {selectorTelefonoOpen && (
-    <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4"
-        onClick={() => setSelectorTelefonoOpen(false)}
-    >
-        <div
-            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-        >
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <h3 className="text-lg font-black text-slate-800">
-                        Seleccionar teléfono
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                        {clienteChat?.nombre_cliente || "Cliente"}
-                    </p>
-                </div>
-
-                <button
-                    type="button"
-                    onClick={() => setSelectorTelefonoOpen(false)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100"
-                >
-                    ×
-                </button>
-            </div>
-
-            <p className="mt-4 text-sm text-slate-500">
-                Selecciona el número con el que deseas abrir el chat.
-            </p>
-
-            <div className="mt-4 space-y-2">
-                {telefonosChat.map((telefono, index) => (
-                    <button
-                        key={`${telefono}-${index}`}
-                        type="button"
-                        onClick={() => seleccionarTelefonoChat(telefono)}
-                        className="flex w-full items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition hover:border-blue-300 hover:bg-blue-50"
-                    >
-                        <Phone className="h-4 w-4 text-blue-600" />
-
-                        <div>
-                            <div className="text-[10px] font-bold uppercase text-slate-400">
-                                Teléfono {index + 1}
-                            </div>
-
-                            <div className="text-sm font-bold text-slate-700">
-                                {formatTelefono(telefono)}
-                            </div>
-                        </div>
-                    </button>
-                ))}
-            </div>
-
-            <button
-                type="button"
-                onClick={() => setSelectorTelefonoOpen(false)}
-                className="mt-4 h-10 w-full rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50"
-            >
-                Cancelar
-            </button>
-        </div>
-    </div>
-)}
             <ChatDrawer
             open={Boolean(drawerTel)}
             telefono={drawerTel}
             numeroAsesor=""
             clienteRetencion={clienteChat}
+            onTelefonoChange={setDrawerTel}
             onClose={() => setDrawerTel("")}
         />
 
