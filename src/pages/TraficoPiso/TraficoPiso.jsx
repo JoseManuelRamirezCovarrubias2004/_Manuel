@@ -581,9 +581,6 @@ function AgendaTraficoPiso({ rows, loading, onEdit, onNewAtSlot }) {
                                                                     </div>
                                                                     <div className="text-sm font-extrabold text-[#131E5C] truncate">{registro.nombre_prospecto || "—"}</div>
                                                                     <div className="text-xs font-semibold text-slate-600 truncate">🚗 {registro.auto_suenos || "—"}</div>
-                                                                    <div className="text-[10px] text-slate-500 truncate flex items-center gap-1 mt-1">
-                                                                        <Phone className="h-3 w-3" /> {registro.telefono || "—"}
-                                                                    </div>
                                                                     <div className="text-[10px] text-slate-500 truncate">
                                                                         <span className="font-semibold">Asesor:</span> {registro.asesor_ventas || "—"}
                                                                     </div>
@@ -1436,7 +1433,6 @@ export default function TraficoPiso() {
                                         <th className="px-4 py-3"><SortButton label="Fecha" sortKey="creado_en" sort={sort} onClick={toggleSort} /></th>
                                         <th className="px-4 py-3"><SortButton label="Dealer" sortKey="agencia" sort={sort} onClick={toggleSort} /></th>
                                         <th className="px-4 py-3"><SortButton label="Prospecto" sortKey="nombre_prospecto" sort={sort} onClick={toggleSort} /></th>
-                                        <th className="px-4 py-3">Teléfono</th>
                                         <th className="px-4 py-3"><SortButton label="Asesor" sortKey="asesor_ventas" sort={sort} onClick={toggleSort} /></th>
                                         <th className="px-4 py-3">Ingreso</th>
                                         <th className="px-4 py-3">Compra</th>
@@ -1461,7 +1457,6 @@ export default function TraficoPiso() {
                                                         <td className="px-4 py-3 text-[#131E5C]">{dateTime(item.creado_en)}</td>
                                                         <td className="px-4 py-3 text-[#131E5C]"><div className="max-w-[160px] truncate font-extrabold">{item.agencia || "—"}</div></td>
                                                         <td className="px-4 py-3 text-[#131E5C]"><div className="max-w-[240px] truncate font-extrabold">{item.nombre_prospecto || "—"}</div>{item.email && <div className="mt-1 max-w-[240px] truncate text-xs text-slate-500">{item.email}</div>}</td>
-                                                        <td className="px-4 py-3 font-semibold text-[#131E5C]">{item.telefono || "—"}</td>
                                                         <td className="px-4 py-3 text-[#131E5C]"><div className="max-w-[230px] truncate font-semibold">{item.asesor_ventas || "—"}</div></td>
                                                         <td className="px-4 py-3 text-[#131E5C]"><div className="max-w-[210px] font-semibold">{item.motivo_ingreso || "—"}</div><div className="mt-1 text-xs font-bold text-slate-500">{item.tipo_persona || "—"}</div></td>
                                                         <td className="px-4 py-3 text-[#131E5C]"><div className="font-semibold">{item.tiempo_compra || "—"}</div><div className="mt-1 max-w-[220px] truncate text-xs font-bold text-slate-500">Auto: {item.auto_suenos || "—"}</div><div className="mt-1 max-w-[220px] truncate text-xs font-bold text-slate-500">{item.forma_capitalizacion || "—"}</div></td>
