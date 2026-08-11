@@ -144,7 +144,7 @@ function getAudioExtension(mimeType = "") {
     if (mime.includes("mp4")) return "m4a";
     return "webm";
 }
-
+/* jaja */
 function humanBytes(bytes) {
     const value = Number(bytes || 0);
     if (!Number.isFinite(value) || value <= 0) return "0 B";
@@ -872,7 +872,7 @@ function isNearBottomDrawer(el, threshold = 150) {
 
 
 
-function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
+export function ChatDrawer({ open, telefono, numeroAsesor, onClose, clienteRetencion = null, }) {
     const [loading, setLoading] = useState(false);
     const [prospecto, setProspecto] = useState(null);
     const [mensajes, setMensajes] = useState([]);
@@ -1469,6 +1469,21 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
     const groupedMessages = groupMessagesByDate(applyReactionEvents(mensajes));
     const composerDisabled = !tel;
     const enviarDisabled = sending || isRecording || (!draft.trim() && attachments.length === 0);
+   
+    const nombreMostrar =
+        prospecto?.nombre ||
+        clienteRetencion?.nombre_cliente ||
+        "Cliente";
+
+    const estadoMostrar =
+        prospecto?.estado ||
+        clienteRetencion?.estado_actividad ||
+        "Sin estado";
+
+    const vehiculoMostrar =
+        prospecto?.auto_interes ||
+        clienteRetencion?.modelo_nombre ||
+        "Sin definir";
 
     return (
         <div className="fixed inset-0 z-[95] flex justify-end">
@@ -1477,9 +1492,9 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
             <div className="relative flex h-full w-full max-w-[560px] flex-col bg-white shadow-2xl">
 
                 <div className="flex shrink-0 items-center gap-3 border-b border-black/10 px-4 py-3">
-                    <Avatar name={prospecto?.nombre} />
+                    <Avatar name={nombreMostrar} />
                     <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-extrabold text-[#131E5C]">{prospecto?.nombre || "Prospecto"}</div>
+                        <div className="truncate text-sm font-extrabold text-[#131E5C]">{nombreMostrar} </div>
                         <div className="text-xs font-semibold text-slate-400">{formateaTelUi(tel)}</div>
                     </div>
                     <a href={`https://wa.me/${tel}`} target="_blank" rel="noreferrer"
@@ -1498,11 +1513,11 @@ function ChatDrawer({ open, telefono, numeroAsesor, onClose }) {
                 <div className="grid shrink-0 grid-cols-2 gap-3 border-b border-black/10 bg-neutral-50 px-4 py-3">
                     <div className="rounded-xl border border-black/10 bg-white px-3 py-2">
                         <div className="text-[10px] font-extrabold uppercase tracking-wide text-[#131E5C]/50">Estado actual</div>
-                        <div className="mt-0.5 truncate text-sm font-extrabold text-[#131E5C]">{prospecto?.estado || "Sin estado"}</div>
+                        <div className="mt-0.5 truncate text-sm font-extrabold text-[#131E5C]">{estadoMostrar}</div>
                     </div>
                     <div className="rounded-xl border border-black/10 bg-white px-3 py-2">
                         <div className="text-[10px] font-extrabold uppercase tracking-wide text-[#131E5C]/50">Vehículo de interés</div>
-                        <div className="mt-0.5 truncate text-sm font-extrabold text-[#131E5C]">{prospecto?.auto_interes || "Sin definir"}</div>
+                        <div className="mt-0.5 truncate text-sm font-extrabold text-[#131E5C]">{vehiculoMostrar}</div>
                     </div>
                 </div>
 
