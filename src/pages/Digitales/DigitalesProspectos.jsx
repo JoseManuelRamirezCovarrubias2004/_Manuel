@@ -2314,12 +2314,8 @@ export default function DigitalesProspectos() {
             permisos.includes("USUARIOS_ADMIN"));
     }, [rolUsuario, user?.permisos]);
     const isCoordinador = useMemo(() => {
-        const permisos = Array.isArray(user?.permisos)
-            ? user.permisos
-            : [];
-        return (rolUsuario === "coordinador digital" ||
-            permisos.includes("CRM_COORDINADOR_DIGITAL") ||
-            permisos.includes("USUARIOS_ADMIN"));
+        const permisos = Array.isArray(user?.permisos) ? user.permisos : [];
+        return ["coordinador digital", "coordinador_digital"].includes(rolUsuario) || permisos.includes("CRM_COORDINADOR_DIGITAL") || permisos.includes("USUARIOS_ADMIN");
     }, [rolUsuario, user?.permisos]);
     const userAgencias = useMemo(() => String(user?.agencia || "")
         .split("|")
@@ -2333,6 +2329,15 @@ export default function DigitalesProspectos() {
     }, [userAgencias]);
     const numerosUsuarioSesion = useMemo(() => getNumerosUsuarioSesion(user), [user]);
     const numeroUsuarioSesion = numerosUsuarioSesion[0] || "";
+    const numerosPermitidosCoordinador = useMemo(() => {
+        if (!isCoordinador) return [];
+
+        const agenciasPermitidas = new Set(userAgencias.map(normalizeDealerGrupo));
+
+        return Object.entries(ASESOR_DIGITAL_POR_NUMERO)
+            .filter(([, config]) => agenciasPermitidas.has(normalizeDealerGrupo(config.agencia)))
+            .map(([numero]) => numero);
+    }, [isCoordinador, userAgencias]);
     const [ctxMenu, setCtxMenu] = useState({ open: false, row: null });
     const [pautasMeta, setPautasMeta] = useState([]);
     const [loadingPautas, setLoadingPautas] = useState(false);
@@ -2478,71 +2483,70 @@ export default function DigitalesProspectos() {
     const filterControlCls = "h-9 w-full rounded-lg border border-[#131E5C] bg-white px-3 text-sm text-[#131E5C] shadow-sm outline-none transition focus:border-[#131E5C] focus:ring-2 focus:ring-[#131E5C]/15";
     const filterLabelCls = "mb-1.5 block text-xs font-bold text-[#131E5C]";
     const cargarProspectosPorLinea = useCallback(async () => {
-        if (!ready) {
-            return;
-        }
-        if (!isAdmin &&
-            !numeroAsesorActivo) {
+        if (!ready) return;
+
+        if (!isAdmin && !isCoordinador && !numeroAsesorActivo) {
             setCases([]);
             return;
         }
-        if (!isAdmin &&
-            !numerosUsuarioSesion.includes(numeroAsesorActivo)) {
+
+        if (isCoordinador && selectedNumeroAsesor !== "Todos" && !numerosPermitidosCoordinador.includes(numeroAsesorActivo)) {
             setCases([]);
             return;
         }
+
+        if (!isAdmin && !isCoordinador && numeroAsesorActivo && !numerosUsuarioSesion.includes(numeroAsesorActivo)) {
+            setCases([]);
+            return;
+        }
+
         setLoadingCases(true);
+
         try {
-            /*
-             * El backend trabaja por línea.
-             * Cuando el administrador selecciona "Todos",
-             * consultamos cada línea y unificamos por expediente.
-             */
-            const numerosAConsultar = isAdmin &&
-                selectedNumeroAsesor === "Todos"
-                ? Object.keys(ASESOR_DIGITAL_POR_NUMERO)
-                : [
-                    numeroAsesorActivo ||
-                    numeroUsuarioSesion,
-                ].filter(Boolean);
-            const respuestas = await Promise.allSettled(numerosAConsultar.map((numero) => api.digitalesListProspectos({
-                numero_asesor: numero,
-            })));
+            let numerosAConsultar = [];
+
+            if (isAdmin && selectedNumeroAsesor === "Todos") {
+                numerosAConsultar = Object.keys(ASESOR_DIGITAL_POR_NUMERO);
+            } else if (isCoordinador && selectedNumeroAsesor === "Todos") {
+                numerosAConsultar = numerosPermitidosCoordinador;
+            } else {
+                numerosAConsultar = [numeroAsesorActivo || numeroUsuarioSesion].filter(Boolean);
+            }
+
+            const respuestas = await Promise.allSettled(
+                numerosAConsultar.map((numero) => api.digitalesListProspectos({ numero_asesor: numero }))
+            );
+
             const registrosPorId = new Map();
+
             respuestas.forEach((resultado, index) => {
-                if (resultado.status !==
-                    "fulfilled") {
+                if (resultado.status !== "fulfilled") {
                     console.error("No se pudo cargar la línea:", numerosAConsultar[index], resultado.reason);
                     return;
                 }
-                getListItems(resultado.value)
-                    .map(normalizeProspecto)
-                    .forEach((registro) => {
-                        if (registro?.id_exp !==
-                            null &&
-                            registro?.id_exp !==
-                            undefined) {
-                            registrosPorId.set(registro.id_exp, registro);
-                        }
-                    });
+
+                getListItems(resultado.value).map(normalizeProspecto).forEach((registro) => {
+                    if (registro?.id_exp !== null && registro?.id_exp !== undefined) registrosPorId.set(registro.id_exp, registro);
+                });
             });
+
             setCases(Array.from(registrosPorId.values()));
             setPage(1);
-        }
-        catch (error) {
+        } catch (error) {
             console.error("Error cargando prospectos por línea:", error);
             setCases([]);
-        }
-        finally {
+        } finally {
             setLoadingCases(false);
         }
     }, [
         ready,
         isAdmin,
+        isCoordinador,
         selectedNumeroAsesor,
         numeroAsesorActivo,
         numeroUsuarioSesion,
         numerosUsuarioSesion,
+        numerosPermitidosCoordinador,
     ]);
     useEffect(() => {
         cargarProspectosPorLinea();
@@ -2566,29 +2570,15 @@ export default function DigitalesProspectos() {
         })();
     }, [openModal, pautasMeta.length]);
     useEffect(() => {
-        if (!ready)
-            return;
-        if (isAdmin) {
-            setSelectedNumeroAsesor((current) => current || "Todos");
-            return;
-        }
-        if (!numerosUsuarioSesion.length) {
-            setSelectedNumeroAsesor("");
+        if (!ready) return;
+
+        if (isAdmin || isCoordinador) {
+            setSelectedNumeroAsesor((actual) => actual || "Todos");
             return;
         }
-        setSelectedNumeroAsesor((current) => {
-            const normalizado = normalizaTelefonoMx(current);
-            if (normalizado &&
-                numerosUsuarioSesion.includes(normalizado)) {
-                return normalizado;
-            }
-            return numerosUsuarioSesion[0];
-        });
-    }, [
-        ready,
-        isAdmin,
-        numerosUsuarioSesion,
-    ]);
+
+        setSelectedNumeroAsesor(numerosUsuarioSesion[0] || "");
+    }, [ready, isAdmin, isCoordinador, numerosUsuarioSesion]);
     useEffect(() => {
         if (!ready ||
             !(numeroAsesorActivo ||
@@ -2603,20 +2593,10 @@ export default function DigitalesProspectos() {
         cargarTelefonosConChat,
     ]);
     const filtroNumeroActivo = useMemo(() => {
-        if (isAdmin &&
-            selectedNumeroAsesor === "Todos") {
-            return null;
-        }
-        const numeroFiltro = numeroAsesorActivo ||
-            numeroUsuarioSesion;
-        return (ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(numeroFiltro)] ||
-            null);
-    }, [
-        isAdmin,
-        selectedNumeroAsesor,
-        numeroAsesorActivo,
-        numeroUsuarioSesion,
-    ]);
+        if ((isAdmin || isCoordinador) && selectedNumeroAsesor === "Todos") return null;
+        const numero = numeroAsesorActivo || numeroUsuarioSesion;
+        return ASESOR_DIGITAL_POR_NUMERO[normalizaTelefonoMx(numero)] || null;
+    }, [isAdmin, isCoordinador, selectedNumeroAsesor, numeroAsesorActivo, numeroUsuarioSesion]);
     const dealers = useMemo(() => {
         const ordenDealers = [
             "VW Cordoba",
@@ -2677,22 +2657,12 @@ export default function DigitalesProspectos() {
         return ["Todos", ...items.sort((a, b) => valueOrDash(a).localeCompare(valueOrDash(b), "es"))];
     }, [cases]);
     const phoneOptions = useMemo(() => {
-        if (isAdmin) {
-            const numeros = Object.keys(ASESOR_DIGITAL_POR_NUMERO).sort((a, b) => a.localeCompare(b, "es"));
-            return [
-                "Todos",
-                ...numeros,
-            ];
-        }
-        if (isCoordinador) {
-            return numerosUsuarioSesion;
-        }
+        if (isAdmin) return ["Todos", ...Object.keys(ASESOR_DIGITAL_POR_NUMERO)];
+
+        if (isCoordinador) return ["Todos", ...numerosPermitidosCoordinador];
+
         return numerosUsuarioSesion.slice(0, 1);
-    }, [
-        isAdmin,
-        isCoordinador,
-        numerosUsuarioSesion,
-    ]);
+    }, [isAdmin, isCoordinador, numerosUsuarioSesion, numerosPermitidosCoordinador]);
     function toggleSort(key) {
         setSort((prev) => (prev.key !== key ? { key, dir: "asc" } : { key, dir: prev.dir === "asc" ? "desc" : "asc" }));
     }
@@ -2708,14 +2678,14 @@ export default function DigitalesProspectos() {
     }
     const updateFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
     const accessibleCases = useMemo(() => cases.filter((c) => {
-        if (!isAdmin && userAgencias.length > 0 && !userTieneAgencia(c.agencia))
-            return false;
-        if (filtroNumeroActivo && normalizeText(c.agencia) !== normalizeText(filtroNumeroActivo.agencia))
-            return false;
-        if (!filtroNumeroActivo && !isAdmin)
-            return false;
+        if (!isAdmin && userAgencias.length && !userTieneAgencia(c.agencia)) return false;
+
+        if (filtroNumeroActivo && normalizeDealerGrupo(c.agencia) !== normalizeDealerGrupo(filtroNumeroActivo.agencia)) return false;
+
+        if (!filtroNumeroActivo && !isAdmin && !isCoordinador) return false;
+
         return true;
-    }), [cases, isAdmin, filtroNumeroActivo, userAgencias, userTieneAgencia]);
+    }), [cases, isAdmin, isCoordinador, filtroNumeroActivo, userAgencias, userTieneAgencia]);
     const baseFiltered = useMemo(() => {
         const q = deferredQ.trim().toLowerCase();
         return accessibleCases.filter((c) => {
