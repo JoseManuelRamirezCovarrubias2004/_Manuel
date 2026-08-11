@@ -2132,6 +2132,7 @@ export default function DigitalesContacto() {
 
     // Asesor asignado en la tarjeta (persiste aunque el refresh borre asesor_ventas)
     const [asesorAsignado, setAsesorAsignado] = useState("");
+    const [savingAsignacion, setSavingAsignacion] = useState(false);
 
     // Resaltado temporal al saltar a un mensaje citado
     const [highlightedMsgId, setHighlightedMsgId] = useState("");
@@ -3974,8 +3975,6 @@ export default function DigitalesContacto() {
             );
 
             await refreshActiveChat(activeTel).catch(() => { });
-
-            alert(`Asesor asignado: ${asesorFinal}${agencia ? ` · ${agencia}` : ""}.`);
         } catch (error) {
             alert(`No se pudo asignar el asesor: ${error.message}`);
         } finally {
@@ -5787,6 +5786,20 @@ export default function DigitalesContacto() {
                                                                 "Sin campaña"
                                                             )}
                                                         </select>
+                                                    </label>
+
+                                                    <label className="block">
+                                                        <span className="mb-1.5 flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">
+                                                            <UserRound className="h-3.5 w-3.5 text-[#1746D1]" />
+                                                            Asignar asesor
+                                                        </span>
+                                                        <BusquedaFiltrable
+                                                            opciones={ASESORES_PISO}
+                                                            value={asesorAsignado || prospecto?.asesor_ventas || ""}
+                                                            onChange={(asesor) => guardarAsignacionAsesor({ asesor })}
+                                                            disabled={savingAsignacion}
+                                                            placeholder="Busca al asesor…"
+                                                        />
                                                     </label>
                                                 </div>
 
