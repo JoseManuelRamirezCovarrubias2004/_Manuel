@@ -544,7 +544,6 @@ function CalendarioView({ rows, loading, onEdit, onContext, onToggleAsistencia, 
                                                     </div>
                                                     <div className="min-w-0">
                                                         <div className="truncate text-sm font-bold text-[#131E5C]">{nombre}</div>
-                                                        <div className="truncate text-xs text-slate-400">{tel}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -781,7 +780,6 @@ function AgendaView({ rows, loading, onEdit, onNewAtSlot, onToggleAsistencia, up
                                                                         </div>
                                                                         <div className="text-sm font-extrabold text-[#131E5C] truncate">{nombreCliente}</div>
                                                                         <div className="text-xs font-semibold text-slate-600 truncate">🚗 {autoInteres}</div>
-                                                                        <div className="text-[10px] text-slate-500 truncate flex items-center gap-1 mt-1"><Phone className="h-3 w-3" /> {telefono}</div>
                                                                         <div className="text-[10px] text-slate-500 truncate mt-1"><span className="font-semibold">Digital:</span> {asesorDigital}</div>
                                                                         <div className="text-[10px] text-slate-500 truncate"><span className="font-semibold">Piso:</span> {asesorPiso}</div>
                                                                         {cita.comentarios && cita.comentarios !== "" && (
