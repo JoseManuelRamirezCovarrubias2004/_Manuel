@@ -1,5 +1,7 @@
 // src/pages/Retencion/Retencion.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChatDrawer } from "../Digitales/DigitalesBandeja";
 import { createPortal } from "react-dom";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
@@ -26,7 +28,7 @@ import {
     X,
     XCircle,
 } from "lucide-react";
-
+//olas
 import {
     apiRetencion,
     obtenerOpcionesRetencion,
@@ -334,7 +336,7 @@ function PillSelect({ value, onChange, children, icon: Icon }) {
 }
 
 // ---- Tabla ----
-function TablaClientes({ datos, onAbrirDetalle }) {
+function TablaClientes({ datos, onAbrirDetalle, onAbrirChat  }) {
     const datosTabla = datos.slice(0, 1000);
 
     return (
@@ -446,7 +448,11 @@ function TablaClientes({ datos, onAbrirDetalle }) {
                                     <div className="flex items-center justify-center">
                                         <button
                                             type="button"
-                                            onClick={(e) => e.stopPropagation()}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onAbrirChat(item);
+                                            }}
+
                                             title="Enviar mensaje"
                                             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
                                         >
@@ -1411,6 +1417,12 @@ function InfoItem({ icon: Icon, label, value }) {
 
 export default function Retencion() {
     const [vista, setVista] = useState("tabla");
+    const navigate = useNavigate();
+
+    const [selectorTelefonoOpen, setSelectorTelefonoOpen] = useState(false);
+    const [clienteChat, setClienteChat] = useState(null);
+    const [telefonosChat, setTelefonosChat] = useState([]);
+    const [drawerTel, setDrawerTel] = useState("");
 
     const [anio, setAnio] = useState("Todos");
     const [mes, setMes] = useState("Todos");
@@ -1690,6 +1702,29 @@ export default function Retencion() {
             setErrorTareas(err.message || "No se pudo eliminar la tarea.");
         }
     }
+        function abrirChatCliente(cliente) {
+    const telefonos = obtenerTelefonosCliente(cliente);
+
+    if (telefonos.length === 0) {
+        alert("Este cliente no tiene números de teléfono registrados.");
+        return;
+    }
+
+    if (telefonos.length === 1) {
+        setClienteChat(cliente);
+        setDrawerTel(telefonos[0]);
+        return;
+    }
+
+    setClienteChat(cliente);
+    setTelefonosChat(telefonos);
+    setSelectorTelefonoOpen(true);
+    }
+
+    function seleccionarTelefonoChat(telefono) {
+    setSelectorTelefonoOpen(false);
+    setDrawerTel(telefono);
+    }
 
     if (loadingGeneral) {
         return (
@@ -1859,7 +1894,7 @@ export default function Retencion() {
             </div>
 
             {vista === "tabla" ? (
-                <TablaClientes datos={datosFiltrados} onAbrirDetalle={abrirDetalle} />
+                <TablaClientes datos={datosFiltrados} onAbrirDetalle={abrirDetalle} onAbrirChat={abrirChatCliente} />
             ) : (
                 <VistaGraficas datos={datosFiltrados} segmento={segmento} />
             )}
@@ -1878,6 +1913,92 @@ export default function Retencion() {
                 onEliminarTarea={eliminarTarea}
                 onClose={cerrarDetalle}
             />
+
+            {selectorTelefonoOpen && (
+    <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4"
+        onClick={() => setSelectorTelefonoOpen(false)}
+    >
+        <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <h3 className="text-lg font-black text-slate-800">
+                        Seleccionar teléfono
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                        {clienteChat?.nombre_cliente || "Cliente"}
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() => setSelectorTelefonoOpen(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100"
+                >
+                    ×
+                </button>
+            </div>
+
+            <p className="mt-4 text-sm text-slate-500">
+                Selecciona el número con el que deseas abrir el chat.
+            </p>
+
+            <div className="mt-4 space-y-2">
+                {telefonosChat.map((telefono, index) => (
+                    <button
+                        key={`${telefono}-${index}`}
+                        type="button"
+                        onClick={() => seleccionarTelefonoChat(telefono)}
+                        className="flex w-full items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition hover:border-blue-300 hover:bg-blue-50"
+                    >
+                        <Phone className="h-4 w-4 text-blue-600" />
+
+                        <div>
+                            <div className="text-[10px] font-bold uppercase text-slate-400">
+                                Teléfono {index + 1}
+                            </div>
+
+                            <div className="text-sm font-bold text-slate-700">
+                                {formatTelefono(telefono)}
+                            </div>
+                        </div>
+                    </button>
+                ))}
+            </div>
+
+            <button
+                type="button"
+                onClick={() => setSelectorTelefonoOpen(false)}
+                className="mt-4 h-10 w-full rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50"
+            >
+                Cancelar
+            </button>
+        </div>
+    </div>
+)}
+            <ChatDrawer
+            open={Boolean(drawerTel)}
+            telefono={drawerTel}
+            numeroAsesor=""
+            clienteRetencion={clienteChat}
+            onClose={() => setDrawerTel("")}
+        />
+
+        
         </div>
     );
+}
+function obtenerTelefonosCliente(cliente) {
+    const telefonos = [
+        cliente?.telefono_cliente,
+        cliente?.telefono_cliente2,
+        cliente?.telefono_cliente3,
+    ]
+        .map((telefono) => String(telefono || "").trim())
+        .filter(Boolean);
+
+    return [...new Set(telefonos)];
 }
