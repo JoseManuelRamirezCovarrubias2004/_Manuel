@@ -42,7 +42,11 @@ import {
     Square,
     Download,
     UserRound,
-    UserRoundPlus,
+    HandCoins,
+    CreditCard,
+    CarFront,
+    HelpCircle,
+    CalendarCheck,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "../../lib/apiPruebas";
@@ -1739,94 +1743,100 @@ function AgendarCitaModal({ open, onClose, nombreCliente, telefono, onGuardar, s
         onGuardar({ fecha, hora, nota, agencia, asesor });
     }
 
-    function opcionesConActual(opciones, actual) {
-        const lista = [...opciones];
-        if (actual && !lista.some((o) => String(o).trim().toLowerCase() === String(actual).trim().toLowerCase())) {
-            lista.unshift(actual);
-        }
-        return lista;
-    }
+    const campo = "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10";
+    const etiqueta = "mb-1.5 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60";
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4" onMouseDown={onClose}>
             <div
-                className="w-full max-w-md overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
+                className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
                 onMouseDown={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between border-b border-black/5 px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                        <CalendarPlus className="h-4 w-4 text-[#131E5C]" />
-                        <span className="text-sm font-extrabold text-[#131E5C]">Agendar cita</span>
+                <div className="relative px-5 py-4" style={{ background: "linear-gradient(135deg, #1746D1, #4F6EF2)" }}>
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
+                                <CalendarPlus className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <div className="text-sm font-extrabold text-white">Agendar cita</div>
+                                <div className="text-[11px] font-semibold text-white/70">Coordina la visita del prospecto al piso</div>
+                            </div>
+                        </div>
+                        <button type="button" onClick={onClose} aria-label="Cerrar"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white transition hover:bg-white/20">
+                            <X className="h-4 w-4" />
+                        </button>
                     </div>
-                    <button type="button" onClick={onClose}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-neutral-100 transition">
-                        <X className="h-4 w-4" />
-                    </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
-                    <div>
-                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Cliente</div>
-                        <div className="rounded-lg border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-bold text-[#131E5C]">
-                            {nombreCliente || "Prospecto"}{telefono ? ` · ${formateaTelUi(telefono)}` : ""}
+                <form onSubmit={handleSubmit} className="space-y-4 bg-neutral-50 px-5 py-4">
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1746D1]/10 text-[#1746D1]">
+                            <UserRound className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/50">Cliente</div>
+                            <div className="truncate text-sm font-bold text-[#131E5C]">{nombreCliente || "Prospecto"}{telefono ? ` · ${formateaTelUi(telefono)}` : ""}</div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label className={etiqueta}><Building2 className="h-3.5 w-3.5 text-[#1746D1]" /> Agencia</label>
+                            <BusquedaFiltrable
+                                opciones={AGENCIAS_DIGITALES}
+                                value={agencia}
+                                onChange={setAgencia}
+                                placeholder="Busca la agencia…"
+                            />
+                        </div>
+                        <div>
+                            <label className={etiqueta}><UserRound className="h-3.5 w-3.5 text-[#1746D1]" /> Asesor que atenderá</label>
+                            <BusquedaFiltrable
+                                opciones={ASESORES_PISO}
+                                value={asesor}
+                                onChange={setAsesor}
+                                placeholder="Busca al asesor…"
+                            />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Agencia</div>
-                            <select value={agencia} onChange={(e) => setAgencia(e.target.value)}
-                                className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">
-                                <option value="">— Selecciona —</option>
-                                {opcionesConActual(AGENCIAS_DIGITALES, agencia).map((o) => (
-                                    <option key={o} value={o}>{o}</option>
-                                ))}
-                            </select>
+                            <label className={etiqueta}><CalendarPlus className="h-3.5 w-3.5 text-[#1746D1]" /> Fecha</label>
+                            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required className={campo} />
                         </div>
                         <div>
-                            <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Asesor que atenderá</div>
-                            <select value={asesor} onChange={(e) => setAsesor(e.target.value)}
-                                className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">
-                                <option value="">— Selecciona —</option>
-                                {opcionesConActual(ASESORES_PISO, asesor).map((o) => (
-                                    <option key={o} value={o}>{o}</option>
-                                ))}
-                            </select>
+                            <label className={etiqueta}><Clock className="h-3.5 w-3.5 text-[#1746D1]" /> Hora</label>
+                            <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} required className={campo} />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Fecha</div>
-                            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required
-                                className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" />
+                    <div className="flex items-start gap-2 rounded-xl border border-[#1746D1]/20 bg-[#1746D1]/5 px-3 py-2.5">
+                        <CalendarCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#1746D1]" />
+                        <div className="text-xs font-bold text-[#131E5C]">
+                            {fechaLegible} {hora ? `· ${hora}` : ""}
+                            {agencia ? ` · ${agencia}` : ""}
+                            {asesor ? ` · ${asesor}` : ""}
                         </div>
-                        <div>
-                            <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Hora</div>
-                            <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} required
-                                className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" />
-                        </div>
-                    </div>
-
-                    <div className="rounded-lg border border-[#131E5C]/10 bg-[#131E5C]/[0.04] px-3 py-2 text-xs font-bold text-[#131E5C]">
-                        {fechaLegible} {hora ? `· ${hora}` : ""}{agencia ? ` · ${agencia}` : ""}{asesor ? ` · ${asesor}` : ""}
                     </div>
 
                     <div>
-                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Nota (opcional)</div>
+                        <label className={etiqueta}><FileText className="h-3.5 w-3.5 text-[#1746D1]" /> Nota (opcional)</label>
                         <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2}
                             placeholder="Ej. Viene a probar la Tiguan R-Line"
-                            className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20" />
+                            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-[#131E5C] outline-none transition placeholder:text-slate-300 focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10" />
                     </div>
 
                     <div className="flex justify-end gap-2 pt-1">
                         <button type="button" onClick={onClose}
-                            className="rounded-lg border border-black/10 bg-white px-4 py-2 text-xs font-extrabold text-slate-600 hover:bg-neutral-50">
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-600 transition hover:bg-neutral-100">
                             Cancelar
                         </button>
                         <button type="submit" disabled={saving || !fecha || !hora}
-                            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-extrabold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                            style={{ backgroundColor: BRAND_BLUE }}>
+                            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                            style={{ background: "linear-gradient(135deg, #1746D1, #4F6EF2)" }}>
                             <CalendarPlus className="h-3.5 w-3.5" />
                             {saving ? "Guardando..." : "Agendar cita"}
                         </button>
@@ -1837,97 +1847,152 @@ function AgendarCitaModal({ open, onClose, nombreCliente, telefono, onGuardar, s
     );
 }
 
-// ─── Modal para asignar asesor de piso ───────────────────────────────────────
-
-function AsignarAsesorModal({ open, onClose, nombreCliente, telefono, agenciaInicial = "", asesorInicial = "", onGuardar, saving }) {
-    const [agencia, setAgencia] = useState("");
-    const [asesor, setAsesor] = useState("");
+function BusquedaFiltrable({ opciones = [], value = "", onChange, disabled, placeholder = "Escribe y filtra…" }) {
+    const [texto, setTexto] = useState("");
+    const [abierto, setAbierto] = useState(false);
+    const rootRef = useRef(null);
+    const inputRef = useRef(null);
+    const enfocadoAlClicRef = useRef(false);
+    const cerradoFueraRef = useRef(false);
 
     useEffect(() => {
-        if (open) {
-            setAgencia(agenciaInicial || "");
-            setAsesor(asesorInicial || "");
+        if (value) setTexto(value);
+    }, [value]);
+
+    useEffect(() => {
+        function onDocPointerDown(e) {
+            if (rootRef.current && !rootRef.current.contains(e.target)) {
+                cerradoFueraRef.current = true;
+                setAbierto(false);
+            }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open]);
+        document.addEventListener("pointerdown", onDocPointerDown);
+        return () => document.removeEventListener("pointerdown", onDocPointerDown);
+    }, []);
 
-    if (!open) return null;
-
-    function handleSubmit(e) {
-        e.preventDefault();
-        if (!agencia || !asesor) return;
-        onGuardar({ agencia, asesor });
+    function onInputPointerDown() {
+        enfocadoAlClicRef.current = document.activeElement === inputRef.current;
+        cerradoFueraRef.current = false;
     }
 
-    function opcionesConActual(opciones, actual) {
-        const lista = [...opciones];
-        if (actual && !lista.some((o) => String(o).trim().toLowerCase() === String(actual).trim().toLowerCase())) {
-            lista.unshift(actual);
+    function onInputClick() {
+        if (cerradoFueraRef.current) {
+            cerradoFueraRef.current = false;
+            return;
         }
-        return lista;
+        if (enfocadoAlClicRef.current) {
+            setAbierto((prev) => !prev);
+        } else {
+            setAbierto(true);
+        }
+    }
+
+    const normaliza = (s) => String(s || "").toLowerCase().trim();
+
+    const filtrados = useMemo(() => {
+        const q = normaliza(texto);
+        if (!q) return opciones;
+        return opciones.filter((opcion) => normaliza(opcion).includes(q));
+    }, [texto, opciones]);
+
+    function seleccionar(opcion) {
+        setTexto(opcion);
+        setAbierto(false);
+        onChange(opcion);
     }
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4" onMouseDown={onClose}>
-            <div
-                className="w-full max-w-md overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
-                onMouseDown={(e) => e.stopPropagation()}
-            >
-                <div className="flex items-center justify-between border-b border-black/5 px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                        <UserRoundPlus className="h-4 w-4 text-[#131E5C]" />
-                        <span className="text-sm font-extrabold text-[#131E5C]">Asignar asesor</span>
-                    </div>
-                    <button type="button" onClick={onClose}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-neutral-100 transition">
-                        <X className="h-4 w-4" />
-                    </button>
+        <div ref={rootRef} className="relative">
+            <input
+                ref={inputRef}
+                type="text"
+                value={texto}
+                onChange={(e) => { setTexto(e.target.value); setAbierto(true); }}
+                onPointerDown={onInputPointerDown}
+                onClick={onInputClick}
+                onFocus={() => { if (!enfocadoAlClicRef.current && !cerradoFueraRef.current) setAbierto(true); }}
+                disabled={disabled}
+                placeholder={placeholder}
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            {abierto && filtrados.length > 0 ? (
+                <div className="absolute left-0 right-0 z-30 mt-1 max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                    {filtrados.map((opcion) => (
+                        <button
+                            key={opcion}
+                            type="button"
+                            onClick={() => seleccionar(opcion)}
+                            className={cls(
+                                "block w-full px-3 py-2 text-left text-sm font-semibold transition hover:bg-[#1746D1]/5 hover:text-[#1746D1]",
+                                String(opcion).toLowerCase() === String(value || "").toLowerCase()
+                                    ? "bg-[#1746D1]/10 text-[#1746D1]"
+                                    : "text-[#131E5C]"
+                            )}
+                        >
+                            {opcion}
+                        </button>
+                    ))}
                 </div>
+            ) : null}
+            {abierto && filtrados.length === 0 ? (
+                <div className="absolute left-0 right-0 z-30 mt-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 shadow-lg">
+                    Sin resultados para "{texto}"
+                </div>
+            ) : null}
+        </div>
+    );
+}
 
-                <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
-                    <div>
-                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Cliente</div>
-                        <div className="rounded-lg border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-bold text-[#131E5C]">
-                            {nombreCliente || "Prospecto"}{telefono ? ` · ${formateaTelUi(telefono)}` : ""}
-                        </div>
-                    </div>
+// ─── Picker de forma de pago con iconos ──────────────────────────────────────
 
-                    <div>
-                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Agencia *</div>
-                        <select value={agencia} onChange={(e) => setAgencia(e.target.value)} required
-                            className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">
-                            <option value="">— Selecciona la agencia —</option>
-                            {opcionesConActual(AGENCIAS_DIGITALES, agencia).map((o) => (
-                                <option key={o} value={o}>{o}</option>
-                            ))}
-                        </select>
-                    </div>
+const FORMA_PAGO_ICONOS = {
+    contado: HandCoins,
+    credito: CreditCard,
+    arrendamiento: CarFront,
+    desconocido: HelpCircle,
+};
 
-                    <div>
-                        <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Asesor de piso asignado *</div>
-                        <select value={asesor} onChange={(e) => setAsesor(e.target.value)} required
-                            className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#131E5C] outline-none focus:border-[#131E5C]/40 focus:ring-1 focus:ring-[#131E5C]/20">
-                            <option value="">— Selecciona el asesor —</option>
-                            {opcionesConActual(ASESORES_PISO, asesor).map((o) => (
-                                <option key={o} value={o}>{o}</option>
-                            ))}
-                        </select>
-                    </div>
+function FormaPagoPicker({ value = "", onChange }) {
+    const opciones = FORMA_PAGO_OPTIONS.filter((o) => o.value);
 
-                    <div className="flex justify-end gap-2 pt-1">
-                        <button type="button" onClick={onClose}
-                            className="rounded-lg border border-black/10 bg-white px-4 py-2 text-xs font-extrabold text-slate-600 hover:bg-neutral-50">
-                            Cancelar
-                        </button>
-                        <button type="submit" disabled={saving || !agencia || !asesor}
-                            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-extrabold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                            style={{ backgroundColor: BRAND_BLUE }}>
-                            <UserRoundPlus className="h-3.5 w-3.5" />
-                            {saving ? "Guardando..." : "Guardar"}
-                        </button>
-                    </div>
-                </form>
-            </div>
+    return (
+        <div className="grid grid-cols-2 gap-2 rounded-xl border-2 border-slate-200 bg-white p-2.5 sm:grid-cols-4">
+            {opciones.map((opt) => {
+                const Icon = FORMA_PAGO_ICONOS[opt.value] || HelpCircle;
+                const selected = String(value || "").toLowerCase() === String(opt.value).toLowerCase();
+                return (
+                    <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => onChange(selected ? "" : opt.value)}
+                        className={cls(
+                            "group flex flex-col items-center gap-1.5 rounded-lg border-2 px-2 py-2.5 text-center transition",
+                            selected
+                                ? "border-[#1746D1] bg-[#1746D1]/5"
+                                : "border-slate-100 bg-slate-50 hover:border-slate-200 hover:bg-white"
+                        )}
+                    >
+                        <span
+                            className={cls(
+                                "flex h-8 w-8 items-center justify-center rounded-full transition",
+                                selected
+                                    ? "bg-[#1746D1] text-white"
+                                    : "bg-white text-slate-400 group-hover:text-[#1746D1]"
+                            )}
+                        >
+                            <Icon className="h-4 w-4" />
+                        </span>
+                        <span
+                            className={cls(
+                                "text-[11px] font-extrabold leading-tight",
+                                selected ? "text-[#1746D1]" : "text-slate-500"
+                            )}
+                        >
+                            {opt.label}
+                        </span>
+                    </button>
+                );
+            })}
         </div>
     );
 }
@@ -2065,9 +2130,8 @@ export default function DigitalesContacto() {
     const [showCitaModal, setShowCitaModal] = useState(false);
     const [savingCita, setSavingCita] = useState(false);
 
-    // Modal de asignar asesor de piso
-    const [showAsignarAsesorModal, setShowAsignarAsesorModal] = useState(false);
-    const [savingAsignacion, setSavingAsignacion] = useState(false);
+    // Asesor asignado en la tarjeta (persiste aunque el refresh borre asesor_ventas)
+    const [asesorAsignado, setAsesorAsignado] = useState("");
 
     // Resaltado temporal al saltar a un mensaje citado
     const [highlightedMsgId, setHighlightedMsgId] = useState("");
@@ -3141,6 +3205,7 @@ export default function DigitalesContacto() {
         setActiveTel(normalized);
         setMobileView("chat");
         setShowProspectoPanel(false);
+        setAsesorAsignado("");
         setOpenEmoji(false);
         setShowQuickBubblesDropdown(false);
         setShowTemplatesDropdown(false);
@@ -3840,6 +3905,7 @@ export default function DigitalesContacto() {
                     await api.digitalesPatchProspecto(prospecto.id, {
                         estado: "Cita Programada",
                         asesor_piso: asesorPiso,
+                        asesor_ventas: asesorPiso,
                         agencia: agencia || prospecto?.agencia || activeChat?.agencia || "",
                     });
                 } catch (patchErr) {
@@ -3847,9 +3913,16 @@ export default function DigitalesContacto() {
                 }
                 setProspecto((prev) =>
                     prev
-                        ? { ...prev, estado: "Cita Programada", asesor_piso: asesorPiso || prev.asesor_piso || "" }
+                        ? {
+                            ...prev,
+                            estado: "Cita Programada",
+                            asesor_piso: asesorPiso || prev.asesor_piso || "",
+                            asesor_ventas: asesorPiso || prev.asesor_ventas || "",
+                            agencia: agencia || prev.agencia || "",
+                        }
                         : prev
                 );
+                setAsesorAsignado(asesorPiso);
                 setChats((prev) =>
                     prev.map((c) =>
                         c.telefono === activeTel ? { ...c, estado: "Cita Programada" } : c
@@ -3866,8 +3939,9 @@ export default function DigitalesContacto() {
         }
     }
 
-    async function guardarAsignacionAsesor({ agencia, asesor }) {
-        if (!activeTel || savingAsignacion) return;
+    async function guardarAsignacionAsesor({ agencia = "", asesor = "" }) {
+        const asesorFinal = String(asesor || "").trim();
+        if (!activeTel || savingAsignacion || !asesorFinal) return;
 
         if (!prospecto?.id) {
             alert("Este contacto aún no tiene un expediente de prospecto para asignar asesor.");
@@ -3878,7 +3952,7 @@ export default function DigitalesContacto() {
         try {
             await api.digitalesPatchProspecto(prospecto.id, {
                 agencia: agencia || "",
-                asesor_ventas: asesor || "",
+                asesor_ventas: asesorFinal,
             });
 
             setProspecto((prev) =>
@@ -3886,10 +3960,12 @@ export default function DigitalesContacto() {
                     ? {
                         ...prev,
                         agencia: agencia || prev.agencia || "",
-                        asesor_ventas: asesor || prev.asesor_ventas || "",
+                        asesor_ventas: asesorFinal || prev.asesor_ventas || "",
                     }
                     : prev
             );
+
+            setAsesorAsignado(asesorFinal);
 
             setChats((prev) =>
                 prev.map((c) =>
@@ -3899,8 +3975,7 @@ export default function DigitalesContacto() {
 
             await refreshActiveChat(activeTel).catch(() => { });
 
-            setShowAsignarAsesorModal(false);
-            alert(`Asesor asignado: ${asesor}${agencia ? ` · ${agencia}` : ""}.`);
+            alert(`Asesor asignado: ${asesorFinal}${agencia ? ` · ${agencia}` : ""}.`);
         } catch (error) {
             alert(`No se pudo asignar el asesor: ${error.message}`);
         } finally {
@@ -4907,18 +4982,8 @@ export default function DigitalesContacto() {
                                             </select>
                                         ) : null}
 
-                                        {/* Botones de acción: asignar asesor + agendar cita */}
+                                        {/* Botón de acción: agendar cita */}
                                         <div className="ml-auto flex shrink-0 items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={(e) => { e.stopPropagation(); setShowAsignarAsesorModal(true); }}
-                                                disabled={!activeTel}
-                                                title="Asignar asesor"
-                                                aria-label="Asignar asesor"
-                                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#131E5C] text-white shadow-sm transition hover:bg-[#0f184d] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-                                            >
-                                                <UserRoundPlus className="h-4.5 w-4.5" />
-                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={(e) => { e.stopPropagation(); setShowCitaModal(true); }}
@@ -5727,16 +5792,6 @@ export default function DigitalesContacto() {
 
                                                 <button
                                                     type="button"
-                                                    onClick={() => setShowAsignarAsesorModal(true)}
-                                                    disabled={!activeTel}
-                                                    className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#131E5C]/20 bg-white px-4 text-sm font-black text-[#131E5C] shadow-sm transition hover:border-[#1746D1]/40 hover:text-[#1746D1] disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    <UserRoundPlus className="h-4 w-4" />
-                                                    Asignar asesor
-                                                </button>
-
-                                                <button
-                                                    type="button"
                                                     onClick={() => setShowCitaModal(true)}
                                                     disabled={!activeTel}
                                                     className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#131E5C] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#0f184d] disabled:cursor-not-allowed disabled:opacity-50"
@@ -5824,13 +5879,11 @@ export default function DigitalesContacto() {
                                                 <div className="grid gap-3">
                                                     <label className="block">
                                                         <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Vehículo</span>
-                                                        <select
+                                                        <BusquedaFiltrable
+                                                            opciones={VEHICULOS}
                                                             value={quickEditDraft.auto_interes || ""}
-                                                            onChange={(e) => setQuickEditDraft(p => ({ ...p, auto_interes: e.target.value }))}
-                                                            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
-                                                        >
-                                                            {renderOptionsConValorActual(VEHICULOS, quickEditDraft.auto_interes)}
-                                                        </select>
+                                                            onChange={(v) => setQuickEditDraft(p => ({ ...p, auto_interes: v }))}
+                                                        />
                                                     </label>
 
                                                     <label className="block">
@@ -6019,13 +6072,10 @@ export default function DigitalesContacto() {
                                                     <div className="grid gap-3">
                                                         <label className="block">
                                                             <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-[#131E5C]/60">Forma de pago</span>
-                                                            <select
+                                                            <FormaPagoPicker
                                                                 value={quickEditDraft.forma_pago || ""}
-                                                                onChange={(e) => setQuickEditDraft(p => ({ ...p, forma_pago: e.target.value }))}
-                                                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#131E5C] outline-none transition focus:border-[#1746D1]/50 focus:ring-2 focus:ring-[#1746D1]/10"
-                                                            >
-                                                                {FORMA_PAGO_OPTIONS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
-                                                            </select>
+                                                                onChange={(v) => setQuickEditDraft(p => ({ ...p, forma_pago: v }))}
+                                                            />
                                                         </label>
 
                                                         <div className="block">
@@ -6145,21 +6195,9 @@ export default function DigitalesContacto() {
                 nombreCliente={activeChat?.nombre || prospecto?.nombre}
                 telefono={activeTel}
                 agenciaInicial={prospecto?.agencia || activeChat?.agencia || ""}
-                asesorInicial={prospecto?.asesor_ventas || ""}
+                asesorInicial={asesorAsignado || prospecto?.asesor_ventas || ""}
                 onGuardar={guardarCita}
                 saving={savingCita}
-            />
-
-            {/* ── MODAL ASIGNAR ASESOR ──────────────────────────────────────── */}
-            <AsignarAsesorModal
-                open={showAsignarAsesorModal}
-                onClose={() => setShowAsignarAsesorModal(false)}
-                nombreCliente={activeChat?.nombre || prospecto?.nombre}
-                telefono={activeTel}
-                agenciaInicial={prospecto?.agencia || activeChat?.agencia || ""}
-                asesorInicial={prospecto?.asesor_ventas || ""}
-                onGuardar={guardarAsignacionAsesor}
-                saving={savingAsignacion}
             />
         </div>
     );
