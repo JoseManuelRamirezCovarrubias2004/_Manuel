@@ -9,7 +9,9 @@ import PHONE from "/phone.svg";
 import { api } from "../../lib/apiPruebas";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
+import { http as httpCitas } from "../../lib/apiClient";
 import { apiCitas } from "../../lib/apiCitas";
+import { apiEntregas } from "../../lib/apiEntregas";
 import { useAuth } from "../../auth/AuthContext";
 import * as XLSX from "xlsx";
 import MotivoDescalificacionPicker from "./MotivoDescalificacionPicker";
@@ -1268,14 +1270,76 @@ function VistaGraficos({ rows }) {
     </div>);
 }
 // ─── Dashboard Ejecutivo BDC ─────────────────────────────────────────────────
-function getMesBDC(row) {
-    const fecha = onlyDate(row?.fecha_reclamacion || row?.creado || "");
-    return fecha ? fecha.slice(0, 7) : "";
-}
-function formatMesBDC(value) {
+const BDC_MES_INICIO = "2026-01";
+const BDC_FECHA_INICIO_MS = new Date("2026-01-01T00:00:00").getTime();
+
+function esMesValidoBDC(value) {
     const match = String(value || "").match(/^(\d{4})-(\d{2})$/);
     if (!match)
-        return "Sin fecha";
+        return false;
+    const month = Number(match[2]);
+    if (month < 1 || month > 12)
+        return false;
+    return String(value) >= BDC_MES_INICIO;
+}
+function getMesFechaBDC(value) {
+    if (!value) return "";
+
+    const raw = String(value).trim();
+
+    if (!raw) return "";
+
+    /*
+     * Con USE_TZ = false esperamos valores como:
+     *
+     * 2026-07-31T18:30:00
+     * 2026-08-01T09:00:00
+     *
+     * Para determinar el mes comercial NO usamos new Date().
+     * Tomamos directamente YYYY-MM-DD del backend.
+     */
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+    if (!match) return "";
+
+    const anio = Number(match[1]);
+    const mes = Number(match[2]);
+    const dia = Number(match[3]);
+
+    if (
+        !Number.isInteger(anio) ||
+        !Number.isInteger(mes) ||
+        !Number.isInteger(dia) ||
+        anio < 2026 ||
+        mes < 1 ||
+        mes > 12 ||
+        dia < 1 ||
+        dia > 31
+    ) {
+        return "";
+    }
+
+    return `${match[1]}-${match[2]}`;
+}
+function getMesBDC(row) {
+    const candidatos = [
+        row?.fecha_reclamacion,
+        row?.creado,
+        row?.primer_contacto_at,
+        row?.fecha_contacto,
+        row?.ultimo_contacto_at,
+    ];
+    for (const value of candidatos) {
+        const mes = getMesFechaBDC(value);
+        if (mes)
+            return mes;
+    }
+    return "";
+}
+function formatMesBDC(value) {
+    if (!esMesValidoBDC(value))
+        return "";
+    const match = String(value).match(/^(\d{4})-(\d{2})$/);
     const fecha = new Date(Number(match[1]), Number(match[2]) - 1, 1);
     const label = new Intl.DateTimeFormat("es-MX", {
         month: "long",
@@ -1306,13 +1370,6 @@ function esContactadoBDC(row) {
         row?.solicitud_credito_estado ||
         row?.vin_facturado);
 }
-function esCitadoBDC(row) {
-    return Boolean(row?.ultima_cita_agendada ||
-        row?.asistencia);
-}
-function esCitaEfectivaBDC(row) {
-    return Boolean(row?.asistencia);
-}
 function tieneSolicitudBDC(row) {
     return Boolean(String(row?.folio_solicitud_credito || "").trim() ||
         String(row?.solicitud_credito_estado || "").trim());
@@ -1322,51 +1379,347 @@ function esAnfBDC(row) {
     return (["autorizado", "condicionado"].includes(estado) &&
         !String(row?.vin_facturado || "").trim());
 }
-function esFacturadoBDC(row) {
-    return Boolean(String(row?.vin_facturado || "").trim());
-}
-function esReportadoBDC(row) {
-    return (esFacturadoBDC(row) &&
-        Boolean(String(row?.vin_estatus_entrega || "").trim()));
-}
 function getDealerBDC(row) {
     return normalizeDealerGrupo(row?.agencia || "");
 }
 function getTipoUnidadBDC(row) {
     const agencia = normalizeText(row?.agencia || "");
     const linea = normalizeText(row?.linea || "");
-    /*
-     * Las agencias históricas de usados se interpretan
-     * como Seminuevos, aunque en BD sigan guardándose como:
-     *
-     * VW Cordoba Usados
-     * VW Orizaba Usados
-     */
-    if (agencia.includes("usados")) {
+    if (agencia.includes("usados"))
         return "Seminuevos";
-    }
-    if (linea === "usados" ||
-        linea === "seminuevos") {
+    if (linea === "usados" || linea === "seminuevos")
         return "Seminuevos";
-    }
-    if (linea === "comerciales") {
+    if (linea === "comerciales")
         return "Comerciales";
-    }
-    if (linea === "nuevos") {
+    if (linea === "nuevos")
         return "Nuevos";
-    }
     return "";
 }
 function lineaMatchesBDC(row, filtro) {
-    if (!filtro || filtro === "Todos") {
+    if (!filtro || filtro === "Todos")
         return true;
-    }
     const tipo = getTipoUnidadBDC(row);
-    if (filtro === "Nuevos + Seminuevos") {
-        return (tipo === "Nuevos" ||
-            tipo === "Seminuevos");
-    }
+    if (!tipo)
+        return false;
+    if (filtro === "Nuevos + Seminuevos")
+        return tipo === "Nuevos" || tipo === "Seminuevos";
     return tipo === filtro;
+}
+
+// Citas y Prospectos no siempre guardan el nombre con la misma acentuación.
+const ASESOR_DIGITAL_CANONICO_BDC = new Map([
+    ["lizbeth cano clara", "Lizbeth Cano Clara"],
+    ["erendira santos coyotzi", "Erendira Santos Coyotzi"],
+    ["marelly tenorio salinas", "Marelly Tenorio Salinas"],
+    ["ia vagen", "IA Vagen"],
+    ["edgar omar noguera solis", "Edgar Omar Noguera Solis"],
+    ["dulce abigail garcia olivares", "Dulce Abigail Garcia Olivares"],
+    ["bianca chavez alarcon", "Bianca Chavez Alarcon"],
+    ["bianca isabel chavez alarcon", "Bianca Chavez Alarcon"],
+    ["candy denisse marquez", "Candy Denisse Marquez"],
+    ["candy denisse marquez cortes", "Candy Denisse Marquez"],
+    ["julio ramirez lopez", "Julio Ramirez Lopez"],
+]);
+function canonicalAsesorDigitalBDC(value) {
+    const normalized = normalizeText(value);
+    if (!normalized)
+        return "";
+    return ASESOR_DIGITAL_CANONICO_BDC.get(normalized) || String(value || "").trim();
+}
+const ASESORES_DIGITALES_VALIDOS_BDC = new Set(
+    ASESORES_DIGITALES.map((nombre) => canonicalAsesorDigitalBDC(nombre)),
+);
+function esAsesorDigitalValidoBDC(value) {
+    const nombre = canonicalAsesorDigitalBDC(value);
+    return Boolean(nombre && ASESORES_DIGITALES_VALIDOS_BDC.has(nombre));
+}
+function getTelefonoApiBDC(item) {
+    return normalizaTelefonoMx(item?.cliente?.telefono || item?.telefono || item?.cliente_telefono || "");
+}
+function getVinBDC(item) {
+    return String(item?.vin || item?.vin_facturado || "").trim().toUpperCase();
+}
+function getTimestampSeguroBDC(value) {
+    if (!value)
+        return 0;
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime()) && date.getTime() >= BDC_FECHA_INICIO_MS)
+        return date.getTime();
+    const ymd = onlyDate(value);
+    if (!ymd)
+        return 0;
+    const fallback = new Date(`${ymd}T00:00:00`).getTime();
+    return Number.isNaN(fallback) || fallback < BDC_FECHA_INICIO_MS ? 0 : fallback;
+}
+function getProspectoTimestampBDC(row) {
+    const values = [
+        row?.creado,
+        row?.fecha_reclamacion,
+        row?.primer_contacto_at,
+        row?.fecha_contacto,
+        row?.ultimo_contacto_at,
+    ];
+    for (const value of values) {
+        const timestamp = getTimestampSeguroBDC(value);
+        if (timestamp)
+            return timestamp;
+    }
+    return 0;
+}
+function buildProspectosPorTelefonoBDC(rows) {
+    const map = new Map();
+    for (const row of rows || []) {
+        const telefono = normalizaTelefonoMx(row?.telefono || "");
+        if (!/^52\d{10}$/.test(telefono))
+            continue;
+        if (!map.has(telefono))
+            map.set(telefono, []);
+        map.get(telefono).push(row);
+    }
+    for (const list of map.values())
+        list.sort((a, b) => getProspectoTimestampBDC(a) - getProspectoTimestampBDC(b));
+    return map;
+}
+function getProspectoRelacionadoBDC(index, telefono, fechaReferencia = "") {
+    const tel = normalizaTelefonoMx(telefono || "");
+    if (!/^52\d{10}$/.test(tel))
+        return null;
+    const list = index.get(tel) || [];
+    if (!list.length)
+        return null;
+    const ref = getTimestampSeguroBDC(fechaReferencia);
+    if (ref) {
+        for (let i = list.length - 1; i >= 0; i -= 1) {
+            const ts = getProspectoTimestampBDC(list[i]);
+            if (ts && ts <= ref)
+                return list[i];
+        }
+        return null;
+    }
+    return list[list.length - 1];
+}
+function buildProspectosPorVinBDC(rows) {
+    const map = new Map();
+    for (const row of rows || []) {
+        const vin = getVinBDC({ vin_facturado: row?.vin_facturado });
+        if (!vin || !esAsesorDigitalValidoBDC(row?.asesor_digital))
+            continue;
+        const actual = map.get(vin);
+        if (!actual || getProspectoTimestampBDC(row) >= getProspectoTimestampBDC(actual))
+            map.set(vin, row);
+    }
+    return map;
+}
+function getProspectoCitaBDC(cita, prospectosPorTelefono) {
+    return getProspectoRelacionadoBDC(
+        prospectosPorTelefono,
+        getTelefonoApiBDC(cita),
+        cita?.fecha_hora_cita,
+    );
+}
+function getAsesorCitaBDC(cita) {
+    return canonicalAsesorDigitalBDC(
+        cita?.asesor_digital || ""
+    );
+}
+function esCitaDigitalBDC(cita, prospectosPorTelefono) {
+    const prospecto = getProspectoCitaBDC(cita, prospectosPorTelefono);
+    if (!prospecto)
+        return false;
+    const tipo = normalizeText(cita?.tipo_cita || "");
+    if (tipo === "tradicional")
+        return false;
+    const asesorDirecto = canonicalAsesorDigitalBDC(cita?.asesor_digital || "");
+    const asesorProspecto = canonicalAsesorDigitalBDC(prospecto?.asesor_digital || "");
+    if (tipo === "digital")
+        return esAsesorDigitalValidoBDC(asesorDirecto) || esAsesorDigitalValidoBDC(asesorProspecto);
+    // Evento/Remarketing/sin tipo sólo cuentan si la cita trae explícitamente asesor digital.
+    return esAsesorDigitalValidoBDC(asesorDirecto);
+}
+function getTipoUnidadCitaBDC(cita, prospecto) {
+    const desdeProspecto = getTipoUnidadBDC(prospecto || {});
+    if (desdeProspecto)
+        return desdeProspecto;
+    const agencia = normalizeText(cita?.agencia || "");
+    const auto = normalizeText(cita?.auto_interes || "");
+    if (agencia.includes("usados") || auto === "seminuevos" || auto === "seminuevo")
+        return "Seminuevos";
+    return "";
+}
+function getProspectoEntregaBDC(entrega, prospectosPorVin) {
+    const vinEntrega = normalizarVinBDC(entrega?.vin);
+
+    if (!vinEntrega) {
+        return null;
+    }
+
+    /*
+     * Primera relación fuerte:
+     * Entregas.vin === ExpedienteDigital.vin_facturado
+     */
+    const prospecto = prospectosPorVin.get(vinEntrega) || null;
+
+    if (!prospecto) {
+        return null;
+    }
+
+    /*
+     * Segunda relación:
+     * debe ser el mismo cliente.
+     */
+    const telefonoEntrega = getTelefonoApiBDC(entrega);
+
+    const telefonoProspecto = normalizaTelefonoMx(
+        prospecto?.telefono || ""
+    );
+
+    if (
+        !/^52\d{10}$/.test(telefonoEntrega) ||
+        !/^52\d{10}$/.test(telefonoProspecto) ||
+        telefonoEntrega !== telefonoProspecto
+    ) {
+        return null;
+    }
+
+    /*
+     * Tercera relación:
+     *
+     * El asesor de ventas asignado desde Digitales
+     * debe ser el mismo asesor que aparece realmente
+     * en la entrega.
+     *
+     * prospecto.asesor_solicita viene de
+     * ExpedienteDigital.asesor_ventas.
+     */
+    const asesorAsignadoDigital = normalizeText(
+        prospecto?.asesor_solicita || ""
+    );
+
+    const asesorRealEntrega = normalizeText(
+        entrega?.asesor_ventas || ""
+    );
+
+    /*
+     * Si no podemos demostrar la atribución,
+     * NO contamos la venta como BDC.
+     */
+    if (
+        !asesorAsignadoDigital ||
+        !asesorRealEntrega ||
+        asesorAsignadoDigital !== asesorRealEntrega
+    ) {
+        return null;
+    }
+
+    /*
+     * La entrega tampoco puede ser anterior
+     * al prospecto digital.
+     */
+    const fechaEntrega = getTimestampSeguroBDC(
+        entrega?.fecha_hora_entrega
+    );
+
+    const fechaProspecto = getProspectoTimestampBDC(
+        prospecto
+    );
+
+    if (
+        fechaEntrega &&
+        fechaProspecto &&
+        fechaProspecto > fechaEntrega
+    ) {
+        return null;
+    }
+
+    return prospecto;
+}
+function getAsesorEntregaBDC(entrega, prospectosPorVin) {
+    const prospecto = getProspectoEntregaBDC(entrega, prospectosPorVin);
+    const asesor = canonicalAsesorDigitalBDC(prospecto?.asesor_digital || "");
+    return esAsesorDigitalValidoBDC(asesor) ? asesor : "";
+}
+function getTipoUnidadEntregaBDC(entrega, prospecto = null) {
+    const desdeProspecto = getTipoUnidadBDC(prospecto || {});
+    if (desdeProspecto)
+        return desdeProspecto;
+    const tipo = normalizeText(entrega?.tipo_venta || "");
+    if (["usado", "usados", "seminuevo", "seminuevos"].includes(tipo))
+        return "Seminuevos";
+    if (["comercial", "comerciales"].includes(tipo))
+        return "Comerciales";
+    if (["nuevo", "nuevos"].includes(tipo))
+        return "Nuevos";
+    return "";
+}
+function tipoUnidadMatchesBDC(tipo, filtro) {
+    if (!filtro || filtro === "Todos")
+        return true;
+    if (!tipo)
+        return false;
+    if (filtro === "Nuevos + Seminuevos")
+        return tipo === "Nuevos" || tipo === "Seminuevos";
+    return tipo === filtro;
+}
+function asistenciaConfirmadaBDC(value) {
+    if (value === true || value === 1)
+        return true;
+    return ["si", "sí", "true", "1", "asistio", "asistió"].includes(normalizeText(value));
+}
+function entregaFisicaActivaBDC(value) {
+    if (value === true || value === 1)
+        return true;
+    const normalized = normalizeText(value);
+    return ["si", "true", "1", "yes", "entregada", "reportada"].includes(normalized);
+}
+function getCitaUniqueKeyBDC(cita) {
+    if (cita?.id !== null && cita?.id !== undefined)
+        return `id:${cita.id}`;
+    return [
+        getTelefonoApiBDC(cita),
+        String(cita?.fecha_hora_cita || ""),
+        canonicalAsesorDigitalBDC(cita?.asesor_digital || ""),
+        normalizeText(cita?.tipo_cita || ""),
+    ].join("|");
+}
+function dedupeCitasBDC(citas) {
+    const map = new Map();
+    for (const cita of citas || []) {
+        const key = getCitaUniqueKeyBDC(cita);
+        if (!map.has(key))
+            map.set(key, cita);
+    }
+    return Array.from(map.values());
+}
+function getEntregaUniqueKeyBDC(entrega) {
+    const vin = getVinBDC(entrega);
+    if (vin)
+        return `vin:${vin}`;
+    if (entrega?.id !== null && entrega?.id !== undefined)
+        return `id:${entrega.id}`;
+    return `tel:${getTelefonoApiBDC(entrega)}|fecha:${String(entrega?.fecha_hora_entrega || "")}`;
+}
+function dedupeEntregasBDC(entregas) {
+    const map = new Map();
+    for (const entrega of entregas || []) {
+        const key = getEntregaUniqueKeyBDC(entrega);
+        if (!map.has(key))
+            map.set(key, entrega);
+    }
+    return Array.from(map.values());
+}
+async function listarTodasCitasBDC() {
+    let next = "/citas/api/citas/";
+    const results = [];
+    const visited = new Set();
+    while (next && !visited.has(next)) {
+        visited.add(next);
+        const data = await httpCitas(next);
+        if (Array.isArray(data))
+            return dedupeCitasBDC([...results, ...data]);
+        results.push(...(Array.isArray(data?.results) ? data.results : []));
+        next = data?.next ? String(data.next).replace(/^https?:\/\/[^/]+/, "") : null;
+    }
+    return dedupeCitasBDC(results);
 }
 function getEstadoMetaBDC(valor, meta) {
     if (valor >= meta)
@@ -1382,6 +1735,12 @@ function getEstadoAsesorBDC(efectividad) {
         return { label: "Requiere atención", cls: "border-amber-200 bg-amber-50 text-amber-700" };
     return { label: "Crítico", cls: "border-red-200 bg-red-50 text-red-700" };
 }
+function normalizarVinBDC(value) {
+    return String(value || "")
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, "");
+}
 function DashboardEjecutivoBDC({ rows }) {
     const [mes, setMes] = useState(() => formatDateYMDLocal(new Date()).slice(0, 7));
     const [asesor, setAsesor] = useState("Todos");
@@ -1389,28 +1748,170 @@ function DashboardEjecutivoBDC({ rows }) {
     const [linea, setLinea] = useState("Nuevos + Seminuevos");
     const [origen, setOrigen] = useState("Todos");
     const [showDiscardDetails, setShowDiscardDetails,] = useState(false);
+    const [citasBDC, setCitasBDC] = useState([]);
+    const [entregasBDC, setEntregasBDC] = useState([]);
+    const [loadingOperativoBDC, setLoadingOperativoBDC] = useState(true);
+    const [errorOperativoBDC, setErrorOperativoBDC] = useState("");
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function cargarDatosOperativos() {
+            setLoadingOperativoBDC(true);
+            setErrorOperativoBDC("");
+
+            try {
+                const [
+                    citasResult,
+                    entregasResult,
+                ] = await Promise.allSettled([
+                    apiCitas.list({
+                        mes,
+                        solo_digital: 1,
+                    }),
+
+                    apiEntregas.list({
+                        mes,
+                    }),
+                ]);
+
+                if (cancelled) {
+                    return;
+                }
+
+                const errores = [];
+
+                if (
+                    citasResult.status ===
+                    "fulfilled"
+                ) {
+                    setCitasBDC(
+                        dedupeCitasBDC(
+                            getListItems(
+                                citasResult.value
+                            )
+                        )
+                    );
+                } else {
+                    console.error(
+                        "Error cargando citas BDC:",
+                        citasResult.reason
+                    );
+
+                    setCitasBDC([]);
+                    errores.push("citas");
+                }
+
+                if (
+                    entregasResult.status ===
+                    "fulfilled"
+                ) {
+                    setEntregasBDC(
+                        dedupeEntregasBDC(
+                            getListItems(
+                                entregasResult.value
+                            )
+                        )
+                    );
+                } else {
+                    console.error(
+                        "Error cargando entregas BDC:",
+                        entregasResult.reason
+                    );
+
+                    setEntregasBDC([]);
+                    errores.push("entregas");
+                }
+
+                if (errores.length) {
+                    setErrorOperativoBDC(
+                        `No se pudieron sincronizar: ${errores.join(" y ")}.`
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoadingOperativoBDC(false);
+                }
+            }
+        }
+
+        cargarDatosOperativos();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [mes]);
+
+    const prospectosPorTelefono = useMemo(() => buildProspectosPorTelefonoBDC(rows), [rows]);
+    const prospectosPorVin = useMemo(() => buildProspectosPorVinBDC(rows), [rows]);
+    const dealersPermitidos = useMemo(() => new Set(rows.map(getDealerBDC).filter(Boolean)), [rows]);
+
+    // Primero limpiamos las fuentes operativas. El dashboard nunca debe mezclar
+    // citas tradicionales ni entregas de piso con la operación de asesores digitales.
+    const citasDigitalesBase = useMemo(() => {
+        const filtradas = (citasBDC || []).filter((cita) => {
+            const mesCita = getMesFechaBDC(cita?.fecha_hora_cita);
+            if (!mesCita)
+                return false;
+            const prospecto = getProspectoCitaBDC(cita, prospectosPorTelefono);
+            if (!prospecto || !esCitaDigitalBDC(cita, prospectosPorTelefono))
+                return false;
+            const tipoUnidad = getTipoUnidadCitaBDC(cita, prospecto);
+            if (!tipoUnidad)
+                return false;
+            const dealer = normalizeDealerGrupo(cita?.agencia || prospecto?.agencia || "");
+            if (dealer && dealersPermitidos.size && !dealersPermitidos.has(dealer))
+                return false;
+            return true;
+        });
+        return dedupeCitasBDC(filtradas);
+    }, [citasBDC, prospectosPorTelefono, dealersPermitidos]);
+
+    // Una entrega sólo se considera venta digital cuando el VIN de la entrega
+    // coincide con vin_facturado de un prospecto digital. El teléfono por sí solo
+    // no es suficiente porque un mismo cliente también puede comprar con piso.
+    const entregasDigitalesBase = useMemo(() => {
+        const filtradas = (entregasBDC || []).filter((entrega) => {
+            const mesEntrega = getMesFechaBDC(entrega?.fecha_hora_entrega);
+            if (!mesEntrega)
+                return false;
+            const prospecto = getProspectoEntregaBDC(entrega, prospectosPorVin);
+            if (!prospecto)
+                return false;
+            const asesorDigital = getAsesorEntregaBDC(entrega, prospectosPorVin);
+            if (!asesorDigital)
+                return false;
+            const dealer = normalizeDealerGrupo(entrega?.agencia || prospecto?.agencia || "");
+            if (dealer && dealersPermitidos.size && !dealersPermitidos.has(dealer))
+                return false;
+            return Boolean(getTipoUnidadEntregaBDC(entrega, prospecto));
+        });
+        return dedupeEntregasBDC(filtradas);
+    }, [entregasBDC, prospectosPorVin, dealersPermitidos]);
+
     // ─────────────────────────────────────────────────────────────
     // Opciones de filtros
     // ─────────────────────────────────────────────────────────────
     const meses = useMemo(() => {
-        const values = Array.from(new Set(rows
-            .map(getMesBDC)
-            .filter(Boolean))).sort((a, b) => b.localeCompare(a));
-        if (mes &&
-            !values.includes(mes)) {
+        const values = Array.from(new Set([
+            ...rows.map(getMesBDC),
+            ...citasDigitalesBase.map((cita) => getMesFechaBDC(cita?.fecha_hora_cita)),
+            ...entregasDigitalesBase.map((entrega) => getMesFechaBDC(entrega?.fecha_hora_entrega)),
+        ].filter(esMesValidoBDC))).sort((a, b) => b.localeCompare(a));
+        if (esMesValidoBDC(mes) && !values.includes(mes))
             values.unshift(mes);
-        }
         return values;
-    }, [rows, mes]);
+    }, [rows, citasDigitalesBase, entregasDigitalesBase, mes]);
+
     const asesores = useMemo(() => {
-        const values = Array.from(new Set(rows
-            .map((row) => String(row.asesor_digital || "").trim())
-            .filter(Boolean))).sort((a, b) => a.localeCompare(b, "es"));
-        return [
-            "Todos",
-            ...values,
-        ];
-    }, [rows]);
+        const values = Array.from(new Set([
+            ...rows.map((row) => canonicalAsesorDigitalBDC(row.asesor_digital)),
+            ...citasDigitalesBase.map((cita) => getAsesorCitaBDC(cita, prospectosPorTelefono)),
+            ...entregasDigitalesBase.map((entrega) => getAsesorEntregaBDC(entrega, prospectosPorVin)),
+        ].filter(esAsesorDigitalValidoBDC))).sort((a, b) => a.localeCompare(b, "es"));
+        return ["Todos", ...values];
+    }, [rows, citasDigitalesBase, entregasDigitalesBase, prospectosPorTelefono, prospectosPorVin]);
+
     const agencias = useMemo(() => {
         const ordenPreferido = [
             "VW Cordoba",
@@ -1419,85 +1920,402 @@ function DashboardEjecutivoBDC({ rows }) {
             "VW Tuxtepec",
             "VW Tuxpan",
         ];
-        const values = Array.from(new Set(rows
-            .map((row) => getDealerBDC(row))
-            .filter(Boolean)));
+        const values = Array.from(new Set(rows.map((row) => getDealerBDC(row)).filter(Boolean)));
         const principales = ordenPreferido.filter((dealer) => values.includes(dealer));
         const adicionales = values
             .filter((dealer) => !ordenPreferido.includes(dealer))
             .sort((a, b) => a.localeCompare(b, "es"));
-        return [
-            "Todos",
-            ...principales,
-            ...adicionales,
-        ];
+        return ["Todos", ...principales, ...adicionales];
     }, [rows]);
+
     const origenes = useMemo(() => {
         const values = Array.from(new Set(rows
             .map((row) => String(row.origen || "").trim())
             .filter(Boolean))).sort((a, b) => a.localeCompare(b, "es"));
-        return [
-            "Todos",
-            ...values,
-        ];
+        return ["Todos", ...values];
     }, [rows]);
+
     // ─────────────────────────────────────────────────────────────
-    // Registros filtrados
+    // Prospectos filtrados
     // ─────────────────────────────────────────────────────────────
     const filteredRows = useMemo(() => {
         return rows.filter((row) => {
-            if (mes &&
-                getMesBDC(row) !== mes) {
+            const mesRegistro = getMesBDC(row);
+            if (!mesRegistro || (mes && mesRegistro !== mes))
                 return false;
-            }
-            if (asesor !== "Todos" &&
-                String(row.asesor_digital || "").trim() !== asesor) {
+            if (!esAsesorDigitalValidoBDC(row?.asesor_digital))
                 return false;
-            }
-            if (agencia !== "Todos" &&
-                getDealerBDC(row) !== agencia) {
+            if (asesor !== "Todos" && canonicalAsesorDigitalBDC(row.asesor_digital) !== canonicalAsesorDigitalBDC(asesor))
                 return false;
-            }
-            if (!lineaMatchesBDC(row, linea)) {
+            if (agencia !== "Todos" && getDealerBDC(row) !== agencia)
                 return false;
-            }
-            if (origen !== "Todos" &&
-                String(row.origen || "").trim() !== origen) {
+            if (!lineaMatchesBDC(row, linea))
                 return false;
-            }
+            if (origen !== "Todos" && normalizeText(row.origen || "") !== normalizeText(origen))
+                return false;
             return true;
         });
-    }, [
-        rows,
-        mes,
-        asesor,
-        agencia,
-        linea,
-        origen,
-    ]);
+    }, [rows, mes, asesor, agencia, linea, origen]);
+
+    // Citas reales del módulo de Citas, pero únicamente de asesores digitales.
+    // Para Nuevos + Seminuevos se exige clasificación válida; por eso el total
+    // combinado siempre es la unión real de Nuevos y Seminuevos, no un comodín.
+    const citasFiltradas = useMemo(() => {
+        const citasUnicas = new Map();
+
+        for (const cita of citasBDC || []) {
+            /*
+             * 1. La cita debe tener ID.
+             * Esto también nos protege de duplicados accidentales.
+             */
+            if (
+                cita?.id === null ||
+                cita?.id === undefined
+            ) {
+                continue;
+            }
+
+            /*
+             * 2. Mes EXACTO de fecha_hora_cita.
+             *
+             * NO usamos creado_en.
+             * NO usamos Date.
+             */
+            const mesCita = getMesFechaBDC(
+                cita?.fecha_hora_cita
+            );
+
+            if (!mesCita) {
+                continue;
+            }
+
+            if (mes && mesCita !== mes) {
+                continue;
+            }
+
+            /*
+             * 3. CRÍTICO:
+             * El Dashboard BDC solo cuenta citas digitales.
+             *
+             * Tradicional
+             * Prueba de Manejo
+             * vacías
+             *
+             * quedan fuera.
+             */
+            if (
+                normalizeText(cita?.tipo_cita) !==
+                "digital"
+            ) {
+                continue;
+            }
+
+            /*
+             * 4. Debe existir asesor digital DIRECTAMENTE
+             * en el registro de Cita.
+             *
+             * No lo inferimos mediante teléfono.
+             */
+            const asesorCita =
+                canonicalAsesorDigitalBDC(
+                    cita?.asesor_digital || ""
+                );
+
+            if (!asesorCita) {
+                continue;
+            }
+
+            /*
+             * 5. Además exigimos que el teléfono pertenezca
+             * a un prospecto del módulo Digitales.
+             *
+             * Esto evita incluir citas digitales ajenas
+             * al universo cargado en este dashboard.
+             */
+            const telefono =
+                getTelefonoApiBDC(cita);
+
+            if (!/^52\d{10}$/.test(telefono)) {
+                continue;
+            }
+
+            const prospecto =
+                getProspectoRelacionadoBDC(
+                    prospectosPorTelefono,
+                    telefono,
+                    cita?.fecha_hora_cita
+                );
+
+            if (!prospecto) {
+                continue;
+            }
+
+            /*
+             * 6. El asesor de la CITA y del PROSPECTO
+             * deben coincidir.
+             *
+             * Es una validación importante para evitar
+             * atribución histórica incorrecta.
+             */
+            const asesorProspecto =
+                canonicalAsesorDigitalBDC(
+                    prospecto?.asesor_digital || ""
+                );
+
+            if (
+                !asesorProspecto ||
+                asesorProspecto !== asesorCita
+            ) {
+                continue;
+            }
+
+            /*
+             * 7. Filtro por asesora.
+             */
+            if (
+                asesor !== "Todos" &&
+                asesorCita !==
+                canonicalAsesorDigitalBDC(asesor)
+            ) {
+                continue;
+            }
+
+            /*
+             * 8. Dealer.
+             */
+            const dealerCita =
+                normalizeDealerGrupo(
+                    cita?.agencia ||
+                    prospecto?.agencia ||
+                    ""
+                );
+
+            if (
+                dealerCita &&
+                dealersPermitidos.size &&
+                !dealersPermitidos.has(dealerCita)
+            ) {
+                continue;
+            }
+
+            if (
+                agencia !== "Todos" &&
+                dealerCita !== agencia
+            ) {
+                continue;
+            }
+
+            /*
+             * 9. Business.
+             *
+             * Cita no tiene business, así que aquí sí
+             * podemos obtenerlo del prospecto relacionado.
+             */
+            const tipoUnidad =
+                getTipoUnidadBDC(prospecto);
+
+            if (
+                !tipoUnidadMatchesBDC(
+                    tipoUnidad,
+                    linea
+                )
+            ) {
+                continue;
+            }
+
+            /*
+             * 10. Origen.
+             */
+            const origenCita = String(
+                cita?.fuente_prospeccion ||
+                prospecto?.origen ||
+                ""
+            ).trim();
+
+            if (
+                origen !== "Todos" &&
+                normalizeText(origenCita) !==
+                normalizeText(origen)
+            ) {
+                continue;
+            }
+
+            /*
+             * 11. ID único.
+             */
+            citasUnicas.set(
+                String(cita.id),
+                cita
+            );
+        }
+
+        return Array.from(
+            citasUnicas.values()
+        );
+    }, [citasBDC, mes, asesor, agencia, linea, origen, prospectosPorTelefono, dealersPermitidos,]);
+
+    // Entregas/facturados digitales: relación estricta por VIN, nunca sólo por teléfono.
+    const entregasFiltradas = useMemo(() => {
+        const entregasUnicas = new Map();
+
+        for (const entrega of entregasBDC || []) {
+            /*
+             * 1. Fecha exacta del mes seleccionado.
+             */
+            const mesEntrega = getMesFechaBDC(
+                entrega?.fecha_hora_entrega
+            );
+
+            if (!mesEntrega) {
+                continue;
+            }
+
+            if (mes && mesEntrega !== mes) {
+                continue;
+            }
+
+            /*
+             * 2. VIN obligatorio.
+             */
+            const vinEntrega = normalizarVinBDC(
+                entrega?.vin
+            );
+
+            if (!vinEntrega) {
+                continue;
+            }
+
+            /*
+             * 3. Relación estricta:
+             *
+             * VIN
+             * + teléfono
+             * + asesor de ventas
+             */
+            const prospecto = getProspectoEntregaBDC(
+                entrega,
+                prospectosPorVin
+            );
+
+            if (!prospecto) {
+                continue;
+            }
+
+            /*
+             * 4. Prospecto obligatoriamente digital.
+             */
+            const asesorDigitalEntrega =
+                canonicalAsesorDigitalBDC(
+                    prospecto?.asesor_digital || ""
+                );
+
+            if (
+                !esAsesorDigitalValidoBDC(
+                    asesorDigitalEntrega
+                )
+            ) {
+                continue;
+            }
+
+            /*
+             * 5. Asesora digital seleccionada.
+             */
+            if (
+                asesor !== "Todos" &&
+                asesorDigitalEntrega !==
+                canonicalAsesorDigitalBDC(asesor)
+            ) {
+                continue;
+            }
+
+            /*
+             * 6. Dealer.
+             */
+            const dealerEntrega =
+                normalizeDealerGrupo(
+                    entrega?.agencia ||
+                    prospecto?.agencia ||
+                    ""
+                );
+
+            if (
+                dealerEntrega &&
+                dealersPermitidos.size &&
+                !dealersPermitidos.has(dealerEntrega)
+            ) {
+                continue;
+            }
+
+            if (
+                agencia !== "Todos" &&
+                dealerEntrega !== agencia
+            ) {
+                continue;
+            }
+
+            /*
+             * 7. Business.
+             */
+            const tipoEntrega =
+                getTipoUnidadEntregaBDC(
+                    entrega,
+                    prospecto
+                );
+
+            if (
+                !tipoUnidadMatchesBDC(
+                    tipoEntrega,
+                    linea
+                )
+            ) {
+                continue;
+            }
+
+            /*
+             * 8. Origen.
+             */
+            const origenEntrega = String(
+                prospecto?.origen || ""
+            ).trim();
+
+            if (
+                origen !== "Todos" &&
+                normalizeText(origenEntrega) !==
+                normalizeText(origen)
+            ) {
+                continue;
+            }
+
+            /*
+             * Un VIN sólo puede contarse una vez.
+             */
+            entregasUnicas.set(
+                vinEntrega,
+                entrega
+            );
+        }
+
+        return Array.from(
+            entregasUnicas.values()
+        );
+    }, [entregasBDC, mes, asesor, agencia, linea, origen, prospectosPorVin, dealersPermitidos,]);
     // ─────────────────────────────────────────────────────────────
     // Métricas principales
     // ─────────────────────────────────────────────────────────────
     const metricas = useMemo(() => {
         const oportunidades = filteredRows.length;
         const gestionables = filteredRows.filter(esGestionableBDC).length;
-        const contactados = filteredRows.filter(esContactadoBDC).length;
-        const citados = filteredRows.filter(esCitadoBDC).length;
-        const efectivas = filteredRows.filter(esCitaEfectivaBDC).length;
+        const contactados = filteredRows.filter((row) => esGestionableBDC(row) && esContactadoBDC(row)).length;
+        const citados = citasFiltradas.length;
+        const efectivas = citasFiltradas.filter((cita) => asistenciaConfirmadaBDC(cita?.asistencia)).length;
         const solicitudes = filteredRows.filter(tieneSolicitudBDC).length;
         const anf = filteredRows.filter(esAnfBDC).length;
-        const facturados = filteredRows.filter(esFacturadoBDC).length;
-        const reportados = filteredRows.filter(esReportadoBDC).length;
+        const facturados = entregasFiltradas.length;
+        const reportados = entregasFiltradas.filter((entrega) => entregaFisicaActivaBDC(entrega?.entrega_reportada)).length;
         const descartados = filteredRows.filter((row) => normalizeText(row.estado) === "descalificado").length;
-        const tasaContacto = gestionables
-            ? (contactados / gestionables) * 100
-            : 0;
-        const efectividadCitas = citados
-            ? (efectivas / citados) * 100
-            : 0;
-        const tasaFacturacion = solicitudes
-            ? (facturados / solicitudes) * 100
-            : 0;
+        const tasaContacto = gestionables ? (contactados / gestionables) * 100 : 0;
+        const efectividadCitas = citados ? (efectivas / citados) * 100 : 0;
+        const tasaFacturacion = solicitudes ? (facturados / solicitudes) * 100 : 0;
         return {
             oportunidades,
             gestionables,
@@ -1513,7 +2331,7 @@ function DashboardEjecutivoBDC({ rows }) {
             efectividadCitas,
             tasaFacturacion,
         };
-    }, [filteredRows]);
+    }, [filteredRows, citasFiltradas, entregasFiltradas]);
     // ─────────────────────────────────────────────────────────────
     // Funnel
     // ─────────────────────────────────────────────────────────────
@@ -1521,7 +2339,7 @@ function DashboardEjecutivoBDC({ rows }) {
         const stages = [
             { key: "gestionables", label: "Gestionables", value: metricas.gestionables, wrapCls: "flex-[1.2]", boxCls: "h-[118px] bg-[#0B46D8] text-white [clip-path:polygon(0_0,100%_7%,100%_93%,0_100%)]" },
             { key: "contactados", label: "Contactados", value: metricas.contactados, wrapCls: "flex-[1.12]", boxCls: "h-[108px] bg-[#1670F5] text-white [clip-path:polygon(0_7%,100%_12%,100%_88%,0_93%)]" },
-            { key: "citados", label: "Leads citados", value: metricas.citados, wrapCls: "flex-1", boxCls: "h-[96px] bg-[#55A6F6] text-white [clip-path:polygon(0_7%,100%_12%,100%_88%,0_93%)]" },
+            { key: "citados", label: "Citas registradas", value: metricas.citados, wrapCls: "flex-1", boxCls: "h-[96px] bg-[#55A6F6] text-white [clip-path:polygon(0_7%,100%_12%,100%_88%,0_93%)]" },
             { key: "efectivas", label: "Citas efectivas", value: metricas.efectivas, wrapCls: "flex-[0.95]", boxCls: "h-[84px] bg-[#A9D1F7] text-[#131E5C] [clip-path:polygon(0_7%,100%_12%,100%_88%,0_93%)]" },
             { key: "solicitudes", label: "Solicitudes", value: metricas.solicitudes, wrapCls: "flex-[0.9]", boxCls: "h-[74px] bg-[#F7A416] text-white [clip-path:polygon(0_7%,100%_12%,100%_88%,0_93%)]" },
             { key: "facturados", label: "Facturados", value: metricas.facturados, wrapCls: "flex-[0.82]", boxCls: "h-[64px] bg-[#F52332] text-white [clip-path:polygon(0_7%,100%_16%,100%_84%,0_93%)]" },
@@ -1549,46 +2367,38 @@ function DashboardEjecutivoBDC({ rows }) {
     // Resultados por asesora
     // ─────────────────────────────────────────────────────────────
     const resultadosAsesor = useMemo(() => {
-        const map = new Map();
+        const nombres = new Set();
         for (const row of filteredRows) {
-            const nombre = String(row.asesor_digital ||
-                "").trim() ||
-                "Sin asesor digital";
-            if (!map.has(nombre)) {
-                map.set(nombre, []);
-            }
-            map.get(nombre).push(row);
+            const nombre = canonicalAsesorDigitalBDC(row?.asesor_digital || "");
+            if (esAsesorDigitalValidoBDC(nombre))
+                nombres.add(nombre);
         }
-        return Array.from(map.entries())
-            .map(([nombre, registros,]) => {
+        for (const cita of citasFiltradas) {
+            const nombre = getAsesorCitaBDC(cita, prospectosPorTelefono);
+            if (nombre)
+                nombres.add(nombre);
+        }
+        for (const entrega of entregasFiltradas) {
+            const nombre = getAsesorEntregaBDC(entrega, prospectosPorVin);
+            if (nombre)
+                nombres.add(nombre);
+        }
+        return Array.from(nombres)
+            .map((nombre) => {
+                const registros = filteredRows.filter((row) => canonicalAsesorDigitalBDC(row?.asesor_digital) === nombre);
+                const citasAsesor = citasFiltradas.filter((cita) => getAsesorCitaBDC(cita, prospectosPorTelefono) === nombre);
+                const entregasAsesor = entregasFiltradas.filter((entrega) => getAsesorEntregaBDC(entrega, prospectosPorVin) === nombre);
                 const gestionables = registros.filter(esGestionableBDC).length;
-                const contactados = registros.filter(esContactadoBDC).length;
-                const citados = registros.filter(esCitadoBDC).length;
-                const efectivas = registros.filter(esCitaEfectivaBDC).length;
+                const contactados = registros.filter((row) => esGestionableBDC(row) && esContactadoBDC(row)).length;
+                const citados = citasAsesor.length;
+                const efectivas = citasAsesor.filter((cita) => asistenciaConfirmadaBDC(cita?.asistencia)).length;
                 const solicitudes = registros.filter(tieneSolicitudBDC).length;
-                const facturados = registros.filter(esFacturadoBDC).length;
-                const efectividad = citados
-                    ? (efectivas /
-                        citados) * 100
-                    : 0;
-                return {
-                    nombre,
-                    gestionables,
-                    contactados,
-                    citados,
-                    efectivas,
-                    solicitudes,
-                    facturados,
-                    efectividad,
-                };
+                const facturados = entregasAsesor.length;
+                const efectividad = citados ? (efectivas / citados) * 100 : 0;
+                return { nombre, gestionables, contactados, citados, efectivas, solicitudes, facturados, efectividad };
             })
-            .sort((a, b) => b.facturados -
-                a.facturados ||
-                b.efectivas -
-                a.efectivas ||
-                b.contactados -
-                a.contactados);
-    }, [filteredRows]);
+            .sort((a, b) => b.facturados - a.facturados || b.efectivas - a.efectivas || b.citados - a.citados || b.contactados - a.contactados);
+    }, [filteredRows, citasFiltradas, entregasFiltradas, prospectosPorTelefono, prospectosPorVin]);
     // ─────────────────────────────────────────────────────────────
     // Orígenes
     // ─────────────────────────────────────────────────────────────
@@ -1743,6 +2553,10 @@ function DashboardEjecutivoBDC({ rows }) {
                     </Control>
                 </div>
             </div>
+
+            <div className="mt-2 flex min-h-5 items-center justify-end gap-2 text-[10px] font-semibold">
+                {loadingOperativoBDC ? (<><Loader2 className="h-3.5 w-3.5 animate-spin text-[#131E5C]" /><span className="text-slate-500">Sincronizando Citas y Entregas…</span></>) : errorOperativoBDC ? (<span className="text-amber-600">{errorOperativoBDC}</span>) : (<span className="text-emerald-600">Citas y Entregas sincronizadas</span>)}
+            </div>
         </div>
 
         {/* ───────────────── KPI SUPERIORES ───────────────── */}
@@ -1754,7 +2568,7 @@ function DashboardEjecutivoBDC({ rows }) {
 
             <SummaryCard label="Contactados únicos" value={metricas.contactados} />
 
-            <SummaryCard label="Leads citados" value={metricas.citados} />
+            <SummaryCard label="Citas registradas" value={metricas.citados} />
 
             <SummaryCard label="Citas efectivas" value={metricas.efectivas} />
 
@@ -1858,7 +2672,7 @@ function DashboardEjecutivoBDC({ rows }) {
                     <div className="mt-2 grid items-center gap-4 sm:grid-cols-[1fr_80px_1fr]">
                         <div className="text-center">
                             <div className="text-xs font-bold text-slate-500">
-                                Leads citados
+                                Citas registradas
                             </div>
 
                             <div className="text-3xl font-black text-[#131E5C]">
@@ -1866,7 +2680,7 @@ function DashboardEjecutivoBDC({ rows }) {
                             </div>
 
                             <div className="text-[10px] text-slate-400">
-                                Prospectos con cita registrada
+                                Registros reales del módulo de Citas
                             </div>
                         </div>
 
@@ -1940,9 +2754,9 @@ function DashboardEjecutivoBDC({ rows }) {
 
                         <ProcessRow label="ANF" value={metricas.anf} detail="Solicitudes autorizadas aún sin VIN facturado" />
 
-                        <ProcessRow label="Facturados" value={metricas.facturados} detail="Prospectos con VIN facturado" />
+                        <ProcessRow label="Facturados" value={metricas.facturados} detail="Ventas digitales vinculadas por VIN al prospecto" />
 
-                        <ProcessRow label="Reportados" value={metricas.reportados} detail="Facturados con estatus de entrega capturado" />
+                        <ProcessRow label="Reportados" value={metricas.reportados} detail="Ventas digitales con entrega física reportada" />
                     </div>
                 </section>
             </div>
@@ -2375,7 +3189,7 @@ export default function DigitalesProspectos() {
     const [touchedSave, setTouchedSave] = useState(false);
     const [openAgendaModal, setOpenAgendaModal] = useState(false);
     const [agendaInfo, setAgendaInfo] = useState(null);
-    const [drafter, setDrafter] = useState({ agencia: "", fecha_cita: "", asesor_digital: "", asesor_solicita: "", tipo_cita: "" });
+    const [drafter, setDrafter] = useState({ agencia: "", fecha_cita: "", asesor_digital: "", asesor_solicita: "", tipo_cita: "Digital" });
     const [savingo, setSavingo] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const totalEvidenciasDraft = (draft?.evidencias_existentes?.length || 0) + (draft?.evidencias_nuevas?.length || 0);
@@ -2997,7 +3811,7 @@ export default function DigitalesProspectos() {
         if (!row)
             return;
         const nombre = `${row.cliente_nombre || ""} ${row.cliente_apellidos || ""}`.trim();
-        setAgendaInfo({ id_exp: row.id_exp, cliente_id: row.cliente_id, nombre, telefono: row.telefono || "", correo: row.correo || "", auto_interes: row.cliente_interes || "", agencia: row.agencia || "", fuente_prospeccion: row.origen || "", fecha_cita: "", asesor_digital: row.asesor_digital, asesor_solicita: row.asesor_solicita, tipo_cita: "" });
+        setAgendaInfo({ id_exp: row.id_exp, cliente_id: row.cliente_id, nombre, telefono: row.telefono || "", correo: row.correo || "", auto_interes: row.cliente_interes || "", agencia: row.agencia || "", fuente_prospeccion: row.origen || "", fecha_cita: "", asesor_digital: row.asesor_digital, asesor_solicita: row.asesor_solicita, tipo_cita: "Digital" });
         setOpenAgendaModal(true);
     };
     const openEdit = async (row, estadoInicial = "") => {
@@ -3323,24 +4137,75 @@ export default function DigitalesProspectos() {
     });
     useEffect(() => {
         if (openAgendaModal && agendaInfo) {
-            setDrafter({ agencia: agendaInfo.agencia || "", fecha_cita: agendaInfo.fecha_cita || "", asesor_digital: agendaInfo.asesor_digital || "", asesor_solicita: agendaInfo.asesor_solicita || "", tipo_cita: agendaInfo.tipo_cita || "" });
+            setDrafter({ agencia: agendaInfo.agencia || "", fecha_cita: agendaInfo.fecha_cita || "", asesor_digital: agendaInfo.asesor_digital || "", asesor_solicita: agendaInfo.asesor_solicita || "", tipo_cita: agendaInfo.tipo_cita || "Digital" });
             setErrorMsg("");
         }
     }, [openAgendaModal, agendaInfo]);
     async function handleAgendar() {
-        if (!agendaInfo)
-            return;
+        if (!agendaInfo || savingo) return;
+
         try {
             setSavingo(true);
             setErrorMsg("");
-            await apiCitas.create({ cliente_id: agendaInfo.cliente_id, nombre: agendaInfo.nombre, telefono: agendaInfo.telefono, correo: agendaInfo.correo || "", auto_interes: agendaInfo.auto_interes || "", agencia: agendaInfo.agencia || "", fecha_hora_cita: drafter.fecha_cita || null, fuente_prospeccion: agendaInfo.fuente_prospeccion || "", asesor_digital: drafter.asesor_digital || "", asesor_solicita: drafter.asesor_solicita || "", asesor_asignado: drafter.asesor_solicita || "", tipo_cita: drafter.tipo_cita || "" });
+
+            if (!drafter.fecha_cita) {
+                throw new Error(
+                    "Selecciona fecha y hora de la cita."
+                );
+            }
+
+            const asesorDigital =
+                canonicalAsesorDigitalBDC(
+                    drafter.asesor_digital ||
+                    agendaInfo.asesor_digital ||
+                    ""
+                );
+
+            if (!asesorDigital) {
+                throw new Error(
+                    "La cita debe tener un asesor digital."
+                );
+            }
+
+            await apiCitas.create({
+                cliente_id: agendaInfo.cliente_id,
+                nombre: agendaInfo.nombre,
+                telefono: agendaInfo.telefono,
+                correo: agendaInfo.correo || "",
+                auto_interes: agendaInfo.auto_interes || "",
+                agencia: agendaInfo.agencia || "",
+                fecha_hora_cita: drafter.fecha_cita,
+                asistencia: false,
+                tipo_cita: "Digital",
+                fuente_prospeccion: agendaInfo.fuente_prospeccion || "",
+                asesor_digital: asesorDigital,
+                asesor_piso: drafter.asesor_solicita || "",
+                comentarios: "",
+            });
+            const data = await apiCitas.list();
+
+            setCitasBDC(
+                Array.isArray(data)
+                    ? data
+                    : Array.isArray(data?.results)
+                        ? data.results
+                        : []
+            );
+
             await refreshList();
+
             closeAgendaModal();
-        }
-        catch (err) {
-            setErrorMsg(err?.message || "No se pudo crear la cita");
-        }
-        finally {
+        } catch (error) {
+            console.error(
+                "Error creando cita digital:",
+                error
+            );
+
+            setErrorMsg(
+                error?.message ||
+                "No se pudo crear la cita."
+            );
+        } finally {
             setSavingo(false);
         }
     }
@@ -4386,12 +5251,7 @@ export default function DigitalesProspectos() {
                     </select>
                 </Field>
                 <Field label="Tipo de cita" icon={LayoutList}>
-                    <select value={drafter.tipo_cita || ""} onChange={(e) => setDrafter((p) => ({ ...p, tipo_cita: e.target.value }))} className={cls(inputBase, inputOk)}>
-                        <option value="">— Selecciona —</option>
-                        {["Prueba de Manejo", "Tradicional", "Digital"].map((n) => (<option key={n} value={n}>
-                            {n}
-                        </option>))}
-                    </select>
+                    <input value="Digital" disabled className={cls(inputBase, inputOk, "cursor-not-allowed opacity-80")} />
                 </Field>
                 {errorMsg && <div className="md:col-span-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{errorMsg}</div>}
             </div>)}

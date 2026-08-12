@@ -1,18 +1,38 @@
 // src/lib/apiEntregas.js
 import { http } from "./apiClient";
 
-async function listAll(url = "/citas/api/entregas/") {
+function buildQuery(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    query.set(key, String(value));
+  });
+
+  const text = query.toString();
+
+  return text ? `?${text}` : "";
+}
+
+async function listAll(params = {}) {
   let results = [];
-  let next = url;
+
+  let next = `/citas/api/entregas/${buildQuery(params)}`;
 
   while (next) {
     const data = await http(next);
 
-    if (Array.isArray(data)) return data; 
+    if (Array.isArray(data)) {
+      return data;
+    }
 
-    results = results.concat(data.results || []);
-    next = data.next
-      ? data.next.replace(/^https?:\/\/[^/]+/, "") 
+    results = results.concat(data?.results || []);
+
+    next = data?.next
+      ? String(data.next).replace(/^https?:\/\/[^/]+/, "")
       : null;
   }
 
@@ -20,7 +40,8 @@ async function listAll(url = "/citas/api/entregas/") {
 }
 
 export const apiEntregas = {
-  list: () => listAll(),
+  list: (params = {}) => listAll(params),
+
   get: (id) => http(`/citas/api/entregas/${id}/`),
 
   create: (payload) =>
@@ -41,5 +62,8 @@ export const apiEntregas = {
       body: payload,
     }),
 
-  remove: (id) => http(`/citas/api/entregas/${id}/`, { method: "DELETE" }),
+  remove: (id) =>
+    http(`/citas/api/entregas/${id}/`, {
+      method: "DELETE",
+    }),
 };
