@@ -210,7 +210,7 @@ function estadoBadgeClass(estado) {
 // ---- KPI ----
 function KpiCard({ icon: Icon, label, value, sub, color }) {
     return (
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 transition hover:shadow-lg hover:shadow-slate-200/60">
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition hover:shadow-lg hover:shadow-slate-200/60">
             <div
                 className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.07] transition group-hover:scale-110"
                 style={{ backgroundColor: color }}
@@ -226,116 +226,87 @@ function KpiCard({ icon: Icon, label, value, sub, color }) {
                     {label}
                 </div>
             </div>
-            <div className="mt-5 text-4xl font-black text-slate-800">{value}</div>
+            <div className="mt-3 text-3xl font-black text-slate-800">{value}</div>
             {sub ? <div className="mt-1.5 text-sm font-medium text-slate-400">{sub}</div> : null}
         </div>
     );
 }
 
-// ---- KPI con gauge tipo "líquido" (reemplaza a Meses promedio + Contactables) ----
-function KpiGaugeRetorno({ porcentaje, label }) {
-    const pctObjetivo = Number.isFinite(porcentaje) ? Math.max(0, Math.min(100, porcentaje)) : 0;
-    const [nivel, setNivel] = useState(0);
+// ---- KPI con gauge (reemplaza a Meses promedio + Contactables) ----
+        function KpiRetorno({ porcentaje, activos, total }) {
+            const pct = Number.isFinite(porcentaje)
+                ? Math.max(0, Math.min(100, porcentaje))
+                : 0;
 
-    useEffect(() => {
-        setNivel(0);
-        let frame;
-        const duracion = 1200;
-        const inicio = performance.now();
+            return (
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition hover:shadow-lg hover:shadow-slate-200/60">
+                    <div
+                        className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.07]"
+                        style={{ backgroundColor: "#378ADD" }}
+                    />
 
-        function animar(ahora) {
-            const progreso = Math.min((ahora - inicio) / duracion, 1);
-            const easeOut = 1 - Math.pow(1 - progreso, 3);
-            setNivel(pctObjetivo * easeOut);
-            if (progreso < 1) frame = requestAnimationFrame(animar);
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                            <Gauge className="h-6 w-6" />
+                        </div>
+
+                        <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                            Retorno
+                        </div>
+                    </div>
+
+                    <div className="mt-3">
+                        <div className="text-3xl font-black text-slate-800">
+                            {pct.toFixed(1)}%
+                        </div>
+
+                        <div className="mt-1 text-sm font-medium text-slate-400">
+                            activos en servicio
+                        </div>
+                    </div>
+
+                    <div className="mt-4">
+                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                            <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{
+                                    width: `${pct}%`,
+                                    backgroundColor: ACCENT,
+                                }}
+                            />
+                        </div>
+
+                        <div className="mt-2 text-xs font-semibold text-slate-400">
+                            {numero(activos)} de {numero(total)} vehículos
+                        </div>
+                    </div>
+                </div>
+            );
         }
 
-        const t = setTimeout(() => {
-            frame = requestAnimationFrame(animar);
-        }, 100);
-
-        return () => {
-            clearTimeout(t);
-            if (frame) cancelAnimationFrame(frame);
-        };
-    }, [pctObjetivo, label]);
-
-    const waveY = 120 - (nivel / 100) * 120;
-
-    return (
-        <div className="col-span-2 flex items-center justify-between px-2">
-            <style>{`
-                @keyframes retencionWaveDrift {
-                    from { transform: translateX(0); }
-                    to { transform: translateX(-120px); }
-                }
-                .retencion-wave-back { animation: retencionWaveDrift 7s linear infinite; }
-                .retencion-wave-front { animation: retencionWaveDrift 4.5s linear infinite reverse; }
-            `}</style>
-
-           <div className="flex w-full items-center justify-between gap-6">
-                <div
-                    className="relative h-28 w-28 shrink-0 overflow-hidden rounded-full border-4 border-slate-100"
-                    style={{ boxShadow: "inset 0 2px 8px rgba(19,30,92,0.10)" }}
-                >
-                    <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
-                        <defs>
-                            <linearGradient id="olaKpiGradiente" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={ACCENT} />
-                                <stop offset="100%" stopColor={NAVY} />
-                            </linearGradient>
-                        </defs>
-                        <g style={{ transform: `translateY(${waveY}px)` }}>
-                            <path
-                                className="retencion-wave-back"
-                                d="M-40 8 Q -20 -2 0 8 T 40 8 T 80 8 T 120 8 T 160 8 V 140 H -40 Z"
-                                fill={`${ACCENT}4d`}
-                            />
-                            <path
-                                className="retencion-wave-front"
-                                d="M-40 12 Q -20 2 0 12 T 40 12 T 80 12 T 120 12 T 160 12 V 140 H -40 Z"
-                                fill="url(#olaKpiGradiente)"
-                            />
-                        </g>
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-xl font-black tabular-nums" style={{ color: NAVY }}>
-                            {nivel.toFixed(0)}%
-                        </span>
-                    </div>
-                </div>
-
-                <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide text-slate-400">
-                        <Gauge className="h-4 w-4 shrink-0" style={{ color: ACCENT }} />
-                        <span className="truncate">Retorno {label}</span>
-                    </div>
-                    <div className="mt-1 text-5xl font-black text-slate-800">{pctObjetivo.toFixed(1)}%</div>
-                    <div className="text-sm font-medium text-slate-400">activos en servicio</div>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 // ---- Filtros ----
-function PillSelect({ value, onChange, children, icon: Icon }) {
-    return (
-        <div className="relative">
-            {Icon ? (
-                <Icon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            ) : null}
-            <select
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className={`h-9 appearance-none rounded-full border border-slate-200 bg-white py-1.5 ${Icon ? "pl-8" : "pl-3"} pr-7 text-xs font-bold text-slate-600 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-blue-100`}
-            >
-                {children}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
-        </div>
-    );
-}
+        function PillSelect({ value, onChange, children, icon: Icon }) {
+            return (
+                <div className="relative w-full">
+                    {Icon ? (
+                        <Icon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    ) : null}
+
+                    <select
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        className={`h-9 w-full appearance-none rounded-full border border-slate-200 bg-white py-1 ${
+                            Icon ? "pl-7" : "pl-3"
+                        } pr-7 text-[11px] font-bold text-slate-600 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-blue-100`}
+                    >
+                        {children}
+                    </select>
+
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
+                </div>
+            );
+        }
 
 // ---- Tabla ----
 function TablaClientes({ datos, onAbrirDetalle, onAbrirChat  }) {
@@ -346,9 +317,6 @@ function TablaClientes({ datos, onAbrirDetalle, onAbrirChat  }) {
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
                 <div className="text-sm font-extrabold text-slate-700">
                     {numero(datos.length)} vehículos
-                </div>
-                <div className="text-xs font-medium text-slate-400">
-                    Doble click en una fila para ver el historial completo
                 </div>
             </div>
 
@@ -1600,10 +1568,84 @@ export default function Retencion() {
     };
 }, [datosFiltrados]);
 
+        const filtrosActivos = useMemo(() => {
+        const filtros = [];
+
+        if (anio !== "Todos") {
+            filtros.push({
+                key: "anio",
+                label: `Año: ${anio}`,
+                limpiar: () => {
+                    setAnio("Todos");
+                    setMes("Todos");
+                },
+            });
+        }
+
+        if (mes !== "Todos") {
+            filtros.push({
+                key: "mes",
+                label: `Mes: ${MESES[Number(mes) - 1] || mes}`,
+                limpiar: () => setMes("Todos"),
+            });
+        }
+
+        if (agencia !== "Todos") {
+            filtros.push({
+                key: "agencia",
+                label: agencia,
+                limpiar: () => setAgencia("Todos"),
+            });
+        }
+
+        if (semana !== "Todas") {
+            filtros.push({
+                key: "semana",
+                label: `Semana ${semana}`,
+                limpiar: () => setSemana("Todas"),
+            });
+        }
+
+        if (estado !== "Todos") {
+            filtros.push({
+                key: "estado",
+                label: estado,
+                limpiar: () => setEstado("Todos"),
+            });
+        }
+
+        if (marca !== "Todas") {
+            filtros.push({
+                key: "marca",
+                label: marca,
+                limpiar: () => setMarca("Todas"),
+            });
+        }
+
+        if (contacto !== "Todos") {
+            filtros.push({
+                key: "contacto",
+                label: contacto,
+                limpiar: () => setContacto("Todos"),
+            });
+        }
+
+        if (busqueda.trim()) {
+            filtros.push({
+                key: "busqueda",
+                label: `Búsqueda: ${busqueda}`,
+                limpiar: () => setBusqueda(""),
+            });
+        }
+
+        return filtros;
+
+    }, [anio, mes, agencia, semana, estado, marca, contacto, busqueda]);
+
     const loadingGeneral = loading || loadingOpciones;
 
     function limpiarFiltros() {
-        setAnio(ANIO_ACTUAL);
+        setAnio("Todos");
         setMes("Todos");
         setSemana("Todas");
         setSegmento("Todos");
@@ -1782,119 +1824,233 @@ export default function Retencion() {
                         </button>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 rounded-full border border-slate-200 bg-white p-1">
+    
+                </div>
+                
+            </div>
+
+
+            {/* KPIs */}
+<               div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                <KpiCard
+                    icon={Car}
+                    label="Vehículos"
+                    value={numero(resumen.totalVehiculos)}
+                    sub="del segmento"
+                    color={ACCENT}
+                />
+
+                <KpiCard
+                    icon={Activity}
+                    label="Activos"
+                    value={numero(resumen.activos)}
+                    sub={`${resumen.totalVehiculos
+                        ? ((resumen.activos / resumen.totalVehiculos) * 100).toFixed(1)
+                        : "0.0"}% del total`}
+                    color="#1D9E75"
+                />
+
+                <KpiCard
+                    icon={XCircle}
+                    label="Inactivos"
+                    value={numero(resumen.inactivos)}
+                    sub={`${resumen.totalVehiculos
+                        ? ((resumen.inactivos / resumen.totalVehiculos) * 100).toFixed(1)
+                        : "0.0"}% del total`}
+                    color="#D85A30"
+                />
+
+                <KpiCard
+                    icon={Wallet}
+                    label="Total servicio"
+                    value={moneda(resumen.totalServicio)}
+                    sub="último servicio acumulado"
+                    color="#F0A500"
+                />
+
+                <KpiRetorno
+                    porcentaje={resumen.retorno}
+                    activos={resumen.activos}
+                    total={resumen.totalVehiculos}
+                />
+
+            </div>
+
+            {/* FILTROS */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+
+                {/* PRIMERA FILA */}
+                <div className="grid grid-cols-5 gap-2">
+
+                    {/* Buscador */}
+                    <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                        <input
+                            value={busqueda}
+                            onChange={(e) => setBusqueda(e.target.value)}
+                            placeholder="Buscar VIN, cliente..."
+                            className="h-9 w-full rounded-full border border-slate-200 bg-slate-50 py-1.5 pl-9 pr-3 text-xs font-medium text-slate-600 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-100"
+                        />
+                    </div>
+
+                    {/* Segmentos */}
+                    <div className="flex h-9 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
                         <button
+                            type="button"
                             onClick={() => setSegmento("Todos")}
-                            className={`rounded-full px-4 py-2 text-xs font-bold transition ${segmento === "Todos" ? "text-white" : "text-slate-500 hover:bg-slate-50"
-                                }`}
+                            className={`h-full flex-1 rounded-full text-[11px] font-bold transition ${
+                                segmento === "Todos"
+                                    ? "text-white"
+                                    : "text-slate-500 hover:bg-white"
+                            }`}
                             style={segmento === "Todos" ? { backgroundColor: NAVY } : {}}
                         >
                             Todos
                         </button>
+
                         {opciones.segmentos.map((item) => (
                             <button
                                 key={item}
+                                type="button"
                                 onClick={() => setSegmento(item)}
-                                className={`rounded-full px-4 py-2 text-xs font-bold transition ${segmento === item ? "text-white" : "text-slate-500 hover:bg-slate-50"
-                                    }`}
+                                className={`h-full flex-1 rounded-full text-[11px] font-bold transition ${
+                                    segmento === item
+                                        ? "text-white"
+                                        : "text-slate-500 hover:bg-white"
+                                }`}
                                 style={segmento === item ? { backgroundColor: NAVY } : {}}
                             >
-                                {item}
+                                {item.replace("Segmento ", "S")}
                             </button>
                         ))}
                     </div>
-                </div>
-            </div>
 
-            {/* KPIs */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-                <KpiCard icon={Car} label="Vehículos" value={numero(resumen.totalVehiculos)} sub="registros filtrados" color={ACCENT} />
-                <KpiCard icon={Activity} label="Activos" value={numero(resumen.activos)} sub="con actividad de servicio" color="#1D9E75" />
-                <KpiCard icon={XCircle} label="Inactivos" value={numero(resumen.inactivos)} sub="sin actividad reciente" color="#D85A30" />
-                <KpiCard icon={Wallet} label="Total servicio" value={moneda(resumen.totalServicio)} sub="último servicio, acumulado" color="#D85A30" />
-                <KpiGaugeRetorno
-                    porcentaje={resumen.retorno}
-                    label={segmento !== "Todos" ? segmento : "general"}
-                />
-            </div>
+                    {/* Año */}
+                    <PillSelect
+                        value={anio}
+                        onChange={(v) => {
+                            setAnio(v);
+                            setMes("Todos");
+                        }}
+                    >
+                        <option value="Todos">Todos los años</option>
+                        {aniosDisponibles.map((item) => (
+                            <option key={item} value={String(item)}>
+                                {item}
+                            </option>
+                        ))}
+                    </PillSelect>
 
-            {/* Filtros */}
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                <PillSelect value={anio} onChange={(v) => { setAnio(v); setMes("Todos"); }}>
-                    <option value="Todos">Todos los años</option>
-                    {aniosDisponibles.map((item) => (
-                        <option key={item} value={String(item)}>{item}</option>
-                    ))}
-                </PillSelect>
+                    {/* Mes */}
+                    <PillSelect value={mes} onChange={setMes}>
+                        <option value="Todos">Todos los meses</option>
+                        {mesesDisponibles.map((m) => (
+                            <option key={m} value={String(m)}>
+                                {MESES[m - 1]}
+                            </option>
+                        ))}
+                    </PillSelect>
 
-                <PillSelect value={mes} onChange={setMes}>
-                    <option value="Todos">Todos los meses</option>
-                    {mesesDisponibles.map((m) => (
-                        <option key={m} value={String(m)}>{MESES[m - 1]}</option>
-                    ))}
-                </PillSelect>
-
-                <PillSelect value={agencia} onChange={setAgencia}>
-                    <option value="Todos">Todos los Dealers</option>
-                    {opciones.agencias
-                        .filter((item) =>
-                            DEALERS_RETENCION.some(
-                                (dealer) => normalizarTexto(item) === normalizarTexto(dealer)
+                    {/* Dealer */}
+                    <PillSelect value={agencia} onChange={setAgencia}>
+                        <option value="Todos">Todos los Dealers</option>
+                        {opciones.agencias
+                            .filter((item) =>
+                                DEALERS_RETENCION.some(
+                                    (dealer) =>
+                                        normalizarTexto(item) === normalizarTexto(dealer)
+                                )
                             )
-                        )
-                        .map((item) => (
+                            .map((item) => (
+                                <option key={item} value={item}>
+                                    {item}
+                                </option>
+                            ))}
+                    </PillSelect>
+                </div>
+
+                {/* SEGUNDA FILA */}
+                <div className="mt-2 grid grid-cols-5 gap-2">
+
+                    {/* Semana */}
+                    <PillSelect value={semana} onChange={setSemana}>
+                        <option value="Todas">Todas las semanas</option>
+                        {SEMANAS.map((item) => (
+                            <option key={item} value={String(item)}>
+                                Semana {item}
+                            </option>
+                        ))}
+                    </PillSelect>
+
+                    {/* Estado */}
+                    <PillSelect value={estado} onChange={setEstado}>
+                        <option value="Todos">Todos los estados</option>
+                        {opciones.estados.map((item) => (
                             <option key={item} value={item}>
                                 {item}
                             </option>
                         ))}
-                </PillSelect>
+                    </PillSelect>
 
-                <PillSelect value={semana} onChange={setSemana}>
-                    <option value="Todas">Todas las semanas</option>
-                    {SEMANAS.map((item) => (
-                        <option key={item} value={String(item)}>Semana {item}</option>
-                    ))}
-                </PillSelect>
+                    {/* Marca */}
+                    <PillSelect value={marca} onChange={setMarca}>
+                        <option value="Todas">Todas las marcas</option>
+                        {opciones.marcas.map((item) => (
+                            <option key={item} value={item}>
+                                {item}
+                            </option>
+                        ))}
+                    </PillSelect>
 
-                <PillSelect value={estado} onChange={setEstado}>
-                    <option value="Todos">Todos los estados</option>
-                    {opciones.estados.map((item) => (
-                        <option key={item} value={item}>{item}</option>
-                    ))}
-                </PillSelect>
+                    {/* Contacto */}
+                    <PillSelect
+                        value={contacto}
+                        onChange={setContacto}
+                        icon={PhoneCall}
+                    >
+                        <option value="Todos">Todos los contactos</option>
+                        {CONTACTO_OPCIONES.map((item) => (
+                            <option key={item} value={item}>
+                                {item}
+                            </option>
+                        ))}
+                    </PillSelect>
 
-                <PillSelect value={marca} onChange={setMarca}>
-                    <option value="Todas">Todas las marcas</option>
-                    {opciones.marcas.map((item) => (
-                        <option key={item} value={item}>{item}</option>
-                    ))}
-                </PillSelect>
-
-                {/* NUEVO: filtro de Contacto (visual) */}
-                <PillSelect value={contacto} onChange={setContacto} icon={PhoneCall}>
-                    <option value="Todos">Todos los contactos</option>
-                    {CONTACTO_OPCIONES.map((item) => (
-                        <option key={item} value={item}>{item}</option>
-                    ))}
-                </PillSelect>
-
-                <div className="relative ml-auto min-w-[220px] flex-1">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                    <input
-                        value={busqueda}
-                        onChange={(e) => setBusqueda(e.target.value)}
-                        placeholder="Buscar VIN, cliente, placa, teléfono..."
-                        className="h-9 w-full rounded-full border border-slate-200 bg-slate-50 py-1.5 pl-9 pr-3 text-xs font-medium text-slate-600 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-100"
-                    />
+                    {/* Limpiar */}
+                    <button
+                        type="button"
+                        onClick={limpiarFiltros}
+                        className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-500 transition hover:bg-slate-50"
+                    >
+                        <X className="h-3 w-3" />
+                        Limpiar
+                    </button>
                 </div>
 
-                <button
-                    onClick={limpiarFiltros}
-                    className="h-9 shrink-0 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
-                >
-                    Limpiar
-                </button>
+                {/* FILTROS ACTIVOS */}
+                {filtrosActivos.length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                        <span className="mr-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                            Filtros activos
+                        </span>
+
+                        {filtrosActivos.map((filtro) => (
+                            <button
+                                key={filtro.key}
+                                type="button"
+                                onClick={filtro.limpiar}
+                                className="group inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-100"
+                                title="Quitar filtro"
+                            >
+                                {filtro.label}
+                                <X className="h-3 w-3 text-blue-400 transition group-hover:text-blue-700" />
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
+
 
             {vista === "tabla" ? (
                 <TablaClientes datos={datosFiltrados} onAbrirDetalle={abrirDetalle} onAbrirChat={abrirChatCliente} />

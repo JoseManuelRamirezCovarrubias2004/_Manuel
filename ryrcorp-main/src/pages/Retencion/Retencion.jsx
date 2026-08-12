@@ -1812,7 +1812,7 @@ export default function Retencion() {
             </div>
 
             {/* KPIs */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
                 <KpiCard icon={Car} label="Vehículos" value={numero(resumen.totalVehiculos)} sub="registros filtrados" color={ACCENT} />
                 <KpiCard icon={Activity} label="Activos" value={numero(resumen.activos)} sub="con actividad de servicio" color="#1D9E75" />
                 <KpiCard icon={XCircle} label="Inactivos" value={numero(resumen.inactivos)} sub="sin actividad reciente" color="#D85A30" />
